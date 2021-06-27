@@ -142,7 +142,8 @@ impl ScrollableItem for PasswordInput {
             let rel_x = pos.x - self.pos.x;
             let mut str = String::new();
 
-            for char in self.text.chars() {
+            let text = if self.show_pass {self.text.clone()} else {"*".repeat(self.text.len())};
+            for char in text.chars() {
                 let width = Text::new(
                     Color::BLACK,
                     0.0,
@@ -208,7 +209,7 @@ impl ScrollableItem for PasswordInput {
                 match ctx {
                     Ok(mut ctx) => 
                         match ctx.get_contents() {
-                            Ok(text) => for c in text.chars() {self.add_letter(c);},
+                            Ok(text) => self.set_text(text),//for c in text.chars() {self.add_letter(c);},
                             Err(e) => println!("[Clipboard] Error: {:?}", e),
                         }
                     Err(e) => println!("[Clipboard] Error: {:?}", e),

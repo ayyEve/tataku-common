@@ -201,7 +201,7 @@ impl ScrollableItem for TextInput {
                 match ctx {
                     Ok(mut ctx) => 
                         match ctx.get_contents() {
-                            Ok(text) => for c in text.chars() {self.add_letter(c);},
+                            Ok(text) => self.set_text(text),//for c in text.chars() {self.add_letter(c);},
                             Err(e) => println!("[Clipboard] Error: {:?}", e),
                         }
                     Err(e) => println!("[Clipboard] Error: {:?}", e),
