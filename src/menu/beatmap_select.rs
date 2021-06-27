@@ -1,28 +1,31 @@
-use std::{path::Path, fs::read_dir};
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+use std::{path::Path, fs::read_dir};
 
 use cgmath::Vector2;
 use graphics::rectangle::Border;
 use piston::{Key, MouseButton, RenderArgs};
 
 use crate::databases::get_scores;
-use crate::gameplay::{Beatmap, Score};
-use crate::{WINDOW_SIZE, get_font, render::*};
+use crate::gameplay::{Beatmap, BeatmapMeta, Score};
 use crate::game::{Game, GameMode, KeyModifiers, Settings};
 use crate::menu::{Menu,ScoreMenu, ScrollableArea, ScrollableItem};
-use crate::{DOWNLOADS_DIR, SONGS_DIR};
+use crate::{WINDOW_SIZE, DOWNLOADS_DIR, SONGS_DIR, get_font, render::*};
 
 const INFO_BAR_HEIGHT:f64 = 60.0;
-const BEATMAP_ITEM_SIZE: Vector2<f64> = Vector2::new(550.0, 50.0);
-const BEATMAP_PAD_RIGHT: f64 = 5.0;
+const BEATMAPSET_ITEM_SIZE: Vector2<f64> = Vector2::new(550.0, 50.0);
+const BEATMAPSET_PAD_RIGHT: f64 = 5.0;
+
+const BEATMAP_ITEM_PADDING: f64 = 5.0;
+const BEATMAP_ITEM_SIZE: Vector2<f64> = Vector2::new(450.0, 50.0);
+
+
 const LEADERBOARD_POS: Vector2<f64> = Vector2::new(10.0, 100.0);
 const LEADERBOARD_ITEM_SIZE: Vector2<f64> = Vector2::new(200.0, 50.0);
 
 pub struct BeatmapSelectMenu {
     /// hash of the selected map
     selected: Option<String>,
-    beatmap_list: HashMap<String, Arc<Mutex<Beatmap>>>,
 
     // leaderboard: Arc<Mutex<Vec<Score>>>,
     
@@ -36,57 +39,32 @@ pub struct BeatmapSelectMenu {
 }
 impl BeatmapSelectMenu {
     pub fn new() -> BeatmapSelectMenu {
-        // get all folder names in the dir
-        let folders = read_dir(SONGS_DIR).expect(&format!("\"{}\" dir does not exist", SONGS_DIR));
-        let mut beatmap_list:HashMap<String, Arc<Mutex<Beatmap>>> = HashMap::new();
-        let mut beatmap_scroll = ScrollableArea::new(Vector2::new(WINDOW_SIZE.x as f64 - (BEATMAP_ITEM_SIZE.x+BEATMAP_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(BEATMAP_ITEM_SIZE.x, WINDOW_SIZE.y as f64 - INFO_BAR_HEIGHT), true);
-        
-        for f in folders {
-            let f = f.unwrap().path();
-            let f = f.to_str().unwrap();
-            if !Path::new(f).is_dir() {continue;}
-            let dir_files = read_dir(f).unwrap();
 
-            for file in dir_files {
-                let file = file.unwrap().path();
-                let file = file.to_str().unwrap();
-                if file.ends_with(".osu") {
-                    
-                    let beatmap = Beatmap::load(file.to_owned());
-                    let hash = beatmap.lock().unwrap().hash.clone();
-                    beatmap_list.insert(hash, beatmap.clone());
-
-                    let b = BeatmapItem::new(beatmap.clone());
-                    beatmap_scroll.add_item(Box::new(b));
-
-                    let mut b2 = Box::new(Vec::new());
-
-                    b2.as_mut().push(1);
-                }
-            }
-        }
-
-        BeatmapSelectMenu {
-            beatmap_list,
+        let mut b = BeatmapSelectMenu {
             selected: None,
             pending_refresh: false,
             current_scores: HashMap::new(),
             background_texture: None,
             // leaderboard: Arc::new(Mutex::new(Vec::new())),
 
-            beatmap_scroll,
-            leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(BEATMAP_ITEM_SIZE.x, WINDOW_SIZE.y as f64 - LEADERBOARD_POS.y), true),
-        }
+            beatmap_scroll: ScrollableArea::new(Vector2::new(WINDOW_SIZE.x as f64 - (BEATMAPSET_ITEM_SIZE.x+BEATMAPSET_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y as f64 - INFO_BAR_HEIGHT), true),
+            leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y as f64 - LEADERBOARD_POS.y), true),
+        };
+        b.refresh_maps();
+        b
     }
 
-    pub fn get_selected(&self) -> Option<Arc<Mutex<Beatmap>>> {
-        if let Some(b) = self.beatmap_list.get(self.selected.as_ref().unwrap_or(&String::new())) {
-            Some(b.clone())
-        } else {None}
+    /// returns the selected item
+    pub fn get_selected(&self) -> Option<(Arc<Mutex<Beatmap>>, bool)> {
+        if self.selected.is_none() {return None}
+        let s = self.beatmap_scroll.get_tagged(self.selected.as_ref().unwrap().clone()).first().unwrap().get_value();
+        let s = s.downcast_ref::<(Arc<Mutex<Beatmap>>, bool)>();
+        if let Some(b) = s {Some(b.clone())} else {None}
     }
 
     pub fn refresh_maps(&mut self) {
         self.pending_refresh = false;
+        self.beatmap_scroll.clear();
         let folders = read_dir(SONGS_DIR).unwrap();
 
         for f in folders {
@@ -94,27 +72,19 @@ impl BeatmapSelectMenu {
             let f = f.to_str().unwrap();
             if !Path::new(f).is_dir() {continue;}
             let dir_files = read_dir(f).unwrap();
+            let mut list = Vec::new();
 
             for file in dir_files {
                 let file = file.unwrap().path();
                 let file = file.to_str().unwrap();
+
                 if file.ends_with(".osu") {
-                    
-                    let beatmap = Beatmap::load(file.to_owned());
-                    let hash = beatmap.lock().unwrap().hash.clone();
-
-                    // skip if its already added
-                    if self.beatmap_list.contains_key(&hash) {continue}
-
-                    self.beatmap_list.insert(hash, beatmap.clone());
-
-                    let b = BeatmapItem::new(beatmap.clone());
-                    self.beatmap_scroll.add_item(Box::new(b));
-
-                    let mut b2 = Box::new(Vec::new());
-
-                    b2.as_mut().push(1);
+                    list.push(Beatmap::load(file.to_owned()));
                 }
+            }
+
+            if list.len() > 0 {
+                self.beatmap_scroll.add_item(Box::new(BeatmapsetItem::new(list)));
             }
         }
 
@@ -172,7 +142,7 @@ impl Menu for BeatmapSelectMenu {
         items.push(Box::new(bar_rect));
 
         // draw selected map info
-        if let Some(b) = self.get_selected() {
+        if let Some((b, _play)) = self.get_selected() {
             let b = b.lock().unwrap();
             let meta = b.metadata.clone();
 
@@ -214,61 +184,68 @@ impl Menu for BeatmapSelectMenu {
         items
     }
 
-    fn on_volume_change(&mut self) {
-        if let Some(item) = self.get_selected() {
-            item.lock().unwrap().song.set_volume(Settings::get().get_music_vol());
-        }
-    }
+    fn on_volume_change(&mut self) {self.beatmap_scroll.on_volume_change();}
     fn on_change(&mut self) {
+        self.beatmap_scroll.refresh_layout();
         self.load_scores();
     }
 
     fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
 
-        if let Some(map_hash) = self.beatmap_scroll.on_click(pos, button, game.clone()) {
+        if let Some(clicked_tag) = self.beatmap_scroll.on_click(pos, button, game.clone()) {
+            let clicked = self.beatmap_scroll.get_tagged(clicked_tag.clone()).first().unwrap().get_value();
+            let (clicked, play) = clicked.downcast_ref::<(Arc<Mutex<Beatmap>>, bool)>().unwrap();
 
+            if *play {
+                let mut map = clicked.lock().unwrap();
+                map.song.stop();
+                map.reset();
+                map.start(); // TODO: figure out how to do this when checking mode change
+                game.lock().unwrap().start_map(clicked.clone());
+                return;
+            }
             // play selected map
-            if let Some(map) = self.get_selected() {
-                let mut map2 = map.lock().unwrap();
-                if map2.hash == map_hash {
-                    map2.song.stop();
-                    map2.reset();
-                    map2.start(); // TODO: figure out how to do this when checking mode change
-                    game.lock().unwrap().start_map(map.clone());
-                    return;
-                }
+            // if let Some(map) = self.get_selected() {
+                // let mut map2 = map.lock().unwrap();
+            // if let Some(selected) = &self.selected {
+            //     let mut map = clicked.lock().unwrap();
+            //     if selected == &map.hash {
+            //         map.song.stop();
+            //         map.reset();
+            //         map.start(); // TODO: figure out how to do this when checking mode change
+            //         game.lock().unwrap().start_map(clicked.clone());
+            //         return;
+            //     }
+            // }
+            // }
+
+            // get curremnt selected map
+            if let Some((b, _play)) = self.get_selected() {
+                b.lock().unwrap().song.stop();
             }
 
-            // change selected map
-            let mut changed=false;
-            if let Some(map) = self.beatmap_list.get(&map_hash) {
-                if let Some(selected) = self.get_selected() {
-                    selected.lock().unwrap().song.stop();
-                }
-                changed = true;
+            self.selected = Some(clicked_tag.clone());
+            self.beatmap_scroll.refresh_layout();
 
-                self.selected = Some(map.lock().unwrap().hash.clone());
-
-                {
-                    // play song 
-                    let mut map = map.lock().unwrap();
-                    map.song.set_volume(Settings::get().get_music_vol());
-                    map.song.play();
-                    // // load texture
-                    // let meta = map.metadata.clone();
-                    // if !meta.image_filename.is_empty() {
-                    //     let settings = opengl_graphics::TextureSettings::new();
-                    //     match opengl_graphics::Texture::from_path(meta.image_filename, &settings) {
-                    //         Ok(tex) => {
-                    //             self.background_texture = Some(Image::new(Vector2::new(0.0,0.0), f64::MIN, tex));
-                    //         },
-                    //         Err(e) => println!("error reading tex: {}", e),
-                    //     }
-                    // }
-                }
+            {
+                // play song 
+                let mut map = clicked.lock().unwrap();
+                map.song.set_volume(Settings::get().get_music_vol());
+                map.song.play();
+                // // load texture
+                // let meta = map.metadata.clone();
+                // if !meta.image_filename.is_empty() {
+                //     let settings = opengl_graphics::TextureSettings::new();
+                //     match opengl_graphics::Texture::from_path(meta.image_filename, &settings) {
+                //         Ok(tex) => {
+                //             self.background_texture = Some(Image::new(Vector2::new(0.0,0.0), f64::MIN, tex));
+                //         },
+                //         Err(e) => println!("error reading tex: {}", e),
+                //     }
+                // }
             }
-            
-            if changed {self.load_scores()}
+
+            self.load_scores();
             return;
         }
 
@@ -281,7 +258,6 @@ impl Menu for BeatmapSelectMenu {
                 game.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(Box::new(menu)))));
             }
         }
-        
     }
     fn on_mouse_move(&mut self, pos:Vector2<f64>, game:Arc<Mutex<&mut Game>>) {
         self.beatmap_scroll.on_mouse_move(pos, game.clone());
@@ -310,38 +286,62 @@ impl Menu for BeatmapSelectMenu {
 }
 
 /// more like BeatmapsetItem
-struct BeatmapItem {
+struct BeatmapsetItem {
     //TODO: make this have BeatmapMeta, and a vec of beatmaps. this button should represent the set
-    beatmap: Arc<Mutex<Beatmap>>,
+    beatmaps: Vec<Arc<Mutex<Beatmap>>>,
     pos: Vector2<f64>,
 
     hover: bool,
     selected: bool,
+    pending_play: bool,
 
-    tag:String,
+    tag: String,
+    meta: BeatmapMeta,
+    selected_item: usize, // index of selected item
+    mouse_pos:Vector2<f64>,
+
+    // use this for audio
+    first: Arc<Mutex<Beatmap>>
 }
-impl BeatmapItem {
-    fn new(beatmap: Arc<Mutex<Beatmap>>) -> BeatmapItem {
-        let tag = beatmap.lock().unwrap().hash.clone();
-        BeatmapItem {
-            beatmap, 
+impl BeatmapsetItem {
+    fn new(beatmaps: Vec<Arc<Mutex<Beatmap>>>) -> BeatmapsetItem {
+        let _first = beatmaps.first().unwrap();
+        let first = _first.lock().unwrap();
+        let tag = first.metadata.version_string();
+
+        BeatmapsetItem {
+            beatmaps:beatmaps.clone(), 
             pos: Vector2::new(0.0,0.0),
             hover: false,
             selected: false,
-            tag
+            pending_play: false,
+            tag,
+            meta: first.metadata.clone(),
+
+            selected_item: 0,
+            first: _first.clone(),
+            mouse_pos: Vector2::new(0.0,0.0)
         }
     }
 }
-impl ScrollableItem for BeatmapItem {
-    fn size(&self) -> Vector2<f64> {BEATMAP_ITEM_SIZE}
+impl ScrollableItem for BeatmapsetItem {
+    fn size(&self) -> Vector2<f64> {
+        if !self.selected {
+            BEATMAPSET_ITEM_SIZE
+        } else {
+            Vector2::new(BEATMAPSET_ITEM_SIZE.x, (BEATMAPSET_ITEM_SIZE.y + BEATMAP_ITEM_PADDING) * (self.beatmaps.len()+1) as f64)
+        }
+    }
     fn get_tag(&self) -> String {self.tag.clone()}
-    fn set_tag(&mut self, tag:String) {self.tag = tag}
+    fn set_tag(&mut self, _tag:String) {}
     fn get_pos(&self) -> Vector2<f64> {self.pos}
     fn set_pos(&mut self, pos:Vector2<f64>) {self.pos = pos}
+    fn get_value(&self) -> Box<dyn std::any::Any> {
+        Box::new((self.beatmaps.get(self.selected_item).unwrap().clone(), self.pending_play))
+    }
 
     fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2<f64>) -> Vec<Box<dyn Renderable>> {
         let mut items: Vec<Box<dyn Renderable>> = Vec::new();
-        let meta = self.beatmap.lock().unwrap().metadata.clone();
         let font = crate::get_font("main");
 
         let depth = 5.0;
@@ -351,11 +351,11 @@ impl ScrollableItem for BeatmapItem {
             [0.2, 0.2, 0.2, 1.0].into(),
             depth,
             self.pos+pos_offset,
-            BEATMAP_ITEM_SIZE,
+            BEATMAPSET_ITEM_SIZE,
             if self.hover {
-                Some(Border {color: Color::RED.into(),radius: 1.0})
+                Some(Border {color: Color::RED.into(), radius: 1.0})
             } else if self.selected {
-                Some(Border {color: Color::BLUE.into(),radius: 1.0})
+                Some(Border {color: Color::BLUE.into(), radius: 1.0})
             } else {
                 None
             }
@@ -367,28 +367,114 @@ impl ScrollableItem for BeatmapItem {
             depth - 1.0,
             self.pos+pos_offset + Vector2::new(5.0, 20.0),
             15,
-            format!("{} // {} - {}",meta.creator, meta.artist, meta.title),
+            format!("{} // {} - {}", self.meta.creator, self.meta.artist, self.meta.title),
             font.clone()
         )));
 
-        // lline 2
-        items.push(Box::new(Text::new(
-            Color::WHITE,
-            depth - 1.0,
-            self.pos+pos_offset + Vector2::new(5.0, 40.0),
-            12,
-            format!("{}", meta.version),
-            font.clone()
-        )));
+        // if selected, draw map items
+        if self.selected {
+            let mut pos = self.pos+pos_offset + Vector2::new(BEATMAPSET_ITEM_SIZE.x - BEATMAP_ITEM_SIZE.x, BEATMAP_ITEM_SIZE.y + BEATMAP_ITEM_PADDING);
+            let mut counter = 0;
+            
+            // try to find the clicked item
+            // we only care about y pos, because we know we were clicked
+            let rel_y = (self.mouse_pos.y - self.pos.y) - BEATMAP_ITEM_SIZE.y * 2.0;
+            let item_size = BEATMAP_ITEM_SIZE.y + BEATMAP_ITEM_PADDING;
+            let mut index:usize = 999;
+
+            // if x is in correct area to hover over beatmap items
+            if self.mouse_pos.x >= self.pos.x + (BEATMAPSET_ITEM_SIZE.x - BEATMAP_ITEM_SIZE.x) {
+                let mut current_y = 0.0;
+                index = 0;
+                while current_y < item_size * self.beatmaps.len() as f64 {
+                    if current_y > rel_y {break;}
+                    current_y += item_size;
+                    index += 1;
+                }
+            }
+
+            for b in self.beatmaps.as_slice() {
+                // bounding rect
+                items.push(Box::new(Rectangle::new(
+                    [0.2, 0.2, 0.2, 1.0].into(),
+                    depth,
+                    pos,
+                    BEATMAP_ITEM_SIZE,
+                    if counter == index {
+                        Some(Border {color: Color::BLUE.into(), radius: 1.0})
+                    } else if counter == self.selected_item {
+                        Some(Border {color: Color::RED.into(), radius: 1.0})
+                    } else {
+                        Some(Border {color: Color::BLACK.into(), radius: 1.0})
+                    }
+                )));
+                // version text
+                items.push(Box::new(Text::new(
+                    Color::WHITE,
+                    depth - 1.0,
+                    pos + Vector2::new(5.0, 20.0),
+                    12,
+                    format!("{}", b.lock().unwrap().metadata.version),
+                    font.clone()
+                )));
+
+                pos.y += BEATMAP_ITEM_SIZE.y + BEATMAP_ITEM_PADDING;
+                counter += 1;
+            }
+        }
 
         items
     }
 
-    fn on_click(&mut self, _pos:Vector2<f64>, _button:MouseButton) -> bool {
+    fn on_click(&mut self, pos:Vector2<f64>, _button:MouseButton) -> bool {
+
+        if self.selected && self.hover {
+            // find the clicked item
+
+            // we only care about y pos, because we know we were clicked
+            let rel_y = (pos.y - self.pos.y) - BEATMAP_ITEM_SIZE.y * 2.0;
+            let item_size = BEATMAP_ITEM_SIZE.y + BEATMAP_ITEM_PADDING;
+            let mut current_y = 0.0;
+            let mut index:usize = 0;
+            while current_y < item_size * self.beatmaps.len() as f64 {
+                if current_y > rel_y {break;}
+                current_y += item_size;
+                index += 1;
+            }
+
+            if self.selected_item == index {
+                // queue play map
+                self.pending_play = true;
+            } else {
+                self.selected_item = index;
+            }
+            return true;
+        }
+
+        // not yet selected
+        if !self.selected && self.hover {
+
+            // start song
+            self.first.lock().unwrap().song.play();
+        } else { // was selected, not anymore
+            // stop music
+
+            self.first.lock().unwrap().song.stop();
+        }
+
         self.selected = self.hover;
         self.hover
     }
-    fn on_mouse_move(&mut self, pos:Vector2<f64>) {self.hover = self.hover(pos)}
+    fn on_mouse_move(&mut self, pos:Vector2<f64>) {
+        self.mouse_pos = pos;
+        self.hover = self.hover(pos)
+    }
+    fn on_volume_change(&mut self) {
+        if !self.selected {return}
+
+        let settings = Settings::get().clone();
+        self.first.lock().unwrap().song.set_volume(settings.get_music_vol());
+    }
 }
 
 

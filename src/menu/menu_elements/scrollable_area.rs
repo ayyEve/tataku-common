@@ -4,15 +4,14 @@ use std::sync::{Arc, Mutex};
 use cgmath::Vector2;
 use piston::{Key, MouseButton, RenderArgs};
 
-use crate::game::{Game, KeyModifiers};
 use crate::render::*;
-
+use crate::game::{Game, KeyModifiers};
 
 // how many pixels should be between items when in list mode?
 const ITEM_MARGIN:f64 = 5.0;
-
 /// how much should a scroll unit be worth?
 const SCROLL_FACTOR: f64 = 8.0;
+
 
 pub struct ScrollableArea {
     items: Vec<Box<dyn ScrollableItem>>,
@@ -105,21 +104,23 @@ impl ScrollableArea {
             item.on_text(text.clone());
         }
     }
-    
+    pub fn on_volume_change(&mut self) {
+        for item in self.items.as_mut_slice() {
+            item.on_volume_change();
+        }
+    }
+
+
     /// returns index
-    pub fn add_item(&mut self, mut item:Box<dyn ScrollableItem>) -> usize {
+    pub fn add_item(&mut self, mut item:Box<dyn ScrollableItem>) {
         if self.list_mode {
-            self.elements_height += item.size().y + ITEM_MARGIN;
 
             let ipos = item.get_pos();
             item.set_pos(self.pos + Vector2::new(ipos.x, self.elements_height));
+            self.elements_height += item.size().y + ITEM_MARGIN;
         }
 
         self.items.push(item);
-        self.items.len() - 1
-    }
-    pub fn remove_item(&mut self, i:usize) {
-        self.items.remove(i);
     }
     pub fn clear(&mut self) {
         self.items.clear();
@@ -144,7 +145,7 @@ impl ScrollableArea {
 
         for item in self.items.as_mut_slice() {
             let ipos = item.get_pos();
-            item.set_pos(self.pos + Vector2::new(ipos.x, self.elements_height));
+            item.set_pos(Vector2::new(ipos.x, self.pos.y + self.elements_height));
             self.elements_height += item.size().y + ITEM_MARGIN;
         }
     }
@@ -154,10 +155,8 @@ impl ScrollableArea {
 pub trait ScrollableItem {
     fn update(&mut self) {}
     fn size(&self) -> Vector2<f64>;
-
     fn get_tag(&self) -> String;
     fn set_tag(&mut self, tag:String);
-
     fn get_pos(&self) -> Vector2<f64>;
     fn set_pos(&mut self, pos:Vector2<f64>);
     fn hover(&self, p:Vector2<f64>) -> bool {
@@ -187,4 +186,7 @@ pub trait ScrollableItem {
 
     /// get a value
     fn get_value(&self) -> Box<dyn Any> {Box::new(0)}
+
+    /// when the volume is changed
+    fn on_volume_change(&mut self) {}
 }
