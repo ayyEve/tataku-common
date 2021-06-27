@@ -223,7 +223,7 @@ impl<'shape> Game<'shape> {
         {
             let mut c = clone.lock().unwrap();
             // check if mouse clicked volume button
-            if c.vol_selected_time > 0 && elapsed - c.vol_selected_time < VOLUME_CHANGE_DISPLAY_TIME {
+            if c.vol_selected_time > 0 && elapsed as f64 - (c.vol_selected_time as f64) < VOLUME_CHANGE_DISPLAY_TIME as f64 {
                 if mouse_buttons.contains(&MouseButton::Left) {
                     let window_size = WINDOW_SIZE.cast::<f64>().unwrap();
                     let master_pos = window_size - Vector2::new(300.0, 90.0);

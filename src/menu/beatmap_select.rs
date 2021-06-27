@@ -215,6 +215,11 @@ impl Menu for BeatmapSelectMenu {
             self.selected = Some(clicked_tag.clone());
             self.beatmap_scroll.refresh_layout();
 
+            #[cfg(feature = "textures")] {
+                let t = opengl_graphics::Texture::from_path(clicked.lock().unwrap().metadata.image_filename.clone(), &opengl_graphics::TextureSettings::new()).unwrap();
+                self.background_texture = Some(Image::new(Vector2::new(0.0,0.0), -99999.0, t));
+            }
+
             self.load_scores();
             return;
         } else {
