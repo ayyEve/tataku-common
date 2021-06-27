@@ -9,7 +9,6 @@ edition = "2018"
 [dependencies]
 tokio = {version = "1.7.1", features = ["rt"] }
 clipboard = "0.5.0"
-rustcord = "0.2.4"
 zip = "0.5"
 reqwest = { version = "0.11.4", features = ["blocking"] }
 md5 = "0.7.0"
