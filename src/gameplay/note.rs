@@ -1,7 +1,9 @@
 use std::sync::{Arc, Mutex};
+
 use cgmath::Vector2;
 use graphics::ellipse::Border;
 use piston::RenderArgs;
+
 use crate::{HIT_POSITION, NOTE_RADIUS, gameplay::{Beatmap, ScoreHit}, render::{Circle, Color, HalfCircle, Rectangle, Renderable}};
 
 const SLIDER_DOT_RADIUS:f64 = 8.0;
@@ -446,5 +448,5 @@ pub enum HitType {
 pub enum NoteType {
     Note,
     Slider,
-    Spinner //TODO
+    Spinner
 }
