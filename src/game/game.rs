@@ -707,7 +707,7 @@ pub fn extract_all() {
                             use std::os::unix::fs::PermissionsExt;
 
                             if let Some(mode) = file.unix_mode() {
-                                fs::set_permissions(&outpath, std::os::unix::fs::Permissions::from_mode(mode)).unwrap();
+                                fs::set_permissions(&outpath, fs::Permissions::from_mode(mode)).unwrap();
                             }
                         }
                     }
