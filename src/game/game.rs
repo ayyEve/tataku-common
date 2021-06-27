@@ -10,7 +10,7 @@ use opengl_graphics::{GlGraphics, OpenGL};
 use glfw_window::GlfwWindow as AppWindow;
 use piston::{Window,input::*, event_loop::*, window::WindowSettings};
 
-use crate::menu::*;
+use crate::{SONGS_DIR, menu::*};
 use crate::gameplay::{Beatmap, HitType};
 use crate::databases::{save_all_scores, save_score};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, get_font};
@@ -678,7 +678,7 @@ pub fn extract_all() {
                         };
 
                         let x = outpath.to_str().unwrap();
-                        let y = format!("Songs/{}/", filename.file_name().to_str().unwrap().trim_end_matches(".osz"));
+                        let y = format!("{}/{}/", SONGS_DIR, filename.file_name().to_str().unwrap().trim_end_matches(".osz"));
                         let z = &(y + x);
                         outpath = Path::new(z);
 
