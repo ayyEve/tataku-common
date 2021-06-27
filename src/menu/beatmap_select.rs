@@ -217,6 +217,9 @@ impl Menu for BeatmapSelectMenu {
 
             self.load_scores();
             return;
+        } else {
+            self.selected = None;
+            self.beatmap_scroll.refresh_layout();
         }
 
         if let Some(score_tag) = self.leaderboard_scroll.on_click(pos, button, game.clone()) {
