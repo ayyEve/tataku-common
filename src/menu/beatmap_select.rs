@@ -400,6 +400,7 @@ impl ScrollableItem for BeatmapsetItem {
             if self.selected_item == index {
                 // queue play map
                 self.pending_play = true;
+                self.first.lock().unwrap().song.stop();
             } else {
                 self.selected_item = index;
             }
