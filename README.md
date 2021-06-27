@@ -32,6 +32,8 @@ refactor code a bit to make it prettier
 
 only load taiko/convert maps
 
+handle peppy download moment
+
 
 maybe todo:
  - read osu replays
