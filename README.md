@@ -1,6 +1,6 @@
 my taiko sim made in rust. why? idk. enjoy!
 
-required files/folders: 
+required files/folders: (in game root)
  - fonts/main.ttf (Roboto was used in dev)
  - audio
     - don.wav
