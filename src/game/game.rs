@@ -702,13 +702,13 @@ pub fn extract_all() {
                         }
 
                         // Get and Set permissions
-                        #[cfg(unix)] {
-                            use std::os::unix::fs::PermissionsExt;
+                        // #[cfg(unix)] {
+                        //     use std::os::unix::fs::PermissionsExt;
 
-                            if let Some(mode) = file.unix_mode() {
-                                fs::set_permissions(&outpath, fs::Permissions::from_mode(mode)).unwrap();
-                            }
-                        }
+                        //     if let Some(mode) = file.unix_mode() {
+                        //         fs::set_permissions(&outpath, fs::Permissions::from_mode(mode)).unwrap();
+                        //     }
+                        // }
                     }
                 
                     match std::fs::remove_file(filename.path().to_str().unwrap()) {
