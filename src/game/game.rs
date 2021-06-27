@@ -653,20 +653,19 @@ fn set_icon(_window:&mut AppWindow) {
     // }
 }
 
-
-//TODO: organize this shit
 pub fn extract_all() {
     let runtime = Builder::new_multi_thread()
         .enable_all()
         .build()
         .unwrap();
-    runtime.spawn(async {
-        // check for new maps
-        if let Ok(files) = std::fs::read_dir(crate::DOWNLOADS_DIR) {
-            for file in files {
-                if let Ok(filename) = file {
+
+    // check for new maps
+    if let Ok(files) = std::fs::read_dir(crate::DOWNLOADS_DIR) {
+        for file in files {
+            if let Ok(filename) = file {
+                runtime.spawn(async move {
+
                     // unzip file into ./Songs
-                    
                     let file = std::fs::File::open(filename.path().to_str().unwrap()).unwrap();
                     let mut archive = zip::ZipArchive::new(file).unwrap();
                     
@@ -715,12 +714,11 @@ pub fn extract_all() {
                         Ok(_) => {},
                         Err(e) => println!("error deleting file: {}", e),
                     }
-                }
+                });
             }
         }
-    });
+    }
 }
-
 
 #[derive(Clone)]
 pub enum GameMode {
