@@ -4,7 +4,7 @@ use std::{ffi::NulError};
 
 use crate::game::GameMode;
 
-const APP_IO:&str = "857981337423577109";
+const APP_ID:&str = "857981337423577109";
 
 pub struct Discord {
     client: Rustcord
@@ -12,7 +12,7 @@ pub struct Discord {
 
 impl Discord {
     pub fn new() -> Result<Discord, NulError> {
-        let client = Rustcord::init::<Self>(APP_IO, true, None)?;
+        let client = Rustcord::init::<Self>(APP_ID, true, None)?;
         Ok(Discord{client})
     }
 
@@ -62,6 +62,12 @@ impl Discord {
 
 impl EventHandlers for Discord {
     fn ready(user: User) {
-        println!("User {}#{} logged in...", user.username, user.discriminator);
+        println!("[Discord] User {}#{} logged in...", user.username, user.discriminator);
+    }
+    fn errored(code: i32, message: &str) {
+        println!("[Discord] Error: {} (code {})", message, code);
+    }
+    fn disconnected(code: i32, message: &str) {
+        println!("[Discord] Disconnected: {} (code {})", message, code);
     }
 }
