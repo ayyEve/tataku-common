@@ -19,9 +19,9 @@ const BEATMAPSET_PAD_RIGHT: f64 = 5.0;
 const BEATMAP_ITEM_PADDING: f64 = 5.0;
 const BEATMAP_ITEM_SIZE: Vector2<f64> = Vector2::new(450.0, 50.0);
 
-
 const LEADERBOARD_POS: Vector2<f64> = Vector2::new(10.0, 100.0);
 const LEADERBOARD_ITEM_SIZE: Vector2<f64> = Vector2::new(200.0, 50.0);
+
 
 pub struct BeatmapSelectMenu {
     /// hash of the selected map
@@ -45,7 +45,6 @@ impl BeatmapSelectMenu {
             pending_refresh: false,
             current_scores: HashMap::new(),
             background_texture: None,
-            // leaderboard: Arc::new(Mutex::new(Vec::new())),
 
             beatmap_scroll: ScrollableArea::new(Vector2::new(WINDOW_SIZE.x as f64 - (BEATMAPSET_ITEM_SIZE.x+BEATMAPSET_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y as f64 - INFO_BAR_HEIGHT), true),
             leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y as f64 - LEADERBOARD_POS.y), true),
@@ -197,6 +196,9 @@ impl Menu for BeatmapSelectMenu {
             let (clicked, play) = clicked.downcast_ref::<(Arc<Mutex<Beatmap>>, bool)>().unwrap();
 
             if *play {
+                for i in self.beatmap_scroll.items.as_mut_slice() {
+                    i.set_tag(String::new());
+                }
                 let mut map = clicked.lock().unwrap();
                 map.song.stop();
                 map.reset();
@@ -204,20 +206,6 @@ impl Menu for BeatmapSelectMenu {
                 game.lock().unwrap().start_map(clicked.clone());
                 return;
             }
-            // play selected map
-            // if let Some(map) = self.get_selected() {
-                // let mut map2 = map.lock().unwrap();
-            // if let Some(selected) = &self.selected {
-            //     let mut map = clicked.lock().unwrap();
-            //     if selected == &map.hash {
-            //         map.song.stop();
-            //         map.reset();
-            //         map.start(); // TODO: figure out how to do this when checking mode change
-            //         game.lock().unwrap().start_map(clicked.clone());
-            //         return;
-            //     }
-            // }
-            // }
 
             // get curremnt selected map
             if let Some((b, _play)) = self.get_selected() {
@@ -226,24 +214,6 @@ impl Menu for BeatmapSelectMenu {
 
             self.selected = Some(clicked_tag.clone());
             self.beatmap_scroll.refresh_layout();
-
-            {
-                // play song 
-                let mut map = clicked.lock().unwrap();
-                map.song.set_volume(Settings::get().get_music_vol());
-                map.song.play();
-                // // load texture
-                // let meta = map.metadata.clone();
-                // if !meta.image_filename.is_empty() {
-                //     let settings = opengl_graphics::TextureSettings::new();
-                //     match opengl_graphics::Texture::from_path(meta.image_filename, &settings) {
-                //         Ok(tex) => {
-                //             self.background_texture = Some(Image::new(Vector2::new(0.0,0.0), f64::MIN, tex));
-                //         },
-                //         Err(e) => println!("error reading tex: {}", e),
-                //     }
-                // }
-            }
 
             self.load_scores();
             return;
@@ -285,7 +255,7 @@ impl Menu for BeatmapSelectMenu {
     }
 }
 
-/// more like BeatmapsetItem
+
 struct BeatmapsetItem {
     //TODO: make this have BeatmapMeta, and a vec of beatmaps. this button should represent the set
     beatmaps: Vec<Arc<Mutex<Beatmap>>>,
@@ -333,7 +303,7 @@ impl ScrollableItem for BeatmapsetItem {
         }
     }
     fn get_tag(&self) -> String {self.tag.clone()}
-    fn set_tag(&mut self, _tag:String) {}
+    fn set_tag(&mut self, _tag:String) {self.pending_play = false;} // bit of a jank strat: when this is called, reset the play_pending property
     fn get_pos(&self) -> Vector2<f64> {self.pos}
     fn set_pos(&mut self, pos:Vector2<f64>) {self.pos = pos}
     fn get_value(&self) -> Box<dyn std::any::Any> {
@@ -377,20 +347,13 @@ impl ScrollableItem for BeatmapsetItem {
             let mut counter = 0;
             
             // try to find the clicked item
-            // we only care about y pos, because we know we were clicked
-            let rel_y = (self.mouse_pos.y - self.pos.y) - BEATMAP_ITEM_SIZE.y * 2.0;
-            let item_size = BEATMAP_ITEM_SIZE.y + BEATMAP_ITEM_PADDING;
+            // // we only care about y pos, because we know we were clicked
             let mut index:usize = 999;
 
             // if x is in correct area to hover over beatmap items
             if self.mouse_pos.x >= self.pos.x + (BEATMAPSET_ITEM_SIZE.x - BEATMAP_ITEM_SIZE.x) {
-                let mut current_y = 0.0;
-                index = 0;
-                while current_y < item_size * self.beatmaps.len() as f64 {
-                    if current_y > rel_y {break;}
-                    current_y += item_size;
-                    index += 1;
-                }
+                let rel_y2 = (self.mouse_pos.y - self.pos.y).abs() - BEATMAPSET_ITEM_SIZE.y;
+                index = ((rel_y2 + BEATMAP_ITEM_PADDING/2.0) / (BEATMAP_ITEM_SIZE.y + BEATMAP_ITEM_PADDING)).floor() as usize;
             }
 
             for b in self.beatmaps.as_slice() {
@@ -422,7 +385,6 @@ impl ScrollableItem for BeatmapsetItem {
                 counter += 1;
             }
         }
-
         items
     }
 
@@ -432,15 +394,8 @@ impl ScrollableItem for BeatmapsetItem {
             // find the clicked item
 
             // we only care about y pos, because we know we were clicked
-            let rel_y = (pos.y - self.pos.y) - BEATMAP_ITEM_SIZE.y * 2.0;
-            let item_size = BEATMAP_ITEM_SIZE.y + BEATMAP_ITEM_PADDING;
-            let mut current_y = 0.0;
-            let mut index:usize = 0;
-            while current_y < item_size * self.beatmaps.len() as f64 {
-                if current_y > rel_y {break;}
-                current_y += item_size;
-                index += 1;
-            }
+            let rel_y2 = (pos.y - self.pos.y).abs() - BEATMAPSET_ITEM_SIZE.y;
+            let index = (((rel_y2 + BEATMAP_ITEM_PADDING/2.0) / (BEATMAP_ITEM_SIZE.y + BEATMAP_ITEM_PADDING)).floor() as usize).clamp(0, self.beatmaps.len() - 1);
 
             if self.selected_item == index {
                 // queue play map
@@ -453,12 +408,11 @@ impl ScrollableItem for BeatmapsetItem {
 
         // not yet selected
         if !self.selected && self.hover {
-
             // start song
             self.first.lock().unwrap().song.play();
+            self.first.lock().unwrap().song.set_volume(Settings::get().get_music_vol());
         } else { // was selected, not anymore
             // stop music
-
             self.first.lock().unwrap().song.stop();
         }
 
@@ -470,10 +424,11 @@ impl ScrollableItem for BeatmapsetItem {
         self.hover = self.hover(pos)
     }
     fn on_volume_change(&mut self) {
-        if !self.selected {return}
+        self.first.lock().unwrap().song.set_volume(Settings::get().get_music_vol());
+    }
 
-        let settings = Settings::get().clone();
-        self.first.lock().unwrap().song.set_volume(settings.get_music_vol());
+    fn dispose(&mut self) {
+        self.first.lock().unwrap().song.stop();
     }
 }
 
@@ -485,7 +440,7 @@ struct LeaderboardItem {
     tag: String,
     hover: bool,
 
-    acc:f64,
+    acc: f64,
 }
 impl LeaderboardItem {
     pub fn new(score:Score) -> LeaderboardItem {
@@ -515,7 +470,7 @@ impl ScrollableItem for LeaderboardItem {
         let depth = 5.0;
 
         // bounding rect
-        let area = Rectangle::new(
+        items.push(Box::new(Rectangle::new(
             [0.2, 0.2, 0.2, 1.0].into(),
             depth,
             self.pos+pos_offset,
@@ -525,30 +480,27 @@ impl ScrollableItem for LeaderboardItem {
             } else {
                 None
             }
-        );
-        items.push(Box::new(area));
+        )));
 
         // score text
-        let text = Text::new(
+        items.push(Box::new(Text::new(
             Color::WHITE,
             depth - 1.0,
             self.pos+pos_offset + Vector2::new(5.0, 20.0),
             15,
             format!("{}: {}", self.score.username, crate::format(self.score.score)),
             font.clone()
-        );
-        items.push(Box::new(text));
+        )));
 
         // combo text
-        let text = Text::new(
+        items.push(Box::new(Text::new(
             Color::WHITE,
             depth - 1.0,
             self.pos+pos_offset + Vector2::new(5.0, 40.0),
             12,
             format!("{}x, {:.2}%", crate::format(self.score.max_combo), self.acc),
             font.clone()
-        );
-        items.push(Box::new(text));
+        )));
 
         items
     }

@@ -85,10 +85,10 @@ impl HitObject for Note {
     fn get_points(&mut self, hit_type:HitType, time:f64) -> ScoreHit {
         let diff = (self.time as f64 - time).abs();
 
-        let hitwindow_300 = 49.0 - self.od*3.0 + 0.5;// 49 - (OD x 3) +0,5
-        let hitwindow_100 = if self.od <= 5.0 {119.0 - self.od * 6.0 + 0.5} /*119 - (OD x 6) +0,5*/ else {79.0 - ((self.od - 5.0) * 8.0) + 0.5}; // 79 - ((OD - 5) x 8) + 0,5
+        let hitwindow_300 = (49.0 - self.od*3.0 + 0.5) * 2.0;// 49 - (OD x 3) +0,5
+        let hitwindow_100 = (if self.od <= 5.0 {119.0 - self.od * 6.0 + 0.5} /*119 - (OD x 6) +0,5*/ else {79.0 - ((self.od - 5.0) * 8.0) + 0.5}) * 2.0; // 79 - ((OD - 5) x 8) + 0,5
 
-        let hitwindow_miss = hitwindow_100 * 1.2;
+        let hitwindow_miss = hitwindow_100 * 1.1;
         println!("300: {}, 100:{}, miss:{}, diff: {}", hitwindow_300, hitwindow_100, hitwindow_miss, diff);
 
         if diff < hitwindow_300 {
@@ -166,6 +166,7 @@ impl HitObject for Note {
         self.pos.x = 0.0;
         self.hit = false;
     }
+
 }
 
 // slider
@@ -215,24 +216,21 @@ impl HitObject for Slider {
     }
 
     fn update(&mut self, beatmap_time: i64) {
-        self.pos.x = (HIT_POSITION.x - self.radius) + (self.time as f64 - beatmap_time as f64) * self.speed;
-        self.end_x = (HIT_POSITION.x - self.radius) + (self.end_time() as f64 - beatmap_time as f64) * self.speed;
+        self.pos.x = HIT_POSITION.x + (self.time as f64 - beatmap_time as f64) * self.speed;
+        self.end_x = HIT_POSITION.x + (self.end_time() as f64 - beatmap_time as f64) * self.speed;
 
         // draw hit dots
         for dot in self.hit_dots.as_mut_slice() {
-            if dot.done {
-                continue;
-            }
+            if dot.done {continue;}
             dot.update(beatmap_time as f64);
         }
     }
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        
-        if self.end_x + NOTE_RADIUS < 0.0 || self.pos.x - NOTE_RADIUS > args.window_size[0] as f64 {return renderables} 
+        if self.end_x + NOTE_RADIUS < 0.0 || self.pos.x - NOTE_RADIUS > args.window_size[0] as f64 {return renderables}
 
         // middle
-        let r = Rectangle::new(
+        renderables.push(Box::new(Rectangle::new(
             Color::YELLOW,
             self.time as f64 + 1.0,
             self.pos,
@@ -241,8 +239,7 @@ impl HitObject for Slider {
                 color: Color::BLACK.into(),
                 radius: NOTE_BORDER_SIZE
             })
-        );
-        renderables.push(Box::new(r));
+        )));
 
         // start circle
         let mut start_c = Circle::new(
@@ -272,9 +269,7 @@ impl HitObject for Slider {
 
         // draw hit dots
         for dot in self.hit_dots.as_slice() {
-            if dot.done {
-                continue;
-            }
+            if dot.done {continue;}
             renderables.push(Box::new(dot.draw()));
         }
         
@@ -282,6 +277,7 @@ impl HitObject for Slider {
     }
 
     fn reset(&mut self) {
+        self.hit_dots.clear();
         self.pos.x = 0.0;
         self.end_x = 0.0;
     }

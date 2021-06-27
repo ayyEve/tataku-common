@@ -14,7 +14,7 @@ const SCROLL_FACTOR: f64 = 8.0;
 
 
 pub struct ScrollableArea {
-    items: Vec<Box<dyn ScrollableItem>>,
+    pub items: Vec<Box<dyn ScrollableItem>>,
     scroll_pos: f64,
     pos: Vector2<f64>,
     size: Vector2<f64>,
@@ -52,8 +52,19 @@ impl ScrollableArea {
             self.scroll_pos = 0.0;
         }
 
+        let offset = Vector2::new(0.0, self.scroll_pos);
+        // let self_offset = self.pos + offset;
+
         for item in self.items.as_mut_slice() {
-            items.extend(item.draw(args, Vector2::new(0.0, self.scroll_pos)));
+
+            //// check if item will even be drawn
+            // let size = item.size();
+            // let pos = item.get_pos();
+            //// ignore x for now, just assume its in drawing range
+            // if pos.y < offset.y || pos.y + size.y > offset.y + self.size.y {continue}
+
+            // should be good, draw it
+            items.extend(item.draw(args, offset));
         }
 
         // helpful for debugging positions
@@ -123,6 +134,7 @@ impl ScrollableArea {
         self.items.push(item);
     }
     pub fn clear(&mut self) {
+        for i in self.items.as_mut_slice() {i.dispose();}
         self.items.clear();
         self.elements_height = 0.0;
     }
@@ -153,6 +165,8 @@ impl ScrollableArea {
 
 
 pub trait ScrollableItem {
+    /// run when the item is removed from the list
+    fn dispose(&mut self) {}
     fn update(&mut self) {}
     fn size(&self) -> Vector2<f64>;
     fn get_tag(&self) -> String;

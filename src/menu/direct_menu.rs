@@ -1,21 +1,23 @@
-use std::fs::File;
-use std::io::Write;
+use std::{fs::File, io::Write};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use cgmath::Vector2;
-use graphics::rectangle::Border;
 use piston::Key;
+use cgmath::Vector2;
 use piston::MouseButton;
+use graphics::rectangle::Border;
 
 use crate::{WINDOW_SIZE, DOWNLOADS_DIR, get_font};
-use crate::game::{Game, GameMode, KeyModifiers, Settings};
-use crate::menu::{Menu, ScrollableArea, ScrollableItem};
+use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
 use crate::render::{Text, Renderable, Rectangle, Color};
-
-use super::TextInput;
+use crate::game::{Game, GameMode, KeyModifiers, Settings};
 
 const DIRECT_ITEM_SIZE:Vector2<f64> = Vector2::new(600.0, 80.0);
+
+const SEARCH_BAR_HEIGHT:f64 = 50.0;
+const DOWNLOAD_ITEM_SIZE:Vector2<f64> = Vector2::new(300.0, 40.0);
+const DOWNLOAD_ITEM_YMARGIN:f64 = 30.0;
+const DOWNLOAD_ITEM_YOFFSET:f64 = SEARCH_BAR_HEIGHT + 10.0;
 
 //TODO: properly implement this lol
 const MAX_CONCURRENT_DOWNLOADS:usize = 5;
@@ -34,12 +36,12 @@ pub struct OsuDirectMenu {
 impl OsuDirectMenu {
     pub fn new() -> OsuDirectMenu {
         let mut x = OsuDirectMenu {
-            scroll_area: ScrollableArea::new(Vector2::new(0.0,0.0), Vector2::new(600.0,400.0), true),
+            scroll_area: ScrollableArea::new(Vector2::new(0.0, SEARCH_BAR_HEIGHT+5.0), Vector2::new(WINDOW_SIZE.x as f64, WINDOW_SIZE.y as f64 - (SEARCH_BAR_HEIGHT+5.0)), true),
             downloading: Vec::new(),
             queue: Vec::new(),
             items: HashMap::new(),
             selected: None,
-            search_bar: TextInput::new(Vector2::new(0.0, 0.0), Vector2::new(WINDOW_SIZE.x as f64, 50.0), "Search".to_owned())
+            search_bar: TextInput::new(Vector2::new(0.0, 0.0), Vector2::new(WINDOW_SIZE.x as f64, SEARCH_BAR_HEIGHT), "Search".to_owned())
         };
         x.do_search();
         x
@@ -68,9 +70,17 @@ impl OsuDirectMenu {
 impl Menu for OsuDirectMenu {
     fn update(&mut self, _game:Arc<Mutex<&mut Game>>) {
         // check download statuses
+        let dir = std::fs::read_dir(DOWNLOADS_DIR).unwrap();
+        let mut files = Vec::new();
+        dir.for_each(|f|{
+            if let Ok(thing) = f {
+                files.push(thing.file_name().to_string_lossy().to_string());
+            }
+        });
+
         //TODO: maybe just read the downloads dir and see if the file is contained there
         self.downloading.retain(|i| {
-            !std::path::Path::new(&format!("{}/{}", DOWNLOADS_DIR, i.item.filename)).exists()
+            !files.contains(&i.item.filename)
         });
 
         while self.downloading.len() < MAX_CONCURRENT_DOWNLOADS && self.queue.len() > 0 {
@@ -88,9 +98,6 @@ impl Menu for OsuDirectMenu {
         // draw download items
         if self.downloading.len() > 0 {
 
-            const DOWNLOAD_ITEM_SIZE:Vector2<f64> = Vector2::new(300.0, 40.0);
-            const DOWNLOAD_ITEM_YMARGIN:f64 = 30.0;
-            const DOWNLOAD_ITEM_YOFFSET:f64 = 30.0;
             let x = args.window_size[0] - (DOWNLOAD_ITEM_SIZE.x+5.0);
 
             list.push(Box::new(Rectangle::new(

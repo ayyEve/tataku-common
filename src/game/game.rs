@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
-use std::{cmp::Ordering, time::SystemTime};
+use std::{time::SystemTime};
 
 use cgmath::Vector2;
 use tokio::runtime::Builder;
@@ -46,8 +46,9 @@ pub struct Game<'shape> {
     vol_selected_time: u64,
 
     // misc
-    fps_last: f64,
-    fps_display_last: SystemTime,
+    fps_count: u32,
+    fps_timer: SystemTime,
+    fps_last: f32
 }
 impl<'shape> Game<'shape> {
     pub fn new() -> Game<'shape> {
@@ -83,8 +84,9 @@ impl<'shape> Game<'shape> {
             beatmap_pending_refresh: false,
 
             // misc
-            fps_display_last: SystemTime::now(),
-            fps_last: 0.0
+            fps_timer: SystemTime::now(),
+            fps_last: 0.0,
+            fps_count: 0
         };
 
         //region == menu setup ==
@@ -115,7 +117,8 @@ impl<'shape> Game<'shape> {
     pub fn game_loop(mut self) {
         // input and rendering thread
         let mut events = Events::new(EventSettings::new()); //.lazy(true));
-        events.set_max_fps(144);
+        // events.set_max_fps(144);
+        events.set_max_fps(10_000);
         events.set_ups(1000);
 
         while let Some(e) = events.next(&mut self.window) {
@@ -141,18 +144,19 @@ impl<'shape> Game<'shape> {
         let arc = Arc::new(Mutex::new(self));
         let clone = arc.clone();
         let current_mode = clone.lock().unwrap().current_mode.clone().to_owned();
+        let elapsed = clone.lock().unwrap().game_start.elapsed().unwrap().as_millis() as u64;
 
         //TODO: move these fonctions in input manager, like get_text()
         // check input events
         let mouse_pos = clone.lock().unwrap().input_manager.mouse_pos;
         // clicks
-        let mouse_buttons = clone.lock().unwrap().input_manager.mouse_buttons.clone();
+        let mut mouse_buttons = clone.lock().unwrap().input_manager.mouse_buttons.clone();
         clone.lock().unwrap().input_manager.mouse_buttons.clear();
         // mouse move
         let mouse_moved = clone.lock().unwrap().input_manager.mouse_moved.clone();
         clone.lock().unwrap().input_manager.mouse_moved = false;
         // mouse scroll
-        let scroll_delta = clone.lock().unwrap().input_manager.scroll_delta.clone();
+        let mut scroll_delta = clone.lock().unwrap().input_manager.scroll_delta.clone();
         clone.lock().unwrap().input_manager.scroll_delta = 0.0;
         // keys down 
         let keys = clone.lock().unwrap().input_manager.all_down_once();
@@ -169,6 +173,10 @@ impl<'shape> Game<'shape> {
             let mut delta:f32 = 0.0;
             if keys.contains(&Key::Right) {delta = 0.1;}
             if keys.contains(&Key::Left) {delta = -0.1;}
+            if scroll_delta != 0.0 {
+                delta = scroll_delta as f32 / 10.0;
+                scroll_delta = 0.0;
+            }
             
             // check volume changed, if it has, set the selected time to now
             if delta != 0.0 || keys.contains(&Key::Up) || keys.contains(&Key::Down) {
@@ -212,6 +220,41 @@ impl<'shape> Game<'shape> {
             }
         }
         
+        {
+            let mut c = clone.lock().unwrap();
+            // check if mouse clicked volume button
+            if c.vol_selected_time > 0 && elapsed - c.vol_selected_time < VOLUME_CHANGE_DISPLAY_TIME {
+                if mouse_buttons.contains(&MouseButton::Left) {
+                    let window_size = WINDOW_SIZE.cast::<f64>().unwrap();
+                    let master_pos = window_size - Vector2::new(300.0, 90.0);
+                    let effect_pos = window_size - Vector2::new(300.0, 60.0);
+                    let music_pos = window_size - Vector2::new(300.0, 30.0);
+
+                    if mouse_pos.x >= master_pos.x {
+                        let mut modified = false;
+                        if mouse_pos.y >= music_pos.y {
+                            c.vol_selected_index = 2;
+                            modified = true;
+                        } else if mouse_pos.y >= effect_pos.y {
+                            c.vol_selected_index = 1;
+                            modified = true;
+                        } else if mouse_pos.y >= master_pos.y {
+                            c.vol_selected_index = 0;
+                            modified = true;
+                        }
+
+                        // was just updated
+                        if modified {
+                            c.vol_selected_time = elapsed;
+                            // remove left click from list as it was consumed by this
+                            mouse_buttons.retain(|e| e == &MouseButton::Left);
+                        }
+                    }
+                }
+            }
+        }
+
+
         match current_mode {
             GameMode::Ingame(ref beatmap) => {
                 let settings = Settings::get();
@@ -376,12 +419,7 @@ impl<'shape> Game<'shape> {
         let window_size = Vector2::new(args.window_size[0], args.window_size[1]);
         let settings = Settings::get();
         let elapsed = self.game_start.elapsed().unwrap().as_millis() as u64;
-
-        // update fps var if needed
-        if self.fps_display_last.elapsed().unwrap().as_micros() as f64 / 1000.0 >= 300.0 {
-            self.fps_display_last = SystemTime::now();
-            self.fps_last = 1.0 / args.ext_dt; // TODO: verify this is correct lol
-        }
+        let font = get_font("main");
 
         match &self.current_mode {
             GameMode::Ingame(beatmap) => {
@@ -390,7 +428,6 @@ impl<'shape> Game<'shape> {
             GameMode::InMenu(ref menu) => {
                 renderables.extend(menu.lock().unwrap().draw(args));
             }
-        
             _ => {}
         }
         
@@ -398,13 +435,12 @@ impl<'shape> Game<'shape> {
         self.render_queue.extend(renderables);
         
         // draw the cursor
-        let cursor_g = Circle::new(
+        self.add_render_queue(Circle::new(
             Color::GREEN,
-            0.0,
+            -1000.0,
             self.input_manager.mouse_pos,
             4.0
-        );
-        self.add_render_queue(cursor_g);
+        ));
 
         // draw the volume things if needed
         if self.vol_selected_time > 0 && elapsed - self.vol_selected_time < VOLUME_CHANGE_DISPLAY_TIME {
@@ -422,7 +458,6 @@ impl<'shape> Game<'shape> {
             self.add_render_queue(b);
 
             // text 100px wide, bar 190px (10px padding)
-            let font = get_font("main");
             let border_padding = 10.0;
             let border_size = Vector2::new(200.0 - border_padding, 20.0);
             const TEXT_YOFFSET:f64 = -17.0; // bc font measuring broken
@@ -544,29 +579,27 @@ impl<'shape> Game<'shape> {
             self.add_render_queue(music_fill);
         }
 
+
+        // update fps var if needed
+        let fps_elapsed = self.fps_timer.elapsed().unwrap().as_micros() as f64 / 1000.0;
+        if fps_elapsed >= 100.0 {
+            self.fps_last = (self.fps_count as f64 / fps_elapsed * 1000.0) as f32;
+            self.fps_timer = SystemTime::now();
+            self.fps_count = 0;
+        }
         // draw fps
-        let fps = Text::new (
+        self.add_render_queue(Text::new (
             Color::BLACK,
             -1.0,
             Vector2::new(0.0, 10.0),
             12,
             format!("{:.2}fps", self.fps_last),
-            get_font("main")
-        );
-        self.add_render_queue(fps);
+            font.clone()
+        ));
+
 
         // sort the queue here (so it only needs to be sorted once per frame, instead of every time a shape is added)
-        self.render_queue.sort_by(|a, b| {
-            let ad = a.get_depth();
-            let bd = b.get_depth();
-            if ad < bd {
-                return Ordering::Greater;
-            } else if ad > bd {
-                return Ordering::Less;
-            } else {
-                return Ordering::Equal;
-            }
-        });
+        self.render_queue.sort_by(|a, b| b.get_depth().partial_cmp(&a.get_depth()).unwrap());
 
         // slice the queue because loops
         let queue = self.render_queue.as_mut_slice();
@@ -574,15 +607,14 @@ impl<'shape> Game<'shape> {
                 graphics::clear(GFX_CLEAR_COLOR.into(), g);
 
                 for i in queue.as_mut() {
-                    if i.get_spawn_time() == 0 {
-                        i.set_spawn_time(elapsed);
-                    }
+                    if i.get_spawn_time() == 0 {i.set_spawn_time(elapsed);}
                     i.draw(g, c);
                 }
             }
         );
         
         self.clear_render_queue(false);
+        self.fps_count += 1;
     }
 
     pub fn add_render_queue(&mut self, shape: impl Renderable + 'shape) {
