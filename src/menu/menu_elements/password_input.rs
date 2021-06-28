@@ -5,22 +5,20 @@ use graphics::rectangle::Border;
 use piston::{Key, MouseButton, RenderArgs};
 use clipboard::{ClipboardProvider, ClipboardContext};
 
-use crate::{get_font, game::KeyModifiers, menu::ScrollableItem, render::{Color, Rectangle, Renderable, Text}};
+use crate::{game::{KeyModifiers, get_font}, menu::ScrollableItem, render::{Color, Rectangle, Renderable, Text}};
 
 #[derive(Clone)]
 pub struct PasswordInput {
-    pub pos: Vector2<f64>,
+    pos: Vector2<f64>,
     size: Vector2<f64>,
-
-    pub hover: bool,
-    pub selected: bool,
+    hover: bool,
+    selected: bool,
+    tag: String,
 
     placeholder: String,
     text: String,
     cursor_index: usize,
-
-    show_pass:bool,
-    tag:String,
+    show_pass: bool,
 }
 impl PasswordInput {
     pub fn new(pos: Vector2<f64>, size: Vector2<f64>, placeholder: String) -> PasswordInput {

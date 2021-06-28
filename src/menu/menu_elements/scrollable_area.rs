@@ -4,14 +4,12 @@ use std::sync::{Arc, Mutex};
 use cgmath::Vector2;
 use piston::{Key, MouseButton, RenderArgs};
 
-use crate::render::*;
-use crate::game::{Game, KeyModifiers};
+use crate::{render::*, game::{Game, KeyModifiers}};
 
 // how many pixels should be between items when in list mode?
 const ITEM_MARGIN:f64 = 5.0;
 /// how much should a scroll unit be worth?
 const SCROLL_FACTOR: f64 = 8.0;
-
 
 pub struct ScrollableArea {
     pub items: Vec<Box<dyn ScrollableItem>>,
@@ -53,10 +51,8 @@ impl ScrollableArea {
         }
 
         let offset = Vector2::new(0.0, self.scroll_pos);
-        // let self_offset = self.pos + offset;
 
         for item in self.items.as_mut_slice() {
-
             //// check if item will even be drawn
             let size = item.size();
             let pos = item.get_pos();

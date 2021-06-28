@@ -1,20 +1,19 @@
-
 use cgmath::Vector2;
 use graphics::{rectangle::Border};
 use piston::{Key, MouseButton, RenderArgs};
 
-use crate::{game::KeyModifiers, get_font, render::{Color, Rectangle, Renderable, Text}, menu::ScrollableItem};
+use crate::{game::{KeyModifiers,get_font}, render::{Color, Rectangle, Renderable, Text}, menu::ScrollableItem};
 
 #[derive(Clone)]
 pub struct KeyButton {
-    pub pos: Vector2<f64>,
-    pub size: Vector2<f64>,
-    pub key: Key,
-
-    pub selected: bool,
-    pub hover: bool,
-    prefix: String,
+    pos: Vector2<f64>,
+    size: Vector2<f64>,
+    selected: bool,
+    hover: bool,
     tag:String,
+
+    key: Key,
+    prefix: String,
 }
 impl KeyButton {
     pub fn new(pos: Vector2<f64>, size: Vector2<f64>, key:Key, prefix: &str) -> KeyButton {

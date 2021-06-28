@@ -3,14 +3,18 @@ use std::sync::{Arc, Mutex};
 use cgmath::Vector2;
 use piston::{MouseButton, RenderArgs};
 
-use crate::format;
+use crate::{WINDOW_SIZE, format};
 use crate::render::*;
 use crate::gameplay::{Score, HitError};
-use crate::game::{Game, GameMode, KeyModifiers};
+use crate::game::{Game, GameMode, KeyModifiers, get_font};
 use crate::menu::{Menu, MenuButton, ScrollableItem};
+
+
+const BACK_BUTTON_SIZE:Vector2<f64> = Vector2::new(100.0, 50.0);
+
 pub struct ScoreMenu {
-    pub score: Score,
-    pub back_button: MenuButton,
+    score: Score,
+    back_button: MenuButton,
 
     // cached
     hit_error:HitError
@@ -18,17 +22,18 @@ pub struct ScoreMenu {
 impl ScoreMenu {
     pub fn new(score:Score) -> ScoreMenu {
         let hit_error = score.hit_error();
+
         ScoreMenu {
             score,
             hit_error,
-            back_button: MenuButton::new(Vector2::new(10.0,300.0), Vector2::new(100.0, 50.0), "Back")
+            back_button: MenuButton::new(Vector2::new(10.0,WINDOW_SIZE.y as f64 - BACK_BUTTON_SIZE.y + 10.0), BACK_BUTTON_SIZE, "Back")
         }
     }
 }
 impl Menu for ScoreMenu {
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
-        let font = crate::get_font("main");
+        let font = get_font("main");
 
         // draw score info
         let score_txt = Text::new(
@@ -102,15 +107,14 @@ impl Menu for ScoreMenu {
         
 
         // draw buttons
-        self.back_button.pos.y = args.window_size[1] - (self.back_button.size.y + 10.0);
         list.extend(self.back_button.draw(args, Vector2::new(0.0, 0.0)));
 
         list
     }
 
-    fn on_click(&mut self, _pos:Vector2<f64>, _button:MouseButton, game:Arc<Mutex<&mut Game>>) {
+    fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
         // check if back button was clicked
-        if self.back_button.hover {
+        if self.back_button.on_click(pos, button) {
             let mut game = game.lock().unwrap();
             let menu = game.menus.get("beatmap").unwrap().to_owned();
             game.queue_mode_change(GameMode::InMenu(menu));
@@ -118,7 +122,7 @@ impl Menu for ScoreMenu {
     }
 
     fn on_mouse_move(&mut self, pos:Vector2<f64>, _game:Arc<Mutex<&mut Game>>) {
-        self.back_button.check_hover(pos);
+        self.back_button.on_mouse_move(pos);
     }
 
     fn on_key_press(&mut self, key:piston::Key, game:Arc<Mutex<&mut Game>>, _mods:KeyModifiers) {

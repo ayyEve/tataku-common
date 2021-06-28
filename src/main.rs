@@ -1,14 +1,11 @@
 // native imports
 use std::env;
 use std::fmt::Display;
-use std::sync::{Arc, Mutex};
 use std::{fs::File, path::Path};
-use std::collections::hash_map::HashMap;
 use std::io::{self, BufRead, BufReader, Lines, Read, Write};
 
 // crate imports
 use cgmath::Vector2;
-use opengl_graphics::{GlyphCache, TextureSettings};
 
 // local imports
 use game::{Audio, Game, SerializationReader, SerializationWriter, Settings};
@@ -36,38 +33,13 @@ pub const SONGS_DIR:&str = "songs";
 
 //TODO! move this to its own file
 // font stuff
-const FONT_LIST:[&'static str; 1] = [
-    "fonts/main.ttf"
-];
-lazy_static::lazy_static! {
-    pub static ref FONTS: HashMap<String, Arc<Mutex<GlyphCache<'static>>>> = {
-        let mut fonts:HashMap<String, Arc<Mutex<GlyphCache<'static>>>> = HashMap::new();
-        for font in FONT_LIST.iter() {
-            let font_name = Path::new(font).file_stem().unwrap().to_str().unwrap();
-            let glyphs = GlyphCache::new(font, (), TextureSettings::new()).unwrap();
-            fonts.insert(font_name.to_owned(), Arc::new(Mutex::new(glyphs)));
-        }
-
-        fonts
-    };
-}
-/// get a font, or `main` if font is not found
-fn get_font(name:&str) -> Arc<Mutex<GlyphCache<'static>>>{
-    if FONTS.contains_key(name) {
-        return FONTS.get(name).unwrap().clone();
-    }
-
-    println!("[FONT] > attempted to load non-existing font \"{}\"", name);
-    FONTS.get("main").unwrap().clone()
-}
-
 
 fn main() {
     // check for missing folders
     check_folder(DOWNLOADS_DIR, true);
     check_folder(SONGS_DIR, true);
-    check_folder("fonts", true);
-    check_folder("audio", true);
+    check_folder("fonts", false);
+    check_folder("audio", false);
 
     let args: Vec<String> = env::args().collect();
     if args.len() > 1 {
@@ -96,7 +68,7 @@ fn check_folder(dir:&str, create:bool) {
     }
 }
 
-// command line settings editing util, mainly because copy/paste doesnt work lol
+// command line settings editing util, not really needed but meh
 fn cmd_settings_helper() -> io::Result<()> {
     let mut settings = Settings::get_mut();
 
@@ -130,13 +102,13 @@ fn read_lines<P>(filename: P) -> io::Result<Lines<BufReader<File>>> where P: AsR
     Ok(BufReader::new(file).lines())
 }
 
+// TODO: move these to an appropriate file
 pub fn open_database(filename:&str) -> std::io::Result<SerializationReader> {
     let file = File::open(filename)?; //.expect(&format!("Error opening database file {}", filename));
     let mut buf:Vec<u8> = Vec::new();
     BufReader::new(file).read_to_end(&mut buf)?; //.expect("error reading database file");
     Ok(SerializationReader::new(buf))
 }
-
 pub fn save_database(filename:&str, writer:SerializationWriter) -> std::io::Result<()> {
     let bytes = writer.data();
     let bytes = bytes.as_slice();
@@ -145,6 +117,7 @@ pub fn save_database(filename:&str, writer:SerializationWriter) -> std::io::Resu
     f.flush()?;
     Ok(())
 }
+
 
 /// format a number into a locale string ie 1000000 -> 1,000,000
 fn format<T>(num:T) -> String where T:Display{

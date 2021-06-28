@@ -8,9 +8,9 @@ use piston::{Key, MouseButton, RenderArgs};
 
 use crate::databases::get_scores;
 use crate::gameplay::{Beatmap, BeatmapMeta, Score};
-use crate::game::{Game, GameMode, KeyModifiers, Settings};
+use crate::game::{Game, GameMode, KeyModifiers, Settings, get_font};
 use crate::menu::{Menu,ScoreMenu, ScrollableArea, ScrollableItem};
-use crate::{WINDOW_SIZE, DOWNLOADS_DIR, SONGS_DIR, get_font, render::*};
+use crate::{WINDOW_SIZE, DOWNLOADS_DIR, SONGS_DIR, render::*};
 
 const INFO_BAR_HEIGHT:f64 = 60.0;
 const BEATMAPSET_ITEM_SIZE: Vector2<f64> = Vector2::new(550.0, 50.0);
@@ -125,7 +125,7 @@ impl Menu for BeatmapSelectMenu {
         let mut items: Vec<Box<dyn Renderable>> = Vec::new();
         // let mut counter: usize = 0;
         let depth: f64 = 5.0;
-        let font = crate::FONTS.get("main").unwrap().to_owned();
+        let font = get_font("main");
 
         // draw a bar on the top for the info
         let bar_rect = Rectangle::new(
@@ -265,15 +265,13 @@ impl Menu for BeatmapSelectMenu {
 
 
 struct BeatmapsetItem {
-    //TODO: make this have BeatmapMeta, and a vec of beatmaps. this button should represent the set
-    beatmaps: Vec<Arc<Mutex<Beatmap>>>,
     pos: Vector2<f64>,
-
     hover: bool,
     selected: bool,
+    tag: String,
     pending_play: bool,
 
-    tag: String,
+    beatmaps: Vec<Arc<Mutex<Beatmap>>>,
     meta: BeatmapMeta,
     selected_item: usize, // index of selected item
     mouse_pos:Vector2<f64>,
@@ -320,7 +318,7 @@ impl ScrollableItem for BeatmapsetItem {
 
     fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2<f64>) -> Vec<Box<dyn Renderable>> {
         let mut items: Vec<Box<dyn Renderable>> = Vec::new();
-        let font = crate::get_font("main");
+        let font = get_font("main");
 
         let depth = 5.0;
 
@@ -444,11 +442,10 @@ impl ScrollableItem for BeatmapsetItem {
 
 struct LeaderboardItem {
     pos: Vector2<f64>,
-    score: Score,
-
-    tag: String,
     hover: bool,
+    tag: String,
 
+    score: Score,
     acc: f64,
 }
 impl LeaderboardItem {

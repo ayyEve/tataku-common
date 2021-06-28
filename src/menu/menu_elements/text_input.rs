@@ -5,20 +5,19 @@ use graphics::rectangle::Border;
 use piston::{MouseButton, Key, RenderArgs};
 use clipboard::{ClipboardProvider, ClipboardContext};
 
-use crate::{get_font, game::KeyModifiers, menu::ScrollableItem, render::{Rectangle, Renderable, Color, Text}};
+use crate::{game::{KeyModifiers, get_font}, menu::ScrollableItem, render::{Rectangle, Renderable, Color, Text}};
 
 #[derive(Clone)]
 pub struct TextInput {
-    pub pos: Vector2<f64>,
+    pos: Vector2<f64>,
     size: Vector2<f64>,
-
-    pub hover: bool,
-    pub selected: bool,
+    hover: bool,
+    selected: bool,
+    tag: String,
 
     placeholder: String,
     text: String,
     cursor_index: usize,
-    tag: String
 }
 impl TextInput {
     pub fn new(pos:Vector2<f64>, size: Vector2<f64>, placeholder:String) -> TextInput {

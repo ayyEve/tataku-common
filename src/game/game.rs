@@ -13,8 +13,8 @@ use piston::{Window,input::*, event_loop::*, window::WindowSettings};
 use crate::{SONGS_DIR, menu::*};
 use crate::gameplay::{Beatmap, HitType};
 use crate::databases::{save_all_scores, save_score};
-use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, get_font};
-use crate::game::{InputManager, Audio, Settings, helpers::Discord};
+use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE};
+use crate::game::{InputManager, Audio, Settings, helpers::Discord, get_font};
 use crate::render::{Circle, HalfCircle, Rectangle, Renderable, Text, Color};
 
 /// how long should the volume thing be displayed when changed

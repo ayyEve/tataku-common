@@ -1,16 +1,17 @@
-use std::{fs::File, io::Write};
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
+use std::{fs::File, io::Write};
 
 use piston::Key;
 use cgmath::Vector2;
 use piston::MouseButton;
 use graphics::rectangle::Border;
 
-use crate::{WINDOW_SIZE, DOWNLOADS_DIR, get_font};
-use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
+use crate::{WINDOW_SIZE, DOWNLOADS_DIR};
 use crate::render::{Text, Renderable, Rectangle, Color};
-use crate::game::{Game, GameMode, KeyModifiers, Settings};
+use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
+use crate::game::{Game, GameMode, KeyModifiers, Settings, get_font};
+
 
 const DIRECT_ITEM_SIZE:Vector2<f64> = Vector2::new(600.0, 80.0);
 
