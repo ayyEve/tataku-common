@@ -15,6 +15,7 @@ TODO:
 - timing hit window during gameplay (oh god)
 - dropdown menu item
 - letter ranking
+- notification system
 
 - order leaderboard by score
 - order sets by title
@@ -30,9 +31,11 @@ TODO:
 - clean up imports
 - move common consts to main
 - refactor code a bit to make it prettier
+- better error handling/messages
 
 - only load taiko/convert maps
 - handle peppy download moment
+
 
 
 maybe todo:

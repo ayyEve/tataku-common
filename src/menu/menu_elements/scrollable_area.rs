@@ -58,10 +58,10 @@ impl ScrollableArea {
         for item in self.items.as_mut_slice() {
 
             //// check if item will even be drawn
-            // let size = item.size();
-            // let pos = item.get_pos();
-            //// ignore x for now, just assume its in drawing range
-            // if pos.y < offset.y || pos.y + size.y > offset.y + self.size.y {continue}
+            let size = item.size();
+            let pos = item.get_pos();
+            // ignore x for now, just assume its in drawing range
+            if (pos.y + size.y) + offset.y < self.pos.y || pos.y + offset.y > self.pos.y + self.size.y {continue}
 
             // should be good, draw it
             items.extend(item.draw(args, offset));
