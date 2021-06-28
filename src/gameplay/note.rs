@@ -91,7 +91,7 @@ impl HitObject for Note {
         let hitwindow_100 = (if self.od <= 5.0 {119.0 - self.od * 6.0 + 0.5} /*119 - (OD x 6) +0,5*/ else {79.0 - ((self.od - 5.0) * 8.0) + 0.5}) * 2.0; // 79 - ((OD - 5) x 8) + 0,5
 
         let hitwindow_miss = hitwindow_100 * 1.1;
-        println!("300: {}, 100:{}, miss:{}, diff: {}", hitwindow_300, hitwindow_100, hitwindow_miss, diff);
+        // println!("300: {}, 100:{}, miss:{}, diff: {}", hitwindow_300, hitwindow_100, hitwindow_miss, diff);
 
         if diff < hitwindow_300 {
             if hit_type != self.hit_type {

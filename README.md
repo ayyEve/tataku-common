@@ -12,32 +12,33 @@ required deps:
 
 
 TODO:
-- timing hit window during gameplay (oh god)
+- UI
 - dropdown menu item
-- letter ranking
 - notification system
-
+- proper depths for scrollable item drawing
+  
 - order leaderboard by score
 - order sets by title
 - order maps by diff
-
+  
+- // Gameplay
+- letter ranking
+- timing hit window during gameplay (oh god)
 - background images? (requires some work)
 - skip intro (needs new audio engine)
 - replays
-
-- proper depths for scrollable item drawing
-- optimize many functions now that drawing has been reworked
-
+- static sv
+- sv multiplier
+  
+- // Code
 - clean up imports
 - move common consts to main
 - refactor code a bit to make it prettier
 - better error handling/messages
-
+- optimize many functions now that drawing has been reworked
 - only load taiko/convert maps
 - handle peppy download moment
-
-
-
+  
 maybe todo:
  - read osu replays
  - online leaderboard (needs dropdown first)
