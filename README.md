@@ -18,7 +18,7 @@ TODO:
 - checkbox menu item
 - notification system
 - proper depths for scrollable item drawing
-- order sets by title (oh god)
+- order sorts by title (oh god)
 - direct play preview for selected thing
   
 - // Gameplay
