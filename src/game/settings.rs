@@ -4,7 +4,7 @@ use piston::Key;
 use crate::game::helpers::{SerializationReader, SerializationWriter, Serializable, open_database, save_database};
 
 const SETTINGS_DATABASE_FILE:&str = "settings.db";
-const SETTINGS_VERSION: u32 = 1;
+const SETTINGS_VERSION: u32 = 2;
 
 lazy_static::lazy_static! {
     static ref SETTINGS: Arc<Mutex<Settings>> = {
@@ -21,6 +21,9 @@ pub struct Settings {
     pub effect_vol: f32,
     pub username: String,
     pub password: String,
+
+    pub static_sv: bool,
+    pub sv_multiplier: f32,
 
     // keys
     pub left_kat: Key,
@@ -44,7 +47,10 @@ impl Settings {
                     left_kat: Key::D,
                     left_don: Key::F,
                     right_don: Key::J,
-                    right_kat: Key::K
+                    right_kat: Key::K,
+
+                    static_sv: false,
+                    sv_multiplier: 1.0
                 }
             },
             Ok(mut reader) => {
@@ -77,9 +83,9 @@ impl Settings {
 }
 impl Serializable for Settings {
     fn read(sr:&mut SerializationReader) -> Self {
-        let _version:u32 = sr.read();
+        let version:u32 = sr.read();
 
-        Settings {
+        let mut s = Settings {
             master_vol: sr.read(),
             effect_vol: sr.read(),
             music_vol: sr.read(),
@@ -89,8 +95,18 @@ impl Serializable for Settings {
             left_kat: sr.read(),
             left_don: sr.read(),
             right_don: sr.read(),
-            right_kat: sr.read()
+            right_kat: sr.read(),
+
+            static_sv: false,
+            sv_multiplier: 1.0
+        };
+
+        if version > 1 { // 2 and above
+            s.static_sv = sr.read();
+            s.sv_multiplier = sr.read();
         }
+
+        s
     }
 
     fn write(&self, sw:&mut SerializationWriter) {
@@ -105,6 +121,10 @@ impl Serializable for Settings {
         sw.write(self.left_don);
         sw.write(self.right_don);
         sw.write(self.right_kat);
+        
+        // v2 and above
+        sw.write(self.static_sv);
+        sw.write(self.sv_multiplier);
     }
 }
 

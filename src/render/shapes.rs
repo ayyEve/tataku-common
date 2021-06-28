@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use opengl_graphics::{GlGraphics, GlyphCache, Texture};
-use graphics::{Context, DrawState, ImageSize, Transformed, character::CharacterCache, ellipse::Border, types::Polygon};
+use graphics::{Context, DrawState, ImageSize, Transformed, character::CharacterCache, types::Polygon};
 use cgmath::{Vector2};
 
 use crate::render::Color;
@@ -57,10 +57,9 @@ impl Renderable for Circle {
     }
 
     fn draw(&mut self, g: &mut GlGraphics, c: Context) {
-
         graphics::ellipse::Ellipse {
             color: self.color.into(),
-            border: self.border,
+            border: if self.border.is_some() {Some(self.border.unwrap().into())} else {None},
             resolution: 128
         }.draw(
             graphics::ellipse::circle(self.pos.x, self.pos.y, self.radius),
@@ -142,13 +141,13 @@ pub struct Rectangle {
     pub depth: f64,
     pub pos: Vector2<f64>,
     pub size: Vector2<f64>,
-    pub border: Option<graphics::rectangle::Border>,
+    pub border: Option<Border>,
 
     spawn_time: u64,
     lifetime: u64
 }
 impl Rectangle {
-    pub fn new(color: Color, depth: f64, pos: Vector2<f64>, size: Vector2<f64>, border: Option<graphics::rectangle::Border>) -> Rectangle {
+    pub fn new(color: Color, depth: f64, pos: Vector2<f64>, size: Vector2<f64>, border: Option<Border>) -> Rectangle {
         Rectangle {
             color,
             depth,
@@ -167,43 +166,21 @@ impl Rectangle {
     }
 }
 impl Renderable for Rectangle {
-    fn get_depth(&self) -> f64 {
-        self.depth
-    }
-    fn set_lifetime(&mut self, lifetime:u64) {
-        self.lifetime = lifetime;
-    }
-    fn get_lifetime(&self) -> u64 {
-        self.lifetime
-    }
-    fn set_spawn_time(&mut self, time:u64) {
-        self.spawn_time = time;
-    }
-    fn get_spawn_time(&self) -> u64 {
-       self.spawn_time
-    }
+    fn get_depth(&self) -> f64 {self.depth}
+    fn set_lifetime(&mut self, lifetime:u64) {self.lifetime = lifetime}
+    fn get_lifetime(&self) -> u64 {self.lifetime}
+    fn set_spawn_time(&mut self, time:u64) {self.spawn_time = time}
+    fn get_spawn_time(&self) -> u64 {self.spawn_time}
 
     fn draw(&mut self, g: &mut GlGraphics, c: Context) {
-
         let mut r=graphics::Rectangle::new(self.color.into());
-        r.border = self.border;
+        if let Some(b) = self.border {
+            r.border = Some(b.into());
+        }
         r.draw([
             self.pos.x, self.pos.y, 
-            self.size.x,self.size.y
+            self.size.x, self.size.y
         ], &DrawState::default(),c.transform, g);
-
-        // graphics::rectangle(
-        //     self.color.into(),
-            
-        //     c.transform,
-        //     g
-        // );
-
-        // if let Some(color) = self.border_color {
-        //     //TODO
-        //     graphics::Rectangle::border(self, value)
-        // }
-
     }
 }
 
@@ -311,6 +288,39 @@ impl Clone for Image {
         Image::new(self.pos, self.depth, Texture::new(self.tex.get_id(), self.tex.get_width(), self.tex.get_height()))
     }
 }
+
+
+/// generic border object, easier to use than importing graphics::X::Border, and creating it manually
+#[derive(Clone, Copy)]
+pub struct Border {
+    pub color: Color,
+    pub radius: f64
+}
+impl Border {
+    pub fn new(color:Color, radius:f64) -> Self {
+        Self {
+            color, 
+            radius
+        }
+    }
+}
+impl Into<graphics::rectangle::Border> for Border {
+    fn into(self) -> graphics::rectangle::Border {
+        graphics::rectangle::Border {
+            color: self.color.into(),
+            radius: self.radius
+        }
+    }
+}
+impl Into<graphics::ellipse::Border> for Border {
+    fn into(self) -> graphics::ellipse::Border {
+        graphics::ellipse::Border {
+            color: self.color.into(),
+            radius: self.radius
+        }
+    }
+}
+
 
 /// create a polygon with coords at `pos`, `point_count` points, `radius` pixels, `angle` starting angle. 
 /// `half` specifies whether to only create half the polygod

@@ -2,13 +2,11 @@ use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use std::{fs::File, io::Write};
 
-use piston::Key;
 use cgmath::Vector2;
-use piston::MouseButton;
-use graphics::rectangle::Border;
+use piston::{Key, MouseButton};
 
 use crate::{WINDOW_SIZE, DOWNLOADS_DIR};
-use crate::render::{Text, Renderable, Rectangle, Color};
+use crate::render::{Text, Renderable, Rectangle, Color, Border};
 use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
 use crate::game::{Game, GameMode, KeyModifiers, Settings, get_font};
 
@@ -106,10 +104,7 @@ impl Menu for OsuDirectMenu {
                 3.0,
                 Vector2::new(x, DOWNLOAD_ITEM_YOFFSET),
                 Vector2::new(DOWNLOAD_ITEM_SIZE.x, args.window_size[1] - DOWNLOAD_ITEM_YOFFSET*2.0),
-                Some(Border {
-                    color:Color::BLACK.into(),
-                    radius:1.8
-                })
+                Some(Border::new(Color::BLACK, 1.8))
             )));
             
             let mut counter = 0.0;
@@ -124,10 +119,7 @@ impl Menu for OsuDirectMenu {
                     2.0,
                     pos,
                     DOWNLOAD_ITEM_SIZE,
-                    Some(Border {
-                        color: Color::BLUE.into(),
-                        radius: 1.5
-                    })
+                    Some(Border::new(Color::BLUE, 1.5))
                 )));
                 // map text
                 list.push(Box::new(Text::new(
@@ -151,10 +143,7 @@ impl Menu for OsuDirectMenu {
                     2.0,
                     pos,
                     DOWNLOAD_ITEM_SIZE,
-                    Some(Border {
-                        color: Color::BLACK.into(),
-                        radius: 1.5
-                    })
+                    Some(Border::new(Color::BLACK, 1.5))
                 )));
                 // map text
                 list.push(Box::new(Text::new(
@@ -314,10 +303,7 @@ impl ScrollableItem for DirectItem {
             10.0,
             self.pos + pos_offset,
             self.size(),
-            Some(Border {
-                color: (if self.hover {Color::BLUE} else if self.selected {Color::RED} else {Color::BLACK}).into(),
-                radius: 1.5
-            })
+            Some(Border::new(if self.hover {Color::BLUE} else if self.selected {Color::RED} else {Color::BLACK}, 1.5))
         )));
 
         list.push(Box::new(Text::new(

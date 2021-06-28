@@ -1,8 +1,7 @@
 use cgmath::Vector2;
-use graphics::{rectangle::Border};
 use piston::{Key, MouseButton, RenderArgs};
 
-use crate::{game::{KeyModifiers,get_font}, render::{Color, Rectangle, Renderable, Text}, menu::ScrollableItem};
+use crate::{menu::ScrollableItem, game::{KeyModifiers,get_font}, render::{Color, Rectangle, Renderable, Text, Border}};
 
 #[derive(Clone)]
 pub struct KeyButton {
@@ -54,10 +53,7 @@ impl ScrollableItem for KeyButton {
             1.0,
             self.pos+pos_offset,
             self.size, 
-            Some(Border {
-                color: (if self.hover {Color::BLUE} else if self.selected {Color::RED} else {Color::BLACK}).into(),
-                radius: 1.2
-            })
+            Some(Border::new(if self.hover {Color::BLUE} else if self.selected {Color::RED} else {Color::BLACK}, 1.2))
         );
         list.push(Box::new(border));
 

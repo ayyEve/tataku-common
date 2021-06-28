@@ -19,16 +19,16 @@ TODO:
 - notification system
 - proper depths for scrollable item drawing
 - direct play preview for selected thing
+- background images? (textures are borked atm)
   
 - // Gameplay
 - letter ranking
 - timing hit window during gameplay (oh god)
-- background images? (requires some work)
-- skip intro (needs new audio engine)
 - replays
 - static sv
 - sv multiplier
 - finisher sounds
+- skip intro (needs new audio engine)
   
 - // Code
 - clean up imports

@@ -39,6 +39,15 @@ impl Serializable for usize {
         sw.write_u64(self.clone() as u64);
     }
 }
+impl Serializable for bool {
+    fn read(sr:&mut SerializationReader) -> Self {
+        sr.read_u8() & 1 == 1
+    }
+
+    fn write(&self, sw:&mut SerializationWriter) {
+        sw.write_u8(if *self {1} else {0});
+    }
+}
 
 macro_rules! __impl_serializable_numbers {
     ($($t:ty),+) => {

@@ -1,10 +1,9 @@
 use std::sync::{Arc, Mutex};
 
 use cgmath::Vector2;
-use graphics::ellipse::Border;
 use piston::RenderArgs;
 
-use crate::{HIT_POSITION, NOTE_RADIUS, gameplay::{Beatmap, ScoreHit}, render::{Circle, Color, HalfCircle, Rectangle, Renderable}};
+use crate::{HIT_POSITION, NOTE_RADIUS, gameplay::{Beatmap, ScoreHit}, render::{Circle, Color, HalfCircle, Rectangle, Renderable, Border}};
 
 const SLIDER_DOT_RADIUS:f64 = 8.0;
 const SPINNER_RADIUS: f64 = 200.0;
@@ -149,17 +148,14 @@ impl HitObject for Note {
 
         if self.pos.x + NOTE_RADIUS < 0.0 || self.pos.x - NOTE_RADIUS > args.window_size[0] as f64 {return renderables}
 
-        let mut outer = Circle::new(
+        let mut note = Circle::new(
             self.get_color(),
             self.time as f64,
             self.pos,
             if self.finisher {NOTE_RADIUS*1.6666} else {NOTE_RADIUS}
         );
-        outer.border = Some(Border {
-            color: Color::BLACK.into(),
-            radius: NOTE_BORDER_SIZE
-        });
-        renderables.push(Box::new(outer));
+        note.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
+        renderables.push(Box::new(note));
 
         renderables
     }
@@ -237,10 +233,7 @@ impl HitObject for Slider {
             self.time as f64 + 1.0,
             self.pos,
             Vector2::new(self.end_x - self.pos.x , self.radius * 2.0),
-            Some(graphics::rectangle::Border {
-                color: Color::BLACK.into(),
-                radius: NOTE_BORDER_SIZE
-            })
+            Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
         )));
 
         // start circle

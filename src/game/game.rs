@@ -5,7 +5,6 @@ use std::collections::HashMap;
 
 use cgmath::Vector2;
 use tokio::runtime::Builder;
-use graphics::rectangle::Border;
 use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window,input::*, event_loop::*, window::WindowSettings};
@@ -14,8 +13,8 @@ use crate::{SONGS_DIR, menu::*};
 use crate::gameplay::{Beatmap, HitType};
 use crate::databases::{save_all_scores, save_score};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE};
-use crate::render::{Circle, HalfCircle, Rectangle, Renderable, Text, Color};
 use crate::game::{InputManager, Audio, Settings, helpers::Discord, get_font};
+use crate::render::{Circle, HalfCircle, Rectangle, Renderable, Text, Color, Border};
 
 /// how long should the volume thing be displayed when changed
 const VOLUME_CHANGE_DISPLAY_TIME:u64 = 2000;
@@ -455,10 +454,7 @@ impl<'shape> Game<'shape> {
                 -7.0,
                 window_size - b_size,
                 b_size,
-                Some(Border {
-                    color: Color::BLACK.into(),
-                    radius: 1.2
-                })
+                Some(Border::new(Color::BLACK, 1.2))
             );
             self.add_render_queue(b);
 
@@ -483,10 +479,7 @@ impl<'shape> Game<'shape> {
                 -9.0,
                 window_size - Vector2::new(border_size.x + border_padding, 90.0),
                 border_size,
-                Some(Border {
-                    color: Color::RED.into(),
-                    radius: 1.0
-                })
+                Some(Border::new(Color::RED, 1.0))
             );
             // fill
             let master_fill = Rectangle::new(
@@ -513,10 +506,7 @@ impl<'shape> Game<'shape> {
                 -9.0,
                 window_size - Vector2::new(border_size.x + border_padding, 60.0),
                 border_size,
-                Some(Border {
-                    color: Color::RED.into(),
-                    radius: 1.0
-                })
+                Some(Border::new(Color::RED, 1.0))
             );
             // fill
             let effect_fill = Rectangle::new(
@@ -543,10 +533,7 @@ impl<'shape> Game<'shape> {
                 -9.0,
                 window_size - Vector2::new(border_size.x + border_padding, 30.0),
                 border_size,
-                Some(Border {
-                    color: Color::RED.into(),
-                    radius: 1.0
-                })
+                Some(Border::new(Color::RED, 1.0))
             );
             // fill
             let music_fill = Rectangle::new(

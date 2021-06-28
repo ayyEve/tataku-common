@@ -1,7 +1,6 @@
 use cgmath::Vector2;
-use graphics::rectangle::Border;
 
-use crate::{game::get_font, menu::ScrollableItem, render::{Color, Rectangle, Renderable, Text}};
+use crate::{game::get_font, menu::ScrollableItem, render::{Color, Rectangle, Renderable, Text, Border}};
 
 #[derive(Clone)]
 pub struct MenuButton {
@@ -42,7 +41,7 @@ impl ScrollableItem for MenuButton {
             0.0,
             self.pos+pos_offset,
             self.size,
-            if self.hover {Some(Border {color: Color::RED.into(), radius: 1.0})} else {None}
+            if self.hover {Some(Border::new(Color::RED, 1.0))} else {None}
         );
         
         // draw text

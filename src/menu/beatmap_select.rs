@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::{path::Path, fs::read_dir};
 
 use cgmath::Vector2;
-use graphics::rectangle::Border;
 use piston::{Key, MouseButton, RenderArgs};
 
 use crate::gameplay::{Beatmap, BeatmapMeta, Score};
@@ -135,10 +134,7 @@ impl Menu for BeatmapSelectMenu {
             depth - 1.0,
             Vector2::new(0.0, 0.0),
             Vector2::new(args.window_size[0], INFO_BAR_HEIGHT),
-            Some(Border {
-                color: Color::BLACK.into(),
-                radius: 1.2
-            })
+            Some(Border::new(Color::BLACK, 1.2))
         );
         items.push(Box::new(bar_rect));
 
@@ -347,9 +343,9 @@ impl ScrollableItem for BeatmapsetItem {
             self.pos+pos_offset,
             BEATMAPSET_ITEM_SIZE,
             if self.hover {
-                Some(Border {color: Color::RED.into(), radius: 1.0})
+                Some(Border::new(Color::RED, 1.0))
             } else if self.selected {
-                Some(Border {color: Color::BLUE.into(), radius: 1.0})
+                Some(Border::new(Color::BLUE, 1.0))
             } else {
                 None
             }
@@ -388,11 +384,11 @@ impl ScrollableItem for BeatmapsetItem {
                     pos,
                     BEATMAP_ITEM_SIZE,
                     if counter == index {
-                        Some(Border {color: Color::BLUE.into(), radius: 1.0})
+                        Some(Border::new(Color::BLUE, 1.0))
                     } else if counter == self.selected_item {
-                        Some(Border {color: Color::RED.into(), radius: 1.0})
+                        Some(Border::new(Color::RED, 1.0))
                     } else {
-                        Some(Border {color: Color::BLACK.into(), radius: 1.0})
+                        Some(Border::new(Color::BLACK, 1.0))
                     }
                 )));
                 // version text
@@ -500,10 +496,8 @@ impl ScrollableItem for LeaderboardItem {
             self.pos+pos_offset,
             LEADERBOARD_ITEM_SIZE,
             if self.hover {
-                Some(Border {color: Color::RED.into(), radius: 1.0})
-            } else {
-                None
-            }
+                Some(Border::new(Color::RED, 1.0))
+            } else {None}
         )));
 
         // score text

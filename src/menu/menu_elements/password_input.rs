@@ -1,11 +1,10 @@
 use std::error::Error;
 
 use cgmath::Vector2;
-use graphics::rectangle::Border;
 use piston::{Key, MouseButton, RenderArgs};
 use clipboard::{ClipboardProvider, ClipboardContext};
 
-use crate::{game::{KeyModifiers, get_font}, menu::ScrollableItem, render::{Color, Rectangle, Renderable, Text}};
+use crate::{game::{KeyModifiers, get_font}, menu::ScrollableItem, render::{Color, Rectangle, Renderable, Text, Border}};
 
 #[derive(Clone)]
 pub struct PasswordInput {
@@ -69,10 +68,7 @@ impl ScrollableItem for PasswordInput {
             1.0,
             self.pos + pos_offset,
             self.size, 
-            Some(Border {
-                color: (if self.hover {Color::BLUE} else if self.selected {Color::RED} else {Color::BLACK}).into(),
-                radius: 1.2
-            })
+            Some(Border::new(if self.hover {Color::BLUE} else if self.selected {Color::RED} else {Color::BLACK}, 1.2))
         );
         list.push(Box::new(border));
 
@@ -115,10 +111,7 @@ impl ScrollableItem for PasswordInput {
                 0.0,
                 self.pos + pos_offset + Vector2::new(width, 0.0),
                 Vector2::new(0.7, self.size.y), 
-                Some(Border {
-                    color: Color::RED.into(),
-                    radius: 1.2
-                })
+                Some(Border::new(Color::RED, 1.2))
             );
             list.push(Box::new(cursor));
         }

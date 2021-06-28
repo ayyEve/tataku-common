@@ -2,11 +2,10 @@ use std::{path::Path, sync::{Arc, Mutex}, time::SystemTime};
 
 use cgmath::Vector2;
 use piston::RenderArgs;
-use graphics::rectangle::Border;
 
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS};
-use super::{diff_calc::DifficultyCalculator, beatmap_structs::*};
-use crate::{NOTE_RADIUS, enums::Playmode, gameplay::*, game::{SoundEffect, get_font}, render::{Renderable, Rectangle, Text, Circle, Color}};
+use super::{*, diff_calc::DifficultyCalculator, beatmap_structs::*};
+use crate::{NOTE_RADIUS, enums::Playmode, game::{SoundEffect, get_font}, render::{Renderable, Rectangle, Text, Circle, Color, Border}};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
 const BAR_WIDTH:f64 = 4.0; // how wide is a timing bar
@@ -414,10 +413,7 @@ impl Beatmap {
             Vector2::new(0.0, HIT_POSITION.y - (PLAYFIELD_RADIUS + 2.0)),
             Vector2::new(args.window_size[0], (PLAYFIELD_RADIUS+2.0) * 2.0),
             if self.timing_points[self.timing_point_index].kiai {
-                Some(Border {
-                    color: Color::YELLOW.into(),
-                    radius: 2.0
-                })
+                Some(Border::new(Color::YELLOW, 2.0))
             } else {None}
         );
         renderables.push(Box::new(playfield));
@@ -474,10 +470,7 @@ impl Beatmap {
             1.0,
             Vector2::new(0.0, args.window_size[1] - (DURATION_HEIGHT + 3.0)),
             Vector2::new(args.window_size[0], DURATION_HEIGHT),
-            Some(Border {
-                color: Color::BLACK.into(),
-                radius: 1.8
-            })
+            Some(Border::new(Color::BLACK, 1.8))
         );
         renderables.push(Box::new(duration_border));
         // fill
