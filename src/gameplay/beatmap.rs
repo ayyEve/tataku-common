@@ -4,12 +4,11 @@ use cgmath::Vector2;
 use piston::RenderArgs;
 use graphics::rectangle::Border;
 
-use super::beatmap_structs::*;
-use super::diff_calc::DifficultyCalculator;
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS};
-use crate::{NOTE_RADIUS, enums::Playmode, game::{SoundEffect, get_font}, gameplay::*, render::{Renderable, Rectangle, Text, Circle, Color}};
+use super::{diff_calc::DifficultyCalculator, beatmap_structs::*};
+use crate::{NOTE_RADIUS, enums::Playmode, gameplay::*, game::{SoundEffect, get_font}, render::{Renderable, Rectangle, Text, Circle, Color}};
 
-const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass in at beatmap start before audio begins playing (and the map "starts")
+const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
 const BAR_WIDTH:f64 = 4.0; // how wide is a timing bar
 const BAR_COLOR:[f32;4] = [0.0,0.0,0.0,1.0]; // timing bar color
 const BAR_SPACING:f64 = 4.0; // how many beats between timing bars
@@ -28,9 +27,9 @@ pub struct Beatmap {
     pub notes: Vec<Arc<Mutex<dyn HitObject>>>,
     timing_bars: Vec<Arc<Mutex<TimingBar>>>,
 
-    pub note_index: usize,
+    note_index: usize,
     pub timing_points: Vec<TimingPoint>,
-    pub timing_point_index: usize,
+    timing_point_index: usize,
 
     pub song: SoundEffect,
     pub lead_in_time: f32,
@@ -279,7 +278,11 @@ impl Beatmap {
 
         {
             let mut locked = beatmap.lock().unwrap();
-            locked.end_time = locked.clone().notes.last().unwrap().lock().unwrap().end_time() as f64;
+            let start_time = locked.clone().notes.first().unwrap().lock().unwrap().time() as f64;
+            let end_time = locked.clone().notes.last().unwrap().lock().unwrap().end_time() as f64;
+
+            meta.set_dur((end_time - start_time) as u64);
+            locked.end_time = end_time;
             locked.metadata = meta.clone();
             locked.calc_sr();
             locked.song = SoundEffect::new(&meta.clone().audio_filename);
@@ -599,7 +602,7 @@ impl Beatmap {
 }
 
 
-// timing line struct
+// timing bar struct
 struct TimingBar {
     time: u64,
     speed: f64,
@@ -649,6 +652,10 @@ pub struct BeatmapMeta {
     pub audio_filename: String,
     pub image_filename: String,
 
+    pub duration: u64, // time in ms from first note to last note
+    mins: u8,
+    secs: u8,
+
     pub hp: f32,
     pub od: f32,
     pub sr: f64,
@@ -674,23 +681,27 @@ impl BeatmapMeta {
             od: 0.0,
             sr: 0.0,
             slider_multiplier: 1.4,
-            slider_tick_rate: 1.0
+            slider_tick_rate: 1.0,
+
+            duration: 0,
+            mins:0,
+            secs:0,
         }
     }
-
-    // /// get the title string
-    // pub fn title_string(&self) -> String {
-    //     format!("{} - {}", self.artist, self.title) 
-    // }
+    pub fn set_dur(&mut self, duration:u64) {
+        self.duration = duration;
+        self.mins = (self.duration as f32 / 60000.0).floor() as u8;
+        self.secs = ((self.duration as f32 / 1000.0) % (self.mins as f32 * 60.0)).floor() as u8;
+    }
 
     /// get the title string with the version
     pub fn version_string(&self) -> String {
-        format!("{} - {} [{}]", self.artist, self.title, self.version) 
+        format!("{} - {} [{}]", self.artist, self.title, self.version)  
     }
 
     /// get the difficulty string (od, hp, sr)
     pub fn diff_string(&self) -> String {
-        format!("od: {:.2} hp: {:.2}, {:.2}*", self.od, self.hp, self.sr)
+        format!("od: {:.2} hp: {:.2}, {:.2}*, {}:{}", self.od, self.hp, self.sr, self.mins, self.secs)
     }
 }
 
