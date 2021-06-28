@@ -1,15 +1,15 @@
-my taiko sim made in rust. why? idk. enjoy!
-
+My taiko sim made in rust. why? idk. enjoy!
+  
 required files/folders: (in game root)
  - fonts/main.ttf (Roboto was used in dev)
  - audio
     - don.wav
     - kat.wav
-
+  
 required deps:
  - cmake
- - clang
-
+ - clang (maybe not now that rustcord was nuked)
+  
 
 TODO:
 - UI
@@ -44,3 +44,4 @@ maybe todo:
  - online leaderboard (needs dropdown first)
  - multiplayer
  - mods
+ 
