@@ -18,8 +18,7 @@ TODO:
 - proper depths for scrollable item drawing
   
 - order leaderboard by score
-- order sets by title
-- order maps by diff
+- order sets by title (oh god)
   
 - // Gameplay
 - letter ranking
@@ -44,4 +43,3 @@ maybe todo:
  - online leaderboard (needs dropdown first)
  - multiplayer
  - mods
- 
