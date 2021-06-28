@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::{io::{Cursor, Read}, fs::File, path::Path};
 
 use rodio::{Decoder, OutputStream, Sink, OutputStreamHandle};
-
 use crate::game::Settings;
 
 type AudioData = Cursor<Vec<u8>>;
@@ -75,6 +74,21 @@ impl Audio {
         sink.append(source);
         sink.pause();
         sink
+    }
+
+    pub fn from_raw(data:Vec<u8>) -> Sink {
+    
+        let cur = Cursor::new(data);
+
+        let lock = STREAM.lock().unwrap();
+        let stream_handle = lock.as_ref().unwrap();
+
+        // Decode that sound file into a source
+        let source = Decoder::new(cur).unwrap();
+        let sink = Sink::try_new(&stream_handle).unwrap();
+        sink.append(source);
+        sink.pause();
+        return sink;
     }
 
     pub fn setup() -> OutputStream {

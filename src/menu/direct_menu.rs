@@ -4,15 +4,14 @@ use std::{fs::File, io::Write};
 
 use cgmath::Vector2;
 use piston::{Key, MouseButton};
+use rodio::Sink; // ugh
 
 use crate::{WINDOW_SIZE, DOWNLOADS_DIR};
 use crate::render::{Text, Renderable, Rectangle, Color, Border};
 use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
-use crate::game::{Game, GameMode, KeyModifiers, Settings, get_font};
-
+use crate::game::{Audio, Game, GameMode, KeyModifiers, Settings, get_font};
 
 const DIRECT_ITEM_SIZE:Vector2<f64> = Vector2::new(600.0, 80.0);
-
 const SEARCH_BAR_HEIGHT:f64 = 50.0;
 const DOWNLOAD_ITEM_SIZE:Vector2<f64> = Vector2::new(300.0, 40.0);
 const DOWNLOAD_ITEM_YMARGIN:f64 = 30.0;
@@ -30,7 +29,10 @@ pub struct OsuDirectMenu {
     queue: Vec<Arc<DirectItem>>,
     selected: Option<String>,
 
-    search_bar: TextInput
+    search_bar: TextInput,
+
+    //TODO: figure out how to get this running in a separate thread
+    preview: Option<Arc<Mutex<Sink>>>
 }
 impl OsuDirectMenu {
     pub fn new() -> OsuDirectMenu {
@@ -40,6 +42,7 @@ impl OsuDirectMenu {
             queue: Vec::new(),
             items: HashMap::new(),
             selected: None,
+            preview: None,
             search_bar: TextInput::new(Vector2::new(0.0, 0.0), Vector2::new(WINDOW_SIZE.x as f64, SEARCH_BAR_HEIGHT), "Search".to_owned())
         };
         x.do_search();
@@ -64,6 +67,28 @@ impl OsuDirectMenu {
             self.items.insert(i.get_tag(), a);
             self.scroll_area.add_item(Box::new(i));
         }
+    }
+
+    fn do_preview_audio(&mut self, set_id:String) {
+        println!("preview audio");
+
+        // https://b.ppy.sh/preview/100.mp3
+        let url = format!("https://b.ppy.sh/preview/{}.mp3", set_id);
+        if let Some(sink) = &self.preview {sink.lock().unwrap().stop()}
+
+        let req = reqwest::blocking::get(url);
+        if let Ok(thing) = req {
+            let data = thing.bytes().expect("error converting mp3 preview to bytes");
+            let mut data2 = Vec::new();
+            data.iter().for_each(|e| data2.push(e.clone()));
+
+            let sink = Audio::from_raw(data2);
+            sink.set_volume(Settings::get().get_music_vol());
+            sink.play();
+            self.preview = Some(Arc::new(Mutex::new(sink)));
+        } else if let Err(oof) = req {
+            println!("error with preview: {}", oof);
+        }        
     }
 }
 impl Menu for OsuDirectMenu {
@@ -170,7 +195,6 @@ impl Menu for OsuDirectMenu {
         self.search_bar.on_click(pos, button);
 
         if let Some(key) = self.scroll_area.on_click(pos, button, game) {
-
             if let Some(selected) = self.selected.clone() {
                 if key == selected {
                     if let Some(item) = self.items.get(&key) {
@@ -181,6 +205,9 @@ impl Menu for OsuDirectMenu {
                 }
             }
 
+            if let Some(item) = self.items.clone().get(&key) {
+               self.do_preview_audio(item.item.set_id.clone());
+            }
             self.selected = Some(key.clone());
         }
     }
@@ -355,6 +382,7 @@ impl ScrollableItem for DirectItem {
 // TODO: figure out how to get the progress of the download
 #[derive(Clone)]
 struct DirectMeta {
+    set_id: String,
     filename: String,
     artist: String,
     title: String,
@@ -372,8 +400,13 @@ impl DirectMeta {
         let artist = split.next().expect("[Direct] err:artist").to_owned();
         let title = split.next().expect("[Direct] err:title").to_owned();
         let creator = split.next().expect("[Direct] err:creator").to_owned();
+        let _ranking_status = split.next();
+        let _rating = split.next();
+        let _last_update = split.next();
+        let beatmapset_id = split.next().unwrap();
 
         DirectMeta {
+            set_id: beatmapset_id.to_owned(),
             filename,
             artist,
             title,
