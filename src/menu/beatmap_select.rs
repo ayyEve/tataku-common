@@ -7,7 +7,7 @@ use graphics::rectangle::Border;
 use piston::{Key, MouseButton, RenderArgs};
 
 use crate::gameplay::{Beatmap, BeatmapMeta, Score};
-use crate::menu::{Menu,ScoreMenu, ScrollableArea, ScrollableItem};
+use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem};
 use crate::game::{Game, GameMode, KeyModifiers, Settings, get_font};
 use crate::{WINDOW_SIZE, DOWNLOADS_DIR, SONGS_DIR, render::*, databases::get_scores};
 

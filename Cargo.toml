@@ -8,6 +8,7 @@ edition = "2018"
 
 [features]
 textures = []
+unlimited_fps = []
 
 [dependencies]
 tokio = {version = "1.7.1", features = ["rt"] }

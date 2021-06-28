@@ -1,8 +1,7 @@
 use cgmath::Vector2;
 use graphics::rectangle::Border;
 
-use crate::{game::get_font, render::{Color, Rectangle, Renderable, Text}};
-use super::ScrollableItem;
+use crate::{game::get_font, menu::ScrollableItem, render::{Color, Rectangle, Renderable, Text}};
 
 #[derive(Clone)]
 pub struct MenuButton {

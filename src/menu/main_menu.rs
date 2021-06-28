@@ -3,8 +3,7 @@ use std::sync::{Arc, Mutex};
 use cgmath::Vector2;
 use piston::{MouseButton, RenderArgs};
 
-use crate::render::*;
-use crate::WINDOW_SIZE;
+use crate::{WINDOW_SIZE, render::*};
 use crate::game::{Game, GameMode, get_font};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
 
@@ -30,7 +29,6 @@ impl MainMenu {
         let settings_button = MenuButton::new(Vector2::new(middle,(BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Settings");
         counter += 1.0;
         let exit_button = MenuButton::new(Vector2::new(middle,(BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Exit");
-
 
         MainMenu {
             play_button,

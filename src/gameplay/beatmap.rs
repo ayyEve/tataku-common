@@ -4,10 +4,10 @@ use cgmath::Vector2;
 use piston::RenderArgs;
 use graphics::rectangle::Border;
 
-use crate::{NOTE_RADIUS, enums::Playmode, game::{SoundEffect, get_font}, gameplay::*, render::{Renderable, Rectangle, Text, Circle, Color}};
-use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS};
-use super::diff_calc::DifficultyCalculator;
 use super::beatmap_structs::*;
+use super::diff_calc::DifficultyCalculator;
+use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS};
+use crate::{NOTE_RADIUS, enums::Playmode, game::{SoundEffect, get_font}, gameplay::*, render::{Renderable, Rectangle, Text, Circle, Color}};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass in at beatmap start before audio begins playing (and the map "starts")
 const BAR_WIDTH:f64 = 4.0; // how wide is a timing bar

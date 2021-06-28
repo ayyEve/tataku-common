@@ -1,21 +1,21 @@
 use std::path::Path;
+use std::{time::SystemTime};
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
-use std::{time::SystemTime};
 
 use cgmath::Vector2;
 use tokio::runtime::Builder;
 use graphics::rectangle::Border;
-use opengl_graphics::{GlGraphics, OpenGL};
 use glfw_window::GlfwWindow as AppWindow;
+use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window,input::*, event_loop::*, window::WindowSettings};
 
 use crate::{SONGS_DIR, menu::*};
 use crate::gameplay::{Beatmap, HitType};
 use crate::databases::{save_all_scores, save_score};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE};
-use crate::game::{InputManager, Audio, Settings, helpers::Discord, get_font};
 use crate::render::{Circle, HalfCircle, Rectangle, Renderable, Text, Color};
+use crate::game::{InputManager, Audio, Settings, helpers::Discord, get_font};
 
 /// how long should the volume thing be displayed when changed
 const VOLUME_CHANGE_DISPLAY_TIME:u64 = 2000;
@@ -117,9 +117,14 @@ impl<'shape> Game<'shape> {
     pub fn game_loop(mut self) {
         // input and rendering thread
         let mut events = Events::new(EventSettings::new()); //.lazy(true));
-        // events.set_max_fps(144);
+
+        //TODO: load this from settings
+        events.set_max_fps(144);
+
+        #[cfg(unlimited_fps)]
         events.set_max_fps(10_000);
-        events.set_ups(1000);
+
+        events.set_ups(1_000);
 
         while let Some(e) = events.next(&mut self.window) {
             self.input_manager.handle_events(e.clone());
@@ -653,6 +658,8 @@ fn set_icon(_window:&mut AppWindow) {
     // }
 }
 
+
+/// extract all zips from the downloads folder into the songs folder
 pub fn extract_all() {
     let runtime = Builder::new_multi_thread()
         .enable_all()

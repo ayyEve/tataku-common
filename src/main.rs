@@ -2,13 +2,13 @@
 use std::env;
 use std::fmt::Display;
 use std::{fs::File, path::Path};
-use std::io::{self, BufRead, BufReader, Lines, Read, Write};
+use std::io::{self, BufRead, BufReader, Lines};
 
 // crate imports
 use cgmath::Vector2;
 
 // local imports
-use game::{Audio, Game, SerializationReader, SerializationWriter, Settings};
+use game::{Audio, Game, Settings};
 
 // include files
 mod game;
@@ -31,9 +31,7 @@ const WINDOW_SIZE:Vector2<u32> = Vector2::new(1000, 600);
 pub const DOWNLOADS_DIR:&str = "downloads";
 pub const SONGS_DIR:&str = "songs";
 
-//TODO! move this to its own file
-// font stuff
-
+// main fn
 fn main() {
     // check for missing folders
     check_folder(DOWNLOADS_DIR, true);
@@ -101,23 +99,6 @@ fn read_lines<P>(filename: P) -> io::Result<Lines<BufReader<File>>> where P: AsR
     let file = File::open(filename)?;
     Ok(BufReader::new(file).lines())
 }
-
-// TODO: move these to an appropriate file
-pub fn open_database(filename:&str) -> std::io::Result<SerializationReader> {
-    let file = File::open(filename)?; //.expect(&format!("Error opening database file {}", filename));
-    let mut buf:Vec<u8> = Vec::new();
-    BufReader::new(file).read_to_end(&mut buf)?; //.expect("error reading database file");
-    Ok(SerializationReader::new(buf))
-}
-pub fn save_database(filename:&str, writer:SerializationWriter) -> std::io::Result<()> {
-    let bytes = writer.data();
-    let bytes = bytes.as_slice();
-    let mut f = File::create(filename)?;
-    f.write_all(bytes)?;
-    f.flush()?;
-    Ok(())
-}
-
 
 /// format a number into a locale string ie 1000000 -> 1,000,000
 fn format<T>(num:T) -> String where T:Display{

@@ -1,7 +1,6 @@
 use std::{collections::HashMap, sync::{Arc, Mutex}};
 
-use crate::gameplay::Score;
-use crate::game::*;
+use crate::{game::{Serializable, SerializationWriter, open_database, save_database}, gameplay::Score};
 
 const SCORE_DATABASE_FILE:&str = "scores.db";
 
@@ -9,7 +8,7 @@ lazy_static::lazy_static! {
     /// SCORES_CACHE.get(.osu_hash) = list of scores
     static ref SCORES_CACHE: Mutex<HashMap<String, Arc<Mutex<Vec<Score>>>>> = {
         let mut list:HashMap<String, Arc<Mutex<Vec<Score>>>> = HashMap::new();
-        let reader = crate::open_database(SCORE_DATABASE_FILE);
+        let reader = open_database(SCORE_DATABASE_FILE);
 
         match reader {
             Err(e) => {
@@ -29,8 +28,6 @@ lazy_static::lazy_static! {
                     }
 
                     let l = list.get_mut(&hash.clone()).unwrap();
-
-                    // println!("{}", score);
                     l.lock().unwrap().push(score);
                 }
 
@@ -78,5 +75,5 @@ pub fn save_all_scores() -> std::io::Result<()> {
     });
 
     // write file
-    return crate::save_database(SCORE_DATABASE_FILE, writer);
+    return save_database(SCORE_DATABASE_FILE, writer);
 }

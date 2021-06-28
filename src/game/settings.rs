@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 use piston::Key;
-use crate::game::helpers::*;
+
+use crate::game::helpers::{SerializationReader, SerializationWriter, Serializable, open_database, save_database};
 
 const SETTINGS_DATABASE_FILE:&str = "settings.db";
 const SETTINGS_VERSION: u32 = 1;
@@ -29,7 +30,7 @@ pub struct Settings {
 }
 impl Settings {
     fn load() -> Settings {
-        let reader = crate::open_database(SETTINGS_DATABASE_FILE);
+        let reader = open_database(SETTINGS_DATABASE_FILE);
         match reader {
             Err(e) => {
                 println!("Error reading db: {:?}", e);
@@ -57,7 +58,7 @@ impl Settings {
         writer.write(self.clone());
         
         // write file
-        crate::save_database(SETTINGS_DATABASE_FILE, writer).expect("Error saving settings.");
+        save_database(SETTINGS_DATABASE_FILE, writer).expect("Error saving settings.");
     }
 
     pub fn get() -> Settings {
@@ -74,7 +75,6 @@ impl Settings {
         self.music_vol * self.master_vol
     }
 }
-
 impl Serializable for Settings {
     fn read(sr:&mut SerializationReader) -> Self {
         let _version:u32 = sr.read();

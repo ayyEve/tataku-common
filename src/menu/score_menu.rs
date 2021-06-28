@@ -3,12 +3,10 @@ use std::sync::{Arc, Mutex};
 use cgmath::Vector2;
 use piston::{MouseButton, RenderArgs};
 
-use crate::{WINDOW_SIZE, format};
-use crate::render::*;
 use crate::gameplay::{Score, HitError};
+use crate::{WINDOW_SIZE, format, render::*};
 use crate::game::{Game, GameMode, KeyModifiers, get_font};
 use crate::menu::{Menu, MenuButton, ScrollableItem};
-
 
 const BACK_BUTTON_SIZE:Vector2<f64> = Vector2::new(100.0, 50.0);
 

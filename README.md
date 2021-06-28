@@ -12,8 +12,10 @@ required deps:
   
 
 TODO:
-- UI
+- // UI
 - dropdown menu item
+- slider bar menu item
+- checkbox menu item
 - notification system
 - proper depths for scrollable item drawing
   
@@ -43,3 +45,4 @@ maybe todo:
  - online leaderboard (needs dropdown first)
  - multiplayer
  - mods
+ - handle headphones being unplugged
