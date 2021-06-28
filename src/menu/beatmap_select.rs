@@ -86,15 +86,9 @@ impl BeatmapSelectMenu {
             }
         }
 
-        // //TODO! figure this out lmao
-        // full_list.sort_by(|a, b| {
-        //     a.meta.title.cmp(&b.meta.title)
-        // });
-        
-        for i in full_list {
-            self.beatmap_scroll.add_item(i);
-        }
-
+        // sort by artist
+        full_list.sort_by(|a, b| a.meta.artist.to_lowercase().cmp(&b.meta.artist.to_lowercase()));
+        for i in full_list {self.beatmap_scroll.add_item(i)}
     }
 
     pub fn load_scores(&mut self, map_hash:String) {
@@ -123,10 +117,9 @@ impl Menu for BeatmapSelectMenu {
         }
 
         if self.pending_refresh {
+            // wait for main to finish extracting everything from downloads
             let list = std::fs::read_dir(DOWNLOADS_DIR).unwrap();
-            if list.count() <= 0 {
-                self.refresh_maps();
-            }
+            if list.count() <= 0 {self.refresh_maps();}
         }
     }
 
