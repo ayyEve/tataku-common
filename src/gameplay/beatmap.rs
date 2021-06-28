@@ -3,7 +3,7 @@ use std::{path::Path, sync::{Arc, Mutex}, time::SystemTime};
 use cgmath::Vector2;
 use piston::RenderArgs;
 
-use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS};
+use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS, game::Settings};
 use super::{*, diff_calc::DifficultyCalculator, beatmap_structs::*};
 use crate::{NOTE_RADIUS, enums::Playmode, game::{SoundEffect, get_font}, render::{Renderable, Rectangle, Text, Circle, Color, Border}};
 
@@ -499,15 +499,6 @@ impl Beatmap {
 
     pub fn start(&mut self) {
         if !self.started {
-
-            // fix note svs
-            let c = self.clone();
-            for note in self.notes.as_mut_slice() {
-                let mut note = note.lock().unwrap();
-                let sv = c.slider_velocity_at(note.time()) / SV_FACTOR;
-                note.set_sv(sv);
-            }
-
             self.song.stop();
             self.song_start = SystemTime::now(); //TODO: remove this actually, time() should be based off the song duration
             self.started = true;
@@ -523,8 +514,20 @@ impl Beatmap {
         // might mess with lead-in but meh
     }
     pub fn reset(&mut self) {
+        let settings = Settings::get().clone();
+
+        let c = self.clone();
         for note in self.notes.as_mut_slice() {
             let mut note = note.lock().unwrap();
+
+            // set note svs
+            if settings.static_sv {
+                note.set_sv(settings.sv_multiplier as f64);
+            } else {
+                let sv = c.slider_velocity_at(note.time()) / SV_FACTOR;
+                note.set_sv(sv);
+            }
+
             note.reset();
             note.set_od(self.metadata.od as f64); //TODO! change when adding mods
         }
@@ -537,17 +540,19 @@ impl Beatmap {
         // setup timing bars
         if self.timing_bars.len() == 0 {
             // load timing bars
-            let end_time = self.notes[self.notes.len()-1].lock().unwrap().end_time() as f64 + 500.0;
+            let end_time = self.end_time + 500.0 * self.beat_length_at(self.end_time, false); //self.notes[self.notes.len()-1].lock().unwrap().end_time() as f64 + 500.0;
             let mut time = self.timing_points[0].time as f64;
+
+            let mut sv = settings.sv_multiplier as f64;
 
             time -= 500.0 * self.beat_length_at(time, false) * BAR_SPACING;
             loop {
-                let sv = self.slider_velocity_at(time as u64) / SV_FACTOR;
+                if !settings.static_sv {sv = self.slider_velocity_at(time as u64) / SV_FACTOR}
                 let bar = TimingBar::new(time as u64, sv);
                 self.timing_bars.push(Arc::new(Mutex::new(bar)));
 
                 time += self.beat_length_at(time, false) * BAR_SPACING;
-                if time >= end_time {break;}
+                if time >= end_time {break}
             }
 
             self.timing_bars.remove(0);

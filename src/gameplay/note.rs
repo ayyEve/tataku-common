@@ -76,8 +76,8 @@ impl Note {
     }
 }
 impl HitObject for Note {
-    fn set_sv(&mut self, sv:f64) {self.speed = sv;}
-    fn set_od(&mut self, od:f64) {self.od = od;}
+    fn set_sv(&mut self, sv:f64) {self.speed = sv}
+    fn set_od(&mut self, od:f64) {self.od = od}
     fn note_type(&self) -> NoteType {NoteType::Note}
     fn is_kat(&self) -> bool {self.hit_type == HitType::Kat}
     fn time(&self) -> u64 {self.time}

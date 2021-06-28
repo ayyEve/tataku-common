@@ -15,7 +15,6 @@ TODO:
 - // UI
 - dropdown menu item
 - slider bar menu item
-- checkbox menu item
 - notification system
 - proper depths for scrollable item drawing
 - direct play preview for selected thing
