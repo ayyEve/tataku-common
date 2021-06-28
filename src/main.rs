@@ -1,5 +1,5 @@
-use std::env;
 // native imports
+use std::env;
 use std::fmt::Display;
 use std::sync::{Arc, Mutex};
 use std::{fs::File, path::Path};
@@ -11,9 +11,7 @@ use cgmath::Vector2;
 use opengl_graphics::{GlyphCache, TextureSettings};
 
 // local imports
-use game::{Audio, Game, SerializationReader, SerializationWriter};
-
-use crate::game::Settings;
+use game::{Audio, Game, SerializationReader, SerializationWriter, Settings};
 
 // include files
 mod game;
@@ -36,7 +34,7 @@ const WINDOW_SIZE:Vector2<u32> = Vector2::new(1000, 600);
 pub const DOWNLOADS_DIR:&str = "downloads";
 pub const SONGS_DIR:&str = "songs";
 
-
+//TODO! move this to its own file
 // font stuff
 const FONT_LIST:[&'static str; 1] = [
     "fonts/main.ttf"
@@ -52,6 +50,15 @@ lazy_static::lazy_static! {
 
         fonts
     };
+}
+/// get a font, or `main` if font is not found
+fn get_font(name:&str) -> Arc<Mutex<GlyphCache<'static>>>{
+    if FONTS.contains_key(name) {
+        return FONTS.get(name).unwrap().clone();
+    }
+
+    println!("[FONT] > attempted to load non-existing font \"{}\"", name);
+    FONTS.get("main").unwrap().clone()
 }
 
 
@@ -69,7 +76,6 @@ fn main() {
         }
         return;
     }
-
     
     // intialize audio engine
     let _stream = Audio::setup();
@@ -102,7 +108,7 @@ fn cmd_settings_helper() -> io::Result<()> {
         "password" => {
             println!("type the pass");
             let mut pass = String::new();
-            io::stdin().read_to_string(&mut pass)?;
+            io::stdin().read_line(&mut pass)?;
             settings.password = pass.trim().to_owned();
             settings.save();
         }
@@ -116,16 +122,6 @@ fn cmd_settings_helper() -> io::Result<()> {
         }
     }
     std::io::Result::Ok(())
-}
-
-/// get a font, or `main` if font is not found
-fn get_font(name:&str) -> Arc<Mutex<GlyphCache<'static>>>{
-    if FONTS.contains_key(name) {
-        return FONTS.get(name).unwrap().clone();
-    }
-
-    println!("[FONT] > attempted to load non-existing font \"{}\"", name);
-    FONTS.get("main").unwrap().clone()
 }
 
 /// read a file to the end
