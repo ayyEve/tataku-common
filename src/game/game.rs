@@ -333,10 +333,16 @@ impl<'shape> Game<'shape> {
                     lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(Box::new(menu)))));
                 }
 
-                // volume
-                if volume_changed {
-                    beatmap.song.set_volume(settings.get_music_vol());
+                // offset adjust
+                if keys.contains(&Key::Equals) {
+                    beatmap.increment_offset(5);
                 }
+                if keys.contains(&Key::Minus) {
+                    beatmap.increment_offset(-5);
+                }
+
+                // volume
+                if volume_changed {beatmap.song.set_volume(settings.get_music_vol())}
 
                 beatmap.update();
 

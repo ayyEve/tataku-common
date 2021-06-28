@@ -34,6 +34,9 @@ pub struct Beatmap {
     pub lead_in_time: f32,
     end_time: f64,
 
+    offset: i64,
+    offset_changed_time: i64,
+
     // meta info
     pub metadata: BeatmapMeta
 }
@@ -61,7 +64,10 @@ impl Beatmap {
             started: false,
             completed: false,
             end_time: 0.0,
-            lead_in_time: LEAD_IN_TIME
+            lead_in_time: LEAD_IN_TIME,
+
+            offset: 0,
+            offset_changed_time: 0
         }));
 
         let parent_dir = Path::new(&dir).parent().unwrap();
@@ -295,7 +301,12 @@ impl Beatmap {
     }
 
     pub fn time(&self) -> i64 {
-        self.song.duration() as i64 - (self.lead_in_time as i64 + 50)
+        self.song.duration() as i64 - (self.lead_in_time as i64 + 50) - self.offset
+    }
+    pub fn increment_offset(&mut self, delta:i64) {
+        self.offset += delta;
+        self.offset_changed_time = self.song.duration() as i64;
+        println!("offset is now {}", self.offset);
     }
 
     pub fn hit(&mut self, hit_type:HitType) {

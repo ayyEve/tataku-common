@@ -9,7 +9,7 @@ use crate::{render::*, game::{Game, KeyModifiers}};
 // how many pixels should be between items when in list mode?
 const ITEM_MARGIN:f64 = 5.0;
 /// how much should a scroll unit be worth?
-const SCROLL_FACTOR: f64 = 8.0; // this is good for my laptop's touchpad, but on a mouse wheel its nowwhere near enough
+const SCROLL_FACTOR: f64 = 16.0; // 8.0 is good for my laptop's touchpad, but on a mouse wheel its nowwhere near enough
 
 pub struct ScrollableArea {
     pub items: Vec<Box<dyn ScrollableItem>>,

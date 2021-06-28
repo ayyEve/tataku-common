@@ -19,6 +19,7 @@ TODO:
 - proper depths for scrollable item drawing
 - direct play preview for selected thing
 - background images? (textures are borked atm)
+- add back buttons to menus lol
   
 - // Gameplay
 - letter ranking
