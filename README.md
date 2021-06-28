@@ -19,22 +19,18 @@ TODO:
 - proper depths for scrollable item drawing
 - background images? (textures are borked atm)
 - add back buttons to menus lol
+- sv mult option in settings (needs slider bar menu item)
   
 - // Gameplay
 - letter ranking
 - timing hit window during gameplay (oh god)
 - replays
-- static sv
-- sv multiplier
 - finisher sounds
 - skip intro (needs new audio engine)
   
 - // Code
-- clean up imports
-- move common consts to main
 - refactor code a bit to make it prettier
 - better error handling/messages
-- optimize many functions now that drawing has been reworked
 - only load taiko/convert maps
 - handle peppy direct download moment
   
