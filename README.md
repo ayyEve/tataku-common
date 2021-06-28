@@ -18,9 +18,8 @@ TODO:
 - checkbox menu item
 - notification system
 - proper depths for scrollable item drawing
-  
-- order leaderboard by score
 - order sets by title (oh god)
+- direct play preview for selected thing
   
 - // Gameplay
 - letter ranking
@@ -30,6 +29,7 @@ TODO:
 - replays
 - static sv
 - sv multiplier
+- finisher sounds
   
 - // Code
 - clean up imports
@@ -38,7 +38,7 @@ TODO:
 - better error handling/messages
 - optimize many functions now that drawing has been reworked
 - only load taiko/convert maps
-- handle peppy download moment
+- handle peppy direct download moment
   
 maybe todo:
  - read osu replays
