@@ -43,49 +43,25 @@ impl MainMenu {
 impl Menu for MainMenu {
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
-
-        // let mut counter = 0.0;
-        let window_size = Vector2::new(args.window_size[0], args.window_size[1]);
+        let pos_offset = Vector2::new(0.0, 0.0);
 
         // draw welcome text
-        let welcome_rect = Rectangle::new(
-            Color::BLACK,
-            0.0,
-            Vector2::new(0.0, 30.0),
-            Vector2::new(window_size.x, 50.0),
-            None
-        );
         let mut welcome_text = Text::new(
             Color::BLACK,
             -1.0,
-            Vector2::new(0.0, 0.0),
+            pos_offset,
             40,
             "Welcome to Taiko.rs".to_owned(),
             get_font("main")
         );
-        welcome_text.center_text(welcome_rect);
+        welcome_text.center_text(Rectangle::bounds_only(Vector2::new(0.0, 30.0), Vector2::new(WINDOW_SIZE.x as f64, 50.0)));
         list.push(Box::new(welcome_text));
-        // counter += 1.0;
 
         // draw buttons
-        // self.play_button.pos.y = (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET;
-        // self.play_button.pos.x = middle_x;
-        list.extend(self.play_button.draw(args, Vector2::new(0.0, 0.0)));
-        // counter += 1.0;
-
-        // self.direct_button.pos.y = (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET;
-        // self.direct_button.pos.x = middle_x;
-        list.extend(self.direct_button.draw(args, Vector2::new(0.0, 0.0)));
-        // counter += 1.0;
-
-        // self.settings_button.pos.y = (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET;
-        // self.settings_button.pos.x = middle_x;
-        list.extend(self.settings_button.draw(args, Vector2::new(0.0, 0.0)));
-
-        // self.retry_button.pos.y = args.window_size[1] - (self.retry_button.size.y 0.0);
-        // self.exit_button.pos.y = (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET;
-        // self.exit_button.pos.x = middle_x;
-        list.extend(self.exit_button.draw(args, Vector2::new(0.0, 0.0)));
+        list.extend(self.play_button.draw(args, pos_offset));
+        list.extend(self.direct_button.draw(args, pos_offset));
+        list.extend(self.settings_button.draw(args, pos_offset));
+        list.extend(self.exit_button.draw(args, pos_offset));
 
         list
     }
@@ -97,19 +73,24 @@ impl Menu for MainMenu {
         if self.play_button.on_click(pos, button) {
             let menu = game.menus.get("beatmap").unwrap().clone();
             game.queue_mode_change(GameMode::InMenu(menu));
+            return;
         }
 
+        // open direct menu
         if self.direct_button.on_click(pos, button) {
             let menu:Arc<Mutex<Box<dyn Menu>>> = Arc::new(Mutex::new(Box::new(OsuDirectMenu::new())));
             game.queue_mode_change(GameMode::InMenu(menu));
+            return;
         }
 
+        // open settings menu
         if self.settings_button.on_click(pos, button) {
             let menu = game.menus.get("settings").unwrap().clone();
             game.queue_mode_change(GameMode::InMenu(menu));
+            return;
         }
 
-        // return to song select
+        // quit game
         if self.exit_button.on_click(pos, button) {
             game.queue_mode_change(GameMode::Closing);
             return;

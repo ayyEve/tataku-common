@@ -451,8 +451,8 @@ impl Beatmap {
             self.next_note();
         }
         
-        for b in self.timing_bars.iter_mut() {
-            b.lock().unwrap().update(time as f64);
+        for tb in self.timing_bars.iter_mut() {
+            tb.lock().unwrap().update(time as f64);
         }
 
         // check timing point
@@ -520,12 +520,9 @@ impl Beatmap {
             crate::format(self.score.combo),
             font.clone()
         );
-        combo_text.center_text(Rectangle::new(
-            Color::BLACK,
-            0.0,
+        combo_text.center_text(Rectangle::bounds_only(
             Vector2::new(0.0, HIT_POSITION.y - HIT_AREA_RADIUS/2.0),
-            Vector2::new(HIT_POSITION.x - NOTE_RADIUS, HIT_AREA_RADIUS), 
-            None
+            Vector2::new(HIT_POSITION.x - NOTE_RADIUS, HIT_AREA_RADIUS)
         ));
         renderables.push(Box::new(combo_text));
 
@@ -558,8 +555,8 @@ impl Beatmap {
         }
         
         // draw timing lines
-        for b in self.timing_bars.iter_mut() {
-            renderables.extend(b.lock().unwrap().draw(args));
+        for tb in self.timing_bars.iter_mut() {
+            renderables.extend(tb.lock().unwrap().draw(args));
         }
 
         renderables
@@ -624,9 +621,7 @@ impl Beatmap {
     }
 
     pub fn beat_length_at(&self, time:f64, allow_multiplier:bool) -> f64 {
-        if self.timing_points.len() == 0 {
-            return 0.0;
-        }
+        if self.timing_points.len() == 0 {return 0.0;}
 
         let mut point: Option<TimingPoint> = Some(self.timing_points.as_slice()[0].clone());
         let mut inherited_point: Option<TimingPoint> = None;

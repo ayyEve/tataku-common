@@ -160,6 +160,11 @@ impl Rectangle {
             lifetime: 0
         }
     }
+    
+    /// helpful shortcut when you only want to measure text
+    pub fn bounds_only(pos: Vector2<f64>, size: Vector2<f64>) -> Rectangle {
+        Rectangle::new(Color::BLACK, 0.0, pos, size, None)
+    }
 }
 impl Renderable for Rectangle {
     fn get_depth(&self) -> f64 {
