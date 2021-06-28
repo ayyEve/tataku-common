@@ -34,7 +34,7 @@ pub struct Beatmap {
 
     pub song: SoundEffect,
     pub lead_in_time: f32,
-    end_time:f64,
+    end_time: f64,
 
     // meta info
     pub metadata: BeatmapMeta
@@ -73,38 +73,24 @@ impl Beatmap {
             if let Ok(line) = line_maybe {
 
                 // ignore empty lines
-                if line.len() < 2 {continue;}
+                if line.len() < 2 {continue}
 
                 // check for section change
                 if line.starts_with("[") {
                     // this one isnt really necessary
-                    if line == "[General]" {
-                        current_area = BeatmapSection::General; 
-                    }
-                    if line == "[Editor]" {
-                        current_area = BeatmapSection::Editor; 
-                    }
-                    if line == "[Metadata]" {
-                        current_area = BeatmapSection::Metadata; 
-                    }
-                    if line == "[Difficulty]" {
-                        current_area = BeatmapSection::Difficulty; 
-                    }
-                    if line == "[Events]" {
-                        current_area = BeatmapSection::Events; 
-                    }
-                    if line == "[TimingPoints]" {
-                        current_area = BeatmapSection::TimingPoints; 
-                    }
+                    if line == "[General]" {current_area = BeatmapSection::General}
+                    if line == "[Editor]" {current_area = BeatmapSection::Editor}
+                    if line == "[Metadata]" {current_area = BeatmapSection::Metadata}
+                    if line == "[Difficulty]" {current_area = BeatmapSection::Difficulty}
+                    if line == "[Events]" {current_area = BeatmapSection::Events}
+                    if line == "[Colours]" {current_area = BeatmapSection::Colors}
+                    if line == "[TimingPoints]" {current_area = BeatmapSection::TimingPoints}
                     if line == "[HitObjects]" {
-                        // sort timing points
+                        // sort timing points before moving onto hitobjects
                         let mut b2 = beatmap.lock().unwrap();
                         b2.timing_points.sort_by(|a, b| a.time.cmp(&b.time));
 
                         current_area = BeatmapSection::HitObjects; 
-                    }
-                    if line == "[Colours]" {
-                        current_area = BeatmapSection::Colors; 
                     }
                     continue;
                 }
@@ -124,9 +110,7 @@ impl Beatmap {
                         let key = split.next().unwrap().trim();
                         let val = split.next().unwrap().trim();
 
-                        if key == "AudioFilename" {
-                            meta.audio_filename = parent_dir.join(val).to_str().unwrap().to_owned();
-                        }
+                        if key == "AudioFilename" {meta.audio_filename = parent_dir.join(val).to_str().unwrap().to_owned();}
                         if key == "Mode" {
                             let m = val.parse::<u8>().unwrap();
                             meta.mode = m.into();
@@ -137,43 +121,22 @@ impl Beatmap {
                         let key = split.next().unwrap().trim();
                         let val = split.next().unwrap().trim();
                         
-                        if key == "Title" {
-                            meta.title = val.to_owned();
-                        }
-                        if key == "TitleUnicode" {
-                            meta.title_unicode = val.to_owned();
-                        }
-                        if key == "Artist" {
-                            meta.artist = val.to_owned();
-                        }
-                        if key == "ArtistUnicode" {
-                            meta.artist_unicode = val.to_owned();
-                        }
-
-                        if key == "Creator" {
-                            meta.creator = val.to_owned();
-                        }
-                        if key == "Version" {
-                            meta.version = val.to_owned();
-                        }
+                        if key == "Title" {meta.title = val.to_owned()}
+                        if key == "TitleUnicode" {meta.title_unicode = val.to_owned()}
+                        if key == "Artist" {meta.artist = val.to_owned()}
+                        if key == "ArtistUnicode" {meta.artist_unicode = val.to_owned()}
+                        if key == "Creator" {meta.creator = val.to_owned()}
+                        if key == "Version" {meta.version = val.to_owned()}
                     },
                     BeatmapSection::Difficulty => {
                         let mut split = line.split(":");
                         let key = split.next().unwrap().trim();
                         let val = split.next().unwrap().trim().parse::<f32>().unwrap();
 
-                        if key == "HPDrainRate" {
-                            meta.hp = val;
-                        }
-                        if key == "OverallDifficulty" {
-                            meta.od = val;
-                        }
-                        if key == "SliderMultiplier" {
-                            meta.slider_multiplier = val;
-                        }
-                        if key == "SliderTickRate" {
-                            meta.slider_tick_rate = val;
-                        }
+                        if key == "HPDrainRate" {meta.hp = val}
+                        if key == "OverallDifficulty" {meta.od = val}
+                        if key == "SliderMultiplier" {meta.slider_multiplier = val}
+                        if key == "SliderTickRate" {meta.slider_tick_rate = val}
                     },
                     BeatmapSection::Events => {
                         let mut split = line.split(',');
@@ -234,11 +197,7 @@ impl Beatmap {
                                 let mut j = time as f64;
 
                                 // load sounds
-                                let sound_list_raw = if let Some(list) = split.next() {
-                                    list.split("|")
-                                } else {
-                                    "".split("")
-                                };
+                                let sound_list_raw = if let Some(list) = split.next() {list.split("|")} else {"".split("")};
 
                                 // when loading, if unified just have it as sound_types with 1 index
                                 let mut sound_types:Vec<(HitType, bool)> = Vec::new();
@@ -273,9 +232,7 @@ impl Beatmap {
                                     }
 
                                     j += skip_period;
-                                    if !(j < end_time as f64 + skip_period / 8.0) {
-                                        break;
-                                    }
+                                    if !(j < end_time as f64 + skip_period / 8.0) {break}
                                 }
                             } else {
                                 let slider = Slider::new(beatmap.clone(), time, end_time, finisher, sv);
@@ -294,11 +251,6 @@ impl Beatmap {
                                 let min = 3.0;
                                 let mid = 5.0;
                                 let max = 7.5;
-
-                                // difficulty = ApplyModsToDifficulty(difficulty, 1.4, this.ActiveMods);
-                                // if (GameBase.Mode != OsuModes.Edit && ModManager.CheckActive(mods, Mods.Easy)) difficulty = Math.Max(0, difficulty / 2);
-                                // if (GameBase.Mode != OsuModes.Edit && ModManager.CheckActive(mods, Mods.HardRock)) difficulty = Math.Min(10, difficulty * hardRockFactor);
-
                                 if diff > 5.0 {
                                     diff_map = mid + (max - mid) * (diff - 5.0) / 5.0;
                                 } else if diff < 5.0 {
@@ -306,22 +258,14 @@ impl Beatmap {
                                 } else {
                                     diff_map = mid;
                                 }
-                                // if (difficulty > 5) return mid + (max - mid) * (difficulty - 5) / 5;
-                                // if (difficulty < 5) return mid - (mid - min) * (5 - difficulty) / 5;
-                                // return mid;
                             }
 
                             let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
-
                             // just make a slider for now
                             let spinner = Spinner::new(beatmap.clone(), time, end_time, sv, hits_required);
                             beatmap.lock().unwrap().notes.push(Arc::new(Mutex::new(spinner)));
-
                         } else { // note
-                            
-                            // make the note
                             let note = Note::new(beatmap.clone(), time, hit_type, finisher, sv);
-                            // add it
                             beatmap.lock().unwrap().notes.push(Arc::new(Mutex::new(note)));
                         }
                     },
@@ -354,10 +298,7 @@ impl Beatmap {
 
     pub fn hit(&mut self, hit_type:HitType) {
         // if theres no more notes to hit, return
-        if self.note_index >= self.notes.len() {
-            return;
-        }
-        
+        if self.note_index >= self.notes.len() {return}
         let time = self.time() as f64;
 
         // check for finisher 2nd hit. 
@@ -404,10 +345,8 @@ impl Beatmap {
             },
             ScoreHit::Other(score, consume) => { // used by sliders and spinners
                 self.score.score += score as u64;
-                if consume {
-                    self.next_note();
-                }
-            },
+                if consume {self.next_note();}
+            }
         }
     }
 
