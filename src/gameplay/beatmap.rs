@@ -47,21 +47,22 @@ pub struct Beatmap {
 impl Beatmap {
     pub fn load(dir:String) -> Arc<Mutex<Beatmap>> {
         let lines = crate::read_lines(dir.clone()).expect("Beatmap file not found");
+
+        // 
+        let mut body = String::new();
+
         let mut current_area = BeatmapSection::Version;
 
-        //TODO!!!!!!!!!! somehow get the beatmap file hash itself, not the path lmao
-        let md5 = md5::compute(dir.clone()).to_owned();
-        let md5 = format!("{:x}", md5);
 
         let mut meta = BeatmapMeta::new();
         let beatmap = Arc::new(Mutex::new(Beatmap {
-            hash:md5.clone(),
+            hash: String::new(),
             notes: Vec::new(),
             timing_points: Vec::new(),
             timing_bars: Vec::new(),
             hit_timings: Vec::new(),
             song_start: SystemTime::now(),
-            score: Score::new(md5),
+            score: Score::new(String::new()),
             metadata: BeatmapMeta::new(),
             song: SoundEffect::new_empty(), // temp until we get the audio file path
             note_index: 0,
@@ -80,6 +81,7 @@ impl Beatmap {
 
         for line_maybe in lines {
             if let Ok(line) = line_maybe {
+                body += &format!("{}\n", line);
 
                 // ignore empty lines
                 if line.len() < 2 {continue}
@@ -286,6 +288,9 @@ impl Beatmap {
             }
         }
 
+        
+        //TODO!!!!!!!!!! somehow get the beatmap file hash itself, not the path lmao
+        let md5 = format!("{:x}", md5::compute(body.clone()).to_owned());
         // does this need to be in its own scope? probably not but whatever
         {
             let mut locked = beatmap.lock().unwrap();
@@ -297,6 +302,9 @@ impl Beatmap {
             locked.metadata = meta.clone();
             locked.calc_sr();
             locked.song = SoundEffect::new(&meta.clone().audio_filename);
+
+            locked.hash = md5.clone();
+            locked.score = Score::new(md5.clone());
         }
         beatmap
     }
