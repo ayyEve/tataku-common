@@ -5,6 +5,8 @@ required files/folders: (in game root)
  - audio
     - don.wav
     - kat.wav
+    - bigdon.wav
+    - bigkat.wav
   
 required deps:
  - cmake
