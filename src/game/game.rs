@@ -20,6 +20,8 @@ use crate::render::{Circle, HalfCircle, Rectangle, Renderable, Text, Color, Bord
 const VOLUME_CHANGE_DISPLAY_TIME:u64 = 2000;
 const GFX_CLEAR_COLOR:Color = Color::WHITE;
 
+const TRANSITION_TIME:u64 = 500;
+
 pub struct Game<'shape> {
     render_queue: Vec<Box<dyn Renderable + 'shape>>,
 
@@ -44,10 +46,15 @@ pub struct Game<'shape> {
     ///when the volume was changed, or the selected index changed
     vol_selected_time: u64,
 
-    // misc
+    // fps
     fps_count: u32,
     fps_timer: SystemTime,
-    fps_last: f32
+    fps_last: f32,
+
+    // transition
+    transition: Option<GameMode>,
+    transition_last:Option<GameMode>,
+    transition_timer: u64,
 }
 impl<'shape> Game<'shape> {
     pub fn new() -> Game<'shape> {
@@ -82,10 +89,15 @@ impl<'shape> Game<'shape> {
             vol_selected_time: 0,
             beatmap_pending_refresh: false,
 
-            // misc
+            // fps
             fps_timer: SystemTime::now(),
             fps_last: 0.0,
-            fps_count: 0
+            fps_count: 0,
+
+            // transition
+            transition: None,
+            transition_last: None,
+            transition_timer: 0
         };
 
         //region == menu setup ==
@@ -223,7 +235,6 @@ impl<'shape> Game<'shape> {
                 }
             }
         }
-        
         {
             let mut c = clone.lock().unwrap();
             // check if mouse clicked volume button
@@ -387,6 +398,22 @@ impl<'shape> Game<'shape> {
                 menu.update(arc.clone());
             }
 
+            GameMode::None => {
+                // might be transitioning
+                let mut lock = clone.lock().unwrap();
+
+                if elapsed - lock.transition_timer > TRANSITION_TIME / 2 {
+                    let s = lock.transition.is_some().clone();
+
+                    if s {
+                        let trans = lock.transition.as_ref().unwrap().clone();
+                        lock.queue_mode_change(trans);
+                        lock.transition = None;
+                        lock.transition_timer = elapsed;
+                    }
+                }
+            }
+
             _ => {}
         }
         
@@ -405,16 +432,31 @@ impl<'shape> Game<'shape> {
                 // if the mode is being changed, clear all shapes, even ones with a lifetime
                 unlocked.clear_render_queue(true);
 
-                let mode = unlocked.queued_mode.clone();
-                unlocked.current_mode = mode.clone();
-                unlocked.queued_mode = GameMode::None;
-                if let GameMode::InMenu(menu) = &unlocked.current_mode {
-                    menu.lock().unwrap().on_change();
-                }
+                match &unlocked.current_mode {
+                    GameMode::None => {
+                        // old mode was none, transition to new mode
+                        let mode = unlocked.queued_mode.clone();
+                        unlocked.current_mode = mode.clone();
+                        unlocked.queued_mode = GameMode::None;
 
-                if unlocked.discord.is_some() {
-                    let discord = unlocked.discord.as_mut().unwrap();
-                    discord.change_status(mode.clone());
+                        if let GameMode::InMenu(menu) = &unlocked.current_mode {
+                            menu.lock().unwrap().on_change();
+                        }
+
+                        if unlocked.discord.is_some() {
+                            let discord = unlocked.discord.as_mut().unwrap();
+                            discord.change_status(mode.clone());
+                        }
+                    },
+
+                    _ => {
+                        let qm = &unlocked.queued_mode;
+                        unlocked.transition = Some(qm.clone());
+                        unlocked.transition_timer = elapsed;
+                        unlocked.transition_last = Some(unlocked.current_mode.clone());
+                        unlocked.queued_mode = GameMode::None;
+                        unlocked.current_mode = GameMode::None;
+                    }
                 }
             }
         }
@@ -435,6 +477,42 @@ impl<'shape> Game<'shape> {
                 renderables.extend(menu.lock().unwrap().draw(args));
             }
             _ => {}
+        }
+
+
+        if self.transition_timer > 0 && elapsed - self.transition_timer < TRANSITION_TIME {
+            // probably transitioning
+
+            // draw fade in rect
+            let diff = elapsed as f64 - self.transition_timer as f64;
+
+            let mut alpha = diff / (TRANSITION_TIME as f64 / 2.0);
+            if self.transition.is_none() {
+                alpha = 1.0 - diff / TRANSITION_TIME as f64;
+            }
+
+            renderables.push(Box::new(Rectangle::new(
+                [0.0,0.0,0.0, alpha as f32].into(),
+                -f64::MAX,
+                Vector2::new(0.0,0.0),
+                Vector2::new(WINDOW_SIZE.x as f64, WINDOW_SIZE.y as f64),
+                None
+            )));
+
+            if let GameMode::None = self.current_mode {
+                if let Some(old_mode) = &self.transition_last {
+                    match old_mode {
+                        GameMode::InMenu(menu) => {
+                            renderables.extend(menu.lock().unwrap().draw(args));
+                        },
+
+                        _ => {}
+                        // GameMode::Closing => todo!(),
+                        // GameMode::Transition(_, _, _) => todo!(),
+                        // GameMode::None => todo!(),
+                    }
+                }
+            }
         }
         
         // add the things we just made to the render queue
@@ -591,7 +669,6 @@ impl<'shape> Game<'shape> {
             font.clone()
         ));
 
-
         // sort the queue here (so it only needs to be sorted once per frame, instead of every time a shape is added)
         self.render_queue.sort_by(|a, b| b.get_depth().partial_cmp(&a.get_depth()).unwrap());
 
@@ -721,5 +798,5 @@ pub enum GameMode {
     None, // use this as the inital game mode, but me sure to change it after
     Closing,
     Ingame(Arc<Mutex<Beatmap>>),
-    InMenu(Arc<Mutex<Box<dyn Menu>>>),
+    InMenu(Arc<Mutex<Box<dyn Menu>>>)
 }
