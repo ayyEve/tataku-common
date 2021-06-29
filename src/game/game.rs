@@ -120,7 +120,7 @@ impl<'shape> Game<'shape> {
         //TODO: load this from settings
         events.set_max_fps(144);
 
-        #[cfg(unlimited_fps)]
+        #[cfg(feature = "unlimited_fps")]
         events.set_max_fps(10_000);
 
         events.set_ups(1_000);
