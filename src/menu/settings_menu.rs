@@ -5,7 +5,7 @@ use piston::{MouseButton, RenderArgs};
 
 use crate::render::*;
 use crate::game::{Game, GameMode, KeyModifiers, Settings};
-use crate::menu::{Menu, TextInput, MenuButton, KeyButton, PasswordInput, ScrollableArea, ScrollableItem, Checkbox};
+use crate::menu::{Menu, TextInput, MenuButton, KeyButton, PasswordInput, ScrollableArea, ScrollableItem, Checkbox, Slider};
 
 const BUTTON_SIZE:Vector2<f64> = Vector2::new(100.0, 50.0);
 const KEYBUTTON_SIZE:Vector2<f64> = Vector2::new(400.0, 50.0);

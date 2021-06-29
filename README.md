@@ -10,13 +10,11 @@ required files/folders: (in game root)
   
 required deps:
  - cmake
- - clang (maybe not now that rustcord was nuked)
   
 
 TODO:
 - // UI
 - dropdown menu item
-- slider bar menu item
 - notification system
 - proper depths for scrollable item drawing
 - background images? (textures are borked atm)
