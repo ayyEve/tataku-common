@@ -19,15 +19,15 @@ pub struct TextInput {
     cursor_index: usize,
 }
 impl TextInput {
-    pub fn new(pos:Vector2<f64>, size: Vector2<f64>, placeholder:String) -> TextInput {
+    pub fn new(pos:Vector2<f64>, size: Vector2<f64>, placeholder:&str, value:&str) -> TextInput {
         TextInput {
             pos, 
             size, 
-            placeholder,
+            placeholder: placeholder.to_owned(),
 
             hover: false,
             selected: false,
-            text: String::new(),
+            text: value.to_owned(),
             cursor_index: 0,
             tag: String::new()
         }

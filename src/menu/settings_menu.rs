@@ -20,18 +20,14 @@ impl SettingsMenu {
 
         // setup items
         let mut scroll_area = ScrollableArea::new(p, Vector2::new(500.0, 500.0), true);
-        let mut username_input = TextInput::new(p, Vector2::new(600.0, 50.0), "Username".to_owned());
-        let mut password_input = PasswordInput::new(p, Vector2::new(600.0, 50.0), "Password".to_owned());
+        let mut username_input = TextInput::new(p, Vector2::new(600.0, 50.0), "Username", &settings.username);
+        let mut password_input = PasswordInput::new(p, Vector2::new(600.0, 50.0), "Password", &settings.password);
         let mut done_button =  MenuButton::new(p, BUTTON_SIZE, "Done");
         let mut left_kat_btn = KeyButton::new(p, KEYBUTTON_SIZE, settings.left_kat, "Left Kat");
         let mut left_don_btn = KeyButton::new(p, KEYBUTTON_SIZE, settings.left_don, "Left Don");
         let mut right_don_btn = KeyButton::new(p, KEYBUTTON_SIZE, settings.right_don, "Right Don");
         let mut right_kat_btn = KeyButton::new(p, KEYBUTTON_SIZE, settings.right_kat, "Right Kat");
         let mut static_sv = Checkbox::new(p, Vector2::new(200.0, BUTTON_SIZE.y), "No Sv Changes", false);
-
-        // set initial text values
-        username_input.set_text(settings.username);
-        password_input.set_text(settings.password);
 
         // add tags
         username_input.set_tag("username".to_owned());

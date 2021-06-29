@@ -43,7 +43,7 @@ impl OsuDirectMenu {
             items: HashMap::new(),
             selected: None,
             preview: None,
-            search_bar: TextInput::new(Vector2::new(0.0, 0.0), Vector2::new(WINDOW_SIZE.x as f64, SEARCH_BAR_HEIGHT), "Search".to_owned())
+            search_bar: TextInput::new(Vector2::new(0.0, 0.0), Vector2::new(WINDOW_SIZE.x as f64, SEARCH_BAR_HEIGHT), "Search", "")
         };
         x.do_search();
         x

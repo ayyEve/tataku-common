@@ -20,15 +20,15 @@ pub struct PasswordInput {
     show_pass: bool,
 }
 impl PasswordInput {
-    pub fn new(pos: Vector2<f64>, size: Vector2<f64>, placeholder: String) -> PasswordInput {
+    pub fn new(pos: Vector2<f64>, size: Vector2<f64>, placeholder: &str, value:&str) -> PasswordInput {
         PasswordInput {
             pos, 
             size, 
-            placeholder,
+            placeholder: placeholder.to_owned(),
 
             hover: false,
             selected: false,
-            text: String::new(),
+            text: value.to_owned(),
             cursor_index: 0,
             show_pass: false,
             tag:String::new()
