@@ -27,7 +27,7 @@ impl SettingsMenu {
         let mut left_don_btn = KeyButton::new(p, KEYBUTTON_SIZE, settings.left_don, "Left Don");
         let mut right_don_btn = KeyButton::new(p, KEYBUTTON_SIZE, settings.right_don, "Right Don");
         let mut right_kat_btn = KeyButton::new(p, KEYBUTTON_SIZE, settings.right_kat, "Right Kat");
-        let mut static_sv = Checkbox::new(p, Vector2::new(200.0, BUTTON_SIZE.y), "No Sv Changes", false);
+        let mut static_sv = Checkbox::new(p, Vector2::new(200.0, BUTTON_SIZE.y), "No Sv Changes", settings.static_sv);
         let mut sv_mult = Slider::new(p, Vector2::new(400.0, BUTTON_SIZE.y), "Slider Multiplier", settings.sv_multiplier as f64, Some(0.1..2.0), None);
 
         // add tags
