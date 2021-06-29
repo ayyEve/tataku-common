@@ -253,3 +253,20 @@ pub fn save_database(filename:&str, writer:SerializationWriter) -> Result<()> {
     f.flush()?;
     Ok(())
 }
+
+
+
+#[allow(unused_imports)]
+mod test {
+    use crate::game::{SerializationReader, SerializationWriter};
+
+    #[test]
+    fn writer_test() {
+        let mut writer = SerializationWriter::new();
+        writer.write(1 as usize);
+        writer.write("hello".to_owned());
+
+        let line = writer.data().iter().map(|b|format!("{:#x}", b)).collect::<Vec<String>>().join(", ");
+        println!("{}", line);
+    }
+}

@@ -19,6 +19,7 @@ TODO:
 - proper depths for scrollable item drawing
 - background images? (textures are borked atm)
 - add back buttons to menus lol
+- transition between menus
   
 - // Gameplay
 - letter ranking
@@ -29,11 +30,13 @@ TODO:
 - // Code
 - refactor code a bit to make it prettier
 - better error handling/messages
-- handle peppy direct download moment
+- handle peppy direct download moment (might be best if notifs exist first)
   
 maybe todo:
+ - profiler
  - read osu replays
  - online leaderboard (needs dropdown to select leaderboard mode)
  - multiplayer
  - mods (shouldnt be too bad for some)
  - handle headphones being unplugged (might require a dropdown to select the output device, but that would need a new audio engine)
+ - online stuff
