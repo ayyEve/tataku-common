@@ -19,7 +19,6 @@ TODO:
 - proper depths for scrollable item drawing
 - background images? (textures are borked atm)
 - add back buttons to menus lol
-- sv mult option in settings (needs slider bar menu item)
   
 - // Gameplay
 - letter ranking
