@@ -47,13 +47,8 @@ pub struct Beatmap {
 impl Beatmap {
     pub fn load(dir:String) -> Arc<Mutex<Beatmap>> {
         let lines = crate::read_lines(dir.clone()).expect("Beatmap file not found");
-
-        // 
         let mut body = String::new();
-
         let mut current_area = BeatmapSection::Version;
-
-
         let mut meta = BeatmapMeta::new();
         let beatmap = Arc::new(Mutex::new(Beatmap {
             hash: String::new(),
@@ -100,7 +95,7 @@ impl Beatmap {
                         // sort timing points before moving onto hitobjects
                         let mut b2 = beatmap.lock().unwrap();
                         b2.timing_points.sort_by(|a, b| a.time.cmp(&b.time));
-
+                        
                         current_area = BeatmapSection::HitObjects; 
                     }
                     continue;
@@ -289,7 +284,6 @@ impl Beatmap {
         }
 
         
-        //TODO!!!!!!!!!! somehow get the beatmap file hash itself, not the path lmao
         let md5 = format!("{:x}", md5::compute(body.clone()).to_owned());
         // does this need to be in its own scope? probably not but whatever
         {
@@ -601,21 +595,24 @@ impl Beatmap {
         self.lead_in_time = LEAD_IN_TIME;
 
         // setup timing bars
+        //TODO: it would be cool if we didnt actually need timing bar objects, and could just draw them
         if self.timing_bars.len() == 0 {
             // load timing bars
-            let end_time = self.end_time + 500.0 * self.beat_length_at(self.end_time, false); //self.notes[self.notes.len()-1].lock().unwrap().end_time() as f64 + 500.0;
+            let end_time = self.end_time + 500.0 * self.beat_length_at(self.end_time, false);
             let mut time = self.timing_points[0].time as f64;
-
             let mut sv = settings.sv_multiplier as f64;
 
-            time -= 500.0 * self.beat_length_at(time, false) * BAR_SPACING;
+            // TODO: instead of just doing 500, actually get how many are needed before the first timing point lol
+            time -= 500.0 * self.beat_length_at(time, false);
             loop {
                 if !settings.static_sv {sv = self.slider_velocity_at(time as u64) / SV_FACTOR}
-                let bar = TimingBar::new(time as u64, sv);
-                self.timing_bars.push(Arc::new(Mutex::new(bar)));
 
-                time += self.beat_length_at(time, false) * BAR_SPACING;
+                // add timing bar at current time
+                self.timing_bars.push(Arc::new(Mutex::new(TimingBar::new(time as u64, sv))));
+
+                // why isnt this accounting for bpm changes?
                 if time >= end_time {break}
+                time += self.beat_length_at(time, false) * BAR_SPACING;
             }
 
             self.timing_bars.remove(0);
@@ -626,7 +623,7 @@ impl Beatmap {
     }
 
     pub fn beat_length_at(&self, time:f64, allow_multiplier:bool) -> f64 {
-        if self.timing_points.len() == 0 {return 0.0;}
+        if self.timing_points.len() == 0 {return 0.0}
 
         let mut point: Option<TimingPoint> = Some(self.timing_points.as_slice()[0].clone());
         let mut inherited_point: Option<TimingPoint> = None;
