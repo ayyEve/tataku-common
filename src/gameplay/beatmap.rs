@@ -407,6 +407,7 @@ impl Beatmap {
             if self.lead_in_time <= 0.0 {
                 self.lead_in_time = 0.0;
                 self.song.play();
+                self.song.set_volume(Settings::get().get_music_vol());
             }
         }
 
