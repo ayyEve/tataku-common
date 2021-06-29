@@ -31,7 +31,6 @@ TODO:
 - // Code
 - refactor code a bit to make it prettier
 - better error handling/messages
-- only load taiko/convert maps
 - handle peppy direct download moment
   
 maybe todo:

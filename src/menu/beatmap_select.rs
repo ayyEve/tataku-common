@@ -76,7 +76,12 @@ impl BeatmapSelectMenu {
                 let file = file.to_str().unwrap();
 
                 if file.ends_with(".osu") {
-                    list.push(Beatmap::load(file.to_owned()));
+                    let map = Beatmap::load(file.to_owned());
+                    if map.lock().unwrap().metadata.mode as u8 > 1 {
+                        println!("skipping {}, not a taiko map or convert", map.lock().unwrap().metadata.version_string());
+                        continue;
+                    }
+                    list.push(map);
                 }
             }
 
