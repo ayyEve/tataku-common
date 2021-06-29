@@ -23,9 +23,8 @@ TODO:
   
 - // Gameplay
 - letter ranking
-- timing hit window during gameplay (oh god)
+- timing hit window during gameplay
 - replays
-- finisher sounds
 - skip intro (needs new audio engine)
   
 - // Code
@@ -35,7 +34,7 @@ TODO:
   
 maybe todo:
  - read osu replays
- - online leaderboard (needs dropdown first)
+ - online leaderboard (needs dropdown to select leaderboard mode)
  - multiplayer
- - mods
- - handle headphones being unplugged
+ - mods (shouldnt be too bad for some)
+ - handle headphones being unplugged (might require a dropdown to select the output device, but that would need a new audio engine)
