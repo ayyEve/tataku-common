@@ -6,7 +6,7 @@ rust-latest:
   image: rust:latest
   script:
     - apt update
-    - apt install libasound2-dev cmake -y
+    - apt install libasound2-dev cmake libxrandr-dev -y
     - cargo build --verbose
     - cargo test --verbose
 
