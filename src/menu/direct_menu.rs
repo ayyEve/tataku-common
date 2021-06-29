@@ -52,7 +52,7 @@ impl OsuDirectMenu {
         let q = self.search_bar.get_text();
         let settings = Settings::get();
 
-        let data = do_search(settings.username, settings.password, 0, 0, 0, if q.len() > 0 {Some(q)} else {None});
+        let data = do_search(settings.username, settings.password, 1, 0, 0, if q.len() > 0 {Some(q)} else {None});
         let mut lines = data.split('\n');
         let count = lines.next().unwrap_or("0").parse::<i32>().unwrap_or(0);
         if count <= 0 {return}
