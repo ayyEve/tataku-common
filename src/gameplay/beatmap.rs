@@ -3,8 +3,8 @@ use std::{path::Path, sync::{Arc, Mutex}, time::SystemTime};
 use cgmath::Vector2;
 use piston::RenderArgs;
 
-use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS, game::{Audio, Settings}};
 use super::{*, diff_calc::DifficultyCalculator, beatmap_structs::*};
+use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS, WINDOW_SIZE, game::{Audio, Settings}};
 use crate::{NOTE_RADIUS, enums::Playmode, game::{SoundEffect, get_font}, render::{Renderable, Rectangle, Text, Circle, Color, Border}};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
@@ -13,27 +13,31 @@ const BAR_COLOR:[f32;4] = [0.0,0.0,0.0,1.0]; // timing bar color
 const BAR_SPACING:f64 = 4.0; // how many beats between timing bars
 const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
 const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
+const OFFSET_DRAW_TIME:i64 = 2_000;
 
 #[derive(Clone)]
 pub struct Beatmap {
-    pub song_start: SystemTime,
     pub score: Score,
 
     pub hash: String,
     pub started: bool,
     pub completed: bool,
     
+    // lists
     pub notes: Vec<Arc<Mutex<dyn HitObject>>>,
     timing_bars: Vec<Arc<Mutex<TimingBar>>>,
+    hit_timings: Vec<(i64, i64)>, // map time, diff (note - hit) //TODO: figure out how to draw this efficiently
 
     note_index: usize,
     pub timing_points: Vec<TimingPoint>,
     timing_point_index: usize,
 
     pub song: SoundEffect,
-    pub lead_in_time: f32,
+    pub song_start: SystemTime,
+    lead_in_time: f32,
     end_time: f64,
 
+    // offset things
     offset: i64,
     offset_changed_time: i64,
 
@@ -55,6 +59,7 @@ impl Beatmap {
             notes: Vec::new(),
             timing_points: Vec::new(),
             timing_bars: Vec::new(),
+            hit_timings: Vec::new(),
             song_start: SystemTime::now(),
             score: Score::new(md5),
             metadata: BeatmapMeta::new(),
@@ -281,6 +286,7 @@ impl Beatmap {
             }
         }
 
+        // does this need to be in its own scope? probably not but whatever
         {
             let mut locked = beatmap.lock().unwrap();
             let start_time = locked.clone().notes.first().unwrap().lock().unwrap().time() as f64;
@@ -305,7 +311,7 @@ impl Beatmap {
     }
     pub fn increment_offset(&mut self, delta:i64) {
         self.offset += delta;
-        self.offset_changed_time = self.song.duration() as i64;
+        self.offset_changed_time = self.time();
         println!("offset is now {}", self.offset);
     }
     pub fn next_note(&mut self) {
@@ -347,9 +353,6 @@ impl Beatmap {
         let note = self.notes[self.note_index].clone();
         let mut note = note.lock().unwrap();
         let note_time = note.time() as f64;
-
-
-
 
         match note.get_points(hit_type, time) {
             ScoreHit::None => {
@@ -442,6 +445,7 @@ impl Beatmap {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
         // load this here, it a bit more performant
         let font = get_font("main");
+        let time = self.time();
 
         // draw the playfield
         let playfield = Rectangle::new(
@@ -501,6 +505,21 @@ impl Beatmap {
         ));
         renderables.push(Box::new(combo_text));
 
+        // draw offset
+        if self.offset_changed_time > 0 && time - self.offset_changed_time < OFFSET_DRAW_TIME {
+            let mut offset_text = Text::new(
+                Color::BLACK,
+                -20.0,
+                Vector2::new(0.0,0.0), // centered anyways
+                32,
+                format!("Offset: {}", self.offset),
+                font.clone()
+            );
+            offset_text.center_text(Rectangle::bounds_only(Vector2::new(0.0,0.0), Vector2::new(WINDOW_SIZE.x as f64, HIT_POSITION.y)));
+            renderables.push(Box::new(offset_text));
+        }
+
+        // duration bar
         // duration remaining
         let duration_border = Rectangle::new(
             Color::TRANSPARENT_WHITE,
@@ -521,15 +540,14 @@ impl Beatmap {
         renderables.push(Box::new(duration_fill));
 
 
+        // draw hit timings bar
+
+        // draw hit timings
+
         // draw notes
-        for note in self.notes.iter_mut() {
-            renderables.extend(note.lock().unwrap().draw(args));
-        }
-        
+        for note in self.notes.iter_mut() {renderables.extend(note.lock().unwrap().draw(args));}
         // draw timing lines
-        for tb in self.timing_bars.iter_mut() {
-            renderables.extend(tb.lock().unwrap().draw(args));
-        }
+        for tb in self.timing_bars.iter_mut() {renderables.extend(tb.lock().unwrap().draw(args))}
 
         renderables
     }
@@ -756,3 +774,4 @@ enum BeatmapSection {
     Colors,
     HitObjects,
 }
+
