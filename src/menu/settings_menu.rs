@@ -28,6 +28,7 @@ impl SettingsMenu {
         let mut right_don_btn = KeyButton::new(p, KEYBUTTON_SIZE, settings.right_don, "Right Don");
         let mut right_kat_btn = KeyButton::new(p, KEYBUTTON_SIZE, settings.right_kat, "Right Kat");
         let mut static_sv = Checkbox::new(p, Vector2::new(200.0, BUTTON_SIZE.y), "No Sv Changes", false);
+        let mut sv_mult = Slider::new(p, Vector2::new(400.0, BUTTON_SIZE.y), "Slider Multiplier", settings.sv_multiplier as f64, Some(0.1..2.0), None);
 
         // add tags
         username_input.set_tag("username");
@@ -38,6 +39,7 @@ impl SettingsMenu {
         right_don_btn.set_tag("right_don");
         right_kat_btn.set_tag("right_kat");
         static_sv.set_tag("static_sv");
+        sv_mult.set_tag("sv_mult");
 
         // add to scroll area
         scroll_area.add_item(Box::new(username_input));
@@ -47,6 +49,7 @@ impl SettingsMenu {
         scroll_area.add_item(Box::new(right_don_btn));
         scroll_area.add_item(Box::new(right_kat_btn));
         scroll_area.add_item(Box::new(static_sv));
+        // scroll_area.add_item(Box::new(sv_mult)); // broken
 
         scroll_area.add_item(Box::new(done_button));
 
@@ -90,7 +93,9 @@ impl SettingsMenu {
             // println!("rk => {:?}", key);
             settings.static_sv = val.clone();
         }
-
+        // if let Some(val) = self.scroll_area.get_tagged("sv_mult".to_owned()).first().unwrap().get_value().downcast_ref::<f64>() {
+        //     settings.sv_multiplier = val.clone() as f32;
+        // }
         settings.save();
 
         let mut game = game.lock().unwrap();
