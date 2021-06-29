@@ -6,7 +6,7 @@ rust-latest:
   image: rust:latest
   script:
     - apt update
-    - apt install libasound2-dev cmake xorg-dev -y
+    - apt install libasound2-dev cmake xorg-dev libxcb-shape0-dev libxcb-xfixes0-dev -y
     - cargo build --verbose
     - cargo test --verbose
 
