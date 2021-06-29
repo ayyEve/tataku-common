@@ -8,9 +8,11 @@ use crate::game::Settings;
 
 type AudioData = Cursor<Vec<u8>>;
 
-const SOUND_LIST:[&'static str; 2] = [
+const SOUND_LIST:[&'static str; 4] = [
     "audio/kat.wav",
-    "audio/don.wav"
+    "audio/don.wav",
+    "audio/bigdon.wav",
+    "audio/bigkat.wav"
 ];
 
 lazy_static::lazy_static! {
@@ -46,6 +48,10 @@ impl Audio {
 
         // check if we don't have the audio pre-loaded
         if !SOUNDS.contains_key(name) {
+            if !Path::new(name).exists() {
+                println!("[Audio] File not found! {}. No audio will be played", name);
+                return Sink::new_idle().0;
+            }
 
             // load from file manually
             let mut data = Vec::new();

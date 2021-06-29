@@ -13,7 +13,7 @@ use crate::{SONGS_DIR, menu::*};
 use crate::gameplay::{Beatmap, HitType};
 use crate::databases::{save_all_scores, save_score};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE};
-use crate::game::{InputManager, Audio, Settings, helpers::Discord, get_font};
+use crate::game::{InputManager, Settings, helpers::Discord, get_font};
 use crate::render::{Circle, HalfCircle, Rectangle, Renderable, Text, Color, Border};
 
 /// how long should the volume thing be displayed when changed
@@ -270,7 +270,6 @@ impl<'shape> Game<'shape> {
                 
                 if keys.contains(&settings.left_kat) {
                     beatmap.hit(HitType::Kat);
-                    Audio::play("kat");
 
                     let mut hit = HalfCircle::new(
                         Color::BLUE,
@@ -284,7 +283,6 @@ impl<'shape> Game<'shape> {
                 }
                 if keys.contains(&settings.left_don) {
                     beatmap.hit(HitType::Don);
-                    Audio::play("don");
 
                     let mut hit = HalfCircle::new(
                         Color::RED,
@@ -298,7 +296,6 @@ impl<'shape> Game<'shape> {
                 }
                 if keys.contains(&settings.right_don) {
                     beatmap.hit(HitType::Don);
-                    Audio::play("don");
 
                     let mut hit = HalfCircle::new(
                         Color::RED,
@@ -312,7 +309,6 @@ impl<'shape> Game<'shape> {
                 }
                 if keys.contains(&settings.right_kat) {
                     beatmap.hit(HitType::Kat);
-                    Audio::play("kat");
 
                     let mut hit = HalfCircle::new(
                         Color::BLUE,

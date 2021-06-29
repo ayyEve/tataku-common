@@ -17,6 +17,8 @@ pub trait HitObject {
     fn is_kat(&self) -> bool {false}// needed for diff calc :/
     fn set_sv(&mut self, sv:f64);
     fn set_od(&mut self, _od:f64) {}
+    /// does this hit object play a finisher sound when hit?
+    fn finisher_sound(&self) -> bool {false}
 
     /// time in ms of this hit object
     fn time(&self) -> u64;
@@ -80,6 +82,7 @@ impl HitObject for Note {
     fn set_od(&mut self, od:f64) {self.od = od}
     fn note_type(&self) -> NoteType {NoteType::Note}
     fn is_kat(&self) -> bool {self.hit_type == HitType::Kat}
+    fn finisher_sound(&self) -> bool {self.finisher}
     fn time(&self) -> u64 {self.time}
     fn end_time(&self) -> u64 {self.time + 100}
     fn causes_miss(&self) -> bool {true}
@@ -164,7 +167,6 @@ impl HitObject for Note {
         self.pos.x = 0.0;
         self.hit = false;
     }
-
 }
 
 // slider

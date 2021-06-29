@@ -3,7 +3,7 @@ use std::{path::Path, sync::{Arc, Mutex}, time::SystemTime};
 use cgmath::Vector2;
 use piston::RenderArgs;
 
-use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS, game::Settings};
+use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS, game::{Audio, Settings}};
 use super::{*, diff_calc::DifficultyCalculator, beatmap_structs::*};
 use crate::{NOTE_RADIUS, enums::Playmode, game::{SoundEffect, get_font}, render::{Renderable, Rectangle, Text, Circle, Color, Border}};
 
@@ -313,8 +313,13 @@ impl Beatmap {
     }
 
     pub fn hit(&mut self, hit_type:HitType) {
+        let mut sound = match hit_type {HitType::Don => "don",HitType::Kat => "kat"};
+
         // if theres no more notes to hit, return
-        if self.note_index >= self.notes.len() {return}
+        if self.note_index >= self.notes.len() {
+            Audio::play(sound);
+            return;
+        }
         let time = self.time() as f64;
 
         // check for finisher 2nd hit. 
@@ -322,7 +327,7 @@ impl Beatmap {
             let mut last_note = self.notes[self.note_index-1].lock().unwrap();
 
             match last_note.check_finisher(hit_type, time) {
-                ScoreHit::Miss => return,
+                ScoreHit::Miss => {return},
                 ScoreHit::X100 => {
                     self.score.add_pts(100, true);
                     return;
@@ -343,25 +348,47 @@ impl Beatmap {
         let mut note = note.lock().unwrap();
         let note_time = note.time() as f64;
 
+
+
+
         match note.get_points(hit_type, time) {
-            ScoreHit::None => {},
+            ScoreHit::None => {
+                // play sound
+                Audio::play(sound);
+            },
             ScoreHit::Miss => {
                 self.score.hit_miss(time as u64, note_time as u64);
                 self.next_note();
+                Audio::play(sound);
                 //TODO: play miss sound
+                //TODO: indicate this was a miss
             },
             ScoreHit::X100 => {
                 self.score.hit100(time as u64, note_time as u64);
+
+                // only play finisher sounds if the note is both a finisher and was hit
+                // could maybe also just change this to HitObject.get_sound() -> &str
+                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon",HitType::Kat => "bigkat"};}
+                Audio::play(sound);
+                //TODO: indicate this was a bad hit
+
+
                 self.next_note();
-                //TODO: draw something to indicate this was a bad hit
             },
             ScoreHit::X300 => {
                 self.score.hit300(time as u64, note_time as u64);
+                
+                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon",HitType::Kat => "bigkat"};}
+                Audio::play(sound);
+
+
                 self.next_note();
             },
             ScoreHit::Other(score, consume) => { // used by sliders and spinners
                 self.score.score += score as u64;
                 if consume {self.next_note();}
+
+                Audio::play(sound);
             }
         }
     }
