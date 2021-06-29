@@ -569,6 +569,8 @@ impl Beatmap {
             self.timing_bars.remove(0);
             println!("created {} timing bars", self.timing_bars.len());
         }
+    
+        self.score = Score::new(self.hash.clone());
     }
 
     pub fn beat_length_at(&self, time:f64, allow_multiplier:bool) -> f64 {
