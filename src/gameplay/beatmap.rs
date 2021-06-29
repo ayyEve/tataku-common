@@ -308,6 +308,9 @@ impl Beatmap {
         self.offset_changed_time = self.song.duration() as i64;
         println!("offset is now {}", self.offset);
     }
+    pub fn next_note(&mut self) {
+        self.note_index += 1;
+    }
 
     pub fn hit(&mut self, hit_type:HitType) {
         // if theres no more notes to hit, return
@@ -361,10 +364,6 @@ impl Beatmap {
                 if consume {self.next_note();}
             }
         }
-    }
-
-    pub fn next_note(&mut self) {
-        self.note_index += 1;
     }
 
     pub fn update(&mut self) {
