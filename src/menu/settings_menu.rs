@@ -30,14 +30,14 @@ impl SettingsMenu {
         let mut static_sv = Checkbox::new(p, Vector2::new(200.0, BUTTON_SIZE.y), "No Sv Changes", false);
 
         // add tags
-        username_input.set_tag("username".to_owned());
-        password_input.set_tag("password".to_owned());
-        done_button.set_tag("done".to_owned());
-        left_kat_btn.set_tag("left_kat".to_owned());
-        left_don_btn.set_tag("left_don".to_owned());
-        right_don_btn.set_tag("right_don".to_owned());
-        right_kat_btn.set_tag("right_kat".to_owned());
-        static_sv.set_tag("static_sv".to_owned());
+        username_input.set_tag("username");
+        password_input.set_tag("password");
+        done_button.set_tag("done");
+        left_kat_btn.set_tag("left_kat");
+        left_don_btn.set_tag("left_don");
+        right_don_btn.set_tag("right_don");
+        right_kat_btn.set_tag("right_kat");
+        static_sv.set_tag("static_sv");
 
         // add to scroll area
         scroll_area.add_item(Box::new(username_input));

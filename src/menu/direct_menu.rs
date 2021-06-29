@@ -319,7 +319,7 @@ impl ScrollableItem for DirectItem {
     fn set_pos(&mut self, pos:Vector2<f64>) {self.pos = pos;}
     fn get_pos(&self) -> Vector2<f64> {self.pos}
     fn get_tag(&self) -> String {self.item.filename.clone()}
-    fn set_tag(&mut self, _tag:String) {}
+    fn set_tag(&mut self, _tag:&str) {}
 
     fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2<f64>) -> Vec<Box<dyn Renderable>> {
         let mut list:Vec<Box<dyn Renderable>> = Vec::new();

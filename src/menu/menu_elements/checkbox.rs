@@ -33,7 +33,7 @@ impl ScrollableItem for Checkbox {
     fn get_pos(&self) -> Vector2<f64> {self.pos}
     fn set_pos(&mut self, pos:Vector2<f64>) {self.pos = pos}
     fn get_tag(&self) -> String {self.tag.clone()}
-    fn set_tag(&mut self, tag:String) {self.tag = tag}
+    fn set_tag(&mut self, tag:&str) {self.tag = tag.to_owned()}
     fn get_value(&self) -> Box<dyn std::any::Any> {Box::new(self.checked)}
 
     fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2<f64>) -> Vec<Box<dyn Renderable>> {

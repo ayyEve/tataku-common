@@ -213,7 +213,7 @@ impl Menu for BeatmapSelectMenu {
                 // reset pending_play var in every item
                 for i in self.beatmap_scroll.items.as_mut_slice() {
                     // dirty hack lmao
-                    i.set_tag(String::new());
+                    i.set_tag("");
                 }
                 let mut map = clicked.lock().unwrap();
                 map.song.stop();
@@ -328,7 +328,7 @@ impl ScrollableItem for BeatmapsetItem {
         }
     }
     fn get_tag(&self) -> String {self.tag.clone()}
-    fn set_tag(&mut self, _tag:String) {self.pending_play = false;} // bit of a jank strat: when this is called, reset the play_pending property
+    fn set_tag(&mut self, _tag:&str) {self.pending_play = false;} // bit of a jank strat: when this is called, reset the play_pending property
     fn get_pos(&self) -> Vector2<f64> {self.pos}
     fn set_pos(&mut self, pos:Vector2<f64>) {self.pos = pos}
     fn get_value(&self) -> Box<dyn std::any::Any> {
@@ -484,7 +484,7 @@ impl LeaderboardItem {
 impl ScrollableItem for LeaderboardItem {
     fn size(&self) -> Vector2<f64> {LEADERBOARD_ITEM_SIZE}
     fn get_tag(&self) -> String {self.tag.clone()}
-    fn set_tag(&mut self, tag:String) {self.tag = tag}
+    fn set_tag(&mut self, tag:&str) {self.tag = tag.to_owned()}
     fn get_pos(&self) -> Vector2<f64> {self.pos}
     fn set_pos(&mut self, pos:Vector2<f64>) {self.pos = pos}
 

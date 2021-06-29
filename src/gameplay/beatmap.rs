@@ -95,7 +95,7 @@ impl Beatmap {
                         // sort timing points before moving onto hitobjects
                         let mut b2 = beatmap.lock().unwrap();
                         b2.timing_points.sort_by(|a, b| a.time.cmp(&b.time));
-                        
+
                         current_area = BeatmapSection::HitObjects; 
                     }
                     continue;
@@ -284,7 +284,7 @@ impl Beatmap {
         }
 
         
-        let md5 = format!("{:x}", md5::compute(body.clone()).to_owned());
+        let md5 = format!("{:x}", md5::compute(body).to_owned());
         // does this need to be in its own scope? probably not but whatever
         {
             let mut locked = beatmap.lock().unwrap();
@@ -611,11 +611,11 @@ impl Beatmap {
                 self.timing_bars.push(Arc::new(Mutex::new(TimingBar::new(time as u64, sv))));
 
                 // why isnt this accounting for bpm changes?
-                if time >= end_time {break}
                 time += self.beat_length_at(time, false) * BAR_SPACING;
+                if time >= end_time {break}
             }
 
-            self.timing_bars.remove(0);
+            self.timing_bars.remove(0); // not sure if this is still necessary
             println!("created {} timing bars", self.timing_bars.len());
         }
     

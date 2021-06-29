@@ -166,7 +166,7 @@ pub trait ScrollableItem {
     fn update(&mut self) {}
     fn size(&self) -> Vector2<f64>;
     fn get_tag(&self) -> String;
-    fn set_tag(&mut self, tag:String);
+    fn set_tag(&mut self, tag:&str);
     fn get_pos(&self) -> Vector2<f64>;
     fn set_pos(&mut self, pos:Vector2<f64>);
     fn hover(&self, p:Vector2<f64>) -> bool {
