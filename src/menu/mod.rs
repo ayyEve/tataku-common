@@ -1,4 +1,4 @@
-
+mod dialog;
 mod beatmap_select;
 mod menu;
 mod score_menu;

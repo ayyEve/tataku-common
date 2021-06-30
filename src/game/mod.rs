@@ -4,6 +4,7 @@ mod settings;
 mod input_manager;
 mod helpers;
 mod fonts;
+mod online;
 
 pub use audio::*;
 pub use game::*;
