@@ -7,6 +7,8 @@ use crate::render::Renderable;
 use crate::game::{Game, KeyModifiers};
 
 pub trait Menu {
+    /// helpful for determining what menu this is
+    fn get_name(&self) -> &str {"none"}
     fn update(&mut self, _game:Arc<Mutex<&mut Game>>) {}
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>>;
 

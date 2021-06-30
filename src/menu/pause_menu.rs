@@ -35,6 +35,7 @@ impl PauseMenu {
     }
 }
 impl Menu for PauseMenu {
+    fn get_name(&self) -> &str {"pause"}
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let pos_offset = Vector2::new(0.0, 0.0);

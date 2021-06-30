@@ -432,32 +432,39 @@ impl<'shape> Game<'shape> {
                 // if the mode is being changed, clear all shapes, even ones with a lifetime
                 unlocked.clear_render_queue(true);
 
+                let mut do_transition = true;
+
                 match &unlocked.current_mode {
-                    GameMode::None => {
-                        // old mode was none, transition to new mode
-                        let mode = unlocked.queued_mode.clone();
-                        unlocked.current_mode = mode.clone();
-                        unlocked.queued_mode = GameMode::None;
-
-                        if let GameMode::InMenu(menu) = &unlocked.current_mode {
-                            menu.lock().unwrap().on_change();
-                        }
-
-                        if unlocked.discord.is_some() {
-                            let discord = unlocked.discord.as_mut().unwrap();
-                            discord.change_status(mode.clone());
-                        }
-                    },
-
-                    _ => {
-                        let qm = &unlocked.queued_mode;
-                        unlocked.transition = Some(qm.clone());
-                        unlocked.transition_timer = elapsed;
-                        unlocked.transition_last = Some(unlocked.current_mode.clone());
-                        unlocked.queued_mode = GameMode::None;
-                        unlocked.current_mode = GameMode::None;
-                    }
+                    GameMode::None => do_transition = false,
+                    GameMode::InMenu(menu) if menu.lock().unwrap().get_name() == "pause" => do_transition = false,
+                    _ => {}
                 }
+
+                if do_transition {
+                    // do a transition
+                    let qm = &unlocked.queued_mode;
+                    unlocked.transition = Some(qm.clone());
+                    unlocked.transition_timer = elapsed;
+                    unlocked.transition_last = Some(unlocked.current_mode.clone());
+                    unlocked.queued_mode = GameMode::None;
+                    unlocked.current_mode = GameMode::None;
+                } else {
+                    // old mode was none, or was pause menu, transition to new mode
+                    let mode = unlocked.queued_mode.clone();
+                    unlocked.current_mode = mode.clone();
+                    unlocked.queued_mode = GameMode::None;
+
+                    if let GameMode::InMenu(menu) = &unlocked.current_mode {
+                        menu.lock().unwrap().on_change();
+                    }
+
+                    if unlocked.discord.is_some() {
+                        let discord = unlocked.discord.as_mut().unwrap();
+                        discord.change_status(mode.clone());
+                    }
+
+                }
+
             }
         }
     }
