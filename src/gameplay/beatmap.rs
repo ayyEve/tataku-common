@@ -8,8 +8,8 @@ use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS, WINDOW_SIZE, game::
 use crate::{NOTE_RADIUS, enums::Playmode, game::{SoundEffect, get_font}, render::{Renderable, Rectangle, Text, Circle, Color, Border}};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
-const BAR_WIDTH:f64 = 4.0; // how wide is a timing bar
 pub const BAR_COLOR:[f32;4] = [0.0,0.0,0.0,1.0]; // timing bar color
+const BAR_WIDTH:f64 = 4.0; // how wide is a timing bar
 const BAR_SPACING:f64 = 4.0; // how many beats between timing bars
 const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
 const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
@@ -296,7 +296,6 @@ impl Beatmap {
             }
         }
 
-        
         let md5 = format!("{:x}", md5::compute(body).to_owned());
         // does this need to be in its own scope? probably not but whatever
         {

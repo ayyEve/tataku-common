@@ -18,8 +18,9 @@ use crate::render::{Circle, HalfCircle, Rectangle, Renderable, Text, Color, Bord
 
 /// how long should the volume thing be displayed when changed
 const VOLUME_CHANGE_DISPLAY_TIME:u64 = 2000;
+/// background color
 const GFX_CLEAR_COLOR:Color = Color::WHITE;
-
+/// how long do transitions between gamemodes last?
 const TRANSITION_TIME:u64 = 500;
 
 pub struct Game<'shape> {
