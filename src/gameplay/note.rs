@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use cgmath::Vector2;
 use piston::RenderArgs;
 
-use crate::{HIT_POSITION, NOTE_RADIUS, gameplay::{Beatmap, ScoreHit}, render::{Circle, Color, HalfCircle, Rectangle, Renderable, Border}};
+use crate::{HIT_POSITION, NOTE_RADIUS, gameplay::{Beatmap, ScoreHit, BAR_COLOR}, render::{Circle, Color, HalfCircle, Rectangle, Renderable, Border}};
 
 const SLIDER_DOT_RADIUS:f64 = 8.0;
 const SPINNER_RADIUS: f64 = 200.0;
@@ -50,6 +50,11 @@ pub struct Note {
     pub speed:f64,
 
     od:f64,
+
+
+    hitwindow_50:f64,
+    hitwindow_100:f64,
+    hitwindow_300:f64
 }
 impl Note {
     pub fn new(beatmap:Arc<Mutex<Beatmap>>, time:u64, hit_type:HitType, finisher:bool, speed:f64) -> Note {
@@ -62,7 +67,12 @@ impl Note {
             speed,
             hit: false,
             pos: Vector2::new(0.0,0.0),
-            od: 1.0
+
+            // set later
+            od: 1.0,
+            hitwindow_50: 0.0,
+            hitwindow_100: 0.0,
+            hitwindow_300: 0.0
         }
     }
 
@@ -79,7 +89,13 @@ impl Note {
 }
 impl HitObject for Note {
     fn set_sv(&mut self, sv:f64) {self.speed = sv}
-    fn set_od(&mut self, od:f64) {self.od = od}
+    fn set_od(&mut self, od:f64) {
+        self.od = od;
+
+        self.hitwindow_50 = map_difficulty_range(od, 135.0, 95.0, 70.0);
+        self.hitwindow_100 = map_difficulty_range(od, 120.0, 80.0, 50.0);
+        self.hitwindow_300 = map_difficulty_range(od, 50.0, 35.0, 20.0);
+    }
     fn note_type(&self) -> NoteType {NoteType::Note}
     fn is_kat(&self) -> bool {self.hit_type == HitType::Kat}
     fn finisher_sound(&self) -> bool {self.finisher}
@@ -87,15 +103,10 @@ impl HitObject for Note {
     fn end_time(&self) -> u64 {self.time + 100}
     fn causes_miss(&self) -> bool {true}
     fn get_points(&mut self, hit_type:HitType, time:f64) -> ScoreHit {
-        let diff = (self.time as f64 - time).abs();
+        let diff = (time - self.time as f64).abs();
+        // println!("hit: {},{},{} : {}, {}", self.hitwindow_300, self.hitwindow_100, self.hitwindow_50, diff, self.od);
 
-        let hitwindow_300 = (49.0 - self.od*3.0 + 0.5) * 2.0;// 49 - (OD x 3) +0,5
-        let hitwindow_100 = (if self.od <= 5.0 {119.0 - self.od * 6.0 + 0.5} /*119 - (OD x 6) +0,5*/ else {79.0 - ((self.od - 5.0) * 8.0) + 0.5}) * 2.0; // 79 - ((OD - 5) x 8) + 0,5
-
-        let hitwindow_miss = hitwindow_100 * 1.1;
-        // println!("300: {}, 100:{}, miss:{}, diff: {}", hitwindow_300, hitwindow_100, hitwindow_miss, diff);
-
-        if diff < hitwindow_300 {
+        if diff < self.hitwindow_300 {
             if hit_type != self.hit_type {
                 ScoreHit::Miss
             } else {
@@ -103,7 +114,7 @@ impl HitObject for Note {
                 self.hit_time = time.max(0.0) as u64;
                 ScoreHit::X300
             }
-        } else if diff < hitwindow_100 {
+        } else if diff < self.hitwindow_100 {
             if hit_type != self.hit_type {
                 ScoreHit::Miss
             } else {
@@ -111,26 +122,15 @@ impl HitObject for Note {
                 self.hit_time = time.max(0.0) as u64;
                 ScoreHit::X100
             }
-        } else if diff < hitwindow_miss { // too early, miss
+        } else if diff < self.hitwindow_50 { // too early, miss
             ScoreHit::Miss
         } else { // way too early, ignore
             ScoreHit::None
         }
-
-        // // TODO: use proper values lol
-        // if (note_time - time).abs() > 100.0 {return ScoreHit::None;} // too soon
-        // if hit_type != self.hit_type || (note_time - time).abs() > 70.0 {return ScoreHit::Miss;}
-
-        // if (note_time - time).abs() > 30.0 { // x100
-        //     return ScoreHit::X100;
-        // } else { // x300
-        //     return ScoreHit::X300;
-        // }
     }
 
     fn check_finisher(&mut self, hit_type:HitType, time:f64) -> ScoreHit {
         if self.finisher && hit_type == self.hit_type && (time - self.hit_time as f64) < FINISHER_LENIENCY as f64 {
-            println!("finisher hit");
             ScoreHit::X300
         } else {
             ScoreHit::None
@@ -266,8 +266,8 @@ impl HitObject for Slider {
 
         // draw hit dots
         for dot in self.hit_dots.as_slice() {
-            if dot.done {continue;}
-            renderables.push(Box::new(dot.draw()));
+            if dot.done {continue}
+            renderables.extend(dot.draw());
         }
         
         renderables
@@ -303,13 +303,22 @@ impl SliderDot {
             self.done = true;
         }
     }
-    pub fn draw(&self) -> Circle {
-        Circle::new(
-            Color::GREEN,
-            -100.0,
-            self.pos,
-            SLIDER_DOT_RADIUS
-        )
+    pub fn draw(&self) -> [Box<dyn Renderable>; 2] {
+        [
+            Box::new(Circle::new(
+                Color::GREEN,
+                -100.0,
+                self.pos,
+                SLIDER_DOT_RADIUS
+            )),
+            // "hole punch"
+            Box::new(Circle::new(
+                BAR_COLOR.into(),
+                0.0,
+                Vector2::new(self.pos.x, HIT_POSITION.y),
+                SLIDER_DOT_RADIUS
+            )),
+        ]
     }
 }
 
@@ -444,4 +453,16 @@ pub enum NoteType {
     Note,
     Slider,
     Spinner
+}
+
+
+// stolen from peppy, /shrug
+pub fn map_difficulty_range(diff:f64, min:f64, mid:f64, max:f64) -> f64 {
+    if diff > 5.0 {
+        mid + (max - mid) * (diff - 5.0) / 5.0
+    } else if diff < 5.0 {
+        mid - (mid - min) * (5.0 - diff) / 5.0
+    } else {
+        mid
+    }
 }

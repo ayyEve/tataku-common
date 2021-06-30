@@ -1,7 +1,6 @@
 use std::{path::Path, sync::{Arc, Mutex}, time::SystemTime};
 
 use cgmath::Vector2;
-use graphics::modular_index::next;
 use piston::RenderArgs;
 
 use super::{*, diff_calc::DifficultyCalculator, beatmap_structs::*};
@@ -10,11 +9,13 @@ use crate::{NOTE_RADIUS, enums::Playmode, game::{SoundEffect, get_font}, render:
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
 const BAR_WIDTH:f64 = 4.0; // how wide is a timing bar
-const BAR_COLOR:[f32;4] = [0.0,0.0,0.0,1.0]; // timing bar color
+pub const BAR_COLOR:[f32;4] = [0.0,0.0,0.0,1.0]; // timing bar color
 const BAR_SPACING:f64 = 4.0; // how many beats between timing bars
 const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
 const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
 const OFFSET_DRAW_TIME:i64 = 2_000;
+const HIT_TIMING_DURATION:f64 = 1_000.0; // how long should a hit timing line last
+const HIT_TIMING_FADE:f64 = 300.0; // how long to fade out for
 
 #[derive(Clone)]
 pub struct Beatmap {
@@ -27,7 +28,7 @@ pub struct Beatmap {
     // lists
     pub notes: Vec<Arc<Mutex<dyn HitObject>>>,
     timing_bars: Vec<Arc<Mutex<TimingBar>>>,
-    hit_timings: Vec<(i64, i64)>, // map time, diff (note - hit) //TODO: figure out how to draw this efficiently
+    
 
     note_index: usize,
     pub timing_points: Vec<TimingPoint>,
@@ -43,7 +44,14 @@ pub struct Beatmap {
     offset_changed_time: i64,
 
     // meta info
-    pub metadata: BeatmapMeta
+    pub metadata: BeatmapMeta,
+
+    // hit timing bar stuff
+    /// map time, diff (note - hit) //TODO: figure out how to draw this efficiently
+    hit_timings: Vec<(i64, i64)>,
+    hitwindow_300: f64,
+    hitwindow_100: f64,
+    hitwindow_miss: f64
 }
 impl Beatmap {
     pub fn load(dir:String) -> Arc<Mutex<Beatmap>> {
@@ -56,7 +64,6 @@ impl Beatmap {
             notes: Vec::new(),
             timing_points: Vec::new(),
             timing_bars: Vec::new(),
-            hit_timings: Vec::new(),
             song_start: SystemTime::now(),
             score: Score::new(String::new()),
             metadata: BeatmapMeta::new(),
@@ -69,7 +76,12 @@ impl Beatmap {
             lead_in_time: LEAD_IN_TIME,
 
             offset: 0,
-            offset_changed_time: 0
+            offset_changed_time: 0,
+
+            hit_timings: Vec::new(),
+            hitwindow_100: 0.0,
+            hitwindow_300: 0.0,
+            hitwindow_miss: 0.0,
         }));
 
         let parent_dir = Path::new(&dir).parent().unwrap();
@@ -364,36 +376,37 @@ impl Beatmap {
             },
             ScoreHit::Miss => {
                 self.score.hit_miss(time as u64, note_time as u64);
+                self.hit_timings.push((time as i64, (time - note_time) as i64));
                 self.next_note();
                 Audio::play(sound);
+
                 //TODO: play miss sound
                 //TODO: indicate this was a miss
             },
             ScoreHit::X100 => {
                 self.score.hit100(time as u64, note_time as u64);
+                self.hit_timings.push((time as i64, (time - note_time) as i64));
 
                 // only play finisher sounds if the note is both a finisher and was hit
                 // could maybe also just change this to HitObject.get_sound() -> &str
-                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon",HitType::Kat => "bigkat"};}
+                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"};}
                 Audio::play(sound);
                 //TODO: indicate this was a bad hit
-
 
                 self.next_note();
             },
             ScoreHit::X300 => {
                 self.score.hit300(time as u64, note_time as u64);
+                self.hit_timings.push((time as i64, (time - note_time) as i64));
                 
                 if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon",HitType::Kat => "bigkat"};}
                 Audio::play(sound);
-
 
                 self.next_note();
             },
             ScoreHit::Other(score, consume) => { // used by sliders and spinners
                 self.score.score += score as u64;
                 if consume {self.next_note();}
-
                 Audio::play(sound);
             }
         }
@@ -417,6 +430,11 @@ impl Beatmap {
         for note in self.notes.iter_mut() {
             note.lock().unwrap().update(time);
         }
+
+
+        self.hit_timings.retain(|(hit_time, _diff)| {
+            time - hit_time < HIT_TIMING_DURATION as i64
+        });
 
         // if theres no more notes to hit, show score screen
         if self.note_index >= self.notes.len() {
@@ -464,35 +482,32 @@ impl Beatmap {
         renderables.push(Box::new(playfield));
 
         // draw the hit area
-        let hit_area = Circle::new(
+        renderables.push(Box::new(Circle::new(
             Color::BLACK,
             f64::MAX,
             HIT_POSITION,
             HIT_AREA_RADIUS + 2.0
-        );
-        renderables.push(Box::new(hit_area));
+        )));
 
         // score text
-        let score_text = Text::new(
+        renderables.push(Box::new(Text::new(
             Color::BLACK,
             0.0,
             Vector2::new(args.window_size[0] - 200.0, 40.0),
             30,
             crate::format(self.score.score),
             font.clone()
-        );
-        renderables.push(Box::new(score_text));
+        )));
 
         // acc text
-        let acc_text = Text::new(
+        renderables.push(Box::new(Text::new(
             Color::BLACK,
             0.0,
             Vector2::new(args.window_size[0] - 200.0, 70.0),
             30,
             format!("{:.2}%", self.score.acc()*100.0),
             font.clone()
-        );
-        renderables.push(Box::new(acc_text));
+        )));
 
         // combo text
         let mut combo_text = Text::new(
@@ -525,28 +540,87 @@ impl Beatmap {
 
         // duration bar
         // duration remaining
-        let duration_border = Rectangle::new(
+        renderables.push(Box::new(Rectangle::new(
             Color::TRANSPARENT_WHITE,
             1.0,
             Vector2::new(0.0, args.window_size[1] - (DURATION_HEIGHT + 3.0)),
             Vector2::new(args.window_size[0], DURATION_HEIGHT),
             Some(Border::new(Color::BLACK, 1.8))
-        );
-        renderables.push(Box::new(duration_border));
+        )));
         // fill
-        let duration_fill = Rectangle::new(
+        renderables.push(Box::new(Rectangle::new(
             [0.4,0.4,0.4,1.0].into(),
             2.0,
             Vector2::new(0.0, args.window_size[1] - (DURATION_HEIGHT + 3.0)),
             Vector2::new(args.window_size[0] * (self.time() as f64/self.end_time), DURATION_HEIGHT),
             None
-        );
-        renderables.push(Box::new(duration_fill));
+        )));
 
 
         // draw hit timings bar
+        const HIT_TIMING_BAR_SIZE:Vector2<f64> = Vector2::new(WINDOW_SIZE.x as f64 / 3.0, 30.0);
+        const HIT_TIMING_BAR_POS:Vector2<f64> = Vector2::new(WINDOW_SIZE.x as f64 / 2.0 - HIT_TIMING_BAR_SIZE.x / 2.0, WINDOW_SIZE.y as f64 - (DURATION_HEIGHT + 3.0 + HIT_TIMING_BAR_SIZE.y + 5.0));
+        // renderables.push(Box::new(Rectangle::new(
+        //     Color::BLACK,
+        //     20.0,
+        //     HIT_TIMING_BAR_POS,
+        //     HIT_TIMING_BAR_SIZE,
+        //     None // for now
+        // )));
+        // draw hit timing colors below the bar
+        let width_300 = self.hitwindow_300 / self.hitwindow_miss * HIT_TIMING_BAR_SIZE.x;
+        let width_100 = self.hitwindow_100 / self.hitwindow_miss * HIT_TIMING_BAR_SIZE.x;
+        let width_miss = self.hitwindow_miss / self.hitwindow_miss * HIT_TIMING_BAR_SIZE.x;
+
+        renderables.push(Box::new(Rectangle::new(
+            [0.1960, 0.7372, 0.9058, 1.0].into(),
+            17.0,
+            Vector2::new(WINDOW_SIZE.x as f64 / 2.0 - width_300/2.0, HIT_TIMING_BAR_POS.y),
+            Vector2::new(width_300, HIT_TIMING_BAR_SIZE.y),
+            None // for now
+        )));
+        renderables.push(Box::new(Rectangle::new(
+            [0.3411, 0.8901, 0.07450, 1.0].into(),
+            18.0,
+            Vector2::new(WINDOW_SIZE.x as f64 / 2.0 - width_100/2.0, HIT_TIMING_BAR_POS.y),
+            Vector2::new(width_100, HIT_TIMING_BAR_SIZE.y),
+            None // for now
+        )));
+        renderables.push(Box::new(Rectangle::new(
+            [0.8549, 0.6823, 0.2745, 1.0].into(),
+            19.0,
+            Vector2::new(WINDOW_SIZE.x as f64 / 2.0 - width_miss/2.0, HIT_TIMING_BAR_POS.y),
+            Vector2::new(width_miss, HIT_TIMING_BAR_SIZE.y),
+            None // for now
+        )));
 
         // draw hit timings
+        let time = time as f64;
+        for (hit_time, diff) in self.hit_timings.as_slice() {
+            let hit_time = hit_time.clone() as f64;
+            let mut diff = diff.clone() as f64;
+            if diff < 0.0 {
+                diff = diff.max(-self.hitwindow_miss);
+            } else {
+                diff = diff.min(self.hitwindow_miss);
+            }
+
+            let pos = diff / self.hitwindow_miss * (HIT_TIMING_BAR_SIZE.x / 2.0);
+
+            // draw diff line
+            let diff = time - hit_time;
+            let alpha = if diff > HIT_TIMING_DURATION - HIT_TIMING_FADE {
+                1.0 - (diff - (HIT_TIMING_DURATION - HIT_TIMING_FADE)) / HIT_TIMING_FADE
+            } else {1.0};
+
+            renderables.push(Box::new(Rectangle::new(
+                [1.0,1.0,1.0, alpha as f32].into(),
+                10.0,
+                Vector2::new(WINDOW_SIZE.x as f64 / 2.0 + pos, HIT_TIMING_BAR_POS.y),
+                Vector2::new(2.0, HIT_TIMING_BAR_SIZE.y),
+                None // for now
+            )));
+        }
 
         // draw notes
         for note in self.notes.iter_mut() {renderables.extend(note.lock().unwrap().draw(args));}
@@ -562,6 +636,7 @@ impl Beatmap {
             self.song_start = SystemTime::now(); //TODO: remove this actually, time() should be based off the song duration
             self.started = true;
             self.lead_in_time = LEAD_IN_TIME;
+            // volume is set when the song is actually started (when lead_in_time is <= 0)
             return;
         }
         self.song.play();
@@ -619,8 +694,8 @@ impl Beatmap {
                 let next_bar_time = self.beat_length_at(time, false) * BAR_SPACING; // bar spacing is actually the timing point measure
 
                 if tp_index < parent_tps.len() && parent_tps[tp_index].time <= time + next_bar_time {
-                    tp_index += 1;
                     time = parent_tps[tp_index].time;
+                    tp_index += 1;
                     continue;
                 }
 
@@ -633,6 +708,10 @@ impl Beatmap {
         }
     
         self.score = Score::new(self.hash.clone());
+
+        self.hitwindow_miss = map_difficulty_range(self.metadata.od as f64, 135.0, 95.0, 70.0);
+        self.hitwindow_100 = map_difficulty_range(self.metadata.od as f64, 120.0, 80.0, 50.0);
+        self.hitwindow_300 = map_difficulty_range(self.metadata.od as f64, 50.0, 35.0, 20.0);
     }
 
     pub fn beat_length_at(&self, time:f64, allow_multiplier:bool) -> f64 {
@@ -664,6 +743,8 @@ impl Beatmap {
 
         p.beat_length as f64 * mult
     }
+    
+    // something is fucked with this, it returns values wayyyyyyyyyyyyyyyyyyyyyy too high
     pub fn slider_velocity_at(&self, time:u64) -> f64 {
         let bl = self.beat_length_at(time as f64, true);
         if bl > 0.0 {

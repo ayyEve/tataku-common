@@ -22,9 +22,9 @@ TODO:
   
 - // Gameplay
 - letter ranking
-- timing hit window during gameplay
 - replays
 - skip intro (needs new audio engine)
+- od is really tight right at higher ods, idk why
   
 - // Code
 - refactor code a bit to make it prettier
