@@ -1,6 +1,7 @@
 use std::{path::Path, sync::{Arc, Mutex}, time::SystemTime};
 
 use cgmath::Vector2;
+use graphics::modular_index::next;
 use piston::RenderArgs;
 
 use super::{*, diff_calc::DifficultyCalculator, beatmap_structs::*};
@@ -94,7 +95,7 @@ impl Beatmap {
                     if line == "[HitObjects]" {
                         // sort timing points before moving onto hitobjects
                         let mut b2 = beatmap.lock().unwrap();
-                        b2.timing_points.sort_by(|a, b| a.time.cmp(&b.time));
+                        b2.timing_points.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
 
                         current_area = BeatmapSection::HitObjects; 
                     }
@@ -440,7 +441,7 @@ impl Beatmap {
         }
 
         // check timing point
-        if self.timing_point_index + 1 < self.timing_points.len() && self.timing_points[self.timing_point_index + 1].time as i64 <= time {
+        if self.timing_point_index + 1 < self.timing_points.len() && self.timing_points[self.timing_point_index + 1].time <= time as f64 {
             self.timing_point_index += 1;
         }
     }
@@ -599,24 +600,35 @@ impl Beatmap {
         //TODO: it would be cool if we didnt actually need timing bar objects, and could just draw them
         if self.timing_bars.len() == 0 {
             // load timing bars
-            let end_time = self.end_time + 500.0 * self.beat_length_at(self.end_time, false);
-            let mut time = self.timing_points[0].time as f64;
+            let parent_tps = self.timing_points.iter().filter(|t|!t.is_inherited()).collect::<Vec<&TimingPoint>>();
             let mut sv = settings.sv_multiplier as f64;
+            let mut time = parent_tps[0].time;
+            let mut tp_index = 0;
 
             // TODO: instead of just doing 500, actually get how many are needed before the first timing point lol
-            time -= 500.0 * self.beat_length_at(time, false);
+            let step = self.beat_length_at(time, false);
+            time %= step; // get the earliest bar line possible
+
             loop {
                 if !settings.static_sv {sv = self.slider_velocity_at(time as u64) / SV_FACTOR}
 
                 // add timing bar at current time
                 self.timing_bars.push(Arc::new(Mutex::new(TimingBar::new(time as u64, sv))));
 
-                // why isnt this accounting for bpm changes?
-                time += self.beat_length_at(time, false) * BAR_SPACING;
-                if time >= end_time {break}
+                // if theres a bpm change, adjust the current time to that of the bpm change
+                let next_bar_time = self.beat_length_at(time, false) * BAR_SPACING; // bar spacing is actually the timing point measure
+
+                if tp_index < parent_tps.len() && parent_tps[tp_index].time <= time + next_bar_time {
+                    tp_index += 1;
+                    time = parent_tps[tp_index].time;
+                    continue;
+                }
+
+                // why isnt this accounting for bpm changes? because the bpm change doesnt allways happen inline with the bar idiot
+                time += next_bar_time;
+                if time >= self.end_time {break}
             }
 
-            self.timing_bars.remove(0); // not sure if this is still necessary
             println!("created {} timing bars", self.timing_bars.len());
         }
     
@@ -630,7 +642,7 @@ impl Beatmap {
         let mut inherited_point: Option<TimingPoint> = None;
 
         for tp in self.timing_points.as_slice() {
-            if (tp.time as f64) <= time {
+            if tp.time <= time {
                 if tp.is_inherited() {
                     inherited_point = Some(tp.clone());
                 } else {
@@ -650,7 +662,7 @@ impl Beatmap {
             }
         }
 
-        p.beat_length as f64 * mult as f64
+        p.beat_length as f64 * mult
     }
     pub fn slider_velocity_at(&self, time:u64) -> f64 {
         let bl = self.beat_length_at(time as f64, true);
@@ -674,7 +686,7 @@ impl TimingBar {
         TimingBar {
             time, 
             speed,
-            pos: Vector2::new(0.0, 0.0)
+            pos: Vector2::new(0.0, 0.0),
         }
     }
 
@@ -684,13 +696,16 @@ impl TimingBar {
 
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        if self.pos.x + BAR_WIDTH < 0.0 || self.pos.x - BAR_WIDTH > args.window_size[0] as f64 {return renderables;}
+        if self.pos.x + BAR_WIDTH < 0.0 || self.pos.x - BAR_WIDTH > args.window_size[0] as f64 {return renderables}
+
+        const SIZE:Vector2<f64> = Vector2::new(BAR_WIDTH, PLAYFIELD_RADIUS*2.0);
+        const DEPTH:f64 = f64::MAX-5.0;
 
         renderables.push(Box::new(Rectangle::new(
             BAR_COLOR.into(),
-            f64::MAX-5.0,
+            DEPTH,
             self.pos,
-            Vector2::new(BAR_WIDTH, PLAYFIELD_RADIUS*2.0),
+            SIZE,
             None
         )));
 

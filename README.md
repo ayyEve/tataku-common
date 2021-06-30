@@ -19,7 +19,6 @@ TODO:
 - proper depths for scrollable item drawing
 - background images? (textures are borked atm)
 - add back buttons to menus lol
-- transition between menus
   
 - // Gameplay
 - letter ranking
