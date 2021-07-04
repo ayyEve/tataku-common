@@ -11,7 +11,8 @@ pub struct InputManager {
 
     key_states: HashSet<Key>,
     key_states_once: HashSet<Key>,
-    text_cache: String
+    text_cache: String,
+    window_change_focus:Option<bool>,
 }
 impl InputManager {
     pub fn new() -> InputManager {
@@ -23,7 +24,9 @@ impl InputManager {
 
             key_states: HashSet::new(),
             key_states_once: HashSet::new(),
-            text_cache: String::new()
+            text_cache: String::new(),
+
+            window_change_focus:None,
         }
     }
 
@@ -70,6 +73,11 @@ impl InputManager {
         e.mouse_scroll(|d| {
             self.scroll_delta += d[1];
         });
+
+
+        if let Some(has_focus) = e.focus_args() {
+            self.window_change_focus = Some(has_focus);
+        }
         // e.text(|text| println!("Typed '{}'", text));
     }
 
@@ -104,6 +112,13 @@ impl InputManager {
         let t = self.text_cache.clone();
         self.text_cache = String::new();
         t
+    }
+
+    /// get whether the window's focus has changed
+    pub fn get_changed_focus(&mut self) -> Option<bool> {
+        let o = self.window_change_focus.clone();
+        self.window_change_focus = None;
+        o
     }
 }
 

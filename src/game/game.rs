@@ -179,6 +179,7 @@ impl<'shape> Game<'shape> {
         let keys = clone.lock().unwrap().input_manager.all_down_once();
         let mods = clone.lock().unwrap().input_manager.get_key_mods();
         let text = clone.lock().unwrap().input_manager.get_text();
+        let window_focus_changed = clone.lock().unwrap().input_manager.get_changed_focus();
 
         // check for volume change
         let mut volume_changed = false;
@@ -333,12 +334,20 @@ impl<'shape> Game<'shape> {
                     lock.add_render_queue(hit);
                 }
                 
-                // pause button
+                // pause button, or focus lost
                 if keys.contains(&Key::Escape) {
-                    // pause somehow
+                    // pause
                     beatmap.pause();
                     let menu = PauseMenu::new(og_beatmap.clone());
                     lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(Box::new(menu)))));
+                }
+                if let Some(e) = window_focus_changed {
+                    if !e { // window lost focus, pause
+                        // pause
+                        beatmap.pause();
+                        let menu = PauseMenu::new(og_beatmap.clone());
+                        lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(Box::new(menu)))));
+                    }
                 }
 
                 // offset adjust
@@ -395,6 +404,10 @@ impl<'shape> Game<'shape> {
 
                 // check text
                 if text.len() > 0 {menu.on_text(text);}
+
+                if let Some(has_focus) = window_focus_changed {
+                    menu.on_focus_change(has_focus, arc.clone());
+                }
 
                 menu.update(arc.clone());
             }

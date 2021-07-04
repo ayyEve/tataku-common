@@ -22,4 +22,5 @@ pub trait Menu {
     fn on_mouse_move(&mut self, _pos:Vector2<f64>, _game:Arc<Mutex<&mut Game>>) {}
     fn on_key_press(&mut self, _key:Key, _game:Arc<Mutex<&mut Game>>, _mods:KeyModifiers) {}
     fn on_key_release(&mut self, _key:Key, _game:Arc<Mutex<&mut Game>>) {}
+    fn on_focus_change(&mut self, _has_focus:bool, _game:Arc<Mutex<&mut Game>>) {}
 }
