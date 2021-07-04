@@ -87,6 +87,9 @@ impl SerializationReader {
     pub fn read<R:Serializable>(&mut self) -> R {
         R::read(self)
     }
+    pub fn can_read(&self) -> bool {
+        self.data.len() - self.offset > 0
+    }
 
     pub fn read_i8(&mut self) -> i8 {
         let b = self.data[self.offset];

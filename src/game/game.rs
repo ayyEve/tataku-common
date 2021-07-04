@@ -1,10 +1,12 @@
 use std::path::Path;
+use std::thread::{Thread, sleep};
+use std::time::Duration;
 use std::{time::SystemTime};
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
 use cgmath::Vector2;
-use tokio::runtime::Builder;
+use tokio::runtime::{Builder, Runtime};
 use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window,input::*, event_loop::*, window::WindowSettings};
@@ -15,6 +17,8 @@ use crate::databases::{save_all_scores, save_score};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE};
 use crate::game::{InputManager, Settings, helpers::Discord, get_font};
 use crate::render::{Circle, HalfCircle, Rectangle, Renderable, Text, Color, Border};
+
+use super::online::OnlineManager;
 
 /// how long should the volume thing be displayed when changed
 const VOLUME_CHANGE_DISPLAY_TIME:u64 = 2000;
@@ -29,11 +33,14 @@ pub struct Game<'shape> {
     pub window: AppWindow,
     pub graphics: GlGraphics,
     pub input_manager: InputManager,
+    pub online_manager: Arc<Mutex<OnlineManager>>,
     
     pub menus: HashMap<String, Arc<Mutex<Box<dyn Menu>>>>,
     pub game_start: SystemTime,
     pub current_mode: GameMode,
     pub queued_mode: GameMode,
+
+    pub threading: Runtime,
 
     discord: Option<Discord>,
 
@@ -73,12 +80,20 @@ impl<'shape> Game<'shape> {
         let input_manager = InputManager::new();
         let discord = Discord::new().ok();
 
+        let online_manager = Arc::new(Mutex::new(OnlineManager::new()));
+        let threading = Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
         let mut g = Game {
             current_mode: GameMode::None,
             queued_mode: GameMode::None,
             window,
             graphics,
+            threading,
             input_manager,
+            online_manager,
             render_queue: Vec::new(),
             game_start: SystemTime::now(),
             discord,
@@ -119,13 +134,27 @@ impl<'shape> Game<'shape> {
 
         // set current mode to main menu
         g.queue_mode_change(GameMode::InMenu(main_menu.clone()));
+
+        g.init();
         g
     }
 
-    pub fn queue_mode_change(&mut self, mode:GameMode) {
-        self.queued_mode = mode;
-    }
+    pub fn init(&mut self) {
+        let clone = self.online_manager.clone();
 
+        self.threading.spawn(async move {
+            println!("a");
+            OnlineManager::start(clone).await;
+        });
+
+        let clone = self.online_manager.clone();
+        self.threading.spawn(async move {
+            println!("b1");
+            sleep(Duration::new(3, 0));
+            println!("b2");
+            OnlineManager::start2(clone).await;
+        });
+    }
     pub fn game_loop(mut self) {
         // input and rendering thread
         let mut events = Events::new(EventSettings::new()); //.lazy(true));
@@ -149,12 +178,20 @@ impl<'shape> Game<'shape> {
                 self.update(args.dt*1000.0);
             }
             
+            if let Some(args) = e.focus_args() {
+                println!("focus: {}", args);
+            }
             // e.resize(|args| println!("Resized '{}, {}'", args.window_size[0], args.window_size[1]));
             // if let Some(cursor) = e.cursor_args() {
             //     if cursor { println!("Mouse entered"); }
             //     else { println!("Mouse left"); }
             // };
         }
+    }
+
+
+    pub fn queue_mode_change(&mut self, mode:GameMode) {
+        self.queued_mode = mode;
     }
 
     fn update(&mut self, _delta:f64) {
