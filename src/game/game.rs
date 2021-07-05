@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
 use cgmath::Vector2;
-use tokio::runtime::Builder;
+use tokio::runtime::{Builder, Runtime};
 use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window,input::*, event_loop::*, window::WindowSettings};
@@ -30,6 +30,7 @@ pub struct Game<'shape> {
     pub window: AppWindow,
     pub graphics: GlGraphics,
     pub input_manager: InputManager,
+    threading: Runtime,
     
     pub menus: HashMap<String, Arc<Mutex<Box<dyn Menu>>>>,
     pub game_start: SystemTime,
@@ -74,12 +75,18 @@ impl<'shape> Game<'shape> {
         let input_manager = InputManager::new();
         let discord = Discord::new().ok();
 
+        let threading = Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
         let mut g = Game {
             current_mode: GameMode::None,
             queued_mode: GameMode::None,
             window,
             graphics,
             input_manager,
+            threading,
             render_queue: Vec::new(),
             game_start: SystemTime::now(),
             discord,
@@ -372,26 +379,31 @@ impl<'shape> Game<'shape> {
                         Err(e) => println!("Failed to save scores! {}", e),
                     }
 
-                    // submit score
-                    #[cfg(feature = "score_submit")] {
-                        //TODO: do this async
-                        println!("submitting score");
-                        let mut writer = SerializationWriter::new();
-                        writer.write(beatmap.score.clone());
-                        let data = writer.data();
-                        
-                        let c = reqwest::blocking::Client::new();
-                        let res = c.post("http://localhost:8000/score_submit").body(data).send();
 
-                        match res {
-                            Ok(_isgood) => {
-                                //TODO: do something with the response?
-                                println!("score submitted successfully");
-                            },
-                            Err(sad) => {
-                                println!("error submitting score: {}", sad);
+                    // submit score
+                    #[cfg(feature = "score_submit")] 
+                    {
+                        let score_clone = beatmap.score.clone();
+                        lock.threading.spawn(async move {
+                            //TODO: do this async
+                            println!("submitting score");
+                            let mut writer = SerializationWriter::new();
+                            writer.write(score_clone);
+                            let data = writer.data();
+                            
+                            let c = reqwest::Client::new();
+                            let res = c.post("http://localhost:8000/score_submit")
+                                .body(data)
+                                .send().await;
+
+                            match res {
+                                Ok(_isgood) => {
+                                    //TODO: do something with the response?
+                                    println!("score submitted successfully");
+                                },
+                                Err(e) => println!("error submitting score: {}", e),
                             }
-                        }
+                        });
                     }
 
                     // show score menu
@@ -900,16 +912,9 @@ pub fn extract_all() {
                             println!("File {} extracted to \"{}\"", i, outpath.display());
                             std::fs::create_dir_all(&outpath).unwrap();
                         } else {
-                            println!(
-                                "File {} extracted to \"{}\" ({} bytes)",
-                                i,
-                                outpath.display(),
-                                file.size()
-                            );
+                            println!("File {} extracted to \"{}\" ({} bytes)", i, outpath.display(), file.size());
                             if let Some(p) = outpath.parent() {
-                                if !p.exists() {
-                                    std::fs::create_dir_all(&p).unwrap();
-                                }
+                                if !p.exists() {std::fs::create_dir_all(&p).unwrap()}
                             }
                             let mut outfile = std::fs::File::create(&outpath).unwrap();
                             std::io::copy(&mut file, &mut outfile).unwrap();
