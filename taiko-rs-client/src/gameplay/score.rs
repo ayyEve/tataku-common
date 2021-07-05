@@ -1,6 +1,7 @@
 use std::fmt;
 
-use crate::game::{Serializable, SerializationReader, SerializationWriter, Settings};
+use taiko_rs_common::serialization::{Serializable,SerializationReader,SerializationWriter};
+use crate::game::Settings;
 use crate::gameplay::Replay;
 
 const CURRENT_VERSION: u16 = 1;

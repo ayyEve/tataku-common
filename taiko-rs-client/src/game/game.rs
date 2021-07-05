@@ -1,5 +1,4 @@
 use std::path::Path;
-use std::thread::{Thread, sleep};
 use std::time::Duration;
 use std::{time::SystemTime};
 use std::sync::{Arc, Mutex};
@@ -17,6 +16,7 @@ use crate::databases::{save_all_scores, save_score};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE};
 use crate::game::{InputManager, Settings, helpers::Discord, get_font};
 use crate::render::{Circle, HalfCircle, Rectangle, Renderable, Text, Color, Border};
+use taiko_rs_common::types::UserAction;
 
 use super::online::OnlineManager;
 
@@ -33,9 +33,9 @@ pub struct Game<'shape> {
     pub window: AppWindow,
     pub graphics: GlGraphics,
     pub input_manager: InputManager,
-    pub online_manager: Arc<Mutex<OnlineManager>>,
+    pub online_manager: Arc<tokio::sync::Mutex<OnlineManager>>,
     
-    pub menus: HashMap<String, Arc<Mutex<Box<dyn Menu>>>>,
+    pub menus: HashMap<&'static str, Arc<Mutex<Box<dyn Menu>>>>,
     pub game_start: SystemTime,
     pub current_mode: GameMode,
     pub queued_mode: GameMode,
@@ -61,7 +61,7 @@ pub struct Game<'shape> {
 
     // transition
     transition: Option<GameMode>,
-    transition_last:Option<GameMode>,
+    transition_last: Option<GameMode>,
     transition_timer: u64,
 }
 impl<'shape> Game<'shape> {
@@ -80,7 +80,7 @@ impl<'shape> Game<'shape> {
         let input_manager = InputManager::new();
         let discord = Discord::new().ok();
 
-        let online_manager = Arc::new(Mutex::new(OnlineManager::new()));
+        let online_manager = Arc::new(tokio::sync::Mutex::new(OnlineManager::new()));
         let threading = Builder::new_multi_thread()
             .enable_all()
             .build()
@@ -120,17 +120,17 @@ impl<'shape> Game<'shape> {
         // main menu
         let main_menu:Box<dyn Menu> = Box::new(MainMenu::new());
         let main_menu = Arc::new(Mutex::new(main_menu));
-        g.menus.insert("main".to_owned(), main_menu.clone());
+        g.menus.insert("main", main_menu.clone());
 
         // setup beatmap select menu
         let beatmap_menu:Box<dyn Menu> = Box::new(BeatmapSelectMenu::new());
         let beatmap_menu = Arc::new(Mutex::new(beatmap_menu));
-        g.menus.insert("beatmap".to_owned(), beatmap_menu.clone());
+        g.menus.insert("beatmap", beatmap_menu.clone());
 
         // setup settings menu
         let settings_menu:Box<dyn Menu> = Box::new(SettingsMenu::new());
         let settings_menu = Arc::new(Mutex::new(settings_menu));
-        g.menus.insert("settings".to_owned(), settings_menu.clone());
+        g.menus.insert("settings", settings_menu.clone());
 
         // set current mode to main menu
         g.queue_mode_change(GameMode::InMenu(main_menu.clone()));
@@ -141,18 +141,11 @@ impl<'shape> Game<'shape> {
 
     pub fn init(&mut self) {
         let clone = self.online_manager.clone();
-
         self.threading.spawn(async move {
-            println!("a");
-            OnlineManager::start(clone).await;
-        });
-
-        let clone = self.online_manager.clone();
-        self.threading.spawn(async move {
-            println!("b1");
-            sleep(Duration::new(3, 0));
-            println!("b2");
-            OnlineManager::start2(clone).await;
+            loop {
+                OnlineManager::start(clone.clone()).await;
+                tokio::time::sleep(Duration::from_millis(1_000)).await;
+            }
         });
     }
     pub fn game_loop(mut self) {
@@ -469,6 +462,31 @@ impl<'shape> Game<'shape> {
             _ => {
                 // if the mode is being changed, clear all shapes, even ones with a lifetime
                 unlocked.clear_render_queue(true);
+
+                let online_manager = unlocked.online_manager.clone();
+                match &unlocked.queued_mode {
+                    GameMode::Ingame(map) => {
+                        let m = map.lock().unwrap().metadata.clone();
+                        let text = format!("{}-{}[{}]\n{}",m.artist,m.title,m.version,map.lock().unwrap().hash.clone());
+
+                        unlocked.threading.spawn(async move {
+                            OnlineManager::set_action(online_manager, UserAction::Ingame, text).await;
+                        });
+                    },
+                    GameMode::InMenu(_) => {
+                        unlocked.threading.spawn(async move {
+                            OnlineManager::set_action(online_manager, UserAction::Idle, String::new()).await;
+                        });
+                    },
+                    GameMode::Closing => {
+                        // send logoff
+                        unlocked.threading.spawn(async move {
+                            OnlineManager::set_action(online_manager, UserAction::Leaving, String::new()).await;
+                        });
+                    }
+                    _ => {}
+                }
+
 
                 let mut do_transition = true;
 

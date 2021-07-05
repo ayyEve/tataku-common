@@ -1,4 +1,4 @@
-use crate::game::{Serializable,SerializationReader,SerializationWriter};
+use crate::serialization::{Serializable, SerializationReader, SerializationWriter};
 
 const CURRENT_VERSION:u16 = 1;
 
@@ -18,17 +18,17 @@ impl Replay {
 }
 impl Serializable for Replay {
     fn read(sr: &mut SerializationReader) -> Self {
-
         let mut r = Replay::new();
         
         let _version = sr.read_u16();
         r.playstyle = sr.read_u8().into();
         let mut count:u64 = sr.read_u64();
+        println!("reading {} replay frames", count);
 
         while count > 0 {
             count -= 1;
 
-            let time: i64 = sr.read_i64();
+            let time:i64 = sr.read_i64();
             let key:KeyPress = sr.read_u8().into();
             r.presses.push((time, key));
         }
@@ -40,6 +40,7 @@ impl Serializable for Replay {
         sw.write(CURRENT_VERSION);
         sw.write(self.playstyle as u8);
         sw.write(self.presses.len() as u64);
+        println!("writing {} replay frames", self.presses.len());
 
         for (time, key) in self.presses.as_slice() {
             sw.write(time.to_owned());
@@ -47,6 +48,7 @@ impl Serializable for Replay {
         }
     }
 }
+
 
 
 #[derive(Clone, Debug, Copy)]
@@ -93,7 +95,7 @@ impl From<u8> for KeyPress {
             2 => RightDon,
             3 => RightKat,
 
-            _ => LeftKat
+            _ => LeftKat // maybe it should panic instead?
         }
     }
 }

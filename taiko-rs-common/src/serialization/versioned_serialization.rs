@@ -1,7 +1,7 @@
 use super::{Serializable, SerializationReader, SerializationWriter};
 
 pub struct VersionedSerializationReader<V:PartialOrd+Serializable> {
-    version: V,
+    pub version: V,
     reader: SerializationReader
 }
 #[allow(dead_code)]

@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 use piston::Key;
 
-use crate::game::helpers::{SerializationReader, SerializationWriter, Serializable, open_database, save_database};
+use taiko_rs_common::serialization::*;
 
 const SETTINGS_DATABASE_FILE:&str = "settings.db";
 const SETTINGS_VERSION: u32 = 2;
@@ -92,10 +92,10 @@ impl Serializable for Settings {
             username: sr.read(),
             password: sr.read(),
 
-            left_kat: sr.read(),
-            left_don: sr.read(),
-            right_don: sr.read(),
-            right_kat: sr.read(),
+            left_kat: sr.read_u32().into(),
+            left_don: sr.read_u32().into(),
+            right_don: sr.read_u32().into(),
+            right_kat: sr.read_u32().into(),
 
             static_sv: false,
             sv_multiplier: 1.0
@@ -117,24 +117,13 @@ impl Serializable for Settings {
         sw.write(self.username.clone());
         sw.write(self.password.clone());
 
-        sw.write(self.left_kat);
-        sw.write(self.left_don);
-        sw.write(self.right_don);
-        sw.write(self.right_kat);
+        sw.write(self.left_kat as u32);
+        sw.write(self.left_don as u32);
+        sw.write(self.right_don as u32);
+        sw.write(self.right_kat as u32);
         
         // v2 and above
         sw.write(self.static_sv);
         sw.write(self.sv_multiplier);
-    }
-}
-
-// allows the serialization of keys
-impl Serializable for Key {
-    fn read(sr:&mut SerializationReader) -> Self {
-        sr.read_u32().into()
-    }
-
-    fn write(&self, sw:&mut SerializationWriter) {
-        sw.write(*self as u32);
     }
 }

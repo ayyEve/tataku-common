@@ -1,6 +1,7 @@
 use std::{collections::HashMap, sync::{Arc, Mutex}};
 
-use crate::{game::{Serializable, SerializationWriter, open_database, save_database}, gameplay::Score};
+use taiko_rs_common::serialization::*;
+use crate::gameplay::Score;
 
 const SCORE_DATABASE_FILE:&str = "scores.db";
 

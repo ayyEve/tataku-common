@@ -2,7 +2,6 @@
 
 mod online_manager;
 mod online_user;
-mod packets;
 
 pub use online_manager::*;
-pub use online_manager::*;
+pub use online_user::*;

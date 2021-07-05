@@ -1,0 +1,9 @@
+/target
+/Songs
+/audio
+/fonts
+/downloads
+
+*.db
+dev_assets.zip
+taiko-rs.zip

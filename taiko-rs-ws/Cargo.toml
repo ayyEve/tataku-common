@@ -1,0 +1,16 @@
+[package]
+name = "taiko-rs-ws"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+taiko-rs-common = {path="../taiko-rs-common"}
+
+log = "0.4"
+futures-channel = "0.3"
+futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
+pin-project = "1.0"
+tokio = { version = "1.7.1", features = ["full"] }
+tokio-tungstenite = "0.14.0"
