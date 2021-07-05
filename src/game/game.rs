@@ -9,6 +9,7 @@ use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window,input::*, event_loop::*, window::WindowSettings};
 
+use crate::game::SerializationWriter;
 use crate::{SONGS_DIR, menu::*};
 use crate::gameplay::{Beatmap, Replay, KeyPress};
 use crate::databases::{save_all_scores, save_score};
@@ -369,6 +370,28 @@ impl<'shape> Game<'shape> {
                     match save_all_scores() {
                         Ok(_) => println!("Scores saved successfully"),
                         Err(e) => println!("Failed to save scores! {}", e),
+                    }
+
+                    // submit score
+                    #[cfg(feature = "score_submit")] {
+                        //TODO: do this async
+                        println!("submitting score");
+                        let mut writer = SerializationWriter::new();
+                        writer.write(beatmap.score.clone());
+                        let data = writer.data();
+                        
+                        let c = reqwest::blocking::Client::new();
+                        let res = c.post("http://localhost:8000/score_submit").body(data).send();
+
+                        match res {
+                            Ok(_isgood) => {
+                                //TODO: do something with the response?
+                                println!("score submitted successfully");
+                            },
+                            Err(sad) => {
+                                println!("error submitting score: {}", sad);
+                            }
+                        }
                     }
 
                     // show score menu
