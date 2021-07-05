@@ -10,6 +10,8 @@ use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem};
 use crate::game::{Game, GameMode, KeyModifiers, Settings, get_font};
 use crate::{WINDOW_SIZE, DOWNLOADS_DIR, SONGS_DIR, render::*, databases::get_scores};
 
+use super::MenuButton;
+
 // constants
 const INFO_BAR_HEIGHT:f64 = 60.0;
 const BEATMAPSET_ITEM_SIZE: Vector2<f64> = Vector2::new(550.0, 50.0);
@@ -30,6 +32,8 @@ pub struct BeatmapSelectMenu {
     beatmap_scroll: ScrollableArea,
     leaderboard_scroll: ScrollableArea,
 
+    back_button:MenuButton,
+
     background_texture: Option<Image>,
     pending_refresh: bool,
 }
@@ -41,6 +45,7 @@ impl BeatmapSelectMenu {
             pending_refresh: false,
             current_scores: HashMap::new(),
             background_texture: None,
+            back_button: MenuButton::back_button(),
 
             beatmap_scroll: ScrollableArea::new(Vector2::new(WINDOW_SIZE.x as f64 - (BEATMAPSET_ITEM_SIZE.x+BEATMAPSET_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y as f64 - INFO_BAR_HEIGHT), true),
             leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y as f64 - LEADERBOARD_POS.y), true),
@@ -174,6 +179,9 @@ impl Menu for BeatmapSelectMenu {
         // leaderboard scroll
         items.extend(self.leaderboard_scroll.draw(args));
 
+        // back button
+        items.extend(self.back_button.draw(args, Vector2::new(0.0, 0.0)));
+
         // draw background image
         if let Some(img) = self.background_texture.as_ref() {
             items.push(Box::new(img.clone()));
@@ -191,6 +199,13 @@ impl Menu for BeatmapSelectMenu {
     }
 
     fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
+
+        if self.back_button.on_click(pos, button) {
+            let mut game = game.lock().unwrap();
+            let menu = game.menus.get("main").unwrap().clone();
+            game.queue_mode_change(GameMode::InMenu(menu));
+            return;
+        }
 
         // check if leaderboard item was clicked
         if let Some(score_tag) = self.leaderboard_scroll.on_click(pos, button, game.clone()) {
@@ -248,6 +263,7 @@ impl Menu for BeatmapSelectMenu {
 
     }
     fn on_mouse_move(&mut self, pos:Vector2<f64>, game:Arc<Mutex<&mut Game>>) {
+        self.back_button.on_mouse_move(pos);
         self.beatmap_scroll.on_mouse_move(pos, game.clone());
         self.leaderboard_scroll.on_mouse_move(pos, game.clone());
     }
