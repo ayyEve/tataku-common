@@ -147,11 +147,9 @@ impl HitObject for Note {
 
         let mut y = 0.0;
         if self.hit {
-            y = -((beatmap_time as f64 - self.time as f64)*20.0).ln()*20.0 + 1.0;
+            y = -((beatmap_time as f64 - self.hit_time as f64)*20.0).ln()*20.0 + 1.0;
         } else if self.missed {
-            let elapsed = (beatmap_time as f64 - self.hit_time as f64)/1000.0;
-            // println!("elapsed: {}", elapsed);
-            y = GRAVITY_SCALING * 9.81 * elapsed.powi(2); //self.pos.y + elapsed/1000.0; // i want note to fall like gravity accel, do math
+            y = GRAVITY_SCALING * 9.81 * ((beatmap_time as f64 - self.hit_time as f64)/1000.0).powi(2);
         }
         
         self.pos = HIT_POSITION + Vector2::new((self.time as f64 - beatmap_time as f64) * self.speed, y);

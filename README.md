@@ -18,7 +18,6 @@ TODO:
 - notification system
 - proper depths for scrollable item drawing
 - background images? (textures are borked atm)
-- add back buttons to menus lol
 - online leaderboard
 - online replays (should come with ^, might be best to make an online_score_menu)
   
