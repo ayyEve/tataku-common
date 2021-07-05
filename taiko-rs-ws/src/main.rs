@@ -6,6 +6,7 @@ use std::{
     sync::Arc,
 };
 
+use futures_util::FutureExt;
 use tokio::sync::Mutex;
 use tokio::net::{TcpListener, TcpStream};
 use futures_util::{SinkExt, StreamExt, stream::SplitSink};
@@ -14,6 +15,7 @@ use tokio_tungstenite::{WebSocketStream, accept_async, tungstenite::protocol::Me
 
 use taiko_rs_common::serialization::*;
 use taiko_rs_common::packets::PacketId;
+use taiko_rs_common::types::UserAction;
 
 type WsWriter = SplitSink<WebSocketStream<TcpStream>, Message>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, UserConnection>>>;
@@ -47,10 +49,11 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
 
             let user_connection = UserConnection::new(writer.clone());
             peer_map.lock().await.insert(addr, user_connection.clone());
+            
 
             while let Some(message) = reader.next().await {
                 match message {
-                    Ok(Message::Binary(data)) => handle_packet(data, &user_connection, &peer_map).await,
+                    Ok(Message::Binary(data)) => handle_packet(data, &peer_map, &addr).await,
 
                     Ok(message) => {
                         println!("got something else: {:?}", message);
@@ -59,6 +62,7 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
                     Err(oof) => {
                         println!("oof: {}", oof);
                         peer_map.lock().await.remove(&addr);
+                        let _ = writer.lock().await.close();
                         break;
                     },
                 }
@@ -70,7 +74,8 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
     }
 }
 
-async fn handle_packet(data:Vec<u8>, user_connection:&UserConnection, peer_map: &PeerMap) {
+async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
+    let user_connection = peer_map.lock().await.get(addr).unwrap().clone();
     let mut reader = SerializationReader::new(data);
     let mut writer = user_connection.writer.lock().await;
 
@@ -89,16 +94,53 @@ async fn handle_packet(data:Vec<u8>, user_connection:&UserConnection, peer_map: 
                 let _password:String = reader.read();
 
                 // verify username and password
+                let user_id = 1; //TODO
+                peer_map.lock().await.get_mut(addr).unwrap().user_id = user_id as u32;
 
-                // send response
-                writer.send(Message::Binary(SimpleWriter::new().write(PacketId::Server_LoginResponse).write(1 as i32).done())).await.expect("ppoop");
-                
                 // tell everyone we joined
-                let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserJoined).write(1 as i32).done());
-                for (_, user) in peer_map.lock().await.iter() {
+                let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserJoined).write(user_id as i32).done());
+                
+                for (i_addr, user) in peer_map.lock().await.iter() {
+                    if i_addr == addr {continue}
                     let _ = user.writer.lock().await.send(p.clone()).await;
                 }
+
+                // send response
+                writer.send(Message::Binary(SimpleWriter::new().write(PacketId::Server_LoginResponse).write(user_id as i32).done())).await.expect("ppoop");
+                
             },
+
+            PacketId::Client_LogOut => {
+                let user_id = user_connection.user_id;
+                println!("user logging out: {}", user_id);
+                
+                // tell everyone we left
+                let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserLeft).write(user_id as i32).done());
+                
+                for (i_addr, user) in peer_map.lock().await.iter() {
+                    if i_addr == addr {continue}
+                    let _ = user.writer.lock().await.send(p.clone()).await;
+                }
+            }
+            
+            PacketId::Client_StatusUpdate => {
+                let action:UserAction = reader.read();
+                let action_text = reader.read_string();
+                let user_id = user_connection.user_id;
+                
+                // update everyone
+                let p = Message::Binary(SimpleWriter::new()
+                    .write(PacketId::Server_UserStatusUpdate)
+                    .write(user_id)
+                    .write(action)
+                    .write(action_text)
+                    .done());
+                for (i_addr, user) in peer_map.lock().await.iter() {
+                    if i_addr == addr {continue}
+                    let _ = user.writer.lock().await.send(p.clone()).await;
+                }
+            }
+
 
             PacketId::Unknown => {
                 println!("got unknown packet id {}, dropping remaining packets", raw_id);
@@ -153,35 +195,5 @@ impl UserConnection {
 //         for i in list.as_mut_slice() {
 //             i.write("tacos are yum".as_bytes()).expect("oof2");
 //         }
-//     }
-// }
-
-
-
-// let mut reader = SerializationReader::new(bytes);
-// while reader.can_read() {
-//     let id:PacketId = reader.read();
-//     let length:u64 = reader.read();
-//     println!("got id {:?} with length {}", id, length);
-    
-//     match id {
-//         PacketId::UserJoined => {
-//             let user_id:u32 = reader.read();
-//             println!("user joined: {}", user_id);
-//         },
-//         PacketId::UserLeft => {
-//             let user_id:u32 = reader.read();
-//             println!("user left: {}", user_id);
-//         },
-
-//         PacketId::Unknown(read_id) => {
-//             let mut data:Vec<u8> = Vec::new();
-
-//             for _ in 0..length {
-//                 data.push(reader.read());
-//             }
-
-//             println!("got unknwon packet id: {}", read_id);
-//         },
 //     }
 // }

@@ -13,7 +13,6 @@ pub enum UserAction {
     Leaving,
 }
 
-
 impl Serializable for UserAction {
     fn read(sr:&mut crate::serialization::SerializationReader) -> Self {
         sr.read_u16().try_into().unwrap_or(UserAction::Unknown)

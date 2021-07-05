@@ -14,7 +14,8 @@ pub enum PacketId {
     Server_UserJoined,
     Server_UserLeft,
 
-    Client_StatusUpdate
+    Client_StatusUpdate,
+    Server_UserStatusUpdate
 }
 impl PacketId {
     pub fn from(n:u16) -> PacketId {

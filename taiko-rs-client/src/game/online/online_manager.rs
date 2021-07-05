@@ -47,7 +47,7 @@ impl OnlineManager {
                 let settings = Settings::get().clone();
                 let p = SimpleWriter::new().write(PacketId::Client_UserLogin).write(settings.username.clone()).write(settings.password.clone()).done();
                 writer.lock().await.send(Message::Binary(p)).await.expect("poopoo");
-                drop(settings);
+                // drop(settings);
 
                 s.lock().await.writer = Some(writer);
 
@@ -92,7 +92,7 @@ impl OnlineManager {
                     }
                 },
 
-
+                // user updates
                 PacketId::Server_UserJoined => {
                     let user_id = reader.read_u32();
                     println!("user id joined: {}", user_id);
@@ -103,6 +103,12 @@ impl OnlineManager {
                     println!("user id left: {}", user_id);
                     s.lock().await.users.remove(&user_id);
                 },
+                PacketId::Server_UserStatusUpdate => {
+                    let user_id = reader.read_u32();
+                    let action: UserAction = reader.read();
+                    let action_text = reader.read_string();
+                    println!("got user status update: {}, {:?}, {}", user_id, action, action_text);
+                }
 
 
 
@@ -122,12 +128,16 @@ impl OnlineManager {
 
     pub async fn set_action(s:Arc<Mutex<Self>>, action:UserAction, action_text:String) {
         if let Some(writer) = &s.lock().await.writer {
+            println!("writing update");
+            let p = SimpleWriter::new().write(PacketId::Client_StatusUpdate).write(action).write(action_text).done();
+            writer.lock().await.send(Message::Binary(p)).await.expect("error: ");
+
             if action == UserAction::Leaving {
                 let p = SimpleWriter::new().write(PacketId::Client_LogOut).done();
                 let _ = writer.lock().await.send(Message::Binary(p)).await;
             }
-            let p = SimpleWriter::new().write(PacketId::Client_StatusUpdate).write(action).write(action_text).done();
-            writer.lock().await.send(Message::Binary(p)).await.expect("error: ");
+        } else {
+            println!("oof, no writer");
         }
     }
 }
