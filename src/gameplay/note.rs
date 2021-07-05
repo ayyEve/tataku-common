@@ -317,7 +317,7 @@ impl SliderDot {
             Box::new(c),
             // "hole punch"
             Box::new(Circle::new(
-                BAR_COLOR.into(),
+                BAR_COLOR,
                 0.0,
                 Vector2::new(self.pos.x, HIT_POSITION.y),
                 SLIDER_DOT_RADIUS
