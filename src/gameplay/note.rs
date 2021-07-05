@@ -11,6 +11,8 @@ const SPINNER_POSITION: Vector2<f64> = Vector2::new(100.0, 0.0); // + hit positi
 const FINISHER_LENIENCY:u64 = 20; // ms
 const NOTE_BORDER_SIZE:f64 = 2.0;
 
+const GRAVITY_SCALING:f64 = 400.0;
+
 // hitobject trait, implemented by anything that should be hit
 pub trait HitObject {
     fn note_type(&self) -> NoteType;
@@ -47,11 +49,10 @@ pub struct Note {
     pub finisher:bool,
     pub beatmap: Arc<Mutex<Beatmap>>,
     pub hit: bool,
+    pub missed: bool,
     pub speed:f64,
 
     od:f64,
-
-
     hitwindow_50:f64,
     hitwindow_100:f64,
     hitwindow_300:f64
@@ -66,7 +67,8 @@ impl Note {
             finisher,
             speed,
             hit: false,
-            pos: Vector2::new(0.0,0.0),
+            missed: false,
+            pos: Vector2::new(0.0, 0.0),
 
             // set later
             od: 1.0,
@@ -107,22 +109,26 @@ impl HitObject for Note {
         // println!("hit: {},{},{} : {}, {}", self.hitwindow_300, self.hitwindow_100, self.hitwindow_50, diff, self.od);
 
         if diff < self.hitwindow_300 {
+            self.hit_time = time.max(0.0) as u64;
             if hit_type != self.hit_type {
+                self.missed = true;
                 ScoreHit::Miss
             } else {
                 self.hit = true;
-                self.hit_time = time.max(0.0) as u64;
                 ScoreHit::X300
             }
         } else if diff < self.hitwindow_100 {
+            self.hit_time = time.max(0.0) as u64;
             if hit_type != self.hit_type {
+                self.missed = true;
                 ScoreHit::Miss
             } else {
                 self.hit = true;
-                self.hit_time = time.max(0.0) as u64;
                 ScoreHit::X100
             }
         } else if diff < self.hitwindow_50 { // too early, miss
+            self.hit_time = time.max(0.0) as u64;
+            self.missed = true;
             ScoreHit::Miss
         } else { // way too early, ignore
             ScoreHit::None
@@ -142,6 +148,10 @@ impl HitObject for Note {
         let mut y = 0.0;
         if self.hit {
             y = -((beatmap_time as f64 - self.time as f64)*20.0).ln()*20.0 + 1.0;
+        } else if self.missed {
+            let elapsed = (beatmap_time as f64 - self.hit_time as f64)/1000.0;
+            // println!("elapsed: {}", elapsed);
+            y = GRAVITY_SCALING * 9.81 * elapsed.powi(2); //self.pos.y + elapsed/1000.0; // i want note to fall like gravity accel, do math
         }
         
         self.pos = HIT_POSITION + Vector2::new((self.time as f64 - beatmap_time as f64) * self.speed, y);
@@ -166,6 +176,7 @@ impl HitObject for Note {
     fn reset(&mut self) {
         self.pos.x = 0.0;
         self.hit = false;
+        self.missed = false;
     }
 }
 
