@@ -31,8 +31,7 @@ pub struct BeatmapSelectMenu {
     current_scores: HashMap<String, Arc<Mutex<Score>>>,
     beatmap_scroll: ScrollableArea,
     leaderboard_scroll: ScrollableArea,
-
-    back_button:MenuButton,
+    back_button: MenuButton,
 
     background_texture: Option<Image>,
     pending_refresh: bool,
@@ -191,10 +190,18 @@ impl Menu for BeatmapSelectMenu {
     }
 
     fn on_volume_change(&mut self) {self.beatmap_scroll.on_volume_change();}
-    fn on_change(&mut self) {
-        self.beatmap_scroll.refresh_layout();
-        if let Some(map_hash) = &self.selected_beatmap.clone() {
-            self.load_scores(map_hash.clone());
+    fn on_change(&mut self, into:bool) {
+        if into {
+            self.beatmap_scroll.refresh_layout();
+            if let Some(map_hash) = &self.selected_beatmap.clone() {
+                self.load_scores(map_hash.clone());
+            }
+        } else {
+            println!("stop musci >:C");
+            // stop the music somehow?
+            for i in self.beatmap_scroll.items.iter_mut() {
+                i.set_tag("no more music >:C");
+            }
         }
     }
 
@@ -213,8 +220,11 @@ impl Menu for BeatmapSelectMenu {
             let mut game = game.lock().unwrap();
             if let Some(score) = self.current_scores.get(&score_tag) {
                 let score = score.lock().unwrap().clone();
-                let menu = ScoreMenu::new(score);
-                game.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(Box::new(menu)))));
+
+                if let Some((selected, _)) = self.get_selected() {
+                    let menu = ScoreMenu::new(score, selected.clone());
+                    game.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(Box::new(menu)))));
+                }
             }
             return;
         }
@@ -344,7 +354,10 @@ impl ScrollableItem for BeatmapsetItem {
         }
     }
     fn get_tag(&self) -> String {self.tag.clone()}
-    fn set_tag(&mut self, _tag:&str) {self.pending_play = false;} // bit of a jank strat: when this is called, reset the play_pending property
+    fn set_tag(&mut self, _tag:&str) {
+        self.pending_play = false; 
+        self.first.lock().unwrap().song.stop();
+    } // bit of a jank strat: when this is called, reset the play_pending property
     fn get_pos(&self) -> Vector2<f64> {self.pos}
     fn set_pos(&mut self, pos:Vector2<f64>) {self.pos = pos}
     fn get_value(&self) -> Box<dyn std::any::Any> {

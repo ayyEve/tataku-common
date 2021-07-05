@@ -332,7 +332,10 @@ impl Beatmap {
         self.note_index += 1;
     }
 
-    pub fn hit(&mut self, hit_type:HitType) {
+    pub fn hit(&mut self, key:KeyPress) {
+        self.score.replay.presses.push((self.time(), key));
+
+        let hit_type:HitType = key.into();
         let mut sound = match hit_type {HitType::Don => "don",HitType::Kat => "kat"};
 
         // if theres no more notes to hit, return

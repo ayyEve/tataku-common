@@ -10,7 +10,7 @@ use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window,input::*, event_loop::*, window::WindowSettings};
 
 use crate::{SONGS_DIR, menu::*};
-use crate::gameplay::{Beatmap, HitType};
+use crate::gameplay::{Beatmap, Replay, KeyPress};
 use crate::databases::{save_all_scores, save_score};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE};
 use crate::game::{InputManager, Settings, helpers::Discord, get_font};
@@ -160,7 +160,7 @@ impl<'shape> Game<'shape> {
     fn update(&mut self, _delta:f64) {
         let arc = Arc::new(Mutex::new(self));
         let clone = arc.clone();
-        let current_mode = clone.lock().unwrap().current_mode.clone().to_owned();
+        let mut current_mode = clone.lock().unwrap().current_mode.clone().to_owned();
         let elapsed = clone.lock().unwrap().game_start.elapsed().unwrap().as_millis() as u64;
 
         //TODO: move these fonctions in input manager, like get_text()
@@ -282,7 +282,7 @@ impl<'shape> Game<'shape> {
                 const LIFETIME_TIME:u64 = 100;
                 
                 if keys.contains(&settings.left_kat) {
-                    beatmap.hit(HitType::Kat);
+                    beatmap.hit(KeyPress::LeftKat);
 
                     let mut hit = HalfCircle::new(
                         Color::BLUE,
@@ -295,7 +295,7 @@ impl<'shape> Game<'shape> {
                     lock.add_render_queue(hit);
                 }
                 if keys.contains(&settings.left_don) {
-                    beatmap.hit(HitType::Don);
+                    beatmap.hit(KeyPress::LeftDon);
 
                     let mut hit = HalfCircle::new(
                         Color::RED,
@@ -308,7 +308,7 @@ impl<'shape> Game<'shape> {
                     lock.add_render_queue(hit);
                 }
                 if keys.contains(&settings.right_don) {
-                    beatmap.hit(HitType::Don);
+                    beatmap.hit(KeyPress::RightDon);
 
                     let mut hit = HalfCircle::new(
                         Color::RED,
@@ -321,7 +321,7 @@ impl<'shape> Game<'shape> {
                     lock.add_render_queue(hit);
                 }
                 if keys.contains(&settings.right_kat) {
-                    beatmap.hit(HitType::Kat);
+                    beatmap.hit(KeyPress::RightKat);
 
                     let mut hit = HalfCircle::new(
                         Color::BLUE,
@@ -372,19 +372,113 @@ impl<'shape> Game<'shape> {
                     }
 
                     // show score menu
-                    let menu = ScoreMenu::new(beatmap.score.clone());
+                    let menu = ScoreMenu::new(beatmap.score.clone(), Arc::new(Mutex::new(beatmap.clone())));
                     lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(Box::new(menu)))));
                 }
             }
 
+            GameMode::Replaying(ref beatmap, ref replay, ref mut frame_index) => {
+                let settings = Settings::get();
+                let mut lock = clone.lock().unwrap();
+                let mut beatmap = beatmap.lock().unwrap();
+
+                const LIFETIME_TIME:u64 = 100;
+
+                {
+                    let time = beatmap.time();
+                    // read any frames that need to be read
+                    loop {
+                        if *frame_index as usize >= replay.presses.len() {break}
+                        
+                        let (press_time, pressed) = replay.presses[*frame_index as usize];
+                        if press_time > time {break}
+
+                        beatmap.hit(pressed);
+
+                        match pressed {
+                            crate::gameplay::KeyPress::LeftKat => {
+                                let mut hit = HalfCircle::new(
+                                    Color::BLUE,
+                                    HIT_POSITION,
+                                    1.0,
+                                    HIT_AREA_RADIUS,
+                                    true
+                                );
+                                hit.set_lifetime(LIFETIME_TIME);
+                                lock.add_render_queue(hit);
+                            },
+                            crate::gameplay::KeyPress::LeftDon => {
+                                let mut hit = HalfCircle::new(
+                                    Color::RED,
+                                    HIT_POSITION,
+                                    1.0,
+                                    HIT_AREA_RADIUS,
+                                    true
+                                );
+                                hit.set_lifetime(LIFETIME_TIME);
+                                lock.add_render_queue(hit);
+                            },
+                            crate::gameplay::KeyPress::RightDon => {
+                                let mut hit = HalfCircle::new(
+                                    Color::RED,
+                                    HIT_POSITION,
+                                    1.0,
+                                    HIT_AREA_RADIUS,
+                                    false
+                                );
+                                hit.set_lifetime(LIFETIME_TIME);
+                                lock.add_render_queue(hit);
+                            },
+                            crate::gameplay::KeyPress::RightKat => {
+                                let mut hit = HalfCircle::new(
+                                    Color::BLUE,
+                                    HIT_POSITION,
+                                    1.0,
+                                    HIT_AREA_RADIUS,
+                                    false
+                                );
+                                hit.set_lifetime(LIFETIME_TIME);
+                                lock.add_render_queue(hit);
+                            },
+                        }
+
+                        *frame_index += 1;
+                    }
+                }
+                
+                // pause button, or focus lost
+                if keys.contains(&Key::Escape) {
+                    beatmap.reset();
+                    let menu = lock.menus.get("beatmap").unwrap().clone();
+                    lock.queue_mode_change(GameMode::InMenu(menu));
+                }
+
+                // offset adjust
+                if keys.contains(&Key::Equals) {
+                    beatmap.increment_offset(5);
+                }
+                if keys.contains(&Key::Minus) {
+                    beatmap.increment_offset(-5);
+                }
+
+                // volume
+                if volume_changed {beatmap.song.set_volume(settings.get_music_vol())}
+
+                beatmap.update();
+
+                if beatmap.completed {
+                    // show score menu
+                    let menu = ScoreMenu::new(beatmap.score.clone(), Arc::new(Mutex::new(beatmap.clone())));
+                    lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(Box::new(menu)))));
+                }
+            }
+            
             GameMode::InMenu(ref menu) => {
                 let mut menu = menu.lock().unwrap();
 
                 // menu input events
                 // vol
-                if volume_changed {
-                    menu.on_volume_change();
-                }
+                if volume_changed {menu.on_volume_change()}
 
                 // clicks
                 if mouse_buttons.len() > 0 {
@@ -394,17 +488,18 @@ impl<'shape> Game<'shape> {
                     }
                 }
                 // mouse move
-                if mouse_moved {menu.on_mouse_move(mouse_pos, arc.clone());}
+                if mouse_moved {menu.on_mouse_move(mouse_pos, arc.clone())}
                 // mouse scroll
-                if scroll_delta.abs() > 0.0 {menu.on_scroll(scroll_delta, arc.clone());}
+                if scroll_delta.abs() > 0.0 {menu.on_scroll(scroll_delta, arc.clone())}
 
                 //check keys down
-                for key in keys {menu.on_key_press(key, arc.clone(), mods);}
+                for key in keys {menu.on_key_press(key, arc.clone(), mods)}
                 //TODO: check keys up (or remove it, probably not used anywhere)
 
                 // check text
                 if text.len() > 0 {menu.on_text(text);}
 
+                // window focus change
                 if let Some(has_focus) = window_focus_changed {
                     menu.on_focus_change(has_focus, arc.clone());
                 }
@@ -416,15 +511,11 @@ impl<'shape> Game<'shape> {
                 // might be transitioning
                 let mut lock = clone.lock().unwrap();
 
-                if elapsed - lock.transition_timer > TRANSITION_TIME / 2 {
-                    let s = lock.transition.is_some().clone();
-
-                    if s {
-                        let trans = lock.transition.as_ref().unwrap().clone();
-                        lock.queue_mode_change(trans);
-                        lock.transition = None;
-                        lock.transition_timer = elapsed;
-                    }
+                if lock.transition.is_some().clone() && elapsed - lock.transition_timer > TRANSITION_TIME / 2 {
+                    let trans = lock.transition.as_ref().unwrap().clone();
+                    lock.queue_mode_change(trans);
+                    lock.transition = None;
+                    lock.transition_timer = elapsed;
                 }
             }
 
@@ -453,6 +544,10 @@ impl<'shape> Game<'shape> {
                     GameMode::InMenu(menu) if menu.lock().unwrap().get_name() == "pause" => do_transition = false,
                     _ => {}
                 }
+                
+                // if let GameMode::InMenu(menu) = &unlocked.current_mode {
+                //     menu.lock().unwrap().on_change(false);
+                // }
 
                 if do_transition {
                     // do a transition
@@ -465,11 +560,13 @@ impl<'shape> Game<'shape> {
                 } else {
                     // old mode was none, or was pause menu, transition to new mode
                     let mode = unlocked.queued_mode.clone();
+
                     unlocked.current_mode = mode.clone();
                     unlocked.queued_mode = GameMode::None;
 
+
                     if let GameMode::InMenu(menu) = &unlocked.current_mode {
-                        menu.lock().unwrap().on_change();
+                        menu.lock().unwrap().on_change(true);
                     }
 
                     if unlocked.discord.is_some() {
@@ -492,6 +589,9 @@ impl<'shape> Game<'shape> {
 
         match &self.current_mode {
             GameMode::Ingame(beatmap) => {
+                renderables.extend(beatmap.lock().unwrap().draw(args));
+            }
+            GameMode::Replaying(beatmap,_,_) => {
                 renderables.extend(beatmap.lock().unwrap().draw(args));
             }
             GameMode::InMenu(ref menu) => {
@@ -520,6 +620,7 @@ impl<'shape> Game<'shape> {
                 None
             )));
 
+            // draw old mode
             if let GameMode::None = self.current_mode {
                 if let Some(old_mode) = &self.transition_last {
                     match old_mode {
@@ -528,9 +629,6 @@ impl<'shape> Game<'shape> {
                         },
 
                         _ => {}
-                        // GameMode::Closing => todo!(),
-                        // GameMode::Transition(_, _, _) => todo!(),
-                        // GameMode::None => todo!(),
                     }
                 }
             }
@@ -819,5 +917,7 @@ pub enum GameMode {
     None, // use this as the inital game mode, but me sure to change it after
     Closing,
     Ingame(Arc<Mutex<Beatmap>>),
-    InMenu(Arc<Mutex<Box<dyn Menu>>>)
+    InMenu(Arc<Mutex<Box<dyn Menu>>>),
+
+    Replaying(Arc<Mutex<Beatmap>>, Replay, u64)
 }

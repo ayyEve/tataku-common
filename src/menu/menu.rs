@@ -14,7 +14,7 @@ pub trait Menu {
 
     // input handlers
     fn on_volume_change(&mut self) {}
-    fn on_change(&mut self){}// when the menu is "loaded"
+    fn on_change(&mut self, _into:bool){}// when the menu is "loaded"(into) or "unloaded"(!into)
 
     fn on_text(&mut self, _text:String){}
     fn on_click(&mut self, _pos:Vector2<f64>, _button:MouseButton, _game:Arc<Mutex<&mut Game>>) {}

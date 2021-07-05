@@ -22,7 +22,6 @@ TODO:
   
 - // Gameplay
 - letter ranking
-- replays
 - skip intro (needs new audio engine)
 - timing is really tight at higher ods, idk why
   
