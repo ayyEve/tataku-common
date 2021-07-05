@@ -381,7 +381,7 @@ impl<'shape> Game<'shape> {
 
 
                     // submit score
-                    #[cfg(feature = "score_submit")] 
+                    #[cfg(feature = "online_scores")] 
                     {
                         let score_clone = beatmap.score.clone();
                         lock.threading.spawn(async move {

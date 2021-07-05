@@ -9,7 +9,7 @@ edition = "2018"
 [features]
 textures = []
 unlimited_fps = []
-score_submit = []
+online_scores = []
 
 [dependencies]
 tokio = {version = "1.7.1", features = ["rt"] }
