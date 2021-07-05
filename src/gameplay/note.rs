@@ -304,13 +304,17 @@ impl SliderDot {
         }
     }
     pub fn draw(&self) -> [Box<dyn Renderable>; 2] {
+
+        let mut c = Circle::new(
+            Color::YELLOW,
+            -100.0,
+            self.pos,
+            SLIDER_DOT_RADIUS
+        );
+        c.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE/2.0));
+
         [
-            Box::new(Circle::new(
-                Color::GREEN,
-                -100.0,
-                self.pos,
-                SLIDER_DOT_RADIUS
-            )),
+            Box::new(c),
             // "hole punch"
             Box::new(Circle::new(
                 BAR_COLOR.into(),

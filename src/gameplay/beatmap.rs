@@ -875,4 +875,3 @@ enum BeatmapSection {
     Colors,
     HitObjects,
 }
-

@@ -24,7 +24,7 @@ TODO:
 - letter ranking
 - replays
 - skip intro (needs new audio engine)
-- od is really tight right at higher ods, idk why
+- timing is really tight at higher ods, idk why
   
 - // Code
 - refactor code a bit to make it prettier

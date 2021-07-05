@@ -74,7 +74,6 @@ impl InputManager {
             self.scroll_delta += d[1];
         });
 
-
         if let Some(has_focus) = e.focus_args() {
             self.window_change_focus = Some(has_focus);
         }
