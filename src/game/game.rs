@@ -9,7 +9,6 @@ use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window,input::*, event_loop::*, window::WindowSettings};
 
-use crate::game::SerializationWriter;
 use crate::{SONGS_DIR, menu::*};
 use crate::gameplay::{Beatmap, Replay, KeyPress};
 use crate::databases::{save_all_scores, save_score};
@@ -387,7 +386,7 @@ impl<'shape> Game<'shape> {
                         lock.threading.spawn(async move {
                             //TODO: do this async
                             println!("submitting score");
-                            let mut writer = SerializationWriter::new();
+                            let mut writer = crate::game::SerializationWriter::new();
                             writer.write(score_clone);
                             let data = writer.data();
                             

@@ -668,6 +668,7 @@ impl Beatmap {
         self.completed = false;
         self.started = false;
         self.lead_in_time = LEAD_IN_TIME;
+        self.offset_changed_time = 0;
 
         // setup timing bars
         //TODO: it would be cool if we didnt actually need timing bar objects, and could just draw them
