@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::{rc::Rc, sync::{Arc, Mutex}};
 
 use cgmath::{Vector2};
 use opengl_graphics::{GlGraphics, GlyphCache, Texture};
@@ -245,24 +245,26 @@ impl Renderable for Text {
     }
 }
 
-
+#[derive(Clone)]
 pub struct Image {
     pub pos: Vector2<f64>,
     pub depth: f64,
-    pub tex: Texture,
+    pub tex: Rc<Texture>,
     
     spawn_time:u64,
 }
+
 impl Image {
     pub fn new(pos: Vector2<f64>, depth: f64, tex:Texture) -> Image {
         Image {
             pos,
             depth,
-            tex,
+            tex: Rc::new(tex),
             spawn_time: 0,
         }
     }
 }
+
 impl Renderable for Image {
     fn get_lifetime(&self) -> u64 {0}
     fn set_lifetime(&mut self, _lifetime:u64) {}
@@ -270,15 +272,9 @@ impl Renderable for Image {
     fn set_spawn_time(&mut self, time:u64) {self.spawn_time = time}
     fn get_depth(&self) -> f64 {self.depth}
     fn draw(&mut self, g: &mut GlGraphics, c: Context) {
-        graphics::image(&self.tex, c.transform.trans(self.pos.x, self.pos.y), g);
+        graphics::image(self.tex.as_ref(), c.transform.trans(self.pos.x, self.pos.y), g);
     }
 }
-impl Clone for Image {
-    fn clone(&self) -> Self {
-        Image::new(self.pos, self.depth, Texture::new(self.tex.get_id(), self.tex.get_width(), self.tex.get_height()))
-    }
-}
-
 
 /// generic border object, easier to use than importing graphics::X::Border, and creating it manually
 #[derive(Clone, Copy)]

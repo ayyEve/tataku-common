@@ -181,7 +181,7 @@ impl Menu for BeatmapSelectMenu {
         // back button
         items.extend(self.back_button.draw(args, Vector2::new(0.0, 0.0)));
 
-        // draw background image
+        // draw background image here
         if let Some(img) = self.background_texture.as_ref() {
             items.push(Box::new(img.clone()));
         }
@@ -258,7 +258,7 @@ impl Menu for BeatmapSelectMenu {
 
             #[cfg(feature = "textures")] {
                 let t = opengl_graphics::Texture::from_path(clicked.lock().unwrap().metadata.image_filename.clone(), &opengl_graphics::TextureSettings::new()).unwrap();
-                self.background_texture = Some(Image::new(Vector2::new(0.0,0.0), -99999.0, t));
+                self.background_texture = Some(Image::new(Vector2::new(0.0,0.0), 100.0, t));
             }
 
             let hash = clicked.lock().unwrap().hash.clone();
