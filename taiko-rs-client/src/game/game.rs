@@ -15,9 +15,8 @@ use crate::gameplay::{Beatmap, Replay, KeyPress};
 use crate::databases::{save_all_scores, save_score};
 use crate::game::{InputManager, Settings, get_font};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, SONGS_DIR, menu::*};
-use crate::render::{Circle, HalfCircle, Rectangle, Renderable, Text, Color, Border};
+use crate::render::{HalfCircle, Rectangle, Renderable, Text, Color, Border};
 use taiko_rs_common::types::UserAction;
-
 use super::online::OnlineManager;
 
 /// how long should the volume thing be displayed when changed
@@ -26,6 +25,8 @@ const VOLUME_CHANGE_DISPLAY_TIME:u64 = 2000;
 const GFX_CLEAR_COLOR:Color = Color::WHITE;
 /// how long do transitions between gamemodes last?
 const TRANSITION_TIME:u64 = 500;
+/// how long should the drum buttons last for?
+const DRUM_LIFETIME_TIME:u64 = 100;
 
 pub struct Game<'shape> {
     render_queue: Vec<Box<dyn Renderable + 'shape>>,
@@ -55,6 +56,9 @@ pub struct Game<'shape> {
     fps_count: u32,
     fps_timer: SystemTime,
     fps_last: f32,
+    update_count: u32,
+    update_timer: SystemTime,
+    update_last: f32,
 
     // transition
     transition: Option<GameMode>,
@@ -108,6 +112,9 @@ impl<'shape> Game<'shape> {
             fps_timer: SystemTime::now(),
             fps_last: 0.0,
             fps_count: 0,
+            update_timer: SystemTime::now(),
+            update_last: 0.0,
+            update_count: 0,
 
             // transition
             transition: None,
@@ -162,15 +169,9 @@ impl<'shape> Game<'shape> {
         events.set_ups(1_000);
 
         while let Some(e) = events.next(&mut self.window) {
+            if let Some(args) = e.update_args() {self.update(args.dt*1000.0)}
+            if let Some(args) = e.render_args() {self.render(args)}
             self.input_manager.handle_events(e.clone());
-
-            if let Some(args) = e.render_args() {
-                self.render(args);
-            }
-
-            if let Some(args) = e.update_args() {
-                self.update(args.dt*1000.0);
-            }
             // e.resize(|args| println!("Resized '{}, {}'", args.window_size[0], args.window_size[1]));
             // if let Some(cursor) = e.cursor_args() {
             //     if cursor { println!("Mouse entered"); }
@@ -179,10 +180,10 @@ impl<'shape> Game<'shape> {
         }
     }
 
-
     pub fn queue_mode_change(&mut self, mode:GameMode) {self.queued_mode = mode}
 
     fn update(&mut self, _delta:f64) {
+        self.update_count += 1;
         let arc = Arc::new(Mutex::new(self));
         let clone = arc.clone();
         let mut current_mode = clone.lock().unwrap().current_mode.clone().to_owned();
@@ -323,8 +324,6 @@ impl<'shape> Game<'shape> {
                 let og_beatmap = beatmap;
                 let mut lock = clone.lock().unwrap();
                 let mut beatmap = beatmap.lock().unwrap();
-
-                const LIFETIME_TIME:u64 = 100;
                 
                 if keys.contains(&settings.left_kat) {
                     beatmap.hit(KeyPress::LeftKat);
@@ -336,7 +335,7 @@ impl<'shape> Game<'shape> {
                         HIT_AREA_RADIUS,
                         true
                     );
-                    hit.set_lifetime(LIFETIME_TIME);
+                    hit.set_lifetime(DRUM_LIFETIME_TIME);
                     lock.add_render_queue(hit);
                 }
                 if keys.contains(&settings.left_don) {
@@ -349,7 +348,7 @@ impl<'shape> Game<'shape> {
                         HIT_AREA_RADIUS,
                         true
                     );
-                    hit.set_lifetime(LIFETIME_TIME);
+                    hit.set_lifetime(DRUM_LIFETIME_TIME);
                     lock.add_render_queue(hit);
                 }
                 if keys.contains(&settings.right_don) {
@@ -362,7 +361,7 @@ impl<'shape> Game<'shape> {
                         HIT_AREA_RADIUS,
                         false
                     );
-                    hit.set_lifetime(LIFETIME_TIME);
+                    hit.set_lifetime(DRUM_LIFETIME_TIME);
                     lock.add_render_queue(hit);
                 }
                 if keys.contains(&settings.right_kat) {
@@ -375,7 +374,7 @@ impl<'shape> Game<'shape> {
                         HIT_AREA_RADIUS,
                         false
                     );
-                    hit.set_lifetime(LIFETIME_TIME);
+                    hit.set_lifetime(DRUM_LIFETIME_TIME);
                     lock.add_render_queue(hit);
                 }
                 
@@ -450,8 +449,6 @@ impl<'shape> Game<'shape> {
                 let mut lock = clone.lock().unwrap();
                 let mut beatmap = beatmap.lock().unwrap();
 
-                const LIFETIME_TIME:u64 = 100;
-
                 {
                     let time = beatmap.time();
                     // read any frames that need to be read
@@ -472,7 +469,7 @@ impl<'shape> Game<'shape> {
                                     HIT_AREA_RADIUS,
                                     true
                                 );
-                                hit.set_lifetime(LIFETIME_TIME);
+                                hit.set_lifetime(DRUM_LIFETIME_TIME);
                                 lock.add_render_queue(hit);
                             },
                             crate::gameplay::KeyPress::LeftDon => {
@@ -483,7 +480,7 @@ impl<'shape> Game<'shape> {
                                     HIT_AREA_RADIUS,
                                     true
                                 );
-                                hit.set_lifetime(LIFETIME_TIME);
+                                hit.set_lifetime(DRUM_LIFETIME_TIME);
                                 lock.add_render_queue(hit);
                             },
                             crate::gameplay::KeyPress::RightDon => {
@@ -494,7 +491,7 @@ impl<'shape> Game<'shape> {
                                     HIT_AREA_RADIUS,
                                     false
                                 );
-                                hit.set_lifetime(LIFETIME_TIME);
+                                hit.set_lifetime(DRUM_LIFETIME_TIME);
                                 lock.add_render_queue(hit);
                             },
                             crate::gameplay::KeyPress::RightKat => {
@@ -505,7 +502,7 @@ impl<'shape> Game<'shape> {
                                     HIT_AREA_RADIUS,
                                     false
                                 );
-                                hit.set_lifetime(LIFETIME_TIME);
+                                hit.set_lifetime(DRUM_LIFETIME_TIME);
                                 lock.add_render_queue(hit);
                             },
                         }
@@ -886,7 +883,22 @@ impl<'shape> Game<'shape> {
             format!("{:.2}fps", self.fps_last),
             font.clone()
         ));
-
+        // draw updates
+        let updates_elapsed = self.update_timer.elapsed().unwrap().as_micros() as f64 / 1000.0;
+        if updates_elapsed >= 100.0 {
+            self.update_last = (self.update_count as f64 / updates_elapsed * 1000.0) as f32;
+            self.update_timer = SystemTime::now();
+            self.update_count = 0;
+        }
+        // draw fps
+        self.add_render_queue(Text::new (
+            Color::BLACK,
+            -1.0,
+            Vector2::new(0.0, 30.0),
+            12,
+            format!("{:.2} updates/s", self.update_last),
+            font.clone()
+        ));
 
         // sort the queue here (so it only needs to be sorted once per frame, instead of every time a shape is added)
         self.render_queue.sort_by(|a, b| b.get_depth().partial_cmp(&a.get_depth()).unwrap());

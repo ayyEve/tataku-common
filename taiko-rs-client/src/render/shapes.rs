@@ -1,8 +1,8 @@
 use std::sync::{Arc, Mutex};
 
-use opengl_graphics::{GlGraphics, GlyphCache, Texture};
-use graphics::{Context, DrawState, ImageSize, Transformed, character::CharacterCache, types::Polygon};
 use cgmath::{Vector2};
+use opengl_graphics::{GlGraphics, GlyphCache, Texture};
+use graphics::{Context, DrawState, ImageSize, Transformed, character::CharacterCache};
 
 use crate::render::Color;
 
@@ -113,25 +113,15 @@ impl Renderable for HalfCircle {
     }
 
     fn draw(&mut self, g: &mut GlGraphics, c: Context) {
-
-        let start_angle:f64 = (if self.left_side {90f64} else {270f64}).to_radians();
-        let points = polygon(self.pos, 100, self.radius, start_angle, true);
-        let polygon:Polygon = points.as_slice(); //points.split_at(points.len()/2).0;
-
-        graphics::polygon(
-            self.color.into(),
-            polygon,
-            c.transform,
-            g
-        );
-
-        // graphics::ellipse(
-        //     self.color.into(),
-        //     graphics::ellipse::circle(self.pos.x, self.pos.y, self.radius),
-        //     transform,
-        //     g
-        // );
-
+        let start_angle:f64 = if self.left_side {std::f64::consts::PI/2.0} else {std::f64::consts::PI*1.5} as f64;
+        graphics::circle_arc(
+            self.color.into(), 
+            self.radius/2.0,
+            start_angle, 
+            start_angle + std::f64::consts::PI, 
+            [self.pos.x, self.pos.y, self.radius,self.radius],
+            c.transform.trans(-self.radius/2.0, -self.radius/2.0), 
+        g);
     }
 }
 
@@ -173,7 +163,7 @@ impl Renderable for Rectangle {
     fn get_spawn_time(&self) -> u64 {self.spawn_time}
 
     fn draw(&mut self, g: &mut GlGraphics, c: Context) {
-        let mut r=graphics::Rectangle::new(self.color.into());
+        let mut r = graphics::Rectangle::new(self.color.into());
         if let Some(b) = self.border {
             r.border = Some(b.into());
         }
@@ -319,32 +309,4 @@ impl Into<graphics::ellipse::Border> for Border {
             radius: self.radius
         }
     }
-}
-
-
-/// create a polygon with coords at `pos`, `point_count` points, `radius` pixels, `angle` starting angle. 
-/// `half` specifies whether to only create half the polygod
-fn polygon(pos: Vector2<f64>, mut point_count:usize, radius:f64, mut angle:f64, half:bool) -> Vec<[f64;2]> {
-
-    let mut points:Vec<[f64;2]> = Vec::new();
-    let angle_diff = (360.0 / point_count as f64).to_radians();
-
-    // for(var theta=0;  theta < 2*Math.PI;  theta+=step){ 
-    //     var x = h + r*Math.cos(theta);
-    //     var y = k - r*Math.sin(theta);    //note 2.
-    //     ctx.lineTo(x,y);
-    // }
-    if half {
-        point_count /= 2;
-    }
-
-    while point_count > 0 {
-        point_count -= 1;
-        let x = pos.x + angle.cos() * radius;
-        let y = pos.y + angle.sin() * radius;
-        points.push([x,y]);
-        angle += angle_diff;
-    }
-
-    points
 }
