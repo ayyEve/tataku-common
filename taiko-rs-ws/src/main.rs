@@ -6,12 +6,10 @@ use std::{
     sync::Arc,
 };
 
-use futures_util::FutureExt;
 use tokio::sync::Mutex;
 use tokio::net::{TcpListener, TcpStream};
 use futures_util::{SinkExt, StreamExt, stream::SplitSink};
 use tokio_tungstenite::{WebSocketStream, accept_async, tungstenite::protocol::Message};
-
 
 use taiko_rs_common::serialization::*;
 use taiko_rs_common::packets::PacketId;
@@ -97,6 +95,9 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                 let user_id = 1; //TODO
                 peer_map.lock().await.get_mut(addr).unwrap().user_id = user_id as u32;
 
+                // send response
+                writer.send(Message::Binary(SimpleWriter::new().write(PacketId::Server_LoginResponse).write(user_id as i32).done())).await.expect("ppoop");
+                
                 // tell everyone we joined
                 let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserJoined).write(user_id as i32).done());
                 
@@ -104,10 +105,6 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                     if i_addr == addr {continue}
                     let _ = user.writer.lock().await.send(p.clone()).await;
                 }
-
-                // send response
-                writer.send(Message::Binary(SimpleWriter::new().write(PacketId::Server_LoginResponse).write(user_id as i32).done())).await.expect("ppoop");
-                
             },
 
             PacketId::Client_LogOut => {
@@ -122,9 +119,9 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                     let _ = user.writer.lock().await.send(p.clone()).await;
                 }
             }
-            
+
             PacketId::Client_StatusUpdate => {
-                let action:UserAction = reader.read();
+                let action: UserAction = reader.read();
                 let action_text = reader.read_string();
                 let user_id = user_connection.user_id;
                 
