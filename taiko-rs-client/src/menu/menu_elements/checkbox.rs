@@ -36,14 +36,14 @@ impl ScrollableItem for Checkbox {
     fn set_tag(&mut self, tag:&str) {self.tag = tag.to_owned()}
     fn get_value(&self) -> Box<dyn std::any::Any> {Box::new(self.checked)}
 
-    fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2<f64>) -> Vec<Box<dyn Renderable>> {
+    fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2<f64>, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let font_size:u32 = 12;
         
         // draw bounding box
         list.push(Box::new(Rectangle::new(
             [0.2, 0.2, 0.2, 1.0].into(),
-            0.0,
+            parent_depth,
             self.pos+pos_offset,
             self.size,
             if self.hover {Some(Border::new(Color::RED, 1.0))} else {None}
@@ -52,7 +52,7 @@ impl ScrollableItem for Checkbox {
         // draw checkbox bounding box
         list.push(Box::new(Rectangle::new(
             Color::TRANSPARENT_BLACK,
-            1.0,
+            parent_depth + 1.0,
             self.pos+pos_offset,
             Vector2::new(self.size.y, self.size.y),
             if self.hover {Some(Border::new(Color::BLACK, 1.0))} else {None}
@@ -60,7 +60,7 @@ impl ScrollableItem for Checkbox {
         if self.checked {
             list.push(Box::new(Rectangle::new(
                 Color::YELLOW,
-                0.0,
+                parent_depth,
                 self.pos+pos_offset + Vector2::new(INNER_BOX_PADDING, INNER_BOX_PADDING),
                 Vector2::new(self.size.y-INNER_BOX_PADDING*2.0, self.size.y-INNER_BOX_PADDING * 2.0),
                 None
@@ -70,7 +70,7 @@ impl ScrollableItem for Checkbox {
         // draw text
         let mut txt = Text::new(
             Color::WHITE,
-            -1.0,
+            parent_depth - 1.0,
             self.pos+pos_offset,
             font_size,
             self.text.clone(),

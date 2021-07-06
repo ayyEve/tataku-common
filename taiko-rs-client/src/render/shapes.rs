@@ -40,21 +40,11 @@ impl Circle {
     }
 }
 impl Renderable for Circle {
-    fn get_depth(&self) -> f64 {
-        self.depth
-    }
-    fn set_lifetime(&mut self, lifetime:u64) {
-        self.lifetime = lifetime;
-    }
-    fn get_lifetime(&self) -> u64 {
-        self.lifetime
-    }
-    fn set_spawn_time(&mut self, time:u64) {
-        self.spawn_time = time;
-    }
-    fn get_spawn_time(&self) -> u64 {
-       self.spawn_time
-    }
+    fn get_depth(&self) -> f64 {self.depth}
+    fn set_lifetime(&mut self, lifetime:u64) {self.lifetime = lifetime}
+    fn get_lifetime(&self) -> u64 {self.lifetime}
+    fn set_spawn_time(&mut self, time:u64) {self.spawn_time = time}
+    fn get_spawn_time(&self) -> u64 {self.spawn_time}
 
     fn draw(&mut self, g: &mut GlGraphics, c: Context) {
         graphics::ellipse::Ellipse {
@@ -96,21 +86,11 @@ impl HalfCircle {
     }
 }
 impl Renderable for HalfCircle {
-    fn get_depth(&self) -> f64 {
-        self.depth
-    }
-    fn set_lifetime(&mut self, lifetime:u64) {
-        self.lifetime = lifetime;
-    }
-    fn get_lifetime(&self) -> u64 {
-        self.lifetime
-    }
-    fn set_spawn_time(&mut self, time:u64) {
-        self.spawn_time = time;
-    }
-    fn get_spawn_time(&self) -> u64 {
-       self.spawn_time
-    }
+    fn get_depth(&self) -> f64 {self.depth}
+    fn set_lifetime(&mut self, lifetime:u64) {self.lifetime = lifetime}
+    fn get_lifetime(&self) -> u64 {self.lifetime}
+    fn set_spawn_time(&mut self, time:u64) {self.spawn_time = time}
+    fn get_spawn_time(&self) -> u64 {self.spawn_time}
 
     fn draw(&mut self, g: &mut GlGraphics, c: Context) {
         let start_angle:f64 = if self.left_side {std::f64::consts::PI/2.0} else {std::f64::consts::PI*1.5} as f64;
@@ -217,21 +197,11 @@ impl Text {
     }
 }
 impl Renderable for Text {
-    fn get_depth(&self) -> f64 {
-        self.depth
-    }
-    fn set_lifetime(&mut self, lifetime:u64) {
-        self.lifetime = lifetime;
-    }
-    fn get_lifetime(&self) -> u64 {
-        self.lifetime
-    }
-    fn set_spawn_time(&mut self, time:u64) {
-        self.spawn_time = time;
-    }
-    fn get_spawn_time(&self) -> u64 {
-       self.spawn_time
-    }
+    fn get_depth(&self) -> f64 {self.depth}
+    fn set_lifetime(&mut self, lifetime:u64) {self.lifetime = lifetime}
+    fn get_lifetime(&self) -> u64 {self.lifetime}
+    fn set_spawn_time(&mut self, time:u64) {self.spawn_time = time}
+    fn get_spawn_time(&self) -> u64 {self.spawn_time}
 
     fn draw(&mut self, g: &mut GlGraphics, c: Context) {
         graphics::text(
@@ -248,19 +218,25 @@ impl Renderable for Text {
 #[derive(Clone)]
 pub struct Image {
     pub pos: Vector2<f64>,
+    pub size:Vector2<f64>,
     pub depth: f64,
     pub tex: Rc<Texture>,
     
     spawn_time:u64,
+    scale: Vector2<f64>
 }
 
 impl Image {
-    pub fn new(pos: Vector2<f64>, depth: f64, tex:Texture) -> Image {
+    pub fn new(pos: Vector2<f64>, depth: f64, tex:Texture, size:Vector2<f64>) -> Image {
+        let scale = Vector2::new(tex.get_width() as f64 / size.x, tex.get_height() as f64 / size.y);
+
         Image {
             pos,
+            size,
             depth,
             tex: Rc::new(tex),
             spawn_time: 0,
+            scale,
         }
     }
 }
@@ -272,7 +248,10 @@ impl Renderable for Image {
     fn set_spawn_time(&mut self, time:u64) {self.spawn_time = time}
     fn get_depth(&self) -> f64 {self.depth}
     fn draw(&mut self, g: &mut GlGraphics, c: Context) {
-        graphics::image(self.tex.as_ref(), c.transform.trans(self.pos.x, self.pos.y), g);
+        graphics::image(
+            self.tex.as_ref(), 
+            c.transform.trans(self.pos.x, self.pos.y).scale(self.scale.x, self.scale.y), 
+            g);
     }
 }
 

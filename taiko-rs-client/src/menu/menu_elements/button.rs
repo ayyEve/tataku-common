@@ -37,14 +37,14 @@ impl ScrollableItem for MenuButton {
     fn get_tag(&self) -> String {self.tag.clone()}
     fn set_tag(&mut self, tag:&str) {self.tag = tag.to_owned()}
 
-    fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2<f64>) -> Vec<Box<dyn Renderable>> {
+    fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2<f64>, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let font_size:u32 = 12;
         
         // draw box
         let r = Rectangle::new(
             [0.2, 0.2, 0.2, 1.0].into(),
-            0.0,
+            parent_depth + 1.0,
             self.pos+pos_offset,
             self.size,
             if self.hover {Some(Border::new(Color::RED, 1.0))} else {None}
@@ -53,7 +53,7 @@ impl ScrollableItem for MenuButton {
         // draw text
         let mut txt = Text::new(
             Color::WHITE,
-            -1.0,
+            parent_depth,
             self.pos+pos_offset,
             font_size,
             self.text.clone(),

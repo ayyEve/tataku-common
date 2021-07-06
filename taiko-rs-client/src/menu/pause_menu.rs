@@ -39,11 +39,12 @@ impl Menu for PauseMenu {
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let pos_offset = Vector2::new(0.0, 0.0);
+        let depth = 0.0;
 
         // draw buttons
-        list.extend(self.continue_button.draw(args, pos_offset));
-        list.extend(self.retry_button.draw(args, pos_offset));
-        list.extend(self.exit_button.draw(args, pos_offset));
+        list.extend(self.continue_button.draw(args, pos_offset, depth));
+        list.extend(self.retry_button.draw(args, pos_offset, depth));
+        list.extend(self.exit_button.draw(args, pos_offset, depth));
 
         list
     }

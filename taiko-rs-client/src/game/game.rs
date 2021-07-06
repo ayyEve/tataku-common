@@ -731,7 +731,7 @@ impl<'shape> Game<'shape> {
                         let y = (counter - counter % 2) as f64 * USER_ITEM_SIZE.y;
 
                         counter += 1;
-                        renderables.extend(u.draw(args, Vector2::new(x, y)));
+                        renderables.extend(u.draw(args, Vector2::new(x, y), -100.0));
                     }
                 }
             }
