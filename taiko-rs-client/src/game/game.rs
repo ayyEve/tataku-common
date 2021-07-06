@@ -206,6 +206,21 @@ impl<'shape> Game<'shape> {
         let text = clone.lock().unwrap().input_manager.get_text();
         let window_focus_changed = clone.lock().unwrap().input_manager.get_changed_focus();
 
+
+        
+        // users list
+        if clone.lock().unwrap().show_user_list {
+            if let Ok(om) = clone.lock().unwrap().online_manager.try_lock() {
+                for (_, user) in &om.users.clone() {
+                    if let Ok(mut u) = user.try_lock() {
+                        if mouse_moved {u.on_mouse_move(mouse_pos)}
+                        if mouse_buttons.len() > 0 {mouse_buttons.retain(|button| !u.on_click(mouse_pos, button.clone()))}
+                    }
+                }
+            }
+        }
+
+
         // check for volume change
         let mut volume_changed = false;
         if mods.alt {
@@ -295,7 +310,6 @@ impl<'shape> Game<'shape> {
                 }
             }
         }
-
 
         if keys.contains(&Key::F8) {
             let mut c = clone.lock().unwrap();
@@ -647,9 +661,7 @@ impl<'shape> Game<'shape> {
                     if let GameMode::InMenu(menu) = &unlocked.current_mode {
                         menu.lock().unwrap().on_change(true);
                     }
-
                 }
-
             }
         }
     }
@@ -731,14 +743,6 @@ impl<'shape> Game<'shape> {
 
         // add the things we just made to the render queue
         self.render_queue.extend(renderables);
-        
-        // draw the cursor
-        self.add_render_queue(Circle::new(
-            Color::GREEN,
-            -1000.0,
-            self.input_manager.mouse_pos,
-            4.0
-        ));
 
         // draw the volume things if needed
         if self.vol_selected_time > 0 && elapsed - self.vol_selected_time < VOLUME_CHANGE_DISPLAY_TIME {

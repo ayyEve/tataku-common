@@ -56,7 +56,7 @@ impl ScrollableItem for OnlineUser {
             depth,
             pos_offset,
             USER_ITEM_SIZE,
-            Some(Border::new(Color::BLACK, 2.0))
+            Some(Border::new(if self.hover {Color::RED} else {Color::BLACK}, 2.0))
         )));
 
         // username
