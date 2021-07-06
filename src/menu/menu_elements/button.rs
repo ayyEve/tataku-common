@@ -1,13 +1,15 @@
 use cgmath::Vector2;
 
-use crate::{game::get_font, menu::ScrollableItem, render::{Color, Rectangle, Renderable, Text, Border}};
+use crate::{WINDOW_SIZE, game::get_font, menu::ScrollableItem, render::{Color, Rectangle, Renderable, Text, Border}};
+
+const BACK_BUTTON_SIZE:Vector2<f64> = Vector2::new(100.0, 50.0);
 
 #[derive(Clone)]
 pub struct MenuButton {
     pos: Vector2<f64>,
     size: Vector2<f64>,
-    hover:bool,
-    tag:String,
+    hover: bool,
+    tag: String,
 
     text: String,
 }
@@ -21,6 +23,10 @@ impl MenuButton {
             hover: false,
             tag: String::new()
         }
+    }
+
+    pub fn back_button() -> MenuButton {
+        MenuButton::new(Vector2::new(10.0, WINDOW_SIZE.y as f64 - (BACK_BUTTON_SIZE.y + 10.0)), BACK_BUTTON_SIZE, "Back")
     }
 }
 

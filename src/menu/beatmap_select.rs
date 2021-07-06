@@ -10,6 +10,8 @@ use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem};
 use crate::game::{Game, GameMode, KeyModifiers, Settings, get_font};
 use crate::{WINDOW_SIZE, DOWNLOADS_DIR, SONGS_DIR, render::*, databases::get_scores};
 
+use super::MenuButton;
+
 // constants
 const INFO_BAR_HEIGHT:f64 = 60.0;
 const BEATMAPSET_ITEM_SIZE: Vector2<f64> = Vector2::new(550.0, 50.0);
@@ -29,6 +31,7 @@ pub struct BeatmapSelectMenu {
     current_scores: HashMap<String, Arc<Mutex<Score>>>,
     beatmap_scroll: ScrollableArea,
     leaderboard_scroll: ScrollableArea,
+    back_button: MenuButton,
 
     background_texture: Option<Image>,
     pending_refresh: bool,
@@ -41,6 +44,7 @@ impl BeatmapSelectMenu {
             pending_refresh: false,
             current_scores: HashMap::new(),
             background_texture: None,
+            back_button: MenuButton::back_button(),
 
             beatmap_scroll: ScrollableArea::new(Vector2::new(WINDOW_SIZE.x as f64 - (BEATMAPSET_ITEM_SIZE.x+BEATMAPSET_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y as f64 - INFO_BAR_HEIGHT), true),
             leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y as f64 - LEADERBOARD_POS.y), true),
@@ -174,6 +178,9 @@ impl Menu for BeatmapSelectMenu {
         // leaderboard scroll
         items.extend(self.leaderboard_scroll.draw(args));
 
+        // back button
+        items.extend(self.back_button.draw(args, Vector2::new(0.0, 0.0)));
+
         // draw background image
         if let Some(img) = self.background_texture.as_ref() {
             items.push(Box::new(img.clone()));
@@ -183,14 +190,29 @@ impl Menu for BeatmapSelectMenu {
     }
 
     fn on_volume_change(&mut self) {self.beatmap_scroll.on_volume_change();}
-    fn on_change(&mut self) {
-        self.beatmap_scroll.refresh_layout();
-        if let Some(map_hash) = &self.selected_beatmap.clone() {
-            self.load_scores(map_hash.clone());
+    fn on_change(&mut self, into:bool) {
+        if into {
+            self.beatmap_scroll.refresh_layout();
+            if let Some(map_hash) = &self.selected_beatmap.clone() {
+                self.load_scores(map_hash.clone());
+            }
+        } else {
+            println!("stop musci >:C");
+            // stop the music somehow?
+            for i in self.beatmap_scroll.items.iter_mut() {
+                i.set_tag("no more music >:C");
+            }
         }
     }
 
     fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
+
+        if self.back_button.on_click(pos, button) {
+            let mut game = game.lock().unwrap();
+            let menu = game.menus.get("main").unwrap().clone();
+            game.queue_mode_change(GameMode::InMenu(menu));
+            return;
+        }
 
         // check if leaderboard item was clicked
         if let Some(score_tag) = self.leaderboard_scroll.on_click(pos, button, game.clone()) {
@@ -198,8 +220,11 @@ impl Menu for BeatmapSelectMenu {
             let mut game = game.lock().unwrap();
             if let Some(score) = self.current_scores.get(&score_tag) {
                 let score = score.lock().unwrap().clone();
-                let menu = ScoreMenu::new(score);
-                game.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(Box::new(menu)))));
+
+                if let Some((selected, _)) = self.get_selected() {
+                    let menu = ScoreMenu::new(score, selected.clone());
+                    game.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(Box::new(menu)))));
+                }
             }
             return;
         }
@@ -248,6 +273,7 @@ impl Menu for BeatmapSelectMenu {
 
     }
     fn on_mouse_move(&mut self, pos:Vector2<f64>, game:Arc<Mutex<&mut Game>>) {
+        self.back_button.on_mouse_move(pos);
         self.beatmap_scroll.on_mouse_move(pos, game.clone());
         self.leaderboard_scroll.on_mouse_move(pos, game.clone());
     }
@@ -328,7 +354,10 @@ impl ScrollableItem for BeatmapsetItem {
         }
     }
     fn get_tag(&self) -> String {self.tag.clone()}
-    fn set_tag(&mut self, _tag:&str) {self.pending_play = false;} // bit of a jank strat: when this is called, reset the play_pending property
+    fn set_tag(&mut self, _tag:&str) {
+        self.pending_play = false; 
+        self.first.lock().unwrap().song.stop();
+    } // bit of a jank strat: when this is called, reset the play_pending property
     fn get_pos(&self) -> Vector2<f64> {self.pos}
     fn set_pos(&mut self, pos:Vector2<f64>) {self.pos = pos}
     fn get_value(&self) -> Box<dyn std::any::Any> {
