@@ -121,6 +121,7 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                 }
             }
 
+            // client statuses
             PacketId::Client_LogOut => {
                 let user_id = user_connection.user_id;
                 println!("user logging out: {}", user_id);
@@ -132,7 +133,7 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                     if i_addr == addr {continue}
                     let _ = user.writer.lock().await.send(p.clone()).await;
                 }
-            }
+            }   
 
             PacketId::Client_StatusUpdate => {
                 let action: UserAction = reader.read();
@@ -151,6 +152,14 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                     let _ = user.writer.lock().await.send(p.clone()).await;
                 }
             }
+
+            // chat messages
+            // todo!
+
+            // spectator?
+            
+
+            // multiplayer?
 
             PacketId::Unknown => {
                 println!("got unknown packet id {}, dropping remaining packets", raw_id);

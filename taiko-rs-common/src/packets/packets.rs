@@ -7,15 +7,32 @@ use crate::serialization::Serializable;
 #[allow(non_camel_case_types)]
 pub enum PacketId {
     Unknown = 0,
+
+    // login
     Client_UserLogin,
     Server_LoginResponse,
 
+    // status updates
+    Client_StatusUpdate,
+    Server_UserStatusUpdate,
     Client_LogOut,
     Server_UserJoined,
     Server_UserLeft,
 
-    Client_StatusUpdate,
-    Server_UserStatusUpdate
+    // chat
+    Client_SendMessage, // sender_id, channel_id, message
+    Server_SendMessage, // sender_id, channel_id, message
+    Client_PrivateMessage, // receiver_id, message
+    Server_PrivateMessage, // sender_id, message
+
+    // spectator?
+    Client_Spectate, // user_id to spectate
+    Server_SpectatorJoined, // user_id of spectator
+    Client_SpectatorFrames, // frame_count, [(action, |...action_args|)], action = SpectatorAction
+    Server_SpecatorFrames, // sender_id, frame_count, [(action, |...action_args|)], action = SpectatorAction
+
+    // multiplayer?
+
 }
 impl PacketId {
     pub fn from(n:u16) -> PacketId {
