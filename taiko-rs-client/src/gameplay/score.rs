@@ -49,9 +49,7 @@ impl Score {
         let x300 = self.x300 as f64;
 
         let n = (0.5*x100 + x300) / (xmiss + x100 + x300);
-        if n.is_nan() {
-            return 0.0;
-        }
+        if n.is_nan() {return 0.0}
         n
     }
     pub fn hit_error(&self) -> HitError {
