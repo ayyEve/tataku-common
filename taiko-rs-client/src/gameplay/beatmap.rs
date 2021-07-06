@@ -425,7 +425,6 @@ impl Beatmap {
 
             if self.lead_in_time <= 0.0 {
                 self.song.play();
-                self.song.audio_instance.as_ref().unwrap().set_position(std::time::Duration::from_secs(60));
                 self.song.set_volume(Settings::get().get_music_vol());
 
                 self.lead_in_time = 0.0;

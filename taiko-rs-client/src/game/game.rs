@@ -605,8 +605,18 @@ impl<'shape> Game<'shape> {
                 let online_manager = unlocked.online_manager.clone();
                 match &unlocked.queued_mode {
                     GameMode::Ingame(map) => {
-                        let m = map.lock().unwrap().metadata.clone();
-                        let text = format!("{}-{}[{}]\n{}",m.artist,m.title,m.version,map.lock().unwrap().hash.clone());
+                        let (m, h) = { 
+                            let mut lock = map.lock().unwrap();
+
+                            // Preload the song
+                            lock.song.play();
+                            lock.song.pause();
+
+
+                            (lock.metadata.clone(), lock.hash.clone())
+                        };
+
+                        let text = format!("{}-{}[{}]\n{}",m.artist,m.title,m.version,h);
 
                         unlocked.threading.spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Ingame, text).await;

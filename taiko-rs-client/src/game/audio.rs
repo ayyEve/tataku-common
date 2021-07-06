@@ -147,8 +147,6 @@ impl Iterator for AudioInstance {
                     if lock.first {
                         lock.delay = lock.timer.elapsed().as_secs_f64() * 1000.0;
                         lock.first = false;
-                        println!("first, delay: {}ms", lock.delay);
-                        println!("first, current index: {}", lock.current_index);
                     }
 
                     Some(item)
@@ -316,7 +314,7 @@ impl SoundEffect {
 
     pub fn state(&self) -> AudioState {
         match &self.audio_instance {
-            Some(audio_instance) => audio_instance.state().clone(),
+            Some(audio_instance) => audio_instance.state(),
             None => AudioState::Stopped
         }
     }
@@ -347,13 +345,11 @@ impl SoundEffect {
         match self.state() {
             AudioState::Playing => {}, // do nothing, its already playing
             AudioState::Paused => { // resume the sink
-                println!("pausweedd");
                 self.audio_instance.as_ref().unwrap().play();
                 self.sink.as_ref().unwrap().play();
             },
             AudioState::Stopped => { // reload the sink and play it
                 if let Some((new_audio_instance, sink)) = Audio::load_sink(&self.name) {
-                    println!("stoppppped");
                     new_audio_instance.play();
                     sink.set_volume(self.volume);
                     sink.play();
@@ -369,7 +365,7 @@ impl SoundEffect {
         match self.state() {
             AudioState::Playing => {
                 self.sink.as_ref().unwrap().pause();
-                self.audio_instance.as_ref().unwrap().play();
+                self.audio_instance.as_ref().unwrap().pause();
             },
             _ => {}
         }
