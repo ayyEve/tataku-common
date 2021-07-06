@@ -36,80 +36,75 @@ impl Menu for ScoreMenu {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
 
+        let depth = 0.0;
+
         // draw score info
-        let score_txt = Text::new(
+        list.push(Box::new(Text::new(
             Color::BLACK,
-            1.0,
+            depth + 1.0,
             Vector2::new(50.0, 100.0),
             30,
             format!("Score: {}", format(self.score.score)),
             font.clone()
-        );
-        list.push(Box::new(score_txt));
+        )));
 
         // counts
-        let x300_txt = Text::new(
+        list.push(Box::new(Text::new(
             Color::BLACK,
-            1.0,
+            depth + 1.0,
             Vector2::new(50.0, 140.0),
             30,
             format!("x300: {}", format(self.score.x300)),
             font.clone()
-        );
-        list.push(Box::new(x300_txt));
-        let x100_txt = Text::new(
+        )));
+        list.push(Box::new(Text::new(
             Color::BLACK,
-            1.0,
+            depth + 1.0,
             Vector2::new(50.0, 170.0),
             30,
             format!("x100: {}", format(self.score.x100)),
             font.clone()
-        );
-        list.push(Box::new(x100_txt));
-        let miss_txt = Text::new(
+        )));
+        list.push(Box::new(Text::new(
             Color::BLACK,
-            1.0,
+            depth + 1.0,
             Vector2::new(50.0, 200.0),
             30,
             format!("Miss: {}", format(self.score.xmiss)),
             font.clone()
-        );
-        list.push(Box::new(miss_txt));
+        )));
 
         // combo and acc
-        let combo_txt = Text::new(
+        list.push(Box::new(Text::new(
             Color::BLACK,
-            1.0,
+            depth + 1.0,
             Vector2::new(50.0, 240.0),
             30,
             format!("{}x, {:.2}%", format(self.score.max_combo), self.score.acc() * 100.0),
             font.clone()
-        );
-        list.push(Box::new(combo_txt));
+        )));
 
-        let error_txt = Text::new(
+        list.push(Box::new(Text::new(
             Color::BLACK,
-            1.0,
+            depth + 1.0,
             Vector2::new(50.0, 280.0),
             30,
             format!("Error: {:.2}ms - {:.2}ms avg", self.hit_error.early, self.hit_error.late),
             font.clone()
-        );
-        list.push(Box::new(error_txt));
-        let error2_txt = Text::new(
+        )));
+        list.push(Box::new(Text::new(
             Color::BLACK,
-            1.0,
+            depth + 1.0,
             Vector2::new(50.0, 320.0),
             30,
             format!("Unstable Rate: {:.2}", self.hit_error.unstable_rate),
             font.clone()
-        );
-        list.push(Box::new(error2_txt));
+        )));
         
 
         // draw buttons
-        list.extend(self.back_button.draw(args, Vector2::new(0.0, 0.0)));
-        list.extend(self.replay_button.draw(args, Vector2::new(0.0, 0.0)));
+        list.extend(self.back_button.draw(args, Vector2::new(0.0, 0.0), depth));
+        list.extend(self.replay_button.draw(args, Vector2::new(0.0, 0.0), depth));
 
         list
     }

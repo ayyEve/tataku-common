@@ -42,11 +42,12 @@ impl Menu for MainMenu {
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let pos_offset = Vector2::new(0.0, 0.0);
+        let depth = 0.0;
 
         // draw welcome text
         let mut welcome_text = Text::new(
             Color::BLACK,
-            -1.0,
+            depth-1.0,
             pos_offset,
             40,
             "Welcome to Taiko.rs".to_owned(),
@@ -56,10 +57,10 @@ impl Menu for MainMenu {
         list.push(Box::new(welcome_text));
 
         // draw buttons
-        list.extend(self.play_button.draw(args, pos_offset));
-        list.extend(self.direct_button.draw(args, pos_offset));
-        list.extend(self.settings_button.draw(args, pos_offset));
-        list.extend(self.exit_button.draw(args, pos_offset));
+        list.extend(self.play_button.draw(args, pos_offset, depth));
+        list.extend(self.direct_button.draw(args, pos_offset, depth));
+        list.extend(self.settings_button.draw(args, pos_offset, depth));
+        list.extend(self.exit_button.draw(args, pos_offset, depth));
 
         list
     }

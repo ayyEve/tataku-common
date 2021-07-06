@@ -42,11 +42,9 @@ impl ScrollableItem for OnlineUser {
     fn on_mouse_move(&mut self, pos:Vector2<f64>) {self.hover = self.hover(pos)}
 
 
-    fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2<f64>) -> Vec<Box<dyn Renderable>> {
+    fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2<f64>, depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut list:Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
-
-        let depth = -100.0;
 
         // bounding box
         let mut c = Color::BLACK.clone();
