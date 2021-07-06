@@ -2,26 +2,25 @@ use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use std::{path::Path, fs::read_dir};
 
-use cgmath::Vector2;
 use piston::{Key, MouseButton, RenderArgs};
 
 use crate::gameplay::{Beatmap, BeatmapMeta, Score};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem};
-use crate::game::{Game, GameMode, KeyModifiers, Settings, get_font};
+use crate::game::{Game, GameMode, KeyModifiers, Settings, get_font, Vector2};
 use crate::{WINDOW_SIZE, DOWNLOADS_DIR, SONGS_DIR, render::*, databases::get_scores};
 
 use super::MenuButton;
 
 // constants
 const INFO_BAR_HEIGHT:f64 = 60.0;
-const BEATMAPSET_ITEM_SIZE: Vector2<f64> = Vector2::new(550.0, 50.0);
+const BEATMAPSET_ITEM_SIZE: Vector2 = Vector2::new(550.0, 50.0);
 const BEATMAPSET_PAD_RIGHT: f64 = 5.0;
 
 const BEATMAP_ITEM_PADDING: f64 = 5.0;
-const BEATMAP_ITEM_SIZE: Vector2<f64> = Vector2::new(450.0, 50.0);
+const BEATMAP_ITEM_SIZE: Vector2 = Vector2::new(450.0, 50.0);
 
-const LEADERBOARD_POS: Vector2<f64> = Vector2::new(10.0, 100.0);
-const LEADERBOARD_ITEM_SIZE: Vector2<f64> = Vector2::new(200.0, 50.0);
+const LEADERBOARD_POS: Vector2 = Vector2::new(10.0, 100.0);
+const LEADERBOARD_ITEM_SIZE: Vector2 = Vector2::new(200.0, 50.0);
 
 pub struct BeatmapSelectMenu {
     /// tag of the selected set
@@ -46,8 +45,8 @@ impl BeatmapSelectMenu {
             background_texture: None,
             back_button: MenuButton::back_button(),
 
-            beatmap_scroll: ScrollableArea::new(Vector2::new(WINDOW_SIZE.x as f64 - (BEATMAPSET_ITEM_SIZE.x+BEATMAPSET_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y as f64 - INFO_BAR_HEIGHT), true),
-            leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y as f64 - LEADERBOARD_POS.y), true),
+            beatmap_scroll: ScrollableArea::new(Vector2::new(WINDOW_SIZE.x - (BEATMAPSET_ITEM_SIZE.x+BEATMAPSET_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y - INFO_BAR_HEIGHT), true),
+            leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y - LEADERBOARD_POS.y), true),
         };
         b.refresh_maps();
         b
@@ -205,7 +204,7 @@ impl Menu for BeatmapSelectMenu {
         }
     }
 
-    fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
 
         if self.back_button.on_click(pos, button) {
             let mut game = game.lock().unwrap();
@@ -272,7 +271,7 @@ impl Menu for BeatmapSelectMenu {
         }
 
     }
-    fn on_mouse_move(&mut self, pos:Vector2<f64>, game:Arc<Mutex<&mut Game>>) {
+    fn on_mouse_move(&mut self, pos:Vector2, game:Arc<Mutex<&mut Game>>) {
         self.back_button.on_mouse_move(pos);
         self.beatmap_scroll.on_mouse_move(pos, game.clone());
         self.leaderboard_scroll.on_mouse_move(pos, game.clone());
@@ -301,7 +300,7 @@ impl Menu for BeatmapSelectMenu {
 
 
 struct BeatmapsetItem {
-    pos: Vector2<f64>,
+    pos: Vector2,
     hover: bool,
     selected: bool,
     tag: String,
@@ -310,7 +309,7 @@ struct BeatmapsetItem {
     beatmaps: Vec<Arc<Mutex<Beatmap>>>,
     meta: BeatmapMeta,
     selected_item: usize, // index of selected item
-    mouse_pos:Vector2<f64>,
+    mouse_pos: Vector2,
 
     // use this for audio
     first: Arc<Mutex<Beatmap>>
@@ -346,7 +345,7 @@ impl BeatmapsetItem {
     }
 }
 impl ScrollableItem for BeatmapsetItem {
-    fn size(&self) -> Vector2<f64> {
+    fn size(&self) -> Vector2 {
         if !self.selected {
             BEATMAPSET_ITEM_SIZE
         } else {
@@ -358,13 +357,13 @@ impl ScrollableItem for BeatmapsetItem {
         self.pending_play = false; 
         self.first.lock().unwrap().song.stop();
     } // bit of a jank strat: when this is called, reset the play_pending property
-    fn get_pos(&self) -> Vector2<f64> {self.pos}
-    fn set_pos(&mut self, pos:Vector2<f64>) {self.pos = pos}
+    fn get_pos(&self) -> Vector2 {self.pos}
+    fn set_pos(&mut self, pos:Vector2) {self.pos = pos}
     fn get_value(&self) -> Box<dyn std::any::Any> {
         Box::new((self.beatmaps.get(self.selected_item).unwrap().clone(), self.pending_play))
     }
 
-    fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2<f64>, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
+    fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut items: Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
 
@@ -440,7 +439,7 @@ impl ScrollableItem for BeatmapsetItem {
         items
     }
 
-    fn on_click(&mut self, pos:Vector2<f64>, _button:MouseButton) -> bool {
+    fn on_click(&mut self, pos:Vector2, _button:MouseButton) -> bool {
 
         if self.selected && self.hover {
             // find the clicked item
@@ -472,7 +471,7 @@ impl ScrollableItem for BeatmapsetItem {
         self.selected = self.hover;
         self.hover
     }
-    fn on_mouse_move(&mut self, pos:Vector2<f64>) {
+    fn on_mouse_move(&mut self, pos:Vector2) {
         self.mouse_pos = pos;
         self.hover = self.hover(pos)
     }
@@ -487,7 +486,7 @@ impl ScrollableItem for BeatmapsetItem {
 
 
 struct LeaderboardItem {
-    pos: Vector2<f64>,
+    pos: Vector2,
     hover: bool,
     tag: String,
 
@@ -509,13 +508,13 @@ impl LeaderboardItem {
     }
 }
 impl ScrollableItem for LeaderboardItem {
-    fn size(&self) -> Vector2<f64> {LEADERBOARD_ITEM_SIZE}
+    fn size(&self) -> Vector2 {LEADERBOARD_ITEM_SIZE}
     fn get_tag(&self) -> String {self.tag.clone()}
     fn set_tag(&mut self, tag:&str) {self.tag = tag.to_owned()}
-    fn get_pos(&self) -> Vector2<f64> {self.pos}
-    fn set_pos(&mut self, pos:Vector2<f64>) {self.pos = pos}
+    fn get_pos(&self) -> Vector2 {self.pos}
+    fn set_pos(&mut self, pos:Vector2) {self.pos = pos}
 
-    fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2<f64>, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
+    fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut items: Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
 
@@ -551,6 +550,6 @@ impl ScrollableItem for LeaderboardItem {
         items
     }
 
-    fn on_click(&mut self, _pos:Vector2<f64>, _button:MouseButton) -> bool {self.hover}
-    fn on_mouse_move(&mut self, pos:Vector2<f64>) {self.hover = self.hover(pos);}
+    fn on_click(&mut self, _pos:Vector2, _button:MouseButton) -> bool {self.hover}
+    fn on_mouse_move(&mut self, pos:Vector2) {self.hover = self.hover(pos);}
 }

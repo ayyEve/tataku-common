@@ -2,18 +2,17 @@ use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use std::{fs::File, io::Write};
 
-use cgmath::Vector2;
 use piston::{Key, MouseButton};
 use rodio::Sink; // ugh
 
 use crate::{WINDOW_SIZE, DOWNLOADS_DIR};
 use crate::render::{Text, Renderable, Rectangle, Color, Border};
 use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
-use crate::game::{Audio, Game, GameMode, KeyModifiers, Settings, get_font};
+use crate::game::{Audio, Game, GameMode, KeyModifiers, Settings, get_font, Vector2};
 
-const DIRECT_ITEM_SIZE:Vector2<f64> = Vector2::new(600.0, 80.0);
+const DIRECT_ITEM_SIZE:Vector2 = Vector2::new(600.0, 80.0);
 const SEARCH_BAR_HEIGHT:f64 = 50.0;
-const DOWNLOAD_ITEM_SIZE:Vector2<f64> = Vector2::new(300.0, 40.0);
+const DOWNLOAD_ITEM_SIZE:Vector2 = Vector2::new(300.0, 40.0);
 const DOWNLOAD_ITEM_YMARGIN:f64 = 30.0;
 const DOWNLOAD_ITEM_YOFFSET:f64 = SEARCH_BAR_HEIGHT + 10.0;
 
@@ -191,7 +190,7 @@ impl Menu for OsuDirectMenu {
         self.scroll_area.on_scroll(delta);
     }
 
-    fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
         self.search_bar.on_click(pos, button);
 
         if let Some(key) = self.scroll_area.on_click(pos, button, game) {
@@ -212,7 +211,7 @@ impl Menu for OsuDirectMenu {
         }
     }
 
-    fn on_mouse_move(&mut self, pos:Vector2<f64>, game:Arc<Mutex<&mut Game>>) {
+    fn on_mouse_move(&mut self, pos:Vector2, game:Arc<Mutex<&mut Game>>) {
         self.search_bar.on_mouse_move(pos);
         self.scroll_area.on_mouse_move(pos, game);
     }
@@ -280,7 +279,7 @@ fn write_file(file:String, bytes:&[u8]) -> std::io::Result<()> {
 
 #[derive(Clone)]
 struct DirectItem {
-    pos: Vector2<f64>,
+    pos: Vector2,
 
     item: DirectMeta,
     hover: bool,
@@ -315,13 +314,13 @@ impl DirectItem {
 }
 impl ScrollableItem for DirectItem {
     // fn update(&mut self) {}
-    fn size(&self) -> Vector2<f64> {DIRECT_ITEM_SIZE}
-    fn set_pos(&mut self, pos:Vector2<f64>) {self.pos = pos;}
-    fn get_pos(&self) -> Vector2<f64> {self.pos}
+    fn size(&self) -> Vector2 {DIRECT_ITEM_SIZE}
+    fn set_pos(&mut self, pos:Vector2) {self.pos = pos;}
+    fn get_pos(&self) -> Vector2 {self.pos}
     fn get_tag(&self) -> String {self.item.filename.clone()}
     fn set_tag(&mut self, _tag:&str) {}
 
-    fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2<f64>, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
+    fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut list:Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
 
@@ -354,7 +353,7 @@ impl ScrollableItem for DirectItem {
         list
     }
 
-    fn on_click(&mut self, _pos:Vector2<f64>, _button:piston::MouseButton) -> bool {
+    fn on_click(&mut self, _pos:Vector2, _button:piston::MouseButton) -> bool {
 
         if self.selected {
             if self.hover {
@@ -373,7 +372,7 @@ impl ScrollableItem for DirectItem {
         false
     }
 
-    fn on_mouse_move(&mut self, pos:Vector2<f64>) {
+    fn on_mouse_move(&mut self, pos:Vector2) {
         self.hover = self.hover(pos);
     }
 }

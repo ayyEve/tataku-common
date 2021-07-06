@@ -1,8 +1,9 @@
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Vector2 {
-    x: f64,
-    y: f64,
+    pub x: f64,
+    pub y: f64,
 }
 impl Vector2 {
     pub const fn new(x:f64, y: f64) -> Self {Self {x, y}}

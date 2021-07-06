@@ -2,6 +2,7 @@
 
 mod online_manager;
 mod online_user;
+mod chat;
 
 pub use online_manager::*;
 pub use online_user::*;

@@ -1,8 +1,6 @@
 use std::ops::Range;
 
-use cgmath::Vector2;
-
-use crate::{game::get_font, menu::ScrollableItem, render::{Color, Rectangle, Renderable, Text, Border}};
+use crate::{menu::ScrollableItem,game::{get_font, Vector2},  render::{Color, Rectangle, Renderable, Text, Border}};
 
 // i think this is going to require me to implement mouse up events. rip
 const SNAP_LENIENCY:f64 = 0.5;
@@ -10,8 +8,8 @@ const TRACKBAR_WIDTH:f64 = 1.0;
 
 #[derive(Clone)]
 pub struct Slider {
-    pos: Vector2<f64>,
-    size: Vector2<f64>,
+    pos: Vector2,
+    size: Vector2,
     hover:bool,
     tag: String,
 
@@ -24,7 +22,7 @@ pub struct Slider {
     mouse_down:bool, // store the mouse state, because we dont have a hold event
 }
 impl Slider {
-    pub fn new(pos: Vector2<f64>, size: Vector2<f64>, text:&str, value:f64, range:Option<Range<f64>>, snapping:Option<f64>) -> Slider {
+    pub fn new(pos: Vector2, size: Vector2, text:&str, value:f64, range:Option<Range<f64>>, snapping:Option<f64>) -> Slider {
         let range = if let Some(r) = range{r} else {0.0..100.0};
 
         Slider {
@@ -64,14 +62,14 @@ impl Slider {
 }
 
 impl ScrollableItem for Slider {
-    fn size(&self) -> Vector2<f64> {self.size}
-    fn get_pos(&self) -> Vector2<f64> {self.pos}
-    fn set_pos(&mut self, pos:Vector2<f64>) {self.pos = pos}
+    fn size(&self) -> Vector2 {self.size}
+    fn get_pos(&self) -> Vector2 {self.pos}
+    fn set_pos(&mut self, pos:Vector2) {self.pos = pos}
     fn get_tag(&self) -> String {self.tag.clone()}
     fn set_tag(&mut self, tag:&str) {self.tag = tag.to_owned()}
     fn get_value(&self) -> Box<dyn std::any::Any> {Box::new(self.value)}
 
-    fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2<f64>, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
+    fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let font_size: u32 = 12;
         
@@ -141,7 +139,7 @@ impl ScrollableItem for Slider {
         list
     }
 
-    fn on_click(&mut self, pos:Vector2<f64>, _button:piston::MouseButton) -> bool {
+    fn on_click(&mut self, pos:Vector2, _button:piston::MouseButton) -> bool {
         if self.hover {
             // extrapolate value
             let bounds = self.get_slider_bounds();
@@ -172,5 +170,5 @@ impl ScrollableItem for Slider {
         }
         self.hover
     }
-    fn on_mouse_move(&mut self, pos:Vector2<f64>) {self.hover = self.hover(pos)}
+    fn on_mouse_move(&mut self, pos:Vector2) {self.hover = self.hover(pos)}
 }

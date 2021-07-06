@@ -1,12 +1,11 @@
 use std::sync::{Arc, Mutex};
 
-use cgmath::Vector2;
 use piston::{MouseButton, RenderArgs};
 
 use crate::{format, render::*};
 use crate::gameplay::{Beatmap, HitError, Score};
-use crate::game::{Game, GameMode, KeyModifiers, get_font};
 use crate::menu::{Menu, MenuButton, ScrollableItem};
+use crate::game::{Game, GameMode, KeyModifiers, get_font, Vector2};
 
 pub struct ScoreMenu {
     score: Score,
@@ -97,7 +96,7 @@ impl Menu for ScoreMenu {
             depth + 1.0,
             Vector2::new(50.0, 320.0),
             30,
-            format!("Unstable Rate: {:.2}", self.hit_error.unstable_rate),
+            format!("Deviance: {:.2}ms", self.hit_error.deviance),
             font.clone()
         )));
         
@@ -109,7 +108,7 @@ impl Menu for ScoreMenu {
         list
     }
 
-    fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
         if self.replay_button.on_click(pos, button) {
             self.beatmap.lock().unwrap().reset();
             let mut game = game.lock().unwrap();
@@ -125,7 +124,7 @@ impl Menu for ScoreMenu {
         }
     }
 
-    fn on_mouse_move(&mut self, pos:Vector2<f64>, _game:Arc<Mutex<&mut Game>>) {
+    fn on_mouse_move(&mut self, pos:Vector2, _game:Arc<Mutex<&mut Game>>) {
         self.replay_button.on_mouse_move(pos);
         self.back_button.on_mouse_move(pos);
     }

@@ -61,19 +61,10 @@ impl Score {
         let mut total_all = 0;
         let mut count = 0;
         let mut _count = 0;
-        // let mut max = 0;
-        // let mut min = i32::MAX;
 
         for i in self.hit_timings.as_slice() {
             let i = i.clone();
             total_all += i;
-
-            // if i > max {
-            //     max = i;
-            // }
-            // if i < min {
-            //     min = i;
-            // }
 
             if i > 0 {
                 total += i;
@@ -93,7 +84,7 @@ impl Score {
         HitError {
             early: _total as f64 / _count as f64,
             late: total as f64 / count as f64,
-            unstable_rate: (variance / self.hit_timings.len() as f64).sqrt() * 10.0
+            deviance: (variance / self.hit_timings.len() as f64).sqrt()
         }
     }
 
@@ -190,5 +181,5 @@ pub enum ScoreHit {
 pub struct HitError {
     pub early: f64,
     pub late: f64,
-    pub unstable_rate: f64
+    pub deviance: f64
 }

@@ -1,13 +1,12 @@
 use std::sync::{Arc, Mutex};
 
-use cgmath::Vector2;
 use piston::RenderArgs;
 
-use crate::{HIT_POSITION, NOTE_RADIUS, gameplay::{Beatmap, ScoreHit, BAR_COLOR}, render::{Circle, Color, HalfCircle, Rectangle, Renderable, Border}};
+use crate::{HIT_POSITION, NOTE_RADIUS, game::Vector2, gameplay::{Beatmap, ScoreHit, BAR_COLOR}, render::{Circle, Color, HalfCircle, Rectangle, Renderable, Border}};
 
 const SLIDER_DOT_RADIUS:f64 = 8.0;
 const SPINNER_RADIUS: f64 = 200.0;
-const SPINNER_POSITION: Vector2<f64> = Vector2::new(100.0, 0.0); // + hit position
+const SPINNER_POSITION: Vector2 = Vector2::new(100.0, 0.0); // + hit position
 const FINISHER_LENIENCY:u64 = 20; // ms
 const NOTE_BORDER_SIZE:f64 = 2.0;
 
@@ -42,7 +41,7 @@ pub trait HitObject {
 // note
 #[derive(Clone)]
 pub struct Note {
-    pos: Vector2<f64>,
+    pos: Vector2,
     pub time: u64, // ms
     hit_time: u64,
     pub hit_type: HitType,
@@ -180,7 +179,7 @@ impl HitObject for Note {
 
 // slider
 pub struct Slider {
-    pos: Vector2<f64>,
+    pos: Vector2,
     hit_dots:Vec<SliderDot>, // list of times the slider was hit at
 
     pub time: u64, // ms
@@ -292,7 +291,7 @@ impl HitObject for Slider {
 struct SliderDot {
     time: f64,
     speed: f64,
-    pos: Vector2<f64>,
+    pos: Vector2,
     pub done: bool
 }
 impl SliderDot {
@@ -337,7 +336,7 @@ impl SliderDot {
 
 // spinner
 pub struct Spinner {
-    pos: Vector2<f64>, // the note in the bar, not the spinner itself
+    pos: Vector2, // the note in the bar, not the spinner itself
     hit_count: u16,
     last_hit: HitType,
     complete: bool, // is this spinner done

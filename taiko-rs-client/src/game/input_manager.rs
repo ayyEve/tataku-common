@@ -1,10 +1,9 @@
 use std::collections::HashSet;
-
-use cgmath::Vector2;
 use piston::input::*;
+use crate::game::Vector2;
 
 pub struct InputManager {
-    pub mouse_pos: Vector2<f64>,
+    pub mouse_pos: Vector2,
     pub scroll_delta: f64,
     pub mouse_moved: bool,
     pub mouse_buttons: Vec<MouseButton>,
@@ -50,7 +49,7 @@ impl InputManager {
         }
 
         e.mouse_cursor(|pos| {
-            let new_pos:Vector2<f64> = Vector2::new(pos[0], pos[1]);
+            let new_pos = Vector2::new(pos[0], pos[1]);
             if new_pos != self.mouse_pos {self.mouse_moved = true}
             self.mouse_pos = new_pos;
         });

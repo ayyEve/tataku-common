@@ -1,13 +1,12 @@
 use std::sync::{Arc, Mutex};
 
-use cgmath::Vector2;
 use piston::{MouseButton, RenderArgs};
 
 use crate::{WINDOW_SIZE, render::*};
-use crate::game::{Game, GameMode, get_font};
+use crate::game::{Game, GameMode, get_font, Vector2};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
 
-const BUTTON_SIZE: Vector2<f64> = Vector2::new(100.0, 50.0);
+const BUTTON_SIZE: Vector2 = Vector2::new(100.0, 50.0);
 const Y_MARGIN: f64 = 20.0;
 const Y_OFFSET: f64 = 10.0;
 
@@ -65,7 +64,7 @@ impl Menu for MainMenu {
         list
     }
 
-    fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
         let mut game = game.lock().unwrap();
 
         // switch to beatmap selection
@@ -96,7 +95,7 @@ impl Menu for MainMenu {
         }
     }
 
-    fn on_mouse_move(&mut self, pos:Vector2<f64>, _game:Arc<Mutex<&mut Game>>) {
+    fn on_mouse_move(&mut self, pos:Vector2, _game:Arc<Mutex<&mut Game>>) {
         self.play_button.on_mouse_move(pos);
         self.direct_button.on_mouse_move(pos);
         self.settings_button.on_mouse_move(pos);

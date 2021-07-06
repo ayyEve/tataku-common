@@ -1,15 +1,14 @@
 use std::error::Error;
 
-use cgmath::Vector2;
 use piston::{Key, MouseButton, RenderArgs};
 use clipboard::{ClipboardProvider, ClipboardContext};
 
-use crate::{game::{KeyModifiers, get_font}, menu::ScrollableItem, render::{Color, Rectangle, Renderable, Text, Border}};
+use crate::{game::{KeyModifiers, get_font, Vector2}, menu::ScrollableItem, render::{Color, Rectangle, Renderable, Text, Border}};
 
 #[derive(Clone)]
 pub struct PasswordInput {
-    pos: Vector2<f64>,
-    size: Vector2<f64>,
+    pos: Vector2,
+    size: Vector2,
     hover: bool,
     selected: bool,
     tag: String,
@@ -20,7 +19,7 @@ pub struct PasswordInput {
     show_pass: bool,
 }
 impl PasswordInput {
-    pub fn new(pos: Vector2<f64>, size: Vector2<f64>, placeholder: &str, value:&str) -> PasswordInput {
+    pub fn new(pos: Vector2, size: Vector2, placeholder: &str, value:&str) -> PasswordInput {
         PasswordInput {
             pos, 
             size, 
@@ -52,14 +51,14 @@ impl PasswordInput {
     }
 }
 impl ScrollableItem for PasswordInput {
-    fn size(&self) -> Vector2<f64> {self.size}
-    fn get_pos(&self) -> Vector2<f64> {self.pos}
-    fn set_pos(&mut self, pos:Vector2<f64>) {self.pos = pos;}
+    fn size(&self) -> Vector2 {self.size}
+    fn get_pos(&self) -> Vector2 {self.pos}
+    fn set_pos(&mut self, pos:Vector2) {self.pos = pos;}
     fn get_tag(&self) -> String {self.tag.clone()}
     fn set_tag(&mut self, tag:&str) {self.tag = tag.to_owned()}
     fn get_value(&self) -> Box<dyn std::any::Any> {Box::new(self.text.clone())}
 
-    fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2<f64>, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
+    fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
 
@@ -119,7 +118,7 @@ impl ScrollableItem for PasswordInput {
         list
     }
 
-    fn on_click(&mut self, pos:Vector2<f64>, _button:MouseButton) -> bool {
+    fn on_click(&mut self, pos:Vector2, _button:MouseButton) -> bool {
         self.show_pass = false;
 
         // try to extrapolate where the mouse was clicked, and change the cursor_index to that
@@ -212,9 +211,9 @@ impl ScrollableItem for PasswordInput {
         true
     }
 
-    fn on_mouse_move(&mut self, p:Vector2<f64>) {
+    fn on_mouse_move(&mut self, p:Vector2) {
         self.show_pass = false;
-        self.hover = p.x > self.pos.x && p.x < self.pos.x + self.size.x && p.y > self.pos.y && p.y < self.pos.y + self.size.y;
+        self.hover = self.hover(p);
     }
 
     fn on_text(&mut self, text:String) {

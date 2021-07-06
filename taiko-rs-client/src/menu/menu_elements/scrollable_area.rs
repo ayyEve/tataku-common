@@ -1,10 +1,9 @@
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 
-use cgmath::Vector2;
 use piston::{Key, MouseButton, RenderArgs};
 
-use crate::{render::*, game::{Game, KeyModifiers}};
+use crate::{render::*, game::{Game, KeyModifiers, Vector2}};
 
 // how many pixels should be between items when in list mode?
 const ITEM_MARGIN:f64 = 5.0;
@@ -15,17 +14,17 @@ pub struct ScrollableArea {
     pub depth: f64,
     pub items: Vec<Box<dyn ScrollableItem>>,
     scroll_pos: f64,
-    pos: Vector2<f64>,
-    size: Vector2<f64>,
+    pos: Vector2,
+    size: Vector2,
     /// if list mode, item positions will be modified based on how many items there are (ie, a list)
     list_mode: bool,
 
     // cache of where the mouse is, needed to check for on_scroll if mouse is over this
-    mouse_pos: Vector2<f64>,
+    mouse_pos: Vector2,
     elements_height: f64,
 }
 impl ScrollableArea {
-    pub fn new(pos: Vector2<f64>, size: Vector2<f64>, list_mode: bool) -> ScrollableArea {
+    pub fn new(pos: Vector2, size: Vector2, list_mode: bool) -> ScrollableArea {
         ScrollableArea {
             items: Vec::new(),
             scroll_pos: 0.0,
@@ -71,7 +70,7 @@ impl ScrollableArea {
 
     // input handlers
     /// returns the tag of the item which was clicked
-    pub fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton, _game:Arc<Mutex<&mut Game>>) -> Option<String> {
+    pub fn on_click(&mut self, pos:Vector2, button:MouseButton, _game:Arc<Mutex<&mut Game>>) -> Option<String> {
 
         // modify pos here
         let pos = pos - Vector2::new(0.0, self.scroll_pos);
@@ -86,7 +85,7 @@ impl ScrollableArea {
 
         i
     }
-    pub fn on_mouse_move(&mut self, pos:Vector2<f64>, _game:Arc<Mutex<&mut Game>>) {
+    pub fn on_mouse_move(&mut self, pos:Vector2, _game:Arc<Mutex<&mut Game>>) {
         self.mouse_pos = pos;
 
         let pos = pos-Vector2::new(0.0, self.scroll_pos);
@@ -162,26 +161,26 @@ pub trait ScrollableItem {
     /// run when the item is removed from the list
     fn dispose(&mut self) {}
     fn update(&mut self) {}
-    fn size(&self) -> Vector2<f64>;
+    fn size(&self) -> Vector2;
     fn get_tag(&self) -> String;
     fn set_tag(&mut self, tag:&str);
-    fn get_pos(&self) -> Vector2<f64>;
-    fn set_pos(&mut self, pos:Vector2<f64>);
-    fn hover(&self, p:Vector2<f64>) -> bool {
+    fn get_pos(&self) -> Vector2;
+    fn set_pos(&mut self, pos:Vector2);
+    fn hover(&self, p:Vector2) -> bool {
         let pos = self.get_pos();
         let size = self.size();
         p.x > pos.x && p.x < pos.x + size.x && p.y > pos.y && p.y < pos.y + size.y
     }
 
-    fn draw(&mut self, args:RenderArgs, pos_offset:Vector2<f64>, parent_depth:f64) -> Vec<Box<dyn Renderable>>;
+    fn draw(&mut self, args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>>;
 
     // input handlers
 
     /// when the mouse is clicked
-    fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton) -> bool; // this should be handled
+    fn on_click(&mut self, pos:Vector2, button:MouseButton) -> bool; // this should be handled
 
     /// when the mouse is moved
-    fn on_mouse_move(&mut self, pos:Vector2<f64>); // should be handled to check for hover
+    fn on_mouse_move(&mut self, pos:Vector2); // should be handled to check for hover
 
     /// when text is input
     fn on_text(&mut self, _text:String) {}

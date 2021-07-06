@@ -1,13 +1,12 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use cgmath::Vector2;
 use piston::{MouseButton, RenderArgs};
 
-use crate::game::{Game, GameMode, KeyModifiers};
 use crate::{WINDOW_SIZE, render::*, gameplay::Beatmap};
+use crate::game::{Game, GameMode, KeyModifiers, Vector2};
 use crate::menu::{Menu, MenuButton, menu_elements::ScrollableItem};
 
-const BUTTON_SIZE:Vector2<f64> = Vector2::new(100.0, 50.0);
+const BUTTON_SIZE:Vector2 = Vector2::new(100.0, 50.0);
 const Y_MARGIN:f64 = 20.0;
 const Y_OFFSET:f64 = 10.0;
 
@@ -49,7 +48,7 @@ impl Menu for PauseMenu {
         list
     }
 
-    fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
         let mut game = game.lock().unwrap();
 
         // continue map
@@ -72,7 +71,7 @@ impl Menu for PauseMenu {
         }
     }
 
-    fn on_mouse_move(&mut self, pos:Vector2<f64>, _game:Arc<Mutex<&mut Game>>) {
+    fn on_mouse_move(&mut self, pos:Vector2, _game:Arc<Mutex<&mut Game>>) {
         self.continue_button.on_mouse_move(pos);
         self.retry_button.on_mouse_move(pos);
         self.exit_button.on_mouse_move(pos);

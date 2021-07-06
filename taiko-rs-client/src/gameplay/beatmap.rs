@@ -1,11 +1,10 @@
 use std::{path::Path, sync::{Arc, Mutex}, time::SystemTime};
 
-use cgmath::Vector2;
 use piston::RenderArgs;
 
 use super::{*, diff_calc::DifficultyCalculator, beatmap_structs::*};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS, WINDOW_SIZE, game::{Audio, Settings}};
-use crate::{NOTE_RADIUS, enums::Playmode, game::{SoundEffect, get_font}, render::{Renderable, Rectangle, Text, Circle, Color, Border}};
+use crate::{NOTE_RADIUS, enums::Playmode, game::{SoundEffect, get_font, Vector2}, render::{Renderable, Rectangle, Text, Circle, Color, Border}};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
 pub const BAR_COLOR:Color = Color {r:0.0, g:0.0,b:0.0,a:1.0}; // timing bar color
@@ -15,11 +14,11 @@ const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
 const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
 const OFFSET_DRAW_TIME:i64 = 2_000;
 
-const HIT_TIMING_BAR_SIZE:Vector2<f64> = Vector2::new(WINDOW_SIZE.x as f64 / 3.0, 30.0);
-const HIT_TIMING_BAR_POS:Vector2<f64> = Vector2::new(WINDOW_SIZE.x as f64 / 2.0 - HIT_TIMING_BAR_SIZE.x / 2.0, WINDOW_SIZE.y as f64 - (DURATION_HEIGHT + 3.0 + HIT_TIMING_BAR_SIZE.y + 5.0));
+const HIT_TIMING_BAR_SIZE:Vector2 = Vector2::new(WINDOW_SIZE.x / 3.0, 30.0);
+const HIT_TIMING_BAR_POS:Vector2 = Vector2::new(WINDOW_SIZE.x / 2.0 - HIT_TIMING_BAR_SIZE.x / 2.0, WINDOW_SIZE.y - (DURATION_HEIGHT + 3.0 + HIT_TIMING_BAR_SIZE.y + 5.0));
 const HIT_TIMING_DURATION:f64 = 1_000.0; // how long should a hit timing line last
 const HIT_TIMING_FADE:f64 = 300.0; // how long to fade out for
-const HIT_TIMING_BAR_COLOR:Color = Color {r:0.0, g:0.0,b:0.0,a:1.0};
+const HIT_TIMING_BAR_COLOR:Color = Color {r:0.0,g:0.0,b:0.0, a:1.0};
 
 #[derive(Clone)]
 pub struct Beatmap {
@@ -762,7 +761,7 @@ impl Beatmap {
 struct TimingBar {
     time: u64,
     speed: f64,
-    pos: Vector2<f64>
+    pos: Vector2
 }
 impl TimingBar {
     pub fn new(time:u64, speed:f64) -> TimingBar {
@@ -781,7 +780,7 @@ impl TimingBar {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
         if self.pos.x + BAR_WIDTH < 0.0 || self.pos.x - BAR_WIDTH > args.window_size[0] as f64 {return renderables}
 
-        const SIZE:Vector2<f64> = Vector2::new(BAR_WIDTH, PLAYFIELD_RADIUS*2.0);
+        const SIZE:Vector2 = Vector2::new(BAR_WIDTH, PLAYFIELD_RADIUS*2.0);
         const DEPTH:f64 = f64::MAX-5.0;
 
         renderables.push(Box::new(Rectangle::new(

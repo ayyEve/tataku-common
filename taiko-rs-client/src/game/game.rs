@@ -4,7 +4,6 @@ use std::{time::SystemTime};
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
-use cgmath::Vector2;
 use tokio::runtime::{Builder, Runtime};
 use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
@@ -15,7 +14,7 @@ use taiko_rs_common::types::UserAction;
 use crate::game::online::USER_ITEM_SIZE;
 use crate::gameplay::{Beatmap, Replay, KeyPress};
 use crate::databases::{save_all_scores, save_score};
-use crate::game::{InputManager, Settings, get_font};
+use crate::game::{InputManager, Settings, get_font, Vector2};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, SONGS_DIR, menu::*};
 use crate::render::{HalfCircle, Rectangle, Renderable, Text, Color, Border};
 
@@ -283,7 +282,7 @@ impl<'shape> Game<'shape> {
             // check if mouse clicked volume button
             if c.vol_selected_time > 0 && elapsed as f64 - (c.vol_selected_time as f64) < VOLUME_CHANGE_DISPLAY_TIME as f64 {
                 if mouse_buttons.contains(&MouseButton::Left) || mouse_moved {
-                    let window_size = WINDOW_SIZE.cast::<f64>().unwrap();
+                    let window_size = WINDOW_SIZE;
                     let master_pos = window_size - Vector2::new(300.0, 90.0);
                     let effect_pos = window_size - Vector2::new(300.0, 60.0);
                     let music_pos = window_size - Vector2::new(300.0, 30.0);

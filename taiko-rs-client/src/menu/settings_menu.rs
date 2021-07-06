@@ -1,14 +1,13 @@
 use std::sync::{Arc, Mutex};
 
-use cgmath::Vector2;
 use piston::{MouseButton, RenderArgs};
 
 use crate::render::*;
-use crate::game::{Game, GameMode, KeyModifiers, Settings};
+use crate::game::{Game, GameMode, KeyModifiers, Settings, Vector2};
 use crate::menu::{Menu, TextInput, MenuButton, KeyButton, PasswordInput, ScrollableArea, ScrollableItem, Checkbox, Slider};
 
-const BUTTON_SIZE:Vector2<f64> = Vector2::new(100.0, 50.0);
-const KEYBUTTON_SIZE:Vector2<f64> = Vector2::new(400.0, 50.0);
+const BUTTON_SIZE:Vector2 = Vector2::new(100.0, 50.0);
+const KEYBUTTON_SIZE:Vector2 = Vector2::new(400.0, 50.0);
 
 pub struct SettingsMenu {
     scroll_area: ScrollableArea,
@@ -116,7 +115,7 @@ impl Menu for SettingsMenu {
         self.scroll_area.draw(args)
     }
 
-    fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
         if let Some(tag) = self.scroll_area.on_click(pos, button, game.clone()) {
             match tag.as_str() {
                 "done" => self.finalize(game.clone()),
@@ -125,7 +124,7 @@ impl Menu for SettingsMenu {
         }
     }
 
-    fn on_mouse_move(&mut self, pos:Vector2<f64>, game:Arc<Mutex<&mut Game>>) {
+    fn on_mouse_move(&mut self, pos:Vector2, game:Arc<Mutex<&mut Game>>) {
         self.scroll_area.on_mouse_move(pos, game);
     }
 
