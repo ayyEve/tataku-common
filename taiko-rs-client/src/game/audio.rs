@@ -9,8 +9,8 @@ use crate::game::Settings;
 type AudioData = Cursor<Vec<u8>>;
 
 const SOUND_LIST:[&'static str; 4] = [
-    "audio/kat.wav",
     "audio/don.wav",
+    "audio/kat.wav",
     "audio/bigdon.wav",
     "audio/bigkat.wav"
 ];
@@ -21,6 +21,7 @@ lazy_static::lazy_static! {
 
         for sound in SOUND_LIST.iter() {
             let sound_name = Path::new(sound).file_stem().unwrap().to_str().unwrap();
+            println!("loading audio file {}", sound_name);
 
             let mut data = Vec::new();
             File::open(sound).unwrap().read_to_end(&mut data).unwrap();

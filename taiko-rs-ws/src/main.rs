@@ -1,3 +1,4 @@
+use std::time::Duration;
 use std::{
     collections::HashMap,
     env,
@@ -55,6 +56,17 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
 
                     Err(oof) => {
                         println!("oof: {}", oof);
+
+                        let user = peer_map.lock().await.get(&addr).unwrap().clone();
+
+                        // tell everyone we left
+                        let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserLeft).write(user.user_id).done());
+                        
+                        for (_, other) in peer_map.lock().await.iter() {
+                            if user.user_id == other.user_id {continue}
+                            let _ = other.writer.lock().await.send(p.clone()).await;
+                        }
+
                         peer_map.lock().await.remove(&addr);
                         let _ = writer.lock().await.close();
                         break;
@@ -87,10 +99,15 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
 
                 // verify username and password
                 let user_id = peer_map.lock().await.len() as i32; //TODO
-                peer_map.lock().await.get_mut(addr).unwrap().user_id = user_id as u32;
+                {
+                    let mut u = peer_map.lock().await;
+                    let mut u = u.get_mut(addr).unwrap();
+                    u.user_id = user_id as u32;
+                    u.username = username.clone();
+                }
 
                 // send response
-                writer.send(Message::Binary(SimpleWriter::new().write(PacketId::Server_LoginResponse).write(user_id as i32).done())).await.expect("ppoop");
+                writer.send(Message::Binary(SimpleWriter::new().write(PacketId::Server_LoginResponse).write(user_id as i32).done())).await.expect("poop");
                 
                 // tell everyone we joined
                 let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserJoined).write(user_id as i32).write(username.clone()).done());
@@ -98,6 +115,10 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                 for (i_addr, user) in peer_map.lock().await.iter() {
                     if i_addr == addr {continue}
                     let _ = user.writer.lock().await.send(p.clone()).await;
+
+                    // tell the new user this user exists
+                    let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserJoined).write(user.user_id).write(user.username.clone()).done());
+                    writer.send(p).await.expect("ono");
                 }
             }
 
@@ -106,7 +127,7 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                 println!("user logging out: {}", user_id);
                 
                 // tell everyone we left
-                let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserLeft).write(user_id as i32).done());
+                let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserLeft).write(user_id).done());
                 
                 for (i_addr, user) in peer_map.lock().await.iter() {
                     if i_addr == addr {continue}
@@ -163,9 +184,6 @@ impl UserConnection {
         }
     }
 }
-
-
-
 
 // use std::{io::prelude::*, net::{TcpListener, TcpStream}};
 
