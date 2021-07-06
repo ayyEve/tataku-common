@@ -1,11 +1,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use tokio::sync::Mutex;
-use tokio::net::TcpStream;
+use tokio::{sync::Mutex, net::TcpStream};
 use futures_util::{SinkExt, StreamExt, stream::SplitSink};
-use tokio_tungstenite::MaybeTlsStream;
-use tokio_tungstenite::{WebSocketStream, connect_async, tungstenite::protocol::Message};
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::protocol::Message};
 
 use crate::game::Settings;
 use super::online_user::OnlineUser;
@@ -15,12 +13,13 @@ use taiko_rs_common::serialization::{SerializationReader, SimpleWriter};
 
 type WsWriter = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 
-const CONNECT_URL:&str = "ws://localhost:8080";
 
+const CONNECT_URL:&str = "ws://localhost:8080";
 
 ///
 pub struct OnlineManager {
-    pub users: HashMap<u32, Option<Arc<Mutex<OnlineUser>>>>, // user id is key
+    pub connected: bool,
+    pub users: HashMap<u32, Arc<Mutex<OnlineUser>>>, // user id is key
     pub writer: Option<Arc<Mutex<WsWriter>>>,
     
     user_id: u32, // this user's id
@@ -32,14 +31,14 @@ impl OnlineManager {
             user_id: 0,
             users: HashMap::new(),
             writer: None,
+            connected: false,
         }
     }
     pub async fn start(s: Arc<Mutex<Self>>) {
-
         // initialize the connection
         match connect_async(CONNECT_URL.to_owned()).await {
             Ok((ws_stream, _)) => {
-
+                s.lock().await.connected = true;
                 let (writer, mut reader) = ws_stream.split();
                 let writer = Arc::new(Mutex::new(writer));
 
@@ -47,28 +46,26 @@ impl OnlineManager {
                 let settings = Settings::get().clone();
                 let p = SimpleWriter::new().write(PacketId::Client_UserLogin).write(settings.username.clone()).write(settings.password.clone()).done();
                 writer.lock().await.send(Message::Binary(p)).await.expect("poopoo");
-                // drop(settings);
 
                 s.lock().await.writer = Some(writer);
 
                 while let Some(message) = reader.next().await {
                     match message {
                         Ok(Message::Binary(data)) => OnlineManager::handle_packet(s.clone(), data).await,
-    
-                        Ok(message) => {
-                            println!("got something else: {:?}", message);
-                        },
+                        Ok(message) => println!("got something else: {:?}", message),
     
                         Err(oof) => {
                             println!("oof: {}", oof);
+                            s.lock().await.connected = false;
                             // reconnect?
-                        },
+                        }
                     }
                 }
             },
             Err(oof) => {
+                s.lock().await.connected = false;
                 println!("could not accept connection: {}", oof);
-            },
+            }
         }
     }
 
@@ -95,8 +92,9 @@ impl OnlineManager {
                 // user updates
                 PacketId::Server_UserJoined => {
                     let user_id = reader.read_u32();
+                    let username = reader.read_string();
                     println!("user id joined: {}", user_id);
-                    s.lock().await.users.insert(user_id, None);
+                    s.lock().await.users.insert(user_id, Arc::new(Mutex::new(OnlineUser::new(user_id, username))));
                 },
                 PacketId::Server_UserLeft => {
                     let user_id = reader.read_u32();
@@ -108,10 +106,13 @@ impl OnlineManager {
                     let action: UserAction = reader.read();
                     let action_text = reader.read_string();
                     println!("got user status update: {}, {:?}, {}", user_id, action, action_text);
+                    
+                    if let Some(e) = s.lock().await.users.get_mut(&user_id) {
+                        let mut a = e.lock().await;
+                        a.action = Some(action);
+                        a.action_text = Some(action_text);
+                    }
                 }
-
-
-
 
                 PacketId::Unknown => {
                     println!("got unknown packet id {}, dropping remaining packets", raw_id);

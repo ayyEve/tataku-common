@@ -48,14 +48,10 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
             let user_connection = UserConnection::new(writer.clone());
             peer_map.lock().await.insert(addr, user_connection.clone());
             
-
             while let Some(message) = reader.next().await {
                 match message {
                     Ok(Message::Binary(data)) => handle_packet(data, &peer_map, &addr).await,
-
-                    Ok(message) => {
-                        println!("got something else: {:?}", message);
-                    },
+                    Ok(message) => println!("got something else: {:?}", message),
 
                     Err(oof) => {
                         println!("oof: {}", oof);
@@ -66,9 +62,7 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
                 }
             }
         },
-        Err(oof) => {
-            println!("could not accept connection: {}", oof);
-        },
+        Err(oof) => println!("could not accept connection: {}", oof),
     }
 }
 
@@ -88,24 +82,24 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                 // read password
                 // get userid from database
                 // return userid if good, 0 if bad
-                let _username:String = reader.read();
+                let username:String = reader.read();
                 let _password:String = reader.read();
 
                 // verify username and password
-                let user_id = 1; //TODO
+                let user_id = peer_map.lock().await.len() as i32; //TODO
                 peer_map.lock().await.get_mut(addr).unwrap().user_id = user_id as u32;
 
                 // send response
                 writer.send(Message::Binary(SimpleWriter::new().write(PacketId::Server_LoginResponse).write(user_id as i32).done())).await.expect("ppoop");
                 
                 // tell everyone we joined
-                let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserJoined).write(user_id as i32).done());
+                let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserJoined).write(user_id as i32).write(username.clone()).done());
                 
                 for (i_addr, user) in peer_map.lock().await.iter() {
                     if i_addr == addr {continue}
                     let _ = user.writer.lock().await.send(p.clone()).await;
                 }
-            },
+            }
 
             PacketId::Client_LogOut => {
                 let user_id = user_connection.user_id;
@@ -138,16 +132,15 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                 }
             }
 
-
             PacketId::Unknown => {
                 println!("got unknown packet id {}, dropping remaining packets", raw_id);
                 continue;
-            },
+            }
 
             n => {
                 println!("got server packet {:?} somehow yikes", n);
                 continue;
-            },
+            }
         }
     }
 }

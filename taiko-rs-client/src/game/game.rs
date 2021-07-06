@@ -10,11 +10,11 @@ use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window,input::*, event_loop::*, window::WindowSettings};
 
-use crate::{SONGS_DIR, menu::*};
+use crate::game::online::USER_ITEM_SIZE;
 use crate::gameplay::{Beatmap, Replay, KeyPress};
 use crate::databases::{save_all_scores, save_score};
-use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE};
-use crate::game::{InputManager, Settings, helpers::Discord, get_font};
+use crate::game::{InputManager, Settings, get_font};
+use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, SONGS_DIR, menu::*};
 use crate::render::{Circle, HalfCircle, Rectangle, Renderable, Text, Color, Border};
 use taiko_rs_common::types::UserAction;
 
@@ -34,15 +34,12 @@ pub struct Game<'shape> {
     pub graphics: GlGraphics,
     pub input_manager: InputManager,
     pub online_manager: Arc<tokio::sync::Mutex<OnlineManager>>,
+    pub threading: Runtime,
     
     pub menus: HashMap<&'static str, Arc<Mutex<Box<dyn Menu>>>>,
     pub game_start: SystemTime,
     pub current_mode: GameMode,
     pub queued_mode: GameMode,
-
-    pub threading: Runtime,
-
-    discord: Option<Discord>,
 
     pub beatmap_pending_refresh: bool,
 
@@ -63,6 +60,10 @@ pub struct Game<'shape> {
     transition: Option<GameMode>,
     transition_last: Option<GameMode>,
     transition_timer: u64,
+
+
+    // user list
+    show_user_list: bool
 }
 impl<'shape> Game<'shape> {
     pub fn new() -> Game<'shape> {
@@ -78,7 +79,6 @@ impl<'shape> Game<'shape> {
 
         let graphics = GlGraphics::new(opengl);
         let input_manager = InputManager::new();
-        let discord = Discord::new().ok();
 
         let online_manager = Arc::new(tokio::sync::Mutex::new(OnlineManager::new()));
         let threading = Builder::new_multi_thread()
@@ -96,7 +96,6 @@ impl<'shape> Game<'shape> {
             online_manager,
             render_queue: Vec::new(),
             game_start: SystemTime::now(),
-            discord,
 
             menus: HashMap::new(),
 
@@ -113,7 +112,9 @@ impl<'shape> Game<'shape> {
             // transition
             transition: None,
             transition_last: None,
-            transition_timer: 0
+            transition_timer: 0,
+
+            show_user_list: false
         };
 
         //region == menu setup ==
@@ -170,10 +171,6 @@ impl<'shape> Game<'shape> {
             if let Some(args) = e.update_args() {
                 self.update(args.dt*1000.0);
             }
-            
-            if let Some(args) = e.focus_args() {
-                println!("focus: {}", args);
-            }
             // e.resize(|args| println!("Resized '{}, {}'", args.window_size[0], args.window_size[1]));
             // if let Some(cursor) = e.cursor_args() {
             //     if cursor { println!("Mouse entered"); }
@@ -183,9 +180,7 @@ impl<'shape> Game<'shape> {
     }
 
 
-    pub fn queue_mode_change(&mut self, mode:GameMode) {
-        self.queued_mode = mode;
-    }
+    pub fn queue_mode_change(&mut self, mode:GameMode) {self.queued_mode = mode}
 
     fn update(&mut self, _delta:f64) {
         let arc = Arc::new(Mutex::new(self));
@@ -271,7 +266,7 @@ impl<'shape> Game<'shape> {
             let mut c = clone.lock().unwrap();
             // check if mouse clicked volume button
             if c.vol_selected_time > 0 && elapsed as f64 - (c.vol_selected_time as f64) < VOLUME_CHANGE_DISPLAY_TIME as f64 {
-                if mouse_buttons.contains(&MouseButton::Left) {
+                if mouse_buttons.contains(&MouseButton::Left) || mouse_moved {
                     let window_size = WINDOW_SIZE.cast::<f64>().unwrap();
                     let master_pos = window_size - Vector2::new(300.0, 90.0);
                     let effect_pos = window_size - Vector2::new(300.0, 60.0);
@@ -301,6 +296,12 @@ impl<'shape> Game<'shape> {
             }
         }
 
+
+        if keys.contains(&Key::F8) {
+            let mut c = clone.lock().unwrap();
+            c.show_user_list = !c.show_user_list;
+            println!("show user list: {}", c.show_user_list);
+        }
 
         match current_mode {
             GameMode::Ingame(ref beatmap) => {
@@ -381,12 +382,8 @@ impl<'shape> Game<'shape> {
                 }
 
                 // offset adjust
-                if keys.contains(&Key::Equals) {
-                    beatmap.increment_offset(5);
-                }
-                if keys.contains(&Key::Minus) {
-                    beatmap.increment_offset(-5);
-                }
+                if keys.contains(&Key::Equals) {beatmap.increment_offset(5)}
+                if keys.contains(&Key::Minus) {beatmap.increment_offset(-5)}
 
                 // volume
                 if volume_changed {beatmap.song.set_volume(settings.get_music_vol())}
@@ -651,11 +648,6 @@ impl<'shape> Game<'shape> {
                         menu.lock().unwrap().on_change(true);
                     }
 
-                    if unlocked.discord.is_some() {
-                        let discord = unlocked.discord.as_mut().unwrap();
-                        discord.change_status(mode.clone());
-                    }
-
                 }
 
             }
@@ -669,6 +661,7 @@ impl<'shape> Game<'shape> {
         let elapsed = self.game_start.elapsed().unwrap().as_millis() as u64;
         let font = get_font("main");
 
+        // mode
         match &self.current_mode {
             GameMode::Ingame(beatmap) => {
                 renderables.extend(beatmap.lock().unwrap().draw(args));
@@ -682,7 +675,7 @@ impl<'shape> Game<'shape> {
             _ => {}
         }
 
-
+        // transition
         if self.transition_timer > 0 && elapsed - self.transition_timer < TRANSITION_TIME {
             // probably transitioning
 
@@ -697,7 +690,7 @@ impl<'shape> Game<'shape> {
             renderables.push(Box::new(Rectangle::new(
                 [0.0,0.0,0.0, alpha as f32].into(),
                 -f64::MAX,
-                Vector2::new(0.0,0.0),
+                Vector2::new(0.0, 0.0),
                 Vector2::new(WINDOW_SIZE.x as f64, WINDOW_SIZE.y as f64),
                 None
             )));
@@ -716,6 +709,26 @@ impl<'shape> Game<'shape> {
             }
         }
         
+
+        // users list
+        if self.show_user_list {
+            let mut counter = 0;
+            
+            if let Ok(om) = self.online_manager.try_lock() {
+                for (_, user) in &om.users.clone() {
+                    if let Ok(mut u) = user.try_lock() {
+
+                        let x = if counter % 2 == 0 {0.0} else {USER_ITEM_SIZE.x};
+                        let y = (counter - counter % 2) as f64 * USER_ITEM_SIZE.y;
+
+                        counter += 1;
+                        renderables.extend(u.draw(args, Vector2::new(x, y)));
+                    }
+                }
+            }
+        }
+
+
         // add the things we just made to the render queue
         self.render_queue.extend(renderables);
         
@@ -869,6 +882,7 @@ impl<'shape> Game<'shape> {
             format!("{:.2}fps", self.fps_last),
             font.clone()
         ));
+
 
         // sort the queue here (so it only needs to be sorted once per frame, instead of every time a shape is added)
         self.render_queue.sort_by(|a, b| b.get_depth().partial_cmp(&a.get_depth()).unwrap());

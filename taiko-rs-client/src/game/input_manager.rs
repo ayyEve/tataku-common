@@ -32,58 +32,37 @@ impl InputManager {
 
     pub fn handle_events(&mut self, e:Event) {
         if let Some(button) = e.button_args() {
-            match button.button {
-                Button::Keyboard(key) => {
-                    match button.state {
-                        ButtonState::Press => {
-                            self.key_states.insert(key);
-                            self.key_states_once.insert(key);
-                        },
-                        ButtonState::Release => {
-                            self.key_states.remove(&key);
-                        }
-                    }
+            match (button.button, button.state) {
+                (Button::Keyboard(key), ButtonState::Press) => {
+                    self.key_states.insert(key);
+                    self.key_states_once.insert(key);
                 },
-                Button::Mouse(mb) => {
-                    match button.state {
-                        ButtonState::Press => {
-                            self.mouse_buttons.push(mb);
-                        },
-                        ButtonState::Release => {}, // for this game, we dont care about holds, so consume the mouse click when its checked for
-                    }
+                (Button::Keyboard(key), ButtonState::Release) => {
+                    self.key_states.remove(&key);
                 },
-                Button::Controller(_) => {},
-                Button::Hat(_) => {},
-            }
-        }
 
-        if let Some(e) = e.text_args() {
-            self.text_cache += &e;
+                (Button::Mouse(mb), ButtonState::Press) => {
+                    self.mouse_buttons.push(mb);
+                }
+
+                _ => {}
+            }
         }
 
         e.mouse_cursor(|pos| {
             let new_pos:Vector2<f64> = Vector2::new(pos[0], pos[1]);
-            
-            if new_pos != self.mouse_pos {
-                self.mouse_moved = true;
-            }
-
+            if new_pos != self.mouse_pos {self.mouse_moved = true}
             self.mouse_pos = new_pos;
         });
-        e.mouse_scroll(|d| {
-            self.scroll_delta += d[1];
-        });
 
-        if let Some(has_focus) = e.focus_args() {
-            self.window_change_focus = Some(has_focus);
-        }
+        e.mouse_scroll(|d| {self.scroll_delta += d[1]});
+        if let Some(e) = e.text_args() {self.text_cache += &e}
+        if let Some(has_focus) = e.focus_args() {self.window_change_focus = Some(has_focus)}
         // e.text(|text| println!("Typed '{}'", text));
     }
 
     /// is the key currently down (not up)
-    pub fn key_down(&self, k:Key) -> bool{
-        self.key_states.contains(&k)
-    }
+    pub fn key_down(&self, k:Key) -> bool {self.key_states.contains(&k)}
 
     pub fn get_key_mods(&self) -> KeyModifiers {
         KeyModifiers {
@@ -96,15 +75,11 @@ impl InputManager {
     /// get all keys that were pressed, and clear the pressed list. (will be true when first checked and pressed, false after first check or when key is up)
     pub fn all_down_once(&mut self) -> Vec<Key> {
         let mut down = Vec::new();
-
-        for i in &self.key_states_once {
-            down.push(i.clone());
-        }
+        for i in &self.key_states_once {down.push(i.clone())}
         self.key_states_once.clear();
 
         down
     }
-
 
     /// gets any text typed since the last check
     pub fn get_text(&mut self) -> String {
