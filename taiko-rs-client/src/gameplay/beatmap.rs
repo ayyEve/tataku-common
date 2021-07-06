@@ -324,7 +324,7 @@ impl Beatmap {
     }
 
     pub fn time(&self) -> i64 {
-        self.song.duration() as i64 - (self.lead_in_time as i64 + 50) - self.offset
+        self.song.duration() as i64 - (self.lead_in_time as i64 /* add the delay here */) - self.offset
     }
     pub fn increment_offset(&mut self, delta:i64) {
         self.offset += delta;
@@ -424,9 +424,11 @@ impl Beatmap {
             self.lead_in_time -= elapsed;
 
             if self.lead_in_time <= 0.0 {
-                self.lead_in_time = 0.0;
                 self.song.play();
+                self.song.audio_instance.as_ref().unwrap().set_position(std::time::Duration::from_secs(60));
                 self.song.set_volume(Settings::get().get_music_vol());
+
+                self.lead_in_time = 0.0;
             }
         }
 

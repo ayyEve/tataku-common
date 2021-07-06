@@ -2508,6 +2508,7 @@ dependencies = [
  "lazy_static",
  "log",
  "md5",
+ "parking_lot",
  "pin-project",
  "piston",
  "piston2d-graphics",

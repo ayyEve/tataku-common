@@ -82,7 +82,8 @@ impl OsuDirectMenu {
             let mut data2 = Vec::new();
             data.iter().for_each(|e| data2.push(e.clone()));
 
-            let sink = Audio::from_raw(data2);
+            let (audio_instance, sink) = Audio::from_raw(data2);
+            audio_instance.play();
             sink.set_volume(Settings::get().get_music_vol());
             sink.play();
             self.preview = Some(Arc::new(Mutex::new(sink)));
