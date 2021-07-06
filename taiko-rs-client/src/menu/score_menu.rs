@@ -3,28 +3,31 @@ use std::sync::{Arc, Mutex};
 use cgmath::Vector2;
 use piston::{MouseButton, RenderArgs};
 
-use crate::gameplay::{Score, HitError};
-use crate::{WINDOW_SIZE, format, render::*};
+use crate::{format, render::*};
+use crate::gameplay::{Beatmap, HitError, Score};
 use crate::game::{Game, GameMode, KeyModifiers, get_font};
 use crate::menu::{Menu, MenuButton, ScrollableItem};
 
-const BACK_BUTTON_SIZE:Vector2<f64> = Vector2::new(100.0, 50.0);
-
 pub struct ScoreMenu {
     score: Score,
+    beatmap:Arc<Mutex<Beatmap>>,
     back_button: MenuButton,
+    replay_button: MenuButton,
 
     // cached
     hit_error:HitError
 }
 impl ScoreMenu {
-    pub fn new(score:Score) -> ScoreMenu {
+    pub fn new(score:Score, beatmap: Arc<Mutex<Beatmap>>) -> ScoreMenu {
         let hit_error = score.hit_error();
+        let back_button = MenuButton::back_button();
 
         ScoreMenu {
             score,
+            beatmap,
             hit_error,
-            back_button: MenuButton::new(Vector2::new(10.0,WINDOW_SIZE.y as f64 - BACK_BUTTON_SIZE.y + 10.0), BACK_BUTTON_SIZE, "Back")
+            replay_button: MenuButton::new(back_button.get_pos() - Vector2::new(0.0, back_button.size().y), back_button.size(), "Replay"),
+            back_button,
         }
     }
 }
@@ -106,12 +109,20 @@ impl Menu for ScoreMenu {
 
         // draw buttons
         list.extend(self.back_button.draw(args, Vector2::new(0.0, 0.0)));
+        list.extend(self.replay_button.draw(args, Vector2::new(0.0, 0.0)));
 
         list
     }
 
     fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
-        // check if back button was clicked
+        if self.replay_button.on_click(pos, button) {
+            self.beatmap.lock().unwrap().reset();
+            let mut game = game.lock().unwrap();
+
+            game.menus.get("beatmap").unwrap().lock().unwrap().on_change(false);
+            game.queue_mode_change(GameMode::Replaying(self.beatmap.clone(), self.score.replay.clone(), 0));
+        }
+
         if self.back_button.on_click(pos, button) {
             let mut game = game.lock().unwrap();
             let menu = game.menus.get("beatmap").unwrap().to_owned();
@@ -120,6 +131,7 @@ impl Menu for ScoreMenu {
     }
 
     fn on_mouse_move(&mut self, pos:Vector2<f64>, _game:Arc<Mutex<&mut Game>>) {
+        self.replay_button.on_mouse_move(pos);
         self.back_button.on_mouse_move(pos);
     }
 

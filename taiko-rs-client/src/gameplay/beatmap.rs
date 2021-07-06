@@ -8,14 +8,18 @@ use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS, WINDOW_SIZE, game::
 use crate::{NOTE_RADIUS, enums::Playmode, game::{SoundEffect, get_font}, render::{Renderable, Rectangle, Text, Circle, Color, Border}};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
-pub const BAR_COLOR:[f32;4] = [0.0,0.0,0.0,1.0]; // timing bar color
+pub const BAR_COLOR:Color = Color {r:0.0, g:0.0,b:0.0,a:1.0}; // timing bar color
 const BAR_WIDTH:f64 = 4.0; // how wide is a timing bar
 const BAR_SPACING:f64 = 4.0; // how many beats between timing bars
 const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
 const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
 const OFFSET_DRAW_TIME:i64 = 2_000;
+
+const HIT_TIMING_BAR_SIZE:Vector2<f64> = Vector2::new(WINDOW_SIZE.x as f64 / 3.0, 30.0);
+const HIT_TIMING_BAR_POS:Vector2<f64> = Vector2::new(WINDOW_SIZE.x as f64 / 2.0 - HIT_TIMING_BAR_SIZE.x / 2.0, WINDOW_SIZE.y as f64 - (DURATION_HEIGHT + 3.0 + HIT_TIMING_BAR_SIZE.y + 5.0));
 const HIT_TIMING_DURATION:f64 = 1_000.0; // how long should a hit timing line last
 const HIT_TIMING_FADE:f64 = 300.0; // how long to fade out for
+const HIT_TIMING_BAR_COLOR:Color = Color {r:0.0, g:0.0,b:0.0,a:1.0};
 
 #[derive(Clone)]
 pub struct Beatmap {
@@ -234,6 +238,7 @@ impl Beatmap {
                                     sound_types.push((HitType::Don, false));
                                 }
 
+                                //TODO: could this be turned into a for i in (x..y).step(n) ?
                                 loop {
                                     let sound_type = sound_types[i];
 
@@ -246,9 +251,7 @@ impl Beatmap {
                                     );
                                     beatmap.lock().unwrap().notes.push(Arc::new(Mutex::new(note)));
 
-                                    if !unified_sound_addition {
-                                        i = (i + 1) % sound_types.len();
-                                    }
+                                    if !unified_sound_addition {i = (i + 1) % sound_types.len()}
 
                                     j += skip_period;
                                     if !(j < end_time as f64 + skip_period / 8.0) {break}
@@ -332,7 +335,10 @@ impl Beatmap {
         self.note_index += 1;
     }
 
-    pub fn hit(&mut self, hit_type:HitType) {
+    pub fn hit(&mut self, key:KeyPress) {
+        self.score.replay.presses.push((self.time(), key));
+
+        let hit_type:HitType = key.into();
         let mut sound = match hit_type {HitType::Don => "don",HitType::Kat => "kat"};
 
         // if theres no more notes to hit, return
@@ -557,15 +563,6 @@ impl Beatmap {
 
 
         // draw hit timings bar
-        const HIT_TIMING_BAR_SIZE:Vector2<f64> = Vector2::new(WINDOW_SIZE.x as f64 / 3.0, 30.0);
-        const HIT_TIMING_BAR_POS:Vector2<f64> = Vector2::new(WINDOW_SIZE.x as f64 / 2.0 - HIT_TIMING_BAR_SIZE.x / 2.0, WINDOW_SIZE.y as f64 - (DURATION_HEIGHT + 3.0 + HIT_TIMING_BAR_SIZE.y + 5.0));
-        // renderables.push(Box::new(Rectangle::new(
-        //     Color::BLACK,
-        //     20.0,
-        //     HIT_TIMING_BAR_POS,
-        //     HIT_TIMING_BAR_SIZE,
-        //     None // for now
-        // )));
         // draw hit timing colors below the bar
         let width_300 = self.hitwindow_300 / self.hitwindow_miss * HIT_TIMING_BAR_SIZE.x;
         let width_100 = self.hitwindow_100 / self.hitwindow_miss * HIT_TIMING_BAR_SIZE.x;
@@ -612,8 +609,10 @@ impl Beatmap {
                 1.0 - (diff - (HIT_TIMING_DURATION - HIT_TIMING_FADE)) / HIT_TIMING_FADE
             } else {1.0};
 
+            let mut c = HIT_TIMING_BAR_COLOR;
+            c.a = alpha as f32;
             renderables.push(Box::new(Rectangle::new(
-                [1.0,1.0,1.0, alpha as f32].into(),
+                c,
                 10.0,
                 Vector2::new(WINDOW_SIZE.x as f64 / 2.0 + pos, HIT_TIMING_BAR_POS.y),
                 Vector2::new(2.0, HIT_TIMING_BAR_SIZE.y),
@@ -669,6 +668,7 @@ impl Beatmap {
         self.completed = false;
         self.started = false;
         self.lead_in_time = LEAD_IN_TIME;
+        self.offset_changed_time = 0;
 
         // setup timing bars
         //TODO: it would be cool if we didnt actually need timing bar objects, and could just draw them
@@ -785,7 +785,7 @@ impl TimingBar {
         const DEPTH:f64 = f64::MAX-5.0;
 
         renderables.push(Box::new(Rectangle::new(
-            BAR_COLOR.into(),
+            BAR_COLOR,
             DEPTH,
             self.pos,
             SIZE,
@@ -878,4 +878,3 @@ enum BeatmapSection {
     Colors,
     HitObjects,
 }
-
