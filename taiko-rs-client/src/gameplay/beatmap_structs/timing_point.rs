@@ -23,10 +23,10 @@ impl TimingPoint {
         let mut split = str.split(',');
         let time = split.next().unwrap().parse::<f64>().unwrap().round();
         let beat_length = split.next().unwrap().parse::<f32>().unwrap();
-        let _meter = split.next().unwrap().parse::<u32>().unwrap();
-        let _sample_set = split.next().unwrap().parse::<u32>().unwrap();
-        let _sample_index = split.next().unwrap().parse::<u32>().unwrap();
-        let volume = split.next().unwrap().parse::<u32>().unwrap();
+        let _meter = split.next(); //.unwrap().parse::<u32>().unwrap();
+        let _sample_set = split.next(); //.unwrap().parse::<u32>().unwrap();
+        let _sample_index = split.next(); //.unwrap().parse::<u32>().unwrap();
+        let volume = split.next().unwrap().parse::<u32>().unwrap_or(50);
         let _uninherited = split.next();
         let effects = split.next().unwrap().parse::<u32>().unwrap();
 

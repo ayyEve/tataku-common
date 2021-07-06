@@ -678,19 +678,22 @@ impl Beatmap {
             let mut sv = settings.sv_multiplier as f64;
             let mut time = parent_tps[0].time;
             let mut tp_index = 0;
-
-            // TODO: instead of just doing 500, actually get how many are needed before the first timing point lol
             let step = self.beat_length_at(time, false);
             time %= step; // get the earliest bar line possible
 
             loop {
                 if !settings.static_sv {sv = self.slider_velocity_at(time as u64) / SV_FACTOR}
 
-                // add timing bar at current time
-                self.timing_bars.push(Arc::new(Mutex::new(TimingBar::new(time as u64, sv))));
-
                 // if theres a bpm change, adjust the current time to that of the bpm change
                 let next_bar_time = self.beat_length_at(time, false) * BAR_SPACING; // bar spacing is actually the timing point measure
+
+                // edge case for aspire maps
+                if next_bar_time.is_nan() || next_bar_time == 0.0 {
+                    break;
+                }
+
+                // add timing bar at current time
+                self.timing_bars.push(Arc::new(Mutex::new(TimingBar::new(time as u64, sv))));
 
                 if tp_index < parent_tps.len() && parent_tps[tp_index].time <= time + next_bar_time {
                     time = parent_tps[tp_index].time;
@@ -700,7 +703,7 @@ impl Beatmap {
 
                 // why isnt this accounting for bpm changes? because the bpm change doesnt allways happen inline with the bar idiot
                 time += next_bar_time;
-                if time >= self.end_time {break}
+                if time >= self.end_time || time.is_nan() {break}
             }
 
             println!("created {} timing bars", self.timing_bars.len());
