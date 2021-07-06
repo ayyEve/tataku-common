@@ -1,11 +1,9 @@
-
 use cgmath::Vector2;
 
-use taiko_rs_common::types::UserAction;
+use crate::render::*;
 use crate::game::get_font;
 use crate::menu::ScrollableItem;
-use crate::render::*;
-
+use taiko_rs_common::types::UserAction;
 
 pub const USER_ITEM_SIZE:Vector2<f64> = Vector2::new(200.0, 100.0);
 
@@ -88,7 +86,6 @@ impl ScrollableItem for OnlineUser {
     }
 
     fn on_click(&mut self, _pos:Vector2<f64>, _button:piston::MouseButton) -> bool {
-
         self.hover
     }
 

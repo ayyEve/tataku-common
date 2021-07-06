@@ -10,14 +10,14 @@ use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window,input::*, event_loop::*, window::WindowSettings};
 
+use super::online::OnlineManager;
+use taiko_rs_common::types::UserAction;
 use crate::game::online::USER_ITEM_SIZE;
 use crate::gameplay::{Beatmap, Replay, KeyPress};
 use crate::databases::{save_all_scores, save_score};
 use crate::game::{InputManager, Settings, get_font};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, SONGS_DIR, menu::*};
 use crate::render::{HalfCircle, Rectangle, Renderable, Text, Color, Border};
-use taiko_rs_common::types::UserAction;
-use super::online::OnlineManager;
 
 /// how long should the volume thing be displayed when changed
 const VOLUME_CHANGE_DISPLAY_TIME:u64 = 2000;

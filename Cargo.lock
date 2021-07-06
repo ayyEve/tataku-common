@@ -2502,13 +2502,11 @@ version = "0.1.0"
 dependencies = [
  "cgmath",
  "clipboard",
- "futures-channel",
  "futures-util",
  "image",
  "lazy_static",
  "log",
  "md5",
- "pin-project",
  "piston",
  "piston2d-graphics",
  "piston2d-opengl_graphics",

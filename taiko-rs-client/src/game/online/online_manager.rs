@@ -14,7 +14,10 @@ use taiko_rs_common::serialization::{SerializationReader, SimpleWriter};
 type WsWriter = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 
 
+#[cfg(debug_assertions)]
 const CONNECT_URL:&str = "ws://localhost:8080";
+#[cfg(not(debug_assertions))]
+const CONNECT_URL:&str = "wss://taiko-rs.ayyeve.xyz";
 
 ///
 pub struct OnlineManager {
