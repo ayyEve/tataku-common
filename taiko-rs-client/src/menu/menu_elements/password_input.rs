@@ -59,13 +59,13 @@ impl ScrollableItem for PasswordInput {
     fn set_tag(&mut self, tag:&str) {self.tag = tag.to_owned()}
     fn get_value(&self) -> Box<dyn std::any::Any> {Box::new(self.text.clone())}
 
-    fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2<f64>) -> Vec<Box<dyn Renderable>> {
+    fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2<f64>, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
 
         let border = Rectangle::new(
             Color::WHITE,
-            1.0,
+            parent_depth + 1.0,
             self.pos + pos_offset,
             self.size, 
             Some(Border::new(if self.hover {Color::BLUE} else if self.selected {Color::RED} else {Color::BLACK}, 1.2))
@@ -77,7 +77,7 @@ impl ScrollableItem for PasswordInput {
         if self.text.len() > 0 {
             let text = Text::new(
                 Color::BLACK,
-                1.0,
+                parent_depth + 1.0,
                 self.pos + pos_offset + Vector2::new(0.0, 35.0),
                 32,
                 text.clone(),
@@ -87,7 +87,7 @@ impl ScrollableItem for PasswordInput {
         } else {
             let text = Text::new(
                 [0.2,0.2,0.2,1.0].into(),
-                1.0,
+                parent_depth + 1.0,
                 self.pos + pos_offset + Vector2::new(0.0, 35.0),
                 32,
                 self.placeholder.clone(),
@@ -98,7 +98,7 @@ impl ScrollableItem for PasswordInput {
 
         let width = Text::new(
             Color::BLACK,
-            0.0,
+            parent_depth,
             self.pos,
             32,
             text.clone().split_at(self.cursor_index).0.to_owned(),
@@ -108,7 +108,7 @@ impl ScrollableItem for PasswordInput {
         if self.selected {
             let cursor = Rectangle::new(
                 Color::RED,
-                0.0,
+                parent_depth,
                 self.pos + pos_offset + Vector2::new(width, 0.0),
                 Vector2::new(0.7, self.size.y), 
                 Some(Border::new(Color::RED, 1.2))

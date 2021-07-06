@@ -12,6 +12,7 @@ const ITEM_MARGIN:f64 = 5.0;
 const SCROLL_FACTOR: f64 = 16.0; // 8.0 is good for my laptop's touchpad, but on a mouse wheel its nowwhere near enough
 
 pub struct ScrollableArea {
+    pub depth: f64,
     pub items: Vec<Box<dyn ScrollableItem>>,
     scroll_pos: f64,
     pos: Vector2<f64>,
@@ -32,6 +33,7 @@ impl ScrollableArea {
             size,
             list_mode,
             elements_height: 0.0,
+            depth: 0.0,
 
             mouse_pos: Vector2::new(-999.0,-999.0) // just in case lol
         }
@@ -44,12 +46,8 @@ impl ScrollableArea {
         let last_y = if self.items.last().is_some() {self.items.last().unwrap().size().y} else {0.0};
         let min = -(self.elements_height + last_y) + self.size.y;
         let max = 0.0;
-        if !(min>max) {
-            self.scroll_pos = self.scroll_pos.clamp(min, max);
-        } else {
-            self.scroll_pos = 0.0;
-        }
 
+        self.scroll_pos = if !(min>max) {self.scroll_pos.clamp(min, max)} else {0.0};
         let offset = Vector2::new(0.0, self.scroll_pos);
 
         for item in self.items.as_mut_slice() {
@@ -60,7 +58,7 @@ impl ScrollableArea {
             if (pos.y + size.y) + offset.y < self.pos.y || pos.y + offset.y > self.pos.y + self.size.y {continue}
 
             // should be good, draw it
-            items.extend(item.draw(args, offset));
+            items.extend(item.draw(args, offset, self.depth));
         }
 
         // helpful for debugging positions
@@ -175,7 +173,7 @@ pub trait ScrollableItem {
         p.x > pos.x && p.x < pos.x + size.x && p.y > pos.y && p.y < pos.y + size.y
     }
 
-    fn draw(&mut self, args:RenderArgs, pos_offset:Vector2<f64>) -> Vec<Box<dyn Renderable>>;
+    fn draw(&mut self, args:RenderArgs, pos_offset:Vector2<f64>, parent_depth:f64) -> Vec<Box<dyn Renderable>>;
 
     // input handlers
 
@@ -183,7 +181,7 @@ pub trait ScrollableItem {
     fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton) -> bool; // this should be handled
 
     /// when the mouse is moved
-    fn on_mouse_move(&mut self, pos:Vector2<f64>);
+    fn on_mouse_move(&mut self, pos:Vector2<f64>); // should be handled to check for hover
 
     /// when text is input
     fn on_text(&mut self, _text:String) {}

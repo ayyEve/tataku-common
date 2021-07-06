@@ -117,7 +117,7 @@ impl Menu for OsuDirectMenu {
         let mut list:Vec<Box<dyn Renderable>> = Vec::new();
         list.extend(self.scroll_area.draw(args));
 
-        list.extend(self.search_bar.draw(args, Vector2::new(0.0,0.0)));
+        list.extend(self.search_bar.draw(args, Vector2::new(0.0,0.0), -90.0));
 
         // draw download items
         if self.downloading.len() > 0 {
@@ -321,13 +321,13 @@ impl ScrollableItem for DirectItem {
     fn get_tag(&self) -> String {self.item.filename.clone()}
     fn set_tag(&mut self, _tag:&str) {}
 
-    fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2<f64>) -> Vec<Box<dyn Renderable>> {
+    fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2<f64>, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut list:Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
 
         list.push(Box::new(Rectangle::new(
             Color::WHITE,
-            10.0,
+            parent_depth + 10.0,
             self.pos + pos_offset,
             self.size(),
             Some(Border::new(if self.hover {Color::BLUE} else if self.selected {Color::RED} else {Color::BLACK}, 1.5))
@@ -335,7 +335,7 @@ impl ScrollableItem for DirectItem {
 
         list.push(Box::new(Text::new(
             Color::BLACK,
-            9.9,
+            parent_depth + 9.9,
             self.pos+Vector2::new(5.0, 25.0) + pos_offset,
             20,
             format!("{} - {}", self.item.artist, self.item.title),
@@ -344,7 +344,7 @@ impl ScrollableItem for DirectItem {
 
         list.push(Box::new(Text::new(
             Color::BLACK,
-            9.9,
+            parent_depth + 9.9,
             self.pos+Vector2::new(5.0, 50.0) + pos_offset,
             20,
             format!("Mapped by {}", self.item.creator),
