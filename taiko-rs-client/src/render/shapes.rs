@@ -225,10 +225,10 @@ pub struct Image {
     spawn_time:u64,
     scale: Vector2
 }
-
 impl Image {
     pub fn new(pos: Vector2, depth: f64, tex:Texture, size:Vector2) -> Image {
-        let scale = Vector2::new(tex.get_width() as f64 / size.x, tex.get_height() as f64 / size.y);
+        // let scale = Vector2::new(tex.get_width() as f64 / size.x, tex.get_height() as f64 / size.y);
+        let scale = Vector2::new(size.x / tex.get_width() as f64, size.y / tex.get_height() as f64);
 
         Image {
             pos,
@@ -240,7 +240,6 @@ impl Image {
         }
     }
 }
-
 impl Renderable for Image {
     fn get_lifetime(&self) -> u64 {0}
     fn set_lifetime(&mut self, _lifetime:u64) {}
