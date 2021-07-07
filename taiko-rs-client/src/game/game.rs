@@ -399,7 +399,7 @@ impl<'shape> Game<'shape> {
                 if keys.contains(&Key::Minus) {beatmap.increment_offset(-5)}
 
                 // volume
-                if volume_changed {beatmap.song.set_volume(settings.get_music_vol())}
+                //if volume_changed {beatmap.song.set_volume(settings.get_music_vol())}
 
                 beatmap.update();
 
@@ -527,7 +527,7 @@ impl<'shape> Game<'shape> {
                 }
 
                 // volume
-                if volume_changed {beatmap.song.set_volume(settings.get_music_vol())}
+                //if volume_changed {beatmap.song.set_volume(settings.get_music_vol())}
 
                 beatmap.update();
 
@@ -609,8 +609,8 @@ impl<'shape> Game<'shape> {
                             let mut lock = map.lock().unwrap();
 
                             // Preload the song
-                            lock.song.play();
-                            lock.song.pause();
+                            //lock.song.play();
+                            //lock.song.pause();
 
 
                             (lock.metadata.clone(), lock.hash.clone())

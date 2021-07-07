@@ -241,7 +241,7 @@ impl Menu for BeatmapSelectMenu {
                     i.set_tag("");
                 }
                 let mut map = clicked.lock().unwrap();
-                map.song.stop();
+                //map.song.stop();
                 map.reset();
                 map.start(); // TODO: figure out how to do this when checking mode change
                 game.lock().unwrap().start_map(clicked.clone());
@@ -250,7 +250,7 @@ impl Menu for BeatmapSelectMenu {
 
             // get current selected map
             if let Some((b, _play)) = self.get_selected() {
-                b.lock().unwrap().song.stop();
+                //b.lock().unwrap().song.stop();
             }
 
             self.selected = Some(clicked_tag.clone());
@@ -356,7 +356,7 @@ impl ScrollableItem for BeatmapsetItem {
     fn get_tag(&self) -> String {self.tag.clone()}
     fn set_tag(&mut self, _tag:&str) {
         self.pending_play = false; 
-        self.first.lock().unwrap().song.stop();
+        //self.first.lock().unwrap().song.stop();
     } // bit of a jank strat: when this is called, reset the play_pending property
     fn get_pos(&self) -> Vector2<f64> {self.pos}
     fn set_pos(&mut self, pos:Vector2<f64>) {self.pos = pos}
@@ -454,7 +454,7 @@ impl ScrollableItem for BeatmapsetItem {
             if self.selected_item == index {
                 // queue play map
                 self.pending_play = true;
-                self.first.lock().unwrap().song.stop();
+                //self.first.lock().unwrap().song.stop();
             } else {
                 self.selected_item = index;
             }
@@ -464,11 +464,11 @@ impl ScrollableItem for BeatmapsetItem {
         // not yet selected
         if !self.selected && self.hover {
             // start song
-            self.first.lock().unwrap().song.play();
-            self.first.lock().unwrap().song.set_volume(Settings::get().get_music_vol());
+            //self.first.lock().unwrap().song.play();
+            //self.first.lock().unwrap().song.set_volume(Settings::get().get_music_vol());
         } else { // was selected, not anymore
             // stop music
-            self.first.lock().unwrap().song.stop();
+            //self.first.lock().unwrap().song.stop();
         }
 
         self.selected = self.hover;
@@ -479,11 +479,11 @@ impl ScrollableItem for BeatmapsetItem {
         self.hover = self.hover(pos)
     }
     fn on_volume_change(&mut self) {
-        self.first.lock().unwrap().song.set_volume(Settings::get().get_music_vol());
+        //self.first.lock().unwrap().song.set_volume(Settings::get().get_music_vol());
     }
 
     fn dispose(&mut self) {
-        self.first.lock().unwrap().song.stop();
+        //self.first.lock().unwrap().song.stop();
     }
 }
 

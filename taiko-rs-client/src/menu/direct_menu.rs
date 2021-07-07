@@ -4,7 +4,7 @@ use std::{fs::File, io::Write};
 
 use cgmath::Vector2;
 use piston::{Key, MouseButton};
-use rodio::Sink; // ugh
+//use rodio::Sink; // ugh
 
 use crate::{WINDOW_SIZE, DOWNLOADS_DIR};
 use crate::render::{Text, Renderable, Rectangle, Color, Border};
@@ -32,7 +32,7 @@ pub struct OsuDirectMenu {
     search_bar: TextInput,
 
     //TODO: figure out how to get this running in a separate thread
-    preview: Option<Arc<Mutex<Sink>>>
+    //preview: Option<Arc<Mutex<Sink>>>
 }
 impl OsuDirectMenu {
     pub fn new() -> OsuDirectMenu {
@@ -42,7 +42,7 @@ impl OsuDirectMenu {
             queue: Vec::new(),
             items: HashMap::new(),
             selected: None,
-            preview: None,
+            //preview: None,
             search_bar: TextInput::new(Vector2::new(0.0, 0.0), Vector2::new(WINDOW_SIZE.x as f64, SEARCH_BAR_HEIGHT), "Search", "")
         };
         x.do_search();
@@ -74,7 +74,7 @@ impl OsuDirectMenu {
 
         // https://b.ppy.sh/preview/100.mp3
         let url = format!("https://b.ppy.sh/preview/{}.mp3", set_id);
-        if let Some(sink) = &self.preview {sink.lock().unwrap().stop()}
+        //if let Some(sink) = &self.preview {sink.lock().unwrap().stop()}
 
         let req = reqwest::blocking::get(url);
         if let Ok(thing) = req {
@@ -82,11 +82,11 @@ impl OsuDirectMenu {
             let mut data2 = Vec::new();
             data.iter().for_each(|e| data2.push(e.clone()));
 
-            let (audio_instance, sink) = Audio::from_raw(data2);
+            /*let (audio_instance, sink) = Audio::from_raw(data2);
             audio_instance.play();
             sink.set_volume(Settings::get().get_music_vol());
             sink.play();
-            self.preview = Some(Arc::new(Mutex::new(sink)));
+            self.preview = Some(Arc::new(Mutex::new(sink)));*/
         } else if let Err(oof) = req {
             println!("error with preview: {}", oof);
         }        
