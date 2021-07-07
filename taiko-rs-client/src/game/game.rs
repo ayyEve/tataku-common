@@ -940,6 +940,68 @@ impl<'shape> Game<'shape> {
         self.queue_mode_change(GameMode::Ingame(b.clone()));
         // b.lock().unwrap().start();
     }
+
+
+
+
+    /// extract all zips from the downloads folder into the songs folder
+    pub fn extract_all(&self) {
+        let runtime = &self.threading;
+
+        // check for new maps
+        if let Ok(files) = std::fs::read_dir(crate::DOWNLOADS_DIR) {
+            for file in files {
+                if let Ok(filename) = file {
+                    runtime.spawn(async move {
+
+                        // unzip file into ./Songs
+                        let file = std::fs::File::open(filename.path().to_str().unwrap()).unwrap();
+                        let mut archive = zip::ZipArchive::new(file).unwrap();
+                        
+                        for i in 0..archive.len() {
+                            let mut file = archive.by_index(i).unwrap();
+                            let mut outpath = match file.enclosed_name() {
+                                Some(path) => path,
+                                None => continue,
+                            };
+
+                            let x = outpath.to_str().unwrap();
+                            let y = format!("{}/{}/", SONGS_DIR, filename.file_name().to_str().unwrap().trim_end_matches(".osz"));
+                            let z = &(y + x);
+                            outpath = Path::new(z);
+
+                            if (&*file.name()).ends_with('/') {
+                                println!("File {} extracted to \"{}\"", i, outpath.display());
+                                std::fs::create_dir_all(&outpath).unwrap();
+                            } else {
+                                println!("File {} extracted to \"{}\" ({} bytes)", i, outpath.display(), file.size());
+                                if let Some(p) = outpath.parent() {
+                                    if !p.exists() {std::fs::create_dir_all(&p).unwrap()}
+                                }
+                                let mut outfile = std::fs::File::create(&outpath).unwrap();
+                                std::io::copy(&mut file, &mut outfile).unwrap();
+                            }
+
+                            // Get and Set permissions
+                            // #[cfg(unix)] {
+                            //     use std::os::unix::fs::PermissionsExt;
+
+                            //     if let Some(mode) = file.unix_mode() {
+                            //         fs::set_permissions(&outpath, fs::Permissions::from_mode(mode)).unwrap();
+                            //     }
+                            // }
+                        }
+                    
+                        match std::fs::remove_file(filename.path().to_str().unwrap()) {
+                            Ok(_) => {},
+                            Err(e) => println!("error deleting file: {}", e),
+                        }
+                    });
+                }
+            }
+        }
+    }
+
 }
 
 /// tries to set the app window. does nothing if theres an issue
@@ -952,68 +1014,6 @@ fn set_icon(_window:&mut AppWindow) {
 
     //     window.window.set_icon_from_pixels(pain);
     // }
-}
-
-
-/// extract all zips from the downloads folder into the songs folder
-pub fn extract_all() {
-    let runtime = Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap();
-
-    // check for new maps
-    if let Ok(files) = std::fs::read_dir(crate::DOWNLOADS_DIR) {
-        for file in files {
-            if let Ok(filename) = file {
-                runtime.spawn(async move {
-
-                    // unzip file into ./Songs
-                    let file = std::fs::File::open(filename.path().to_str().unwrap()).unwrap();
-                    let mut archive = zip::ZipArchive::new(file).unwrap();
-                    
-                    for i in 0..archive.len() {
-                        let mut file = archive.by_index(i).unwrap();
-                        let mut outpath = match file.enclosed_name() {
-                            Some(path) => path,
-                            None => continue,
-                        };
-
-                        let x = outpath.to_str().unwrap();
-                        let y = format!("{}/{}/", SONGS_DIR, filename.file_name().to_str().unwrap().trim_end_matches(".osz"));
-                        let z = &(y + x);
-                        outpath = Path::new(z);
-
-                        if (&*file.name()).ends_with('/') {
-                            println!("File {} extracted to \"{}\"", i, outpath.display());
-                            std::fs::create_dir_all(&outpath).unwrap();
-                        } else {
-                            println!("File {} extracted to \"{}\" ({} bytes)", i, outpath.display(), file.size());
-                            if let Some(p) = outpath.parent() {
-                                if !p.exists() {std::fs::create_dir_all(&p).unwrap()}
-                            }
-                            let mut outfile = std::fs::File::create(&outpath).unwrap();
-                            std::io::copy(&mut file, &mut outfile).unwrap();
-                        }
-
-                        // Get and Set permissions
-                        // #[cfg(unix)] {
-                        //     use std::os::unix::fs::PermissionsExt;
-
-                        //     if let Some(mode) = file.unix_mode() {
-                        //         fs::set_permissions(&outpath, fs::Permissions::from_mode(mode)).unwrap();
-                        //     }
-                        // }
-                    }
-                
-                    match std::fs::remove_file(filename.path().to_str().unwrap()) {
-                        Ok(_) => {},
-                        Err(e) => println!("error deleting file: {}", e),
-                    }
-                });
-            }
-        }
-    }
 }
 
 #[derive(Clone)]

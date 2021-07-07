@@ -118,9 +118,10 @@ impl BeatmapSelectMenu {
 impl Menu for BeatmapSelectMenu {
     fn update(&mut self, game:Arc<Mutex<&mut Game>>) {
         if game.lock().unwrap().beatmap_pending_refresh {
-            game.lock().unwrap().beatmap_pending_refresh = false;
+            let mut g = game.lock().unwrap();
+            g.beatmap_pending_refresh = false;
             self.pending_refresh = true;
-            crate::game::extract_all();
+            g.extract_all();
         }
 
         if self.pending_refresh {
