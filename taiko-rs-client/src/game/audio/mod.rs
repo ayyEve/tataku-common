@@ -10,7 +10,7 @@ use symphonia::core::{
     probe::Hint
 };
 
-use std::{rc::Rc, sync::atomic::{AtomicUsize, Ordering}};
+use std::{rc::Rc, sync::atomic::{AtomicUsize, Ordering}, time::Instant};
 use std::sync::Arc;
 use parking_lot::Mutex;
 
@@ -45,14 +45,15 @@ impl Audio {
         println!("Range Rate: {}-{}Hz", supported_config_range.min_sample_rate().0, supported_config_range.max_sample_rate().0);
 
         let supported_config = supported_config_range.with_max_sample_rate();
-
         let stream_rate = supported_config.sample_rate().0;
 
         println!("Sample Rate Stream: {}", stream_rate);
 
         // temp
-        let file = std::fs::File::open("audio/time-traveler.mp3")
-        .expect("Failed to open file.");
+        let mult = 0.6;
+        let file = "songs/288610 Nightstep - Circles/Nightstep - Circles.mp3";
+        let file = std::fs::File::open(file)
+            .expect("Failed to open file.");
 
         let source = MediaSourceStream::new(
             Box::new(file),
@@ -65,17 +66,17 @@ impl Audio {
             &Default::default(),
             &Default::default(),
         )
-        .expect("Failed to create probe");
+            .expect("Failed to create probe");
 
         let mut reader = probe.format;
 
         let track = reader.default_track().unwrap();
         let track_id = track.id;
 
-        println!("Sample Rate Track: {:?}", track.codec_params.sample_format);
+        println!("Sample Rate Track: {:?}", track.codec_params.sample_rate);
 
         let mut decoder = symphonia::default::get_codecs().make(&track.codec_params, &Default::default())
-        .expect("Failed to get codecs and produce decoder.");
+            .expect("Failed to get codecs and produce decoder.");
 
         let mut samples = Vec::new();
         let mut track_rate = 0;
@@ -118,30 +119,34 @@ impl Audio {
             sinc_len: 256,
             f_cutoff: 0.95,
             oversampling_factor: 128,
-            interpolation: InterpolationType::Cubic,
+            interpolation: InterpolationType::Linear,
             window: WindowFunction::Blackman
         };
 
-        let mut resampler = SincFixedIn::new(
-            stream_rate as f64 / track_rate as f64,
-            params,
-            samples[0].len(),
-            channels
-        );
 
-        let resampled_audio = resampler.process(samples.as_slice())
-        .expect("Failed to resample audio.");
+        let sample_len = samples[0].len();
+        let resampled_audio = if stream_rate != track_rate {
+            let mut resampler = SincFixedIn::new(
+                stream_rate as f64 / (track_rate as f64 * mult),
+                params,
+                sample_len,
+                channels
+            );
+            resampler.process(samples.as_slice())
+                .expect("Failed to resample audio.")
+        } else {
+            samples
+        };
 
         let mut interleaved_samples = Vec::new();
 
-        for i in 0..samples[0].len() {
+        for i in 0..resampled_audio[0].len() {
             for chan in 0..channels {
                 interleaved_samples.push(resampled_audio[chan].get(i).map(|&x| x).unwrap_or(0.0));
             }
         }
-
+        
         let count = AtomicUsize::new(0);
-
         const volume: f32 = 0.5;
 
         let stream = device.build_output_stream(
@@ -162,6 +167,8 @@ impl Audio {
             }
         )
         .expect("Failed to build output stream.");
+        
+        println!("build output stream done");
 
         stream.play().unwrap();
 
