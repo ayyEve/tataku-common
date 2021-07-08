@@ -117,18 +117,19 @@ impl BeatmapSelectMenu {
 }
 impl Menu for BeatmapSelectMenu {
     fn update(&mut self, game:Arc<Mutex<&mut Game>>) {
-        if game.lock().unwrap().beatmap_pending_refresh {
+
+        //TODO: fix this so its not as intensive (ie only check once a second)
+        let count = std::fs::read_dir(DOWNLOADS_DIR).unwrap().count();
+        if (!self.pending_refresh && count > 0) || game.lock().unwrap().beatmap_pending_refresh {
             let mut g = game.lock().unwrap();
             g.beatmap_pending_refresh = false;
+            
             self.pending_refresh = true;
             g.extract_all();
         }
 
-        if self.pending_refresh {
-            // wait for main to finish extracting everything from downloads
-            let list = std::fs::read_dir(DOWNLOADS_DIR).unwrap();
-            if list.count() <= 0 {self.refresh_maps();}
-        }
+        // wait for main to finish extracting everything from downloads
+        if self.pending_refresh && count == 0 {self.refresh_maps()}
     }
 
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
