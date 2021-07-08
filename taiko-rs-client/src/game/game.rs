@@ -161,11 +161,12 @@ impl<'shape> Game<'shape> {
 
         //TODO: load this from settings
         events.set_max_fps(144);
+        events.set_ups(1_000);
 
-        #[cfg(feature = "unlimited_fps")]
-        events.set_max_fps(10_000);
-
-        events.set_ups(10_000);
+        #[cfg(feature = "unlimited_fps")] {
+            events.set_max_fps(10_000);
+            events.set_ups(10_000);
+        }
 
         while let Some(e) = events.next(&mut self.window) {
             if let Some(args) = e.update_args() {self.update(args.dt*1000.0)}
