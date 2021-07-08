@@ -13,26 +13,33 @@ unlimited_fps = []
 [dependencies]
 taiko-rs-common = {path="../taiko-rs-common"}
 
-log = "0.4"
-futures-channel = "0.3"
-futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
-pin-project = "1.0"
-tokio-tungstenite = "0.14.0"
-
-tokio = {version = "1.7.1", features = ["full"] }
-clipboard = "0.5.0"
-zip = "0.5"
-reqwest = { version = "0.11.4", features = ["blocking"] }
-md5 = "0.7.0"
-image = "0.23.0"
-lazy_static = "1.4.0"
-cpal = "0.13.3"
-symphonia = { version = "0.3.0", default-features = false, features = ["mp3", "ogg", "wav"] }
-cgmath = "0.18.0"
+# Graphics
 piston = "0.53.0"
 piston2d-opengl_graphics = "0.78.0"
 piston2d-graphics = "0.40.0"
 pistoncore-glfw_window = "0.71.0"
+
+# Audio
+cpal = "0.13.3"
+symphonia = { version = "0.3.0", default-features = false, features = ["mp3", "ogg", "wav"] }
+rubato = "0.8.1"
+
+# Async
+tokio = {version = "1.7.1", features = ["full"] }
+futures-channel = "0.3"
+futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
+
+# Online
+tokio-tungstenite = "0.14.0"
+reqwest = { version = "0.11.4", features = ["blocking"] }
+
+# Utils 
+log = "0.4"
+clipboard = "0.5.0"
+zip = "0.5"
+md5 = "0.7.0"
+image = "0.23.0"
+lazy_static = "1.4.0"
 parking_lot = "0.11.1"
 ringbuf = "0.2.6"
-itertools = "0.10.1"
+cgmath = "0.18.0"
