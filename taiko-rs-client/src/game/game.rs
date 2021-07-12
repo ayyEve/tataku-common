@@ -329,7 +329,7 @@ impl<'shape> Game<'shape> {
                         true
                     );
                     hit.set_lifetime(DRUM_LIFETIME_TIME);
-                    lock.add_render_queue(hit);
+                    lock.render_queue.push(Box::new(hit));
                 }
                 if keys.contains(&settings.left_don) {
                     beatmap.hit(KeyPress::LeftDon);
@@ -342,7 +342,7 @@ impl<'shape> Game<'shape> {
                         true
                     );
                     hit.set_lifetime(DRUM_LIFETIME_TIME);
-                    lock.add_render_queue(hit);
+                    lock.render_queue.push(Box::new(hit));
                 }
                 if keys.contains(&settings.right_don) {
                     beatmap.hit(KeyPress::RightDon);
@@ -355,7 +355,7 @@ impl<'shape> Game<'shape> {
                         false
                     );
                     hit.set_lifetime(DRUM_LIFETIME_TIME);
-                    lock.add_render_queue(hit);
+                    lock.render_queue.push(Box::new(hit));
                 }
                 if keys.contains(&settings.right_kat) {
                     beatmap.hit(KeyPress::RightKat);
@@ -368,7 +368,7 @@ impl<'shape> Game<'shape> {
                         false
                     );
                     hit.set_lifetime(DRUM_LIFETIME_TIME);
-                    lock.add_render_queue(hit);
+                    lock.render_queue.push(Box::new(hit));
                 }
                 
                 // pause button, or focus lost
@@ -455,7 +455,6 @@ impl<'shape> Game<'shape> {
                         if press_time > time {break}
 
                         beatmap.hit(pressed);
-
                         match pressed {
                             crate::gameplay::KeyPress::LeftKat => {
                                 let mut hit = HalfCircle::new(
@@ -466,7 +465,7 @@ impl<'shape> Game<'shape> {
                                     true
                                 );
                                 hit.set_lifetime(DRUM_LIFETIME_TIME);
-                                lock.add_render_queue(hit);
+                                lock.render_queue.push(Box::new(hit));
                             },
                             crate::gameplay::KeyPress::LeftDon => {
                                 let mut hit = HalfCircle::new(
@@ -477,7 +476,7 @@ impl<'shape> Game<'shape> {
                                     true
                                 );
                                 hit.set_lifetime(DRUM_LIFETIME_TIME);
-                                lock.add_render_queue(hit);
+                                lock.render_queue.push(Box::new(hit));
                             },
                             crate::gameplay::KeyPress::RightDon => {
                                 let mut hit = HalfCircle::new(
@@ -488,7 +487,7 @@ impl<'shape> Game<'shape> {
                                     false
                                 );
                                 hit.set_lifetime(DRUM_LIFETIME_TIME);
-                                lock.add_render_queue(hit);
+                                lock.render_queue.push(Box::new(hit));
                             },
                             crate::gameplay::KeyPress::RightKat => {
                                 let mut hit = HalfCircle::new(
@@ -499,7 +498,7 @@ impl<'shape> Game<'shape> {
                                     false
                                 );
                                 hit.set_lifetime(DRUM_LIFETIME_TIME);
-                                lock.add_render_queue(hit);
+                                lock.render_queue.push(Box::new(hit));
                             },
                         }
 
@@ -749,7 +748,7 @@ impl<'shape> Game<'shape> {
                 b_size,
                 Some(Border::new(Color::BLACK, 1.2))
             );
-            self.add_render_queue(b);
+            self.render_queue.push(Box::new(b));
 
             // text 100px wide, bar 190px (10px padding)
             let border_padding = 10.0;
@@ -851,17 +850,34 @@ impl<'shape> Game<'shape> {
                 _ => println!("self.vol_selected_index out of bounds somehow")
             }
 
-            self.add_render_queue(master_text);
-            self.add_render_queue(master_border);
-            self.add_render_queue(master_fill);
+            
+            self.render_queue.push(Box::new(master_text));
+            self.render_queue.push(Box::new(master_border));
+            self.render_queue.push(Box::new(master_fill));
 
-            self.add_render_queue(effect_text);
-            self.add_render_queue(effect_border);
-            self.add_render_queue(effect_fill);
+            self.render_queue.push(Box::new(effect_text));
+            self.render_queue.push(Box::new(effect_border));
+            self.render_queue.push(Box::new(effect_fill));
 
-            self.add_render_queue(music_text);
-            self.add_render_queue(music_border);
-            self.add_render_queue(music_fill);
+            self.render_queue.push(Box::new(music_text));
+            self.render_queue.push(Box::new(music_border));
+            self.render_queue.push(Box::new(music_fill));
+
+            // vs
+            // let a:[Box<dyn Renderable>; 9] = [
+            //     Box::new(master_text),
+            //     Box::new(master_border),
+            //     Box::new(master_fill),
+                
+            //     Box::new(effect_text),
+            //     Box::new(effect_border),
+            //     Box::new(effect_fill),
+
+            //     Box::new(music_text),
+            //     Box::new(music_border),
+            //     Box::new(music_fill),
+            // ];
+            // self.render_queue.extend(a);
         }
 
 
@@ -873,14 +889,14 @@ impl<'shape> Game<'shape> {
             self.fps_count = 0;
         }
         // draw fps
-        self.add_render_queue(Text::new (
+        self.render_queue.push(Box::new(Text::new(
             Color::BLACK,
             -1.0,
             Vector2::new(0.0, 10.0),
             12,
             format!("{:.2}fps", self.fps_last),
             font.clone()
-        ));
+        )));
         // draw updates
         let updates_elapsed = self.update_timer.elapsed().unwrap().as_micros() as f64 / 1000.0;
         if updates_elapsed >= 100.0 {
@@ -889,14 +905,14 @@ impl<'shape> Game<'shape> {
             self.update_count = 0;
         }
         // draw fps
-        self.add_render_queue(Text::new (
+        self.render_queue.push(Box::new(Text::new (
             Color::BLACK,
             -1.0,
             Vector2::new(0.0, 30.0),
             12,
             format!("{:.2} updates/s", self.update_last),
             font.clone()
-        ));
+        )));
 
         // sort the queue here (so it only needs to be sorted once per frame, instead of every time a shape is added)
         self.render_queue.sort_by(|a, b| b.get_depth().partial_cmp(&a.get_depth()).unwrap());
@@ -917,17 +933,13 @@ impl<'shape> Game<'shape> {
         self.fps_count += 1;
     }
 
-    
-    pub fn add_render_queue(&mut self, shape: impl Renderable + 'shape) {
-        self.render_queue.push(Box::new(shape));
-    }
     pub fn clear_render_queue(&mut self, remove_all:bool) {
         if remove_all {
             self.render_queue.clear();
             return;
         }
-        let elapsed = self.game_start.elapsed().unwrap().as_millis() as u64;
 
+        let elapsed = self.game_start.elapsed().unwrap().as_millis() as u64;
         // only return items who's lifetime has expired
         self.render_queue.retain(|e| {
             let lifetime = e.get_lifetime();
