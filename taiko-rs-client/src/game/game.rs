@@ -24,8 +24,8 @@ const TRANSITION_TIME:u64 = 500;
 /// how long should the drum buttons last for?
 const DRUM_LIFETIME_TIME:u64 = 100;
 
-pub struct Game<'shape> {
-    render_queue: Vec<Box<dyn Renderable + 'shape>>,
+pub struct Game {
+    render_queue: Vec<Box<dyn Renderable>>,
 
     pub window: AppWindow,
     pub graphics: GlGraphics,
@@ -65,8 +65,8 @@ pub struct Game<'shape> {
     // user list
     show_user_list: bool
 }
-impl<'shape> Game<'shape> {
-    pub fn new() -> Game<'shape> {
+impl Game {
+    pub fn new() -> Game {
         let opengl = OpenGL::V3_2;
 
         let mut window: AppWindow = WindowSettings::new("Taiko", [WINDOW_SIZE.x, WINDOW_SIZE.y])
