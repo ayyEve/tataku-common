@@ -324,6 +324,7 @@ impl Beatmap {
     }
 
     pub fn time(&self) -> i64 {
+        // println!("{}, {}", self.lead_in_time, self.offset);
         self.song.upgrade().unwrap().current_time() as i64 - (self.lead_in_time as i64) - self.offset
     }
     pub fn increment_offset(&mut self, delta:i64) {

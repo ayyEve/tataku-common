@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::Instant;
 
 use parking_lot::Mutex;
 
@@ -50,6 +51,13 @@ impl AudioQueue {
 
             self.delay = delay;
             self.delay_changed.store(true, Ordering::SeqCst);
+        }
+    }
+
+    pub(super) fn sync_time(&mut self) {
+        let instant = Instant::now();
+        for i in self.current_queue.iter_mut() {
+            i.sync_time(instant);
         }
     }
 }

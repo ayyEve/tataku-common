@@ -73,7 +73,7 @@ impl Audio {
 
         let (controller, mut queue) = AudioQueue::new();
 
-        std::thread::spawn(move || {   
+        std::thread::spawn(move || {
             let stream = device.build_output_stream(
                 &supported_config.into(),
                 move |data: &mut [f32], info: &cpal::OutputCallbackInfo| {
@@ -90,6 +90,7 @@ impl Audio {
                         }
                     };
 
+                    queue.sync_time();
                     for sample in data.iter_mut() {
                         *sample = queue.next().unwrap_or(0.0);
                     }
@@ -105,7 +106,7 @@ impl Audio {
             stream.play().unwrap();
 
             std::thread::park();
-        });       
+        });
 
         Self {
             queue: controller,
