@@ -120,11 +120,9 @@ impl Menu for BeatmapSelectMenu {
 
         //TODO: fix this so its not as intensive (ie only check once a second)
         let count = std::fs::read_dir(DOWNLOADS_DIR).unwrap().count();
-        if (!self.pending_refresh && count > 0) {
-            let mut g = game.lock().unwrap();
-            
+        if !self.pending_refresh && count > 0 {
             self.pending_refresh = true;
-            g.extract_all();
+            game.lock().unwrap().extract_all();
         }
 
         // wait for main to finish extracting everything from downloads
