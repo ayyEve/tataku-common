@@ -191,25 +191,15 @@ impl Game {
         let mut current_mode = clone.lock().unwrap().current_mode.clone().to_owned();
         let elapsed = clone.lock().unwrap().game_start.elapsed().as_millis() as u64;
 
-        //TODO: move these fonctions in input manager, like get_text()
         // check input events
         let mouse_pos = clone.lock().unwrap().input_manager.mouse_pos;
-        // clicks
-        let mut mouse_buttons = clone.lock().unwrap().input_manager.mouse_buttons.clone();
-        clone.lock().unwrap().input_manager.mouse_buttons.clear();
-        // mouse move
-        let mouse_moved = clone.lock().unwrap().input_manager.mouse_moved.clone();
-        clone.lock().unwrap().input_manager.mouse_moved = false;
-        // mouse scroll
-        let mut scroll_delta = clone.lock().unwrap().input_manager.scroll_delta.clone();
-        clone.lock().unwrap().input_manager.scroll_delta = 0.0;
-        // keys down 
+        let mut mouse_buttons = clone.lock().unwrap().input_manager.get_mouse_buttons();
+        let mouse_moved = clone.lock().unwrap().input_manager.get_mouse_moved();
+        let mut scroll_delta = clone.lock().unwrap().input_manager.get_scroll_delta();
         let keys = clone.lock().unwrap().input_manager.all_down_once();
         let mods = clone.lock().unwrap().input_manager.get_key_mods();
         let text = clone.lock().unwrap().input_manager.get_text();
         let window_focus_changed = clone.lock().unwrap().input_manager.get_changed_focus();
-
-
         
         // users list
         if clone.lock().unwrap().show_user_list {
@@ -222,7 +212,6 @@ impl Game {
                 }
             }
         }
-
 
         // check for volume change
         let mut volume_changed = false;
@@ -413,7 +402,6 @@ impl Game {
                         Err(e) => println!("Failed to save scores! {}", e),
                     }
 
-
                     // submit score
                     #[cfg(feature = "online_scores")] 
                     {
@@ -523,12 +511,8 @@ impl Game {
                 }
 
                 // offset adjust
-                if keys.contains(&Key::Equals) {
-                    beatmap.increment_offset(5);
-                }
-                if keys.contains(&Key::Minus) {
-                    beatmap.increment_offset(-5);
-                }
+                if keys.contains(&Key::Equals) {beatmap.increment_offset(5)}
+                if keys.contains(&Key::Minus) {beatmap.increment_offset(-5)}
 
                 // volume
                 if volume_changed {beatmap.song.set_volume(settings.get_music_vol())}

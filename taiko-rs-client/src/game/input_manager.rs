@@ -71,6 +71,7 @@ impl InputManager {
         }
     }
 
+
     /// get all keys that were pressed, and clear the pressed list. (will be true when first checked and pressed, false after first check or when key is up)
     pub fn all_down_once(&mut self) -> Vec<Key> {
         let mut down = Vec::new();
@@ -78,6 +79,25 @@ impl InputManager {
         self.key_states_once.clear();
 
         down
+    }
+
+    /// get all pressed mouse buttons, and reset the pressed array
+    pub fn get_mouse_buttons(&mut self) -> Vec<MouseButton> {
+        let buttons = self.mouse_buttons.clone();
+        self.mouse_buttons.clear();
+        buttons
+    }
+    /// get whether the mouse was moved or not
+    pub fn get_mouse_moved(&mut self) -> bool {
+        let moved = self.mouse_moved;
+        self.mouse_moved = false;
+        moved
+    }
+    /// get how much the mouse wheel as scrolled (vertically) since the last check
+    pub fn get_scroll_delta(&mut self) -> f64 {
+        let delta = self.scroll_delta;
+        self.scroll_delta = 0.0;
+        delta
     }
 
     /// gets any text typed since the last check
