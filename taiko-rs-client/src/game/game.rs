@@ -1,22 +1,19 @@
 use std::path::Path;
-use std::time::Duration;
-use std::{time::SystemTime};
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+use std::time::{SystemTime, Duration};
 
 use tokio::runtime::{Builder, Runtime};
 use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window,input::*, event_loop::*, window::WindowSettings};
 
-use super::online::OnlineManager;
 use taiko_rs_common::types::UserAction;
-use crate::game::online::USER_ITEM_SIZE;
 use crate::gameplay::{Beatmap, Replay, KeyPress};
 use crate::databases::{save_all_scores, save_score};
-use crate::game::{InputManager, Settings, get_font, Vector2};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, SONGS_DIR, menu::*};
 use crate::render::{HalfCircle, Rectangle, Renderable, Text, Color, Border};
+use crate::game::{InputManager, Settings, get_font, Vector2, online::USER_ITEM_SIZE, online::OnlineManager};
 
 /// how long should the volume thing be displayed when changed
 const VOLUME_CHANGE_DISPLAY_TIME:u64 = 2000;
@@ -173,10 +170,6 @@ impl<'shape> Game<'shape> {
             if let Some(args) = e.render_args() {self.render(args)}
             self.input_manager.handle_events(e.clone());
             // e.resize(|args| println!("Resized '{}, {}'", args.window_size[0], args.window_size[1]));
-            // if let Some(cursor) = e.cursor_args() {
-            //     if cursor { println!("Mouse entered"); }
-            //     else { println!("Mouse left"); }
-            // };
         }
     }
 
@@ -924,10 +917,10 @@ impl<'shape> Game<'shape> {
         self.fps_count += 1;
     }
 
+    
     pub fn add_render_queue(&mut self, shape: impl Renderable + 'shape) {
         self.render_queue.push(Box::new(shape));
     }
-
     pub fn clear_render_queue(&mut self, remove_all:bool) {
         if remove_all {
             self.render_queue.clear();
@@ -941,13 +934,6 @@ impl<'shape> Game<'shape> {
             lifetime > 0 && elapsed - e.get_spawn_time() < lifetime
         });
     }
-
-    pub fn start_map(&mut self, b:Arc<Mutex<Beatmap>>) {
-        self.queue_mode_change(GameMode::Ingame(b.clone()));
-        // b.lock().unwrap().start();
-    }
-
-
 
 
     /// extract all zips from the downloads folder into the songs folder

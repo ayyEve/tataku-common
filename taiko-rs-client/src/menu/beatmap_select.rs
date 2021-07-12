@@ -245,7 +245,8 @@ impl Menu for BeatmapSelectMenu {
                 map.song.stop();
                 map.reset();
                 map.start(); // TODO: figure out how to do this when checking mode change
-                game.lock().unwrap().start_map(clicked.clone());
+
+                game.lock().unwrap().queue_mode_change(GameMode::Ingame(clicked.clone()));
                 return;
             }
 
