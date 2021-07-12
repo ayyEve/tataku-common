@@ -16,6 +16,8 @@ use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, SONGS_DIR, menu::*};
 use crate::render::{HalfCircle, Rectangle, Renderable, Text, Color, Border};
 use crate::game::{InputManager, Settings, get_font, Vector2, online::USER_ITEM_SIZE, online::OnlineManager};
 
+use super::FpsDisplay;
+
 /// how long should the volume thing be displayed when changed
 const VOLUME_CHANGE_DISPLAY_TIME:u64 = 2000;
 /// background color
@@ -41,19 +43,14 @@ pub struct Game {
 
     // volume change things 
     // maybe move these to another object? not really necessary but might help clean up code a bit maybe
-    //NOTE: these cant be changed to shape lifetimes as the user might potentially change the selected volume
     /// 0-2, 0 = master, 1 = effect, 2 = music
     vol_selected_index: u8, 
     ///when the volume was changed, or the selected index changed
     vol_selected_time: u64,
 
     // fps
-    fps_count: u32,
-    fps_timer: Instant,
-    fps_last: f32,
-    update_count: u32,
-    update_timer: Instant,
-    update_last: f32,
+    fps_display:FpsDisplay,
+    update_display:FpsDisplay,
 
     // transition
     transition: Option<GameMode>,
@@ -112,12 +109,8 @@ impl Game {
             vol_selected_time: 0,
 
             // fps
-            fps_timer: Instant::now(),
-            fps_last: 0.0,
-            fps_count: 0,
-            update_timer: Instant::now(),
-            update_last: 0.0,
-            update_count: 0,
+            fps_display:FpsDisplay::new("fps", 0),
+            update_display:FpsDisplay::new("updates/s", 1),
 
             // transition
             transition: None,
@@ -192,7 +185,7 @@ impl Game {
     pub fn queue_mode_change(&mut self, mode:GameMode) {self.queued_mode = mode}
 
     fn update(&mut self, _delta:f64) {
-        self.update_count += 1;
+        self.update_display.increment();
         let arc = Arc::new(Mutex::new(self));
         let clone = arc.clone();
         let mut current_mode = clone.lock().unwrap().current_mode.clone().to_owned();
@@ -897,38 +890,9 @@ impl Game {
         }
 
 
-        // update fps var if needed
-        let fps_elapsed = self.fps_timer.elapsed().as_micros() as f64 / 1000.0;
-        if fps_elapsed >= 100.0 {
-            self.fps_last = (self.fps_count as f64 / fps_elapsed * 1000.0) as f32;
-            self.fps_timer = Instant::now();
-            self.fps_count = 0;
-        }
-        // draw fps
-        self.render_queue.push(Box::new(Text::new(
-            Color::BLACK,
-            -1.0,
-            Vector2::new(0.0, 10.0),
-            12,
-            format!("{:.2}fps", self.fps_last),
-            font.clone()
-        )));
-        // draw updates
-        let updates_elapsed = self.update_timer.elapsed().as_micros() as f64 / 1000.0;
-        if updates_elapsed >= 100.0 {
-            self.update_last = (self.update_count as f64 / updates_elapsed * 1000.0) as f32;
-            self.update_timer = Instant::now();
-            self.update_count = 0;
-        }
-        // draw fps
-        self.render_queue.push(Box::new(Text::new (
-            Color::BLACK,
-            -1.0,
-            Vector2::new(0.0, 30.0),
-            12,
-            format!("{:.2} updates/s", self.update_last),
-            font.clone()
-        )));
+        // draw fps'
+        self.render_queue.push(Box::new(self.fps_display.draw()));
+        self.render_queue.push(Box::new(self.update_display.draw()));
 
         // sort the queue here (so it only needs to be sorted once per frame, instead of every time a shape is added)
         self.render_queue.sort_by(|a, b| b.get_depth().partial_cmp(&a.get_depth()).unwrap());
@@ -946,7 +910,7 @@ impl Game {
         );
         
         self.clear_render_queue(false);
-        self.fps_count += 1;
+        self.fps_display.increment();
     }
 
     pub fn clear_render_queue(&mut self, remove_all:bool) {
