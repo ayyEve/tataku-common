@@ -4,7 +4,7 @@ use std::{fs::File, path::Path};
 use std::io::{self, BufRead, BufReader, Lines};
 
 // local imports
-use game::{Audio, Game, Vector2, BenchmarkHelper};
+use game::{Audio, Game, Vector2, helpers::BenchmarkHelper};
 
 // include files
 mod game;
@@ -17,7 +17,7 @@ pub use enums::*;
 
 // constants
 const NOTE_RADIUS:f64 = 32.0;
-const HIT_AREA_RADIUS:f64 = NOTE_RADIUS * 1.3; // NOTE_RADIUS * 1.3
+const HIT_AREA_RADIUS:f64 = NOTE_RADIUS * 1.3;
 const HIT_POSITION:Vector2 = Vector2::new(180.0, 200.0);
 const PLAYFIELD_RADIUS:f64 = NOTE_RADIUS * 2.0; // actually height, oops
 const WINDOW_SIZE:Vector2 = Vector2::new(1000.0, 600.0);

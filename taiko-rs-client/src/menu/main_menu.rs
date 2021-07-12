@@ -76,7 +76,7 @@ impl Menu for MainMenu {
 
         // open direct menu
         if self.direct_button.on_click(pos, button) {
-            let menu:Arc<Mutex<Box<dyn Menu>>> = Arc::new(Mutex::new(Box::new(OsuDirectMenu::new())));
+            let menu:Arc<Mutex<dyn Menu>> = Arc::new(Mutex::new(OsuDirectMenu::new()));
             game.queue_mode_change(GameMode::InMenu(menu));
             return;
         }

@@ -29,12 +29,11 @@ pub struct Beatmap {
     pub completed: bool,
     
     // lists
-    pub notes: Vec<Arc<Mutex<dyn HitObject>>>,
-    timing_bars: Vec<Arc<Mutex<TimingBar>>>,
-    
-
-    note_index: usize,
+    pub notes: Vec<Arc<Mutex<dyn HitObject + Send>>>,
     pub timing_points: Vec<TimingPoint>,
+    timing_bars: Vec<Arc<Mutex<TimingBar>>>,
+    // list indices
+    note_index: usize,
     timing_point_index: usize,
 
     pub song: SoundEffect,
@@ -242,7 +241,6 @@ impl Beatmap {
                                     let sound_type = sound_types[i];
 
                                     let note = Note::new(
-                                        beatmap.clone(),
                                         j as u64,
                                         sound_type.0,
                                         sound_type.1,
@@ -256,7 +254,7 @@ impl Beatmap {
                                     if !(j < end_time as f64 + skip_period / 8.0) {break}
                                 }
                             } else {
-                                let slider = Slider::new(beatmap.clone(), time, end_time, finisher, sv);
+                                let slider = Slider::new(time, end_time, finisher, sv);
                                 beatmap.lock().unwrap().notes.push(Arc::new(Mutex::new(slider)));
                             }
 
@@ -283,10 +281,10 @@ impl Beatmap {
 
                             let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
                             // just make a slider for now
-                            let spinner = Spinner::new(beatmap.clone(), time, end_time, sv, hits_required);
+                            let spinner = Spinner::new(time, end_time, sv, hits_required);
                             beatmap.lock().unwrap().notes.push(Arc::new(Mutex::new(spinner)));
                         } else { // note
-                            let note = Note::new(beatmap.clone(), time, hit_type, finisher, sv);
+                            let note = Note::new(time, hit_type, finisher, sv);
                             beatmap.lock().unwrap().notes.push(Arc::new(Mutex::new(note)));
                         }
                     },

@@ -63,8 +63,8 @@ impl BeatmapSelectMenu {
     pub fn refresh_maps(&mut self) {
         self.pending_refresh = false;
         self.beatmap_scroll.clear();
-        let folders = read_dir(SONGS_DIR).unwrap();
 
+        let folders = read_dir(SONGS_DIR).unwrap();
         let mut full_list = Vec::new();
 
         for f in folders {
@@ -221,7 +221,7 @@ impl Menu for BeatmapSelectMenu {
 
                 if let Some((selected, _)) = self.get_selected() {
                     let menu = ScoreMenu::new(score, selected.clone());
-                    game.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(Box::new(menu)))));
+                    game.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
                 }
             }
             return;

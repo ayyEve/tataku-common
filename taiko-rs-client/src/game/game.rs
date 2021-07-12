@@ -13,7 +13,7 @@ use crate::gameplay::{Beatmap, Replay, KeyPress};
 use crate::databases::{save_all_scores, save_score};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, SONGS_DIR, menu::*};
 use crate::render::{HalfCircle, Rectangle, Renderable, Text, Color, Border};
-use crate::game::{InputManager, Settings, get_font, Vector2, FpsDisplay, BenchmarkHelper, online::{USER_ITEM_SIZE, OnlineManager}};
+use crate::game::{InputManager, Settings, get_font, Vector2, online::{USER_ITEM_SIZE, OnlineManager}, helpers::{FpsDisplay, BenchmarkHelper}};
 
 /// how long should the volume thing be displayed when changed
 const VOLUME_CHANGE_DISPLAY_TIME:u64 = 2000;
@@ -25,16 +25,18 @@ const TRANSITION_TIME:u64 = 500;
 const DRUM_LIFETIME_TIME:u64 = 100;
 
 pub struct Game {
-    render_queue: Vec<Box<dyn Renderable>>,
 
+    // engine things
+    render_queue: Vec<Box<dyn Renderable>>,
     pub window: AppWindow,
     pub graphics: GlGraphics,
     pub input_manager: InputManager,
     pub online_manager: Arc<tokio::sync::Mutex<OnlineManager>>,
     pub threading: Runtime,
     
-    pub menus: HashMap<&'static str, Arc<Mutex<Box<dyn Menu>>>>,
-    pub game_start: Instant,
+    pub menus: HashMap<&'static str, Arc<Mutex<dyn Menu>>>,
+    pub beatmaps: Vec<Arc<Mutex<Beatmap>>>,
+    
     pub current_mode: GameMode,
     pub queued_mode: GameMode,
 
@@ -55,14 +57,16 @@ pub struct Game {
     transition_timer: u64,
 
     // user list
-    show_user_list: bool
+    show_user_list: bool,
+
+    // misc
+    pub game_start: Instant,
 }
 impl Game {
     pub fn new() -> Game {
         let mut game_init_benchmark = BenchmarkHelper::new("game_init");
 
         let opengl = OpenGL::V3_2;
-
         let mut window: AppWindow = WindowSettings::new("Taiko", [WINDOW_SIZE.x, WINDOW_SIZE.y])
             .graphics_api(opengl)
             .resizable(false)
@@ -89,15 +93,19 @@ impl Game {
         game_init_benchmark.log("threading created", true);
 
         let mut g = Game {
-            current_mode: GameMode::None,
-            queued_mode: GameMode::None,
+            // engine
             window,
             graphics,
             threading,
             input_manager,
             online_manager,
             render_queue: Vec::new(),
+
+
             menus: HashMap::new(),
+            beatmaps: Vec::new(),
+            current_mode: GameMode::None,
+            queued_mode: GameMode::None,
 
             // vol things
             vol_selected_index: 0,
@@ -121,26 +129,23 @@ impl Game {
 
         //region == menu setup ==
         // main menu
-        let main_menu:Box<dyn Menu> = Box::new(MainMenu::new());
-        let main_menu = Arc::new(Mutex::new(main_menu));
+        let main_menu = Arc::new(Mutex::new(MainMenu::new()));
         g.menus.insert("main", main_menu.clone());
 
         game_init_benchmark.log("main menu created", true);
 
         // setup beatmap select menu
-        let beatmap_menu:Box<dyn Menu> = Box::new(BeatmapSelectMenu::new());
-        let beatmap_menu = Arc::new(Mutex::new(beatmap_menu));
+        let beatmap_menu = Arc::new(Mutex::new(BeatmapSelectMenu::new()));
         g.menus.insert("beatmap", beatmap_menu.clone());
 
         game_init_benchmark.log("beatmap menu created", true);
 
         // setup settings menu
-        let settings_menu:Box<dyn Menu> = Box::new(SettingsMenu::new());
-        let settings_menu = Arc::new(Mutex::new(settings_menu));
+        let settings_menu = Arc::new(Mutex::new(SettingsMenu::new()));
         g.menus.insert("settings", settings_menu.clone());
         game_init_benchmark.log("settings menu created", true);
 
-        // set current mode to main menu
+        // // set current mode to main menu
         g.queue_mode_change(GameMode::InMenu(main_menu.clone()));
 
         g.init();
@@ -157,6 +162,10 @@ impl Game {
                 tokio::time::sleep(Duration::from_millis(1_000)).await;
             }
         });
+        
+        // let mut loading_menu = LoadingMenu::new();
+        // loading_menu.load(self);
+        // self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(loading_menu))));
     }
     pub fn game_loop(mut self) {
         // input and rendering thread
@@ -370,14 +379,14 @@ impl Game {
                     // pause
                     beatmap.pause();
                     let menu = PauseMenu::new(og_beatmap.clone());
-                    lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(Box::new(menu)))));
+                    lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
                 }
                 if let Some(e) = window_focus_changed {
                     if !e { // window lost focus, pause
                         // pause
                         beatmap.pause();
                         let menu = PauseMenu::new(og_beatmap.clone());
-                        lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(Box::new(menu)))));
+                        lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
                     }
                 }
 
@@ -388,8 +397,8 @@ impl Game {
                 // volume
                 if volume_changed {beatmap.song.set_volume(settings.get_music_vol())}
 
+                // update, then check if complete
                 beatmap.update();
-
                 if beatmap.completed {
                     // save score
                     save_score(beatmap.score.clone());
@@ -426,7 +435,7 @@ impl Game {
 
                     // show score menu
                     let menu = ScoreMenu::new(beatmap.score.clone(), Arc::new(Mutex::new(beatmap.clone())));
-                    lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(Box::new(menu)))));
+                    lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
 
                     // cleanup memory-hogs in the beatmap object
                     beatmap.cleanup();
@@ -518,7 +527,7 @@ impl Game {
                 if beatmap.completed {
                     // show score menu
                     let menu = ScoreMenu::new(beatmap.score.clone(), Arc::new(Mutex::new(beatmap.clone())));
-                    lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(Box::new(menu)))));
+                    lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
 
                     beatmap.cleanup();
                 }
@@ -970,9 +979,8 @@ pub enum GameMode {
     None, // use this as the inital game mode, but me sure to change it after
     Closing,
     Ingame(Arc<Mutex<Beatmap>>),
-    InMenu(Arc<Mutex<Box<dyn Menu>>>),
+    InMenu(Arc<Mutex<dyn Menu>>),
     Replaying(Arc<Mutex<Beatmap>>, Replay, u64),
-
 
     // Spectating()
 }

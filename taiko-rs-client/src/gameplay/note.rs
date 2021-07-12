@@ -1,8 +1,9 @@
-use std::sync::{Arc, Mutex};
-
 use piston::RenderArgs;
 
-use crate::{HIT_POSITION, NOTE_RADIUS, game::Vector2, gameplay::{Beatmap, ScoreHit, BAR_COLOR}, render::{Circle, Color, HalfCircle, Rectangle, Renderable, Border}};
+use crate::game::Vector2;
+use crate::{HIT_POSITION, NOTE_RADIUS};
+use crate::gameplay::{ScoreHit, BAR_COLOR};
+use crate::render::{Circle, Color, HalfCircle, Rectangle, Renderable, Border};
 
 const SLIDER_DOT_RADIUS:f64 = 8.0;
 const SPINNER_RADIUS: f64 = 200.0;
@@ -46,7 +47,6 @@ pub struct Note {
     hit_time: u64,
     pub hit_type: HitType,
     pub finisher:bool,
-    pub beatmap: Arc<Mutex<Beatmap>>,
     pub hit: bool,
     pub missed: bool,
     pub speed:f64,
@@ -57,9 +57,8 @@ pub struct Note {
     hitwindow_300:f64
 }
 impl Note {
-    pub fn new(beatmap:Arc<Mutex<Beatmap>>, time:u64, hit_type:HitType, finisher:bool, speed:f64) -> Note {
+    pub fn new(time:u64, hit_type:HitType, finisher:bool, speed:f64) -> Note {
         Note {
-            beatmap,
             time, 
             hit_time: 0,
             hit_type, 
@@ -185,18 +184,16 @@ pub struct Slider {
     pub time: u64, // ms
     pub end_time: u64, // ms
     pub finisher: bool,
-    pub beatmap: Arc<Mutex<Beatmap>>,
     pub speed: f64,
     radius: f64,
     //TODO: figure out how to calc this
     end_x:f64
 }
 impl Slider {
-    pub fn new(beatmap:Arc<Mutex<Beatmap>>, time:u64, end_time:u64, finisher:bool, speed:f64) -> Slider {
+    pub fn new(time:u64, end_time:u64, finisher:bool, speed:f64) -> Slider {
         let radius = if finisher {NOTE_RADIUS*1.6666} else {NOTE_RADIUS};
 
         Slider {
-            beatmap,
             time, 
             end_time,
             finisher,
@@ -345,12 +342,10 @@ pub struct Spinner {
     pub time: u64, // ms
     pub end_time: u64, // ms
     pub speed:f64,
-    pub beatmap: Arc<Mutex<Beatmap>>,
 }
 impl Spinner {
-    pub fn new(beatmap:Arc<Mutex<Beatmap>>, time:u64, end_time:u64, speed:f64, hits_required:u16) -> Spinner {
+    pub fn new(time:u64, end_time:u64, speed:f64, hits_required:u16) -> Spinner {
         Spinner {
-            beatmap,
             time, 
             end_time,
             speed,
