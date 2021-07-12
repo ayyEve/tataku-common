@@ -146,7 +146,7 @@ impl Game {
         game_init_benchmark.log("settings menu created", true);
 
         // // set current mode to main menu
-        g.queue_mode_change(GameMode::InMenu(main_menu.clone()));
+        // g.queue_mode_change(GameMode::InMenu(main_menu.clone()));
 
         g.init();
         game_init_benchmark.log("game initialized", true);
@@ -163,13 +163,13 @@ impl Game {
             }
         });
         
-        // let mut loading_menu = LoadingMenu::new();
-        // loading_menu.load(self);
-        // self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(loading_menu))));
+        let mut loading_menu = LoadingMenu::new();
+        loading_menu.load(self);
+        self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(loading_menu))));
     }
     pub fn game_loop(mut self) {
         // input and rendering thread
-        let mut events = Events::new(EventSettings::new()); //.lazy(true));
+        let mut events = Events::new(EventSettings::new());
 
         //TODO: load this from settings
         events.set_max_fps(144);
