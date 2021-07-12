@@ -22,7 +22,6 @@ const HIT_POSITION:Vector2 = Vector2::new(180.0, 200.0);
 const PLAYFIELD_RADIUS:f64 = NOTE_RADIUS * 2.0; // actually height, oops
 const WINDOW_SIZE:Vector2 = Vector2::new(1000.0, 600.0);
 
-
 // folders
 pub const DOWNLOADS_DIR:&str = "downloads";
 pub const SONGS_DIR:&str = "songs";
@@ -30,10 +29,6 @@ pub const REPLAYS_DIR:&str = "replays";
 
 // database files
 pub const SCORE_DATABASE_FILE:&str = "scores.db";
-
-
-// helper types
-pub type IoError = std::io::Error;
 
 // main fn
 fn main() {
