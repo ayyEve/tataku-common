@@ -596,6 +596,7 @@ impl Game {
         // update game mode
         let mut unlocked = clone.lock().unwrap();
         match &unlocked.queued_mode {
+            // queued mode didnt change, set the unlocked's mode to the updated mode
             GameMode::None => {
                 unlocked.current_mode = current_mode;
             }
@@ -634,7 +635,6 @@ impl Game {
 
 
                 let mut do_transition = true;
-
                 match &unlocked.current_mode {
                     GameMode::None => do_transition = false,
                     GameMode::InMenu(menu) if menu.lock().unwrap().get_name() == "pause" => do_transition = false,
@@ -698,9 +698,7 @@ impl Game {
             let diff = elapsed as f64 - self.transition_timer as f64;
 
             let mut alpha = diff / (TRANSITION_TIME as f64 / 2.0);
-            if self.transition.is_none() {
-                alpha = 1.0 - diff / TRANSITION_TIME as f64;
-            }
+            if self.transition.is_none() {alpha = 1.0 - diff / TRANSITION_TIME as f64}
 
             renderables.push(Box::new(Rectangle::new(
                 [0.0,0.0,0.0, alpha as f32].into(),
@@ -992,6 +990,8 @@ pub enum GameMode {
     Closing,
     Ingame(Arc<Mutex<Beatmap>>),
     InMenu(Arc<Mutex<Box<dyn Menu>>>),
+    Replaying(Arc<Mutex<Beatmap>>, Replay, u64),
 
-    Replaying(Arc<Mutex<Beatmap>>, Replay, u64)
+
+    // Spectating()
 }

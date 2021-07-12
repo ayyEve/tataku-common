@@ -79,7 +79,7 @@ pub fn save_all_scores() -> std::io::Result<()> {
     return save_database(SCORE_DATABASE_FILE, writer);
 }
 
-pub fn get_replay(score_hash:String) -> std::io::Result<Replay> {
+pub fn get_local_replay(score_hash:String) -> std::io::Result<Replay> {
     let fullpath = format!("{}/{}.rs_replay", REPLAYS_DIR, score_hash);
     let mut reader = open_database(&fullpath)?;
     Ok(reader.read())
