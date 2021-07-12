@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::collections::HashMap;
 use std::{fs::File, io::Write};
 
@@ -9,7 +9,7 @@ use piston::{Key, MouseButton};
 use crate::{WINDOW_SIZE, DOWNLOADS_DIR};
 use crate::render::{Text, Renderable, Rectangle, Color, Border};
 use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
-use crate::game::{Audio, Game, GameMode, KeyModifiers, Settings, get_font};
+use crate::game::{Audio, AudioHandle, Game, GameMode, KeyModifiers, Settings, get_font};
 
 const DIRECT_ITEM_SIZE:Vector2<f64> = Vector2::new(600.0, 80.0);
 const SEARCH_BAR_HEIGHT:f64 = 50.0;
@@ -32,7 +32,7 @@ pub struct OsuDirectMenu {
     search_bar: TextInput,
 
     //TODO: figure out how to get this running in a separate thread
-    //preview: Option<Arc<Mutex<Sink>>>
+    preview: Weak<AudioHandle>
 }
 impl OsuDirectMenu {
     pub fn new() -> OsuDirectMenu {
@@ -42,7 +42,7 @@ impl OsuDirectMenu {
             queue: Vec::new(),
             items: HashMap::new(),
             selected: None,
-            //preview: None,
+            preview: Weak::new(),
             search_bar: TextInput::new(Vector2::new(0.0, 0.0), Vector2::new(WINDOW_SIZE.x as f64, SEARCH_BAR_HEIGHT), "Search", "")
         };
         x.do_search();
@@ -74,7 +74,7 @@ impl OsuDirectMenu {
 
         // https://b.ppy.sh/preview/100.mp3
         let url = format!("https://b.ppy.sh/preview/{}.mp3", set_id);
-        //if let Some(sink) = &self.preview {sink.lock().unwrap().stop()}
+        if let Some(audio) = self.preview.upgrade() { audio.pause(); }
 
         let req = reqwest::blocking::get(url);
         if let Ok(thing) = req {
@@ -82,11 +82,13 @@ impl OsuDirectMenu {
             let mut data2 = Vec::new();
             data.iter().for_each(|e| data2.push(e.clone()));
 
-            /*let (audio_instance, sink) = Audio::from_raw(data2);
-            audio_instance.play();
-            sink.set_volume(Settings::get().get_music_vol());
-            sink.play();
-            self.preview = Some(Arc::new(Mutex::new(sink)));*/
+            let handle = Audio::play_raw(data2);
+
+            let upgrade = handle.upgrade().unwrap(); // should exist since we just created it
+            upgrade.play();
+            upgrade.set_volume(Settings::get().get_music_vol());
+
+            self.preview = handle;
         } else if let Err(oof) = req {
             println!("error with preview: {}", oof);
         }        

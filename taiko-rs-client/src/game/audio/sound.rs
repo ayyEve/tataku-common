@@ -1,0 +1,110 @@
+use symphonia::core::{
+    audio::{AudioBufferRef, Signal},
+    io::{MediaSourceStream, MediaSource},
+    probe::Hint
+};
+
+use std::io::Cursor;
+use std::sync::Arc;
+
+#[derive(Clone)]
+pub struct Sound {
+    // Samples split by channel
+    pub samples: Arc<Vec<Vec<f32>>>,
+    pub sample_rate: u32,
+    pub channels: usize,
+}
+
+impl Sound {
+    // todo: make not crash
+    pub fn load(path: impl AsRef<str>) -> Self {
+        let file = std::fs::File::open(path.as_ref())
+        .expect("Failed to open file.");
+
+        Sound::decode(file)
+    }
+
+    pub fn load_raw(bytes: Vec<u8>) -> Self {
+        Sound::decode(Cursor::new(bytes))
+    }
+
+    fn decode(source: impl MediaSource + 'static) -> Self {
+        let source = MediaSourceStream::new(
+            Box::new(source),
+            Default::default()
+        );
+
+        let probe = symphonia::default::get_probe().format(
+            Hint::new().with_extension("mp3"),
+            source,
+            &Default::default(),
+            &Default::default(),
+        )
+        .expect("Failed to create probe");
+
+        let mut reader = probe.format;
+
+        let track = reader.default_track().unwrap();
+        let track_id = track.id;
+
+        //println!("Sample Rate Track: {:?}", track.codec_params.sample_format);
+        //println!("Codec Type: {}", track.codec_params.codec);
+
+        let mut decoder = symphonia::default::get_codecs().make(&track.codec_params, &Default::default())
+        .expect("Failed to get codecs and produce decoder.");
+
+        let mut samples = Vec::new();
+        let mut sample_rate = 0;
+        let mut channels = 0;
+
+        while let Ok(packet) = reader.next_packet() {
+            if packet.track_id() != track_id { continue; }
+
+            match decoder.decode(&packet) {
+                Ok(AudioBufferRef::F32(f)) => {
+                    if sample_rate == 0 { sample_rate = f.spec().rate; }
+                    if channels == 0 { 
+                        channels = f.spec().channels.count();
+
+                        // Populate channels vec
+                        for _ in 0..channels {
+                            samples.push(Vec::new());
+                        }
+                    }
+
+                    for chan in 0..channels {
+                        samples[chan].extend(f.chan(chan));
+                    }
+                }
+
+                Ok(AudioBufferRef::S32(f)) => {
+                    if sample_rate == 0 { sample_rate = f.spec().rate; }
+                    if channels == 0 { 
+                        channels = f.spec().channels.count();
+
+                        // Populate channels vec
+                        for _ in 0..channels {
+                            samples.push(Vec::new());
+                        }
+                    }
+
+                    for chan in 0..channels {
+                        samples[chan].extend(f.chan(chan).iter().map(|&x| x as f32 / i32::MAX as f32));
+                    }
+                }
+
+                Err(e) => {
+                    println!("sound oof: {:?}", e);
+                }
+            }
+        }
+
+        assert_eq!(channels, samples.len(), "Amount of channels in sample list and from metadata do not match.");
+
+        Self {
+            samples: Arc::new(samples),
+            sample_rate,
+            channels
+        }
+    }
+}

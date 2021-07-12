@@ -399,7 +399,7 @@ impl<'shape> Game<'shape> {
                 if keys.contains(&Key::Minus) {beatmap.increment_offset(-5)}
 
                 // volume
-                //if volume_changed {beatmap.song.set_volume(settings.get_music_vol())}
+                if volume_changed {beatmap.song.upgrade().unwrap().set_volume(settings.get_music_vol())}
 
                 beatmap.update();
 
@@ -606,12 +606,7 @@ impl<'shape> Game<'shape> {
                 match &unlocked.queued_mode {
                     GameMode::Ingame(map) => {
                         let (m, h) = { 
-                            let mut lock = map.lock().unwrap();
-
-                            // Preload the song
-                            //lock.song.play();
-                            //lock.song.pause();
-
+                            let lock = map.lock().unwrap();
 
                             (lock.metadata.clone(), lock.hash.clone())
                         };

@@ -8,7 +8,7 @@ use std::io::{self, BufRead, BufReader, Lines};
 use cgmath::Vector2;
 
 // local imports
-use game::{Audio, Game, Settings};
+use game::{Game, Settings};
 
 // include files
 mod game;
@@ -47,9 +47,6 @@ fn main() {
         return;
     }
     
-    // intialize audio engine
-    let _stream = Audio::setup();
-
     let game = Game::new();
     game.game_loop();
 }

@@ -219,12 +219,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cache-padded"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "631ae5198c9be5e753e5cc215e1bd73c2b466a3565173db433f52bb9d3e66dba"
-
-[[package]]
 name = "cc"
 version = "1.0.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2043,15 +2037,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ringbuf"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c60f3923939c33e6c543ddbff14d0ee6a407fcd186d560be37282559616adf3"
-dependencies = [
- "cache-padded",
-]
-
-[[package]]
 name = "rocket"
 version = "0.5.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2498,6 +2483,7 @@ checksum = "9fae959d5ea7b4cd0cd8db3b899ec4f549b0d8a298694826a36ae7e5f19d4aa6"
 dependencies = [
  "lazy_static",
  "symphonia-bundle-mp3",
+ "symphonia-codec-pcm",
  "symphonia-core",
  "symphonia-format-ogg",
  "symphonia-format-wav",
@@ -2515,6 +2501,16 @@ dependencies = [
  "log",
  "symphonia-core",
  "symphonia-metadata",
+]
+
+[[package]]
+name = "symphonia-codec-pcm"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "021d8161b186bea81c7cf4a80c67c71fb53862cd9f426cd3e032ae09bdd42dec"
+dependencies = [
+ "log",
+ "symphonia-core",
 ]
 
 [[package]]
@@ -2605,7 +2601,6 @@ dependencies = [
  "piston2d-opengl_graphics",
  "pistoncore-glfw_window",
  "reqwest",
- "ringbuf",
  "rubato",
  "symphonia",
  "taiko-rs-common",

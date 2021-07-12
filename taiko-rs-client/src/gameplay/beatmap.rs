@@ -1,10 +1,10 @@
-use std::{path::Path, sync::{Arc, Mutex}, time::SystemTime};
+use std::{path::Path, sync::{Arc, Weak, Mutex}, time::SystemTime};
 
 use cgmath::Vector2;
 use piston::RenderArgs;
 
 use super::{*, diff_calc::DifficultyCalculator, beatmap_structs::*};
-use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS, WINDOW_SIZE, game::{Audio, Settings}};
+use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS, WINDOW_SIZE, game::{Audio, AudioHandle, Settings}};
 use crate::{NOTE_RADIUS, enums::Playmode, game::{get_font}, render::{Renderable, Rectangle, Text, Circle, Color, Border}};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
@@ -38,8 +38,8 @@ pub struct Beatmap {
     pub timing_points: Vec<TimingPoint>,
     timing_point_index: usize,
 
-    //pub song: SoundEffect,
     pub song_start: SystemTime,
+    pub song: Weak<AudioHandle>,
     lead_in_time: f32,
     end_time: f64,
 
@@ -71,7 +71,7 @@ impl Beatmap {
             song_start: SystemTime::now(),
             score: Score::new(String::new()),
             metadata: BeatmapMeta::new(),
-            //song: SoundEffect::new_empty(), // temp until we get the audio file path
+            song: Weak::new(), // temp until we get the audio file path
             note_index: 0,
             timing_point_index: 0,
             started: false,
@@ -310,7 +310,7 @@ impl Beatmap {
             locked.end_time = end_time;
             locked.metadata = meta.clone();
             locked.calc_sr();
-            //locked.song = SoundEffect::new(&meta.clone().audio_filename);
+            locked.song = Audio::play(meta.clone().audio_filename);
 
             locked.hash = md5.clone();
             locked.score = Score::new(md5.clone());
@@ -324,8 +324,7 @@ impl Beatmap {
     }
 
     pub fn time(&self) -> i64 {
-        0
-        //self.song.duration() as i64 - (self.lead_in_time as i64 /* add the delay here */) - self.offset
+        self.song.upgrade().unwrap().current_time() as i64 - (self.lead_in_time as i64) - self.offset
     }
     pub fn increment_offset(&mut self, delta:i64) {
         self.offset += delta;
@@ -344,7 +343,7 @@ impl Beatmap {
 
         // if theres no more notes to hit, return
         if self.note_index >= self.notes.len() {
-            //Audio::play(sound);
+            Audio::play_preloaded(sound).expect("Audio not preloaded.");
             return;
         }
         let time = self.time() as f64;
@@ -378,13 +377,13 @@ impl Beatmap {
         match note.get_points(hit_type, time) {
             ScoreHit::None => {
                 // play sound
-                //Audio::play(sound);
+                Audio::play_preloaded(sound).expect("Audio not preloaded.");
             },
             ScoreHit::Miss => {
                 self.score.hit_miss(time as u64, note_time as u64);
                 self.hit_timings.push((time as i64, (time - note_time) as i64));
                 self.next_note();
-                //Audio::play(sound);
+                Audio::play_preloaded(sound).expect("Audio not preloaded.");
 
                 //TODO: play miss sound
                 //TODO: indicate this was a miss
@@ -396,7 +395,7 @@ impl Beatmap {
                 // only play finisher sounds if the note is both a finisher and was hit
                 // could maybe also just change this to HitObject.get_sound() -> &str
                 if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"};}
-                //Audio::play(sound);
+                Audio::play_preloaded(sound).expect("Audio not preloaded.");
                 //TODO: indicate this was a bad hit
 
                 self.next_note();
@@ -406,14 +405,14 @@ impl Beatmap {
                 self.hit_timings.push((time as i64, (time - note_time) as i64));
                 
                 if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon",HitType::Kat => "bigkat"};}
-                //Audio::play(sound);
+                Audio::play_preloaded(sound).expect("Audio not preloaded.");
 
                 self.next_note();
             },
             ScoreHit::Other(score, consume) => { // used by sliders and spinners
                 self.score.score += score as u64;
                 if consume {self.next_note();}
-                //Audio::play(sound);
+                Audio::play_preloaded(sound).expect("Audio not preloaded.");
             }
         }
     }
@@ -425,8 +424,8 @@ impl Beatmap {
             self.lead_in_time -= elapsed;
 
             if self.lead_in_time <= 0.0 {
-                //self.song.play();
-                //self.song.set_volume(Settings::get().get_music_vol());
+                self.song.upgrade().unwrap().play();
+                self.song.upgrade().unwrap().set_volume(Settings::get().get_music_vol());
 
                 self.lead_in_time = 0.0;
             }
@@ -632,17 +631,16 @@ impl Beatmap {
 
     pub fn start(&mut self) {
         if !self.started {
-            //self.song.stop();
-            self.song_start = SystemTime::now(); //TODO: remove this actually, time() should be based off the song duration
+            self.song.upgrade().unwrap().set_position(0.0);
             self.started = true;
             self.lead_in_time = LEAD_IN_TIME;
             // volume is set when the song is actually started (when lead_in_time is <= 0)
             return;
         }
-        //self.song.play();
+        self.song.upgrade().unwrap().play();
     }
     pub fn pause(&mut self) {
-        //self.song.pause();
+        self.song.upgrade().unwrap().pause();
         // is there anything else we need to do?
 
         // might mess with lead-in but meh
@@ -666,7 +664,11 @@ impl Beatmap {
             note.set_od(self.metadata.od as f64); //TODO! change when adding mods
         }
         self.note_index = 0;
-        //self.song.stop();
+        {
+            let song = self.song.upgrade().unwrap();
+            song.pause();
+            song.set_position(0.0);
+        }
         self.completed = false;
         self.started = false;
         self.lead_in_time = LEAD_IN_TIME;

@@ -21,7 +21,7 @@ pistoncore-glfw_window = "0.71.0"
 
 # Audio
 cpal = "0.13.3"
-symphonia = { version = "0.3.0", default-features = false, features = ["mp3", "ogg", "wav"] }
+symphonia = { version = "0.3.0", default-features = false, features = ["mp3", "ogg", "wav", "pcm"] }
 rubato = "0.8.1"
 
 # Async
@@ -41,5 +41,4 @@ md5 = "0.7.0"
 image = "0.23.0"
 lazy_static = "1.4.0"
 parking_lot = "0.11.1"
-ringbuf = "0.2.6"
 cgmath = "0.18.0"
