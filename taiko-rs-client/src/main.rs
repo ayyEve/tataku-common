@@ -1,12 +1,10 @@
 // native imports
-use std::env;
 use std::fmt::Display;
 use std::{fs::File, path::Path};
 use std::io::{self, BufRead, BufReader, Lines};
 
-use game::BenchmarkHelper;
 // local imports
-use game::{Audio, Game, Settings, Vector2};
+use game::{Audio, Game, Vector2, BenchmarkHelper};
 
 // include files
 mod game;
@@ -48,16 +46,6 @@ fn main() {
     check_folder("fonts", false);
     check_folder("audio", false);
     main_benchmark.log("folder check done", true);
-
-    let args: Vec<String> = env::args().collect();
-    if args.len() > 1 {
-        if args[1].starts_with("settings") {
-            cmd_settings_helper().expect("Error: ");
-        }
-        return;
-    }
-    main_benchmark.log("arg check done", true);
-
     
     // intialize audio engine
     let _stream = Audio::setup();
@@ -80,34 +68,6 @@ fn check_folder(dir:&str, create:bool) {
             panic!("folder does not exist, but is required: {}", dir);
         }
     }
-}
-
-// command line settings editing util, not really needed but meh
-fn cmd_settings_helper() -> io::Result<()> {
-    let mut settings = Settings::get_mut();
-
-    println!("what setting do you want to change?");
-    let mut buffer = String::new();
-    io::stdin().read_line(&mut buffer)?;
-
-    match buffer.trim() {
-        "password" => {
-            println!("type the pass");
-            let mut pass = String::new();
-            io::stdin().read_line(&mut pass)?;
-            settings.password = pass.trim().to_owned();
-            settings.save();
-        }
-
-        "close" => {
-            return std::io::Result::Ok(());
-        }
-
-        _ => {
-            println!("unknown property");
-        }
-    }
-    std::io::Result::Ok(())
 }
 
 /// read a file to the end
