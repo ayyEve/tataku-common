@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use piston::{MouseButton, RenderArgs};
 
 use crate::{WINDOW_SIZE, render::*, gameplay::Beatmap};
@@ -27,7 +27,7 @@ impl PauseMenu {
         }
     }
 
-    pub fn unpause(&mut self, mut game:MutexGuard<&mut Game>) {
+    pub fn unpause(&mut self, game:&mut Game) {
         self.beatmap.lock().unwrap().start();
         game.queue_mode_change(GameMode::Ingame(self.beatmap.clone()));
     }
@@ -47,8 +47,7 @@ impl Menu for PauseMenu {
         list
     }
 
-    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
-        let mut game = game.lock().unwrap();
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
 
         // continue map
         if self.continue_button.on_click(pos, button) {
@@ -73,15 +72,15 @@ impl Menu for PauseMenu {
         }
     }
 
-    fn on_mouse_move(&mut self, pos:Vector2, _game:Arc<Mutex<&mut Game>>) {
+    fn on_mouse_move(&mut self, pos:Vector2, _game:&mut Game) {
         self.continue_button.on_mouse_move(pos);
         self.retry_button.on_mouse_move(pos);
         self.exit_button.on_mouse_move(pos);
     }
 
-    fn on_key_press(&mut self, key:piston::Key, game:Arc<Mutex<&mut Game>>, _mods:KeyModifiers) {
+    fn on_key_press(&mut self, key:piston::Key, game:&mut Game, _mods:KeyModifiers) {
         if key == piston::Key::Escape {
-            self.unpause(game.lock().unwrap());
+            self.unpause(game);
         }
     }
 }

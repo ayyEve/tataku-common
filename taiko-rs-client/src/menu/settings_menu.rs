@@ -1,5 +1,3 @@
-use std::sync::{Arc, Mutex};
-
 use piston::{MouseButton, RenderArgs};
 
 use crate::render::*;
@@ -57,7 +55,7 @@ impl SettingsMenu {
         }
     }
 
-    pub fn finalize(&self, game:Arc<Mutex<&mut Game>>) {
+    pub fn finalize(&self, game:&mut Game) {
         // write settings to settings
         let mut settings = Settings::get_mut();
 
@@ -97,13 +95,12 @@ impl SettingsMenu {
         // }
         settings.save();
 
-        let mut game = game.lock().unwrap();
         let menu = game.menus.get("main").unwrap().clone();
         game.queue_mode_change(GameMode::InMenu(menu));
     }
 }
 impl Menu for SettingsMenu {
-    fn update(&mut self, _game:Arc<Mutex<&mut Game>>) {
+    fn update(&mut self, _game: &mut Game) {
         self.scroll_area.update();
     }
 
@@ -115,24 +112,23 @@ impl Menu for SettingsMenu {
         self.scroll_area.draw(args)
     }
 
-    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
-        if let Some(tag) = self.scroll_area.on_click(pos, button, game.clone()) {
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
+        if let Some(tag) = self.scroll_area.on_click(pos, button, game) {
             match tag.as_str() {
-                "done" => self.finalize(game.clone()),
+                "done" => self.finalize(game),
                 _ => {}
             }
         }
     }
 
-    fn on_mouse_move(&mut self, pos:Vector2, game:Arc<Mutex<&mut Game>>) {
+    fn on_mouse_move(&mut self, pos:Vector2, game:&mut Game) {
         self.scroll_area.on_mouse_move(pos, game);
     }
 
-    fn on_key_press(&mut self, key:piston::Key, game:Arc<Mutex<&mut Game>>, mods:KeyModifiers) {
+    fn on_key_press(&mut self, key:piston::Key, game:&mut Game, mods:KeyModifiers) {
         self.scroll_area.on_key_press(key, mods);
 
         if key == piston::Key::Escape {
-            let mut game = game.lock().unwrap();
             let menu = game.menus.get("main").unwrap().clone();
             game.queue_mode_change(GameMode::InMenu(menu));
             return;

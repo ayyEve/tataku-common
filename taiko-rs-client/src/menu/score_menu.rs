@@ -108,30 +108,27 @@ impl Menu for ScoreMenu {
         list
     }
 
-    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
         if self.replay_button.on_click(pos, button) {
             self.beatmap.lock().unwrap().reset();
-            let mut game = game.lock().unwrap();
 
             game.menus.get("beatmap").unwrap().lock().unwrap().on_change(false);
             game.queue_mode_change(GameMode::Replaying(self.beatmap.clone(), self.score.replay.clone(), 0));
         }
 
         if self.back_button.on_click(pos, button) {
-            let mut game = game.lock().unwrap();
             let menu = game.menus.get("beatmap").unwrap().to_owned();
             game.queue_mode_change(GameMode::InMenu(menu));
         }
     }
 
-    fn on_mouse_move(&mut self, pos:Vector2, _game:Arc<Mutex<&mut Game>>) {
+    fn on_mouse_move(&mut self, pos:Vector2, _game:&mut Game) {
         self.replay_button.on_mouse_move(pos);
         self.back_button.on_mouse_move(pos);
     }
 
-    fn on_key_press(&mut self, key:piston::Key, game:Arc<Mutex<&mut Game>>, _mods:KeyModifiers) {
+    fn on_key_press(&mut self, key:piston::Key, game: &mut Game, _mods:KeyModifiers) {
         if key == piston::Key::Escape {
-            let mut game = game.lock().unwrap();
             game.current_mode = GameMode::InMenu(game.menus.get("beatmap").unwrap().to_owned());
         }
     }

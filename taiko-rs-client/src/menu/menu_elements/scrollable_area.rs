@@ -1,6 +1,4 @@
 use std::any::Any;
-use std::sync::{Arc, Mutex};
-
 use piston::{Key, MouseButton, RenderArgs};
 
 use crate::{render::*, game::{Game, KeyModifiers, Vector2}};
@@ -70,7 +68,7 @@ impl ScrollableArea {
 
     // input handlers
     /// returns the tag of the item which was clicked
-    pub fn on_click(&mut self, pos:Vector2, button:MouseButton, _game:Arc<Mutex<&mut Game>>) -> Option<String> {
+    pub fn on_click(&mut self, pos:Vector2, button:MouseButton, _game: &mut Game) -> Option<String> {
 
         // modify pos here
         let pos = pos - Vector2::new(0.0, self.scroll_pos);
@@ -85,7 +83,7 @@ impl ScrollableArea {
 
         i
     }
-    pub fn on_mouse_move(&mut self, pos:Vector2, _game:Arc<Mutex<&mut Game>>) {
+    pub fn on_mouse_move(&mut self, pos:Vector2, _game: &mut Game) {
         self.mouse_pos = pos;
 
         let pos = pos-Vector2::new(0.0, self.scroll_pos);

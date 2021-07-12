@@ -91,7 +91,7 @@ impl OsuDirectMenu {
     }
 }
 impl Menu for OsuDirectMenu {
-    fn update(&mut self, _game:Arc<Mutex<&mut Game>>) {
+    fn update(&mut self, _game:&mut Game) {
         // check download statuses
         let dir = std::fs::read_dir(DOWNLOADS_DIR).unwrap();
         let mut files = Vec::new();
@@ -186,11 +186,11 @@ impl Menu for OsuDirectMenu {
         list
     }
     
-    fn on_scroll(&mut self, delta:f64, _game:Arc<Mutex<&mut Game>>) {
+    fn on_scroll(&mut self, delta:f64, _game:&mut Game) {
         self.scroll_area.on_scroll(delta);
     }
 
-    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
         self.search_bar.on_click(pos, button);
 
         if let Some(key) = self.scroll_area.on_click(pos, button, game) {
@@ -211,16 +211,15 @@ impl Menu for OsuDirectMenu {
         }
     }
 
-    fn on_mouse_move(&mut self, pos:Vector2, game:Arc<Mutex<&mut Game>>) {
+    fn on_mouse_move(&mut self, pos:Vector2, game:&mut Game) {
         self.search_bar.on_mouse_move(pos);
         self.scroll_area.on_mouse_move(pos, game);
     }
 
-    fn on_key_press(&mut self, key:Key, game:Arc<Mutex<&mut Game>>, mods:KeyModifiers) {
+    fn on_key_press(&mut self, key:Key, game:&mut Game, mods:KeyModifiers) {
         self.search_bar.on_key_press(key, mods);
 
         if key == Key::Escape {
-            let mut game = game.lock().unwrap();
             let menu = game.menus.get("main").unwrap().clone();
             game.queue_mode_change(GameMode::InMenu(menu));
         }

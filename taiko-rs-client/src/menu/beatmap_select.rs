@@ -116,13 +116,13 @@ impl BeatmapSelectMenu {
     }
 }
 impl Menu for BeatmapSelectMenu {
-    fn update(&mut self, game:Arc<Mutex<&mut Game>>) {
+    fn update(&mut self, game:&mut Game) {
 
         //TODO: fix this so its not as intensive (ie only check once a second)
         let count = std::fs::read_dir(DOWNLOADS_DIR).unwrap().count();
         if !self.pending_refresh && count > 0 {
             self.pending_refresh = true;
-            game.lock().unwrap().extract_all();
+            game.extract_all();
         }
 
         // wait for main to finish extracting everything from downloads
@@ -203,19 +203,17 @@ impl Menu for BeatmapSelectMenu {
         }
     }
 
-    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
 
         if self.back_button.on_click(pos, button) {
-            let mut game = game.lock().unwrap();
             let menu = game.menus.get("main").unwrap().clone();
             game.queue_mode_change(GameMode::InMenu(menu));
             return;
         }
 
         // check if leaderboard item was clicked
-        if let Some(score_tag) = self.leaderboard_scroll.on_click(pos, button, game.clone()) {
+        if let Some(score_tag) = self.leaderboard_scroll.on_click(pos, button, game) {
             // score display
-            let mut game = game.lock().unwrap();
             if let Some(score) = self.current_scores.get(&score_tag) {
                 let score = score.lock().unwrap().clone();
 
@@ -228,7 +226,7 @@ impl Menu for BeatmapSelectMenu {
         }
 
         // check if beatmap item was clicked
-        if let Some(clicked_tag) = self.beatmap_scroll.on_click(pos, button, game.clone()) {
+        if let Some(clicked_tag) = self.beatmap_scroll.on_click(pos, button, game) {
             let clicked = self.beatmap_scroll.get_tagged(clicked_tag.clone()).first().unwrap().get_value();
             let (clicked, play) = clicked.downcast_ref::<(Arc<Mutex<Beatmap>>, bool)>().unwrap();
 
@@ -243,7 +241,7 @@ impl Menu for BeatmapSelectMenu {
                 map.reset();
                 map.start(); // TODO: figure out how to do this when checking mode change
 
-                game.lock().unwrap().queue_mode_change(GameMode::Ingame(clicked.clone()));
+                game.queue_mode_change(GameMode::Ingame(clicked.clone()));
                 return;
             }
 
@@ -270,18 +268,17 @@ impl Menu for BeatmapSelectMenu {
         }
 
     }
-    fn on_mouse_move(&mut self, pos:Vector2, game:Arc<Mutex<&mut Game>>) {
+    fn on_mouse_move(&mut self, pos:Vector2, game:&mut Game) {
         self.back_button.on_mouse_move(pos);
-        self.beatmap_scroll.on_mouse_move(pos, game.clone());
-        self.leaderboard_scroll.on_mouse_move(pos, game.clone());
+        self.beatmap_scroll.on_mouse_move(pos, game);
+        self.leaderboard_scroll.on_mouse_move(pos, game);
     }
-    fn on_scroll(&mut self, delta:f64, _game:Arc<Mutex<&mut Game>>) {
+    fn on_scroll(&mut self, delta:f64, _game:&mut Game) {
         self.beatmap_scroll.on_scroll(delta);
         self.leaderboard_scroll.on_scroll(delta);
     }
 
-    fn on_key_press(&mut self, key:piston::Key, game:Arc<Mutex<&mut Game>>, _mods:KeyModifiers) {
-        let mut game = game.lock().unwrap();
+    fn on_key_press(&mut self, key:piston::Key, game:&mut Game, _mods:KeyModifiers) {
         if key == Key::Escape {
             let menu = game.menus.get("main").unwrap().clone();
             game.queue_mode_change(GameMode::InMenu(menu));

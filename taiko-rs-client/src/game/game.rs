@@ -48,8 +48,8 @@ pub struct Game {
     vol_selected_time: u64,
 
     // fps
-    fps_display:FpsDisplay,
-    update_display:FpsDisplay,
+    fps_display: FpsDisplay,
+    update_display: FpsDisplay,
 
     // transition
     transition: Option<GameMode>,
@@ -191,24 +191,24 @@ impl Game {
 
     fn update(&mut self, _delta:f64) {
         self.update_display.increment();
-        let arc = Arc::new(Mutex::new(self));
-        let clone = arc.clone();
-        let mut current_mode = clone.lock().unwrap().current_mode.clone().to_owned();
-        let elapsed = clone.lock().unwrap().game_start.elapsed().as_millis() as u64;
+        // let arc = Arc::new(Mutex::new(self));
+        // let clone = arc.clone();
+        let mut current_mode = self.current_mode.clone().to_owned();
+        let elapsed = self.game_start.elapsed().as_millis() as u64;
 
         // check input events
-        let mouse_pos = clone.lock().unwrap().input_manager.mouse_pos;
-        let mut mouse_buttons = clone.lock().unwrap().input_manager.get_mouse_buttons();
-        let mouse_moved = clone.lock().unwrap().input_manager.get_mouse_moved();
-        let mut scroll_delta = clone.lock().unwrap().input_manager.get_scroll_delta();
-        let keys = clone.lock().unwrap().input_manager.all_down_once();
-        let mods = clone.lock().unwrap().input_manager.get_key_mods();
-        let text = clone.lock().unwrap().input_manager.get_text();
-        let window_focus_changed = clone.lock().unwrap().input_manager.get_changed_focus();
+        let mouse_pos = self.input_manager.mouse_pos;
+        let mut mouse_buttons = self.input_manager.get_mouse_buttons();
+        let mouse_moved = self.input_manager.get_mouse_moved();
+        let mut scroll_delta = self.input_manager.get_scroll_delta();
+        let keys = self.input_manager.all_down_once();
+        let mods = self.input_manager.get_key_mods();
+        let text = self.input_manager.get_text();
+        let window_focus_changed = self.input_manager.get_changed_focus();
         
         // users list
-        if clone.lock().unwrap().show_user_list {
-            if let Ok(om) = clone.lock().unwrap().online_manager.try_lock() {
+        if self.show_user_list {
+            if let Ok(om) = self.online_manager.try_lock() {
                 for (_, user) in &om.users.clone() {
                     if let Ok(mut u) = user.try_lock() {
                         if mouse_moved {u.on_mouse_move(mouse_pos)}
@@ -221,9 +221,8 @@ impl Game {
         // check for volume change
         let mut volume_changed = false;
         if mods.alt {
-            let mut lock = clone.lock().unwrap();
             let mut settings = Settings::get_mut();
-            let elapsed = lock.game_start.elapsed().as_millis() as u64;
+            let elapsed = self.game_start.elapsed().as_millis() as u64;
 
             let mut delta:f32 = 0.0;
             if keys.contains(&Key::Right) {delta = 0.1;}
@@ -236,12 +235,12 @@ impl Game {
             // check volume changed, if it has, set the selected time to now
             if delta != 0.0 || keys.contains(&Key::Up) || keys.contains(&Key::Down) {
                 // reset index back to 0 (master) if the volume hasnt been touched in a while
-                if elapsed - lock.vol_selected_time > VOLUME_CHANGE_DISPLAY_TIME + 1000 {
-                    lock.vol_selected_index = 0;
+                if elapsed - self.vol_selected_time > VOLUME_CHANGE_DISPLAY_TIME + 1000 {
+                    self.vol_selected_index = 0;
                 }
 
                 // find out what volume to edit, and edit it
-                match lock.vol_selected_index {
+                match self.vol_selected_index {
                     0 => { // master
                         settings.master_vol += delta;
                         settings.master_vol = settings.master_vol.max(0.0).min(1.0);
@@ -259,25 +258,24 @@ impl Game {
                 }
 
                 volume_changed = true;
-                lock.vol_selected_time = elapsed;
+                self.vol_selected_time = elapsed;
             }
 
             // if the volume thing is viewable, check for index selecting keys
-            if elapsed - lock.vol_selected_time < VOLUME_CHANGE_DISPLAY_TIME {
+            if elapsed - self.vol_selected_time < VOLUME_CHANGE_DISPLAY_TIME {
                 if keys.contains(&Key::Up) {
-                    lock.vol_selected_index = (3+(lock.vol_selected_index as i8 - 1)) as u8 % 3;
-                    lock.vol_selected_time = elapsed;
+                    self.vol_selected_index = (3+(self.vol_selected_index as i8 - 1)) as u8 % 3;
+                    self.vol_selected_time = elapsed;
                 }
                 if keys.contains(&Key::Down) {
-                    lock.vol_selected_index = (lock.vol_selected_index + 1) % 3;
-                    lock.vol_selected_time = elapsed;
+                    self.vol_selected_index = (self.vol_selected_index + 1) % 3;
+                    self.vol_selected_time = elapsed;
                 }
             }
         }
         {
-            let mut c = clone.lock().unwrap();
             // check if mouse clicked volume button
-            if c.vol_selected_time > 0 && elapsed as f64 - (c.vol_selected_time as f64) < VOLUME_CHANGE_DISPLAY_TIME as f64 {
+            if self.vol_selected_time > 0 && elapsed as f64 - (self.vol_selected_time as f64) < VOLUME_CHANGE_DISPLAY_TIME as f64 {
                 if mouse_buttons.contains(&MouseButton::Left) || mouse_moved {
                     let window_size = WINDOW_SIZE;
                     let master_pos = window_size - Vector2::new(300.0, 90.0);
@@ -287,19 +285,19 @@ impl Game {
                     if mouse_pos.x >= master_pos.x {
                         let mut modified = false;
                         if mouse_pos.y >= music_pos.y {
-                            c.vol_selected_index = 2;
+                            self.vol_selected_index = 2;
                             modified = true;
                         } else if mouse_pos.y >= effect_pos.y {
-                            c.vol_selected_index = 1;
+                            self.vol_selected_index = 1;
                             modified = true;
                         } else if mouse_pos.y >= master_pos.y {
-                            c.vol_selected_index = 0;
+                            self.vol_selected_index = 0;
                             modified = true;
                         }
 
                         // was just updated
                         if modified {
-                            c.vol_selected_time = elapsed;
+                            self.vol_selected_time = elapsed;
                             // remove left click from list as it was consumed by this
                             mouse_buttons.retain(|e| e == &MouseButton::Left);
                         }
@@ -309,16 +307,14 @@ impl Game {
         }
 
         if keys.contains(&Key::F8) {
-            let mut c = clone.lock().unwrap();
-            c.show_user_list = !c.show_user_list;
-            println!("show user list: {}", c.show_user_list);
+            self.show_user_list = !self.show_user_list;
+            println!("show user list: {}", self.show_user_list);
         }
 
         match current_mode {
             GameMode::Ingame(ref beatmap) => {
                 let settings = Settings::get();
                 let og_beatmap = beatmap;
-                let mut lock = clone.lock().unwrap();
                 let mut beatmap = beatmap.lock().unwrap();
                 
                 if keys.contains(&settings.left_kat) {
@@ -332,7 +328,7 @@ impl Game {
                         true
                     );
                     hit.set_lifetime(DRUM_LIFETIME_TIME);
-                    lock.render_queue.push(Box::new(hit));
+                    self.render_queue.push(Box::new(hit));
                 }
                 if keys.contains(&settings.left_don) {
                     beatmap.hit(KeyPress::LeftDon);
@@ -345,7 +341,7 @@ impl Game {
                         true
                     );
                     hit.set_lifetime(DRUM_LIFETIME_TIME);
-                    lock.render_queue.push(Box::new(hit));
+                    self.render_queue.push(Box::new(hit));
                 }
                 if keys.contains(&settings.right_don) {
                     beatmap.hit(KeyPress::RightDon);
@@ -358,7 +354,7 @@ impl Game {
                         false
                     );
                     hit.set_lifetime(DRUM_LIFETIME_TIME);
-                    lock.render_queue.push(Box::new(hit));
+                    self.render_queue.push(Box::new(hit));
                 }
                 if keys.contains(&settings.right_kat) {
                     beatmap.hit(KeyPress::RightKat);
@@ -371,7 +367,7 @@ impl Game {
                         false
                     );
                     hit.set_lifetime(DRUM_LIFETIME_TIME);
-                    lock.render_queue.push(Box::new(hit));
+                    self.render_queue.push(Box::new(hit));
                 }
                 
                 // pause button, or focus lost
@@ -379,14 +375,14 @@ impl Game {
                     // pause
                     beatmap.pause();
                     let menu = PauseMenu::new(og_beatmap.clone());
-                    lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
+                    self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
                 }
                 if let Some(e) = window_focus_changed {
                     if !e { // window lost focus, pause
                         // pause
                         beatmap.pause();
                         let menu = PauseMenu::new(og_beatmap.clone());
-                        lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
+                        self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
                     }
                 }
 
@@ -411,7 +407,7 @@ impl Game {
                     #[cfg(feature = "online_scores")] 
                     {
                         let score_clone = beatmap.score.clone();
-                        lock.threading.spawn(async move {
+                        self.threading.spawn(async move {
                             //TODO: do this async
                             println!("submitting score");
                             let mut writer = crate::game::SerializationWriter::new();
@@ -435,7 +431,7 @@ impl Game {
 
                     // show score menu
                     let menu = ScoreMenu::new(beatmap.score.clone(), Arc::new(Mutex::new(beatmap.clone())));
-                    lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
+                    self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
 
                     // cleanup memory-hogs in the beatmap object
                     beatmap.cleanup();
@@ -444,7 +440,6 @@ impl Game {
 
             GameMode::Replaying(ref beatmap, ref replay, ref mut frame_index) => {
                 let settings = Settings::get();
-                let mut lock = clone.lock().unwrap();
                 let mut beatmap = beatmap.lock().unwrap();
 
                 {
@@ -467,7 +462,7 @@ impl Game {
                                     true
                                 );
                                 hit.set_lifetime(DRUM_LIFETIME_TIME);
-                                lock.render_queue.push(Box::new(hit));
+                                self.render_queue.push(Box::new(hit));
                             },
                             crate::gameplay::KeyPress::LeftDon => {
                                 let mut hit = HalfCircle::new(
@@ -478,7 +473,7 @@ impl Game {
                                     true
                                 );
                                 hit.set_lifetime(DRUM_LIFETIME_TIME);
-                                lock.render_queue.push(Box::new(hit));
+                                self.render_queue.push(Box::new(hit));
                             },
                             crate::gameplay::KeyPress::RightDon => {
                                 let mut hit = HalfCircle::new(
@@ -489,7 +484,7 @@ impl Game {
                                     false
                                 );
                                 hit.set_lifetime(DRUM_LIFETIME_TIME);
-                                lock.render_queue.push(Box::new(hit));
+                                self.render_queue.push(Box::new(hit));
                             },
                             crate::gameplay::KeyPress::RightKat => {
                                 let mut hit = HalfCircle::new(
@@ -500,7 +495,7 @@ impl Game {
                                     false
                                 );
                                 hit.set_lifetime(DRUM_LIFETIME_TIME);
-                                lock.render_queue.push(Box::new(hit));
+                                self.render_queue.push(Box::new(hit));
                             },
                         }
 
@@ -511,8 +506,8 @@ impl Game {
                 // pause button, or focus lost
                 if keys.contains(&Key::Escape) {
                     beatmap.reset();
-                    let menu = lock.menus.get("beatmap").unwrap().clone();
-                    lock.queue_mode_change(GameMode::InMenu(menu));
+                    let menu = self.menus.get("beatmap").unwrap().clone();
+                    self.queue_mode_change(GameMode::InMenu(menu));
                 }
 
                 // offset adjust
@@ -527,7 +522,7 @@ impl Game {
                 if beatmap.completed {
                     // show score menu
                     let menu = ScoreMenu::new(beatmap.score.clone(), Arc::new(Mutex::new(beatmap.clone())));
-                    lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
+                    self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
 
                     beatmap.cleanup();
                 }
@@ -544,16 +539,16 @@ impl Game {
                 if mouse_buttons.len() > 0 {
                     for b in mouse_buttons { 
                         // game.start_map() can happen here, which needs &mut self
-                        menu.on_click(mouse_pos, b, arc.clone());
+                        menu.on_click(mouse_pos, b, self);
                     }
                 }
                 // mouse move
-                if mouse_moved {menu.on_mouse_move(mouse_pos, arc.clone())}
+                if mouse_moved {menu.on_mouse_move(mouse_pos, self)}
                 // mouse scroll
-                if scroll_delta.abs() > 0.0 {menu.on_scroll(scroll_delta, arc.clone())}
+                if scroll_delta.abs() > 0.0 {menu.on_scroll(scroll_delta, self)}
 
                 //check keys down
-                for key in keys {menu.on_key_press(key, arc.clone(), mods)}
+                for key in keys {menu.on_key_press(key, self, mods)}
                 //TODO: check keys up (or remove it, probably not used anywhere)
 
                 // check text
@@ -561,21 +556,19 @@ impl Game {
 
                 // window focus change
                 if let Some(has_focus) = window_focus_changed {
-                    menu.on_focus_change(has_focus, arc.clone());
+                    menu.on_focus_change(has_focus, self);
                 }
 
-                menu.update(arc.clone());
+                menu.update(self);
             }
 
             GameMode::None => {
                 // might be transitioning
-                let mut lock = clone.lock().unwrap();
-
-                if lock.transition.is_some().clone() && elapsed - lock.transition_timer > TRANSITION_TIME / 2 {
-                    let trans = lock.transition.as_ref().unwrap().clone();
-                    lock.queue_mode_change(trans);
-                    lock.transition = None;
-                    lock.transition_timer = elapsed;
+                if self.transition.is_some().clone() && elapsed - self.transition_timer > TRANSITION_TIME / 2 {
+                    let trans = self.transition.as_ref().unwrap().clone();
+                    self.queue_mode_change(trans);
+                    self.transition = None;
+                    self.transition_timer = elapsed;
                 }
             }
 
@@ -583,39 +576,38 @@ impl Game {
         }
         
         // update game mode
-        let mut unlocked = clone.lock().unwrap();
-        match &unlocked.queued_mode {
+        match &self.queued_mode {
             // queued mode didnt change, set the unlocked's mode to the updated mode
             GameMode::None => {
-                unlocked.current_mode = current_mode;
+                self.current_mode = current_mode;
             }
             GameMode::Closing => {
                 Settings::get().save();
-                unlocked.window.set_should_close(true);
+                self.window.set_should_close(true);
             }
 
             _ => {
                 // if the mode is being changed, clear all shapes, even ones with a lifetime
-                unlocked.clear_render_queue(true);
+                self.clear_render_queue(true);
 
-                let online_manager = unlocked.online_manager.clone();
-                match &unlocked.queued_mode {
+                let online_manager = self.online_manager.clone();
+                match &self.queued_mode {
                     GameMode::Ingame(map) => {
                         let m = map.lock().unwrap().metadata.clone();
                         let text = format!("{}-{}[{}]\n{}",m.artist,m.title,m.version,map.lock().unwrap().hash.clone());
 
-                        unlocked.threading.spawn(async move {
+                        self.threading.spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Ingame, text).await;
                         });
                     },
                     GameMode::InMenu(_) => {
-                        unlocked.threading.spawn(async move {
+                        self.threading.spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Idle, String::new()).await;
                         });
                     },
                     GameMode::Closing => {
                         // send logoff
-                        unlocked.threading.spawn(async move {
+                        self.threading.spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Leaving, String::new()).await;
                         });
                     }
@@ -624,7 +616,7 @@ impl Game {
 
 
                 let mut do_transition = true;
-                match &unlocked.current_mode {
+                match &self.current_mode {
                     GameMode::None => do_transition = false,
                     GameMode::InMenu(menu) if menu.lock().unwrap().get_name() == "pause" => do_transition = false,
                     _ => {}
@@ -636,21 +628,21 @@ impl Game {
 
                 if do_transition {
                     // do a transition
-                    let qm = &unlocked.queued_mode;
-                    unlocked.transition = Some(qm.clone());
-                    unlocked.transition_timer = elapsed;
-                    unlocked.transition_last = Some(unlocked.current_mode.clone());
-                    unlocked.queued_mode = GameMode::None;
-                    unlocked.current_mode = GameMode::None;
+                    let qm = &self.queued_mode;
+                    self.transition = Some(qm.clone());
+                    self.transition_timer = elapsed;
+                    self.transition_last = Some(self.current_mode.clone());
+                    self.queued_mode = GameMode::None;
+                    self.current_mode = GameMode::None;
                 } else {
                     // old mode was none, or was pause menu, transition to new mode
-                    let mode = unlocked.queued_mode.clone();
+                    let mode = self.queued_mode.clone();
 
-                    unlocked.current_mode = mode.clone();
-                    unlocked.queued_mode = GameMode::None;
+                    self.current_mode = mode.clone();
+                    self.queued_mode = GameMode::None;
 
 
-                    if let GameMode::InMenu(menu) = &unlocked.current_mode {
+                    if let GameMode::InMenu(menu) = &self.current_mode {
                         menu.lock().unwrap().on_change(true);
                     }
                 }
@@ -672,6 +664,8 @@ impl Game {
             }
             GameMode::Replaying(beatmap,_,_) => {
                 renderables.extend(beatmap.lock().unwrap().draw(args));
+
+                // draw watching X text
             }
             GameMode::InMenu(ref menu) => {
                 renderables.extend(menu.lock().unwrap().draw(args));
@@ -899,8 +893,7 @@ impl Game {
             lifetime > 0 && elapsed - e.get_spawn_time() < lifetime
         });
     }
-
-
+    
     pub fn queue_mode_change(&mut self, mode:GameMode) {self.queued_mode = mode}
 
     /// extract all zips from the downloads folder into the songs folder. not a static function as it uses threading

@@ -64,9 +64,7 @@ impl Menu for MainMenu {
         list
     }
 
-    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
-        let mut game = game.lock().unwrap();
-
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
         // switch to beatmap selection
         if self.play_button.on_click(pos, button) {
             let menu = game.menus.get("beatmap").unwrap().clone();
@@ -95,7 +93,7 @@ impl Menu for MainMenu {
         }
     }
 
-    fn on_mouse_move(&mut self, pos:Vector2, _game:Arc<Mutex<&mut Game>>) {
+    fn on_mouse_move(&mut self, pos:Vector2, _game: &mut Game) {
         self.play_button.on_mouse_move(pos);
         self.direct_button.on_mouse_move(pos);
         self.settings_button.on_mouse_move(pos);

@@ -47,6 +47,7 @@ fn main() {
     main_benchmark.log("audio engine initialized", true);
 
     let game = Game::new();
+    let _ = game.threading.enter();
     main_benchmark.log("game creation complete", true);
 
     drop(main_benchmark);

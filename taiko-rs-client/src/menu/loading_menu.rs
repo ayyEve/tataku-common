@@ -72,9 +72,8 @@ impl LoadingMenu {
 
 impl Menu for LoadingMenu {
 
-    fn update(&mut self, game:Arc<Mutex<&mut Game>>) {
+    fn update(&mut self, game:&mut Game) {
         if let LoadingStage::Done = self.status.lock().unwrap().stage {
-            let mut game = game.lock().unwrap();
             let menu = game.menus.get("main").unwrap().clone();
             game.queue_mode_change(crate::game::GameMode::InMenu(menu));
         }
