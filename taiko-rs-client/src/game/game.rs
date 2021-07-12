@@ -859,34 +859,20 @@ impl Game {
                 _ => println!("self.vol_selected_index out of bounds somehow")
             }
 
-            
-            self.render_queue.push(Box::new(master_text));
-            self.render_queue.push(Box::new(master_border));
-            self.render_queue.push(Box::new(master_fill));
-
-            self.render_queue.push(Box::new(effect_text));
-            self.render_queue.push(Box::new(effect_border));
-            self.render_queue.push(Box::new(effect_fill));
-
-            self.render_queue.push(Box::new(music_text));
-            self.render_queue.push(Box::new(music_border));
-            self.render_queue.push(Box::new(music_fill));
-
-            // vs
-            // let a:[Box<dyn Renderable>; 9] = [
-            //     Box::new(master_text),
-            //     Box::new(master_border),
-            //     Box::new(master_fill),
+            let a:[Box<dyn Renderable>; 9] = [
+                Box::new(master_text),
+                Box::new(master_border),
+                Box::new(master_fill),
                 
-            //     Box::new(effect_text),
-            //     Box::new(effect_border),
-            //     Box::new(effect_fill),
+                Box::new(effect_text),
+                Box::new(effect_border),
+                Box::new(effect_fill),
 
-            //     Box::new(music_text),
-            //     Box::new(music_border),
-            //     Box::new(music_fill),
-            // ];
-            // self.render_queue.extend(a);
+                Box::new(music_text),
+                Box::new(music_border),
+                Box::new(music_fill),
+            ];
+            self.render_queue.extend(a);
         }
 
 
