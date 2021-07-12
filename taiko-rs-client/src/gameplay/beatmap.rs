@@ -537,7 +537,7 @@ impl Beatmap {
                 format!("Offset: {}", self.offset),
                 font.clone()
             );
-            offset_text.center_text(Rectangle::bounds_only(Vector2::new(0.0,0.0), Vector2::new(WINDOW_SIZE.x as f64, HIT_POSITION.y)));
+            offset_text.center_text(Rectangle::bounds_only(Vector2::zero(), Vector2::new(WINDOW_SIZE.x , HIT_POSITION.y)));
             renderables.push(Box::new(offset_text));
         }
 
@@ -569,21 +569,21 @@ impl Beatmap {
         renderables.push(Box::new(Rectangle::new(
             [0.1960, 0.7372, 0.9058, 1.0].into(),
             17.0,
-            Vector2::new(WINDOW_SIZE.x as f64 / 2.0 - width_300/2.0, HIT_TIMING_BAR_POS.y),
+            Vector2::new(WINDOW_SIZE.x/ 2.0 - width_300/2.0, HIT_TIMING_BAR_POS.y),
             Vector2::new(width_300, HIT_TIMING_BAR_SIZE.y),
             None // for now
         )));
         renderables.push(Box::new(Rectangle::new(
             [0.3411, 0.8901, 0.07450, 1.0].into(),
             18.0,
-            Vector2::new(WINDOW_SIZE.x as f64 / 2.0 - width_100/2.0, HIT_TIMING_BAR_POS.y),
+            Vector2::new(WINDOW_SIZE.x / 2.0 - width_100/2.0, HIT_TIMING_BAR_POS.y),
             Vector2::new(width_100, HIT_TIMING_BAR_SIZE.y),
             None // for now
         )));
         renderables.push(Box::new(Rectangle::new(
             [0.8549, 0.6823, 0.2745, 1.0].into(),
             19.0,
-            Vector2::new(WINDOW_SIZE.x as f64 / 2.0 - width_miss/2.0, HIT_TIMING_BAR_POS.y),
+            Vector2::new(WINDOW_SIZE.x  / 2.0 - width_miss/2.0, HIT_TIMING_BAR_POS.y),
             Vector2::new(width_miss, HIT_TIMING_BAR_SIZE.y),
             None // for now
         )));
@@ -612,7 +612,7 @@ impl Beatmap {
             renderables.push(Box::new(Rectangle::new(
                 c,
                 10.0,
-                Vector2::new(WINDOW_SIZE.x as f64 / 2.0 + pos, HIT_TIMING_BAR_POS.y),
+                Vector2::new(WINDOW_SIZE.x  / 2.0 + pos, HIT_TIMING_BAR_POS.y),
                 Vector2::new(2.0, HIT_TIMING_BAR_SIZE.y),
                 None // for now
             )));
@@ -771,7 +771,7 @@ impl TimingBar {
         TimingBar {
             time, 
             speed,
-            pos: Vector2::new(0.0, 0.0),
+            pos: Vector2::zero(),
         }
     }
 

@@ -36,13 +36,13 @@ pub struct OsuDirectMenu {
 impl OsuDirectMenu {
     pub fn new() -> OsuDirectMenu {
         let mut x = OsuDirectMenu {
-            scroll_area: ScrollableArea::new(Vector2::new(0.0, SEARCH_BAR_HEIGHT+5.0), Vector2::new(WINDOW_SIZE.x as f64, WINDOW_SIZE.y as f64 - (SEARCH_BAR_HEIGHT+5.0)), true),
+            scroll_area: ScrollableArea::new(Vector2::new(0.0, SEARCH_BAR_HEIGHT+5.0), Vector2::new(WINDOW_SIZE.x , WINDOW_SIZE.y - (SEARCH_BAR_HEIGHT+5.0)), true),
             downloading: Vec::new(),
             queue: Vec::new(),
             items: HashMap::new(),
             selected: None,
             preview: None,
-            search_bar: TextInput::new(Vector2::new(0.0, 0.0), Vector2::new(WINDOW_SIZE.x as f64, SEARCH_BAR_HEIGHT), "Search", "")
+            search_bar: TextInput::new(Vector2::zero(), Vector2::new(WINDOW_SIZE.x , SEARCH_BAR_HEIGHT), "Search", "")
         };
         x.do_search();
         x
@@ -116,7 +116,7 @@ impl Menu for OsuDirectMenu {
         let mut list:Vec<Box<dyn Renderable>> = Vec::new();
         list.extend(self.scroll_area.draw(args));
 
-        list.extend(self.search_bar.draw(args, Vector2::new(0.0,0.0), -90.0));
+        list.extend(self.search_bar.draw(args, Vector2::zero(), -90.0));
 
         // draw download items
         if self.downloading.len() > 0 {
@@ -287,7 +287,7 @@ struct DirectItem {
 impl DirectItem {
     pub fn from_str(str:String) -> DirectItem {
         DirectItem {
-            pos: Vector2::new(0.0, 0.0), // being set by the scroll area anyways
+            pos: Vector2::zero(), // being set by the scroll area anyways
             item: DirectMeta::from_str(str.clone()),
 
             hover: false,

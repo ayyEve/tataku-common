@@ -25,7 +25,7 @@ impl OnlineUser {
             action_text: None,
 
             hover: false,
-            pos: Vector2::new(0.0, 0.0)
+            pos: Vector2::zero()
         }
     }
 }

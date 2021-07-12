@@ -66,7 +66,7 @@ impl Note {
             speed,
             hit: false,
             missed: false,
-            pos: Vector2::new(0.0, 0.0),
+            pos: Vector2::zero(),
 
             // set later
             od: 1.0,
@@ -296,7 +296,7 @@ impl SliderDot {
         SliderDot {
             time,
             speed,
-            pos: Vector2::new(0.0, 0.0),
+            pos: Vector2::zero(),
             done: false
         }
     }
@@ -354,7 +354,7 @@ impl Spinner {
             hit_count: 0,
             last_hit: HitType::Don,
             complete: false,
-            pos: Vector2::new(0.0,0.0)
+            pos: Vector2::zero()
         }
     }
 }

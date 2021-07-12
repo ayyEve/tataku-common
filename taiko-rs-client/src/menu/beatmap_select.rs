@@ -139,7 +139,7 @@ impl Menu for BeatmapSelectMenu {
         let bar_rect = Rectangle::new(
             Color::WHITE,
             depth - 1.0,
-            Vector2::new(0.0, 0.0),
+            Vector2::zero(),
             Vector2::new(args.window_size[0], INFO_BAR_HEIGHT),
             Some(Border::new(Color::BLACK, 1.2))
         );
@@ -177,7 +177,7 @@ impl Menu for BeatmapSelectMenu {
         items.extend(self.leaderboard_scroll.draw(args));
 
         // back button
-        items.extend(self.back_button.draw(args, Vector2::new(0.0, 0.0), 0.0));
+        items.extend(self.back_button.draw(args, Vector2::zero(), 0.0));
 
         // draw background image here
         if let Some(img) = self.background_texture.as_ref() {
@@ -254,7 +254,7 @@ impl Menu for BeatmapSelectMenu {
             self.beatmap_scroll.refresh_layout();
 
             let t = opengl_graphics::Texture::from_path(clicked.lock().unwrap().metadata.image_filename.clone(), &opengl_graphics::TextureSettings::new()).unwrap();
-            self.background_texture = Some(Image::new(Vector2::new(0.0,0.0), 100.0, t, Vector2::new(WINDOW_SIZE.x as f64, WINDOW_SIZE.y as f64)));
+            self.background_texture = Some(Image::new(Vector2::zero(), 100.0, t, WINDOW_SIZE));
         
 
             let hash = clicked.lock().unwrap().hash.clone();
@@ -325,7 +325,7 @@ impl BeatmapsetItem {
 
         BeatmapsetItem {
             beatmaps: beatmaps.clone(), 
-            pos: Vector2::new(0.0, 0.0),
+            pos: Vector2::zero(),
             hover: false,
             selected: false,
             pending_play: false,
@@ -493,7 +493,7 @@ impl LeaderboardItem {
         let acc = score.acc() * 100.0;
 
         LeaderboardItem {
-            pos: Vector2::new(0.0,0.0),
+            pos: Vector2::zero(),
             score,
             tag,
             acc,

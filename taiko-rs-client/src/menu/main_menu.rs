@@ -18,7 +18,7 @@ pub struct MainMenu {
 }
 impl MainMenu {
     pub fn new() -> MainMenu {
-        let middle = WINDOW_SIZE.x as f64/2.0 - BUTTON_SIZE.x/2.0;
+        let middle = WINDOW_SIZE.x /2.0 - BUTTON_SIZE.x/2.0;
         let mut counter = 1.0;
         
         let play_button = MenuButton::new(Vector2::new(middle,(BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Play");
@@ -40,7 +40,7 @@ impl MainMenu {
 impl Menu for MainMenu {
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
-        let pos_offset = Vector2::new(0.0, 0.0);
+        let pos_offset = Vector2::zero();
         let depth = 0.0;
 
         // draw welcome text
@@ -52,7 +52,7 @@ impl Menu for MainMenu {
             "Welcome to Taiko.rs".to_owned(),
             get_font("main")
         );
-        welcome_text.center_text(Rectangle::bounds_only(Vector2::new(0.0, 30.0), Vector2::new(WINDOW_SIZE.x as f64, 50.0)));
+        welcome_text.center_text(Rectangle::bounds_only(Vector2::new(0.0, 30.0), Vector2::new(WINDOW_SIZE.x , 50.0)));
         list.push(Box::new(welcome_text));
 
         // draw buttons

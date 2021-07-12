@@ -686,8 +686,8 @@ impl Game {
             renderables.push(Box::new(Rectangle::new(
                 [0.0,0.0,0.0, alpha as f32].into(),
                 -f64::MAX,
-                Vector2::new(0.0, 0.0),
-                Vector2::new(WINDOW_SIZE.x as f64, WINDOW_SIZE.y as f64),
+                Vector2::zero(),
+                WINDOW_SIZE,
                 None
             )));
 

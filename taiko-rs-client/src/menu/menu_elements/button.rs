@@ -24,7 +24,7 @@ impl MenuButton {
     }
 
     pub fn back_button() -> MenuButton {
-        MenuButton::new(Vector2::new(10.0, WINDOW_SIZE.y as f64 - (BACK_BUTTON_SIZE.y + 10.0)), BACK_BUTTON_SIZE, "Back")
+        MenuButton::new(Vector2::new(10.0, WINDOW_SIZE.y - (BACK_BUTTON_SIZE.y + 10.0)), BACK_BUTTON_SIZE, "Back")
     }
 }
 

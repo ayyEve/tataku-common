@@ -102,8 +102,8 @@ impl Menu for ScoreMenu {
         
 
         // draw buttons
-        list.extend(self.back_button.draw(args, Vector2::new(0.0, 0.0), depth));
-        list.extend(self.replay_button.draw(args, Vector2::new(0.0, 0.0), depth));
+        list.extend(self.back_button.draw(args, Vector2::zero(), depth));
+        list.extend(self.replay_button.draw(args, Vector2::zero(), depth));
 
         list
     }

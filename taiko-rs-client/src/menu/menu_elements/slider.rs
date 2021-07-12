@@ -47,7 +47,7 @@ impl Slider {
         let txt = Text::new(
             Color::WHITE,
             0.0,
-            Vector2::new(0.0, 0.0),
+            Vector2::zero(),
             font_size,
             format!("{}: {:.2}", self.text, self.range.end),
             get_font("main")

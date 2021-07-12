@@ -17,7 +17,7 @@ pub struct PauseMenu {
 }
 impl PauseMenu {
     pub fn new(beatmap:Arc<Mutex<Beatmap>>) -> PauseMenu {
-        let middle = WINDOW_SIZE.x as f64/2.0 - BUTTON_SIZE.x/2.0;
+        let middle = WINDOW_SIZE.x /2.0 - BUTTON_SIZE.x/2.0;
 
         PauseMenu {
             beatmap,
@@ -36,7 +36,7 @@ impl Menu for PauseMenu {
     fn get_name(&self) -> &str {"pause"}
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
-        let pos_offset = Vector2::new(0.0, 0.0);
+        let pos_offset = Vector2::zero();
         let depth = 0.0;
 
         // draw buttons

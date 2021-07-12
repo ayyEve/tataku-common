@@ -16,7 +16,7 @@ pub struct InputManager {
 impl InputManager {
     pub fn new() -> InputManager {
         InputManager {
-            mouse_pos: Vector2::new(0.0, 0.0),
+            mouse_pos: Vector2::zero(),
             scroll_delta: 0.0,
             mouse_moved: false,
             mouse_buttons: Vec::new(),
