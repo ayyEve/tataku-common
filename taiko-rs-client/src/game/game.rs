@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant};
 
 use tokio::runtime::{Builder, Runtime};
 use glfw_window::GlfwWindow as AppWindow;
@@ -35,7 +35,7 @@ pub struct Game {
     pub threading: Runtime,
     
     pub menus: HashMap<&'static str, Arc<Mutex<Box<dyn Menu>>>>,
-    pub game_start: SystemTime,
+    pub game_start: Instant,
     pub current_mode: GameMode,
     pub queued_mode: GameMode,
 
@@ -49,10 +49,10 @@ pub struct Game {
 
     // fps
     fps_count: u32,
-    fps_timer: SystemTime,
+    fps_timer: Instant,
     fps_last: f32,
     update_count: u32,
-    update_timer: SystemTime,
+    update_timer: Instant,
     update_last: f32,
 
     // transition
@@ -103,7 +103,7 @@ impl Game {
             input_manager,
             online_manager,
             render_queue: Vec::new(),
-            game_start: SystemTime::now(),
+            game_start: Instant::now(),
 
             menus: HashMap::new(),
 
@@ -112,10 +112,10 @@ impl Game {
             vol_selected_time: 0,
 
             // fps
-            fps_timer: SystemTime::now(),
+            fps_timer: Instant::now(),
             fps_last: 0.0,
             fps_count: 0,
-            update_timer: SystemTime::now(),
+            update_timer: Instant::now(),
             update_last: 0.0,
             update_count: 0,
 
@@ -196,7 +196,7 @@ impl Game {
         let arc = Arc::new(Mutex::new(self));
         let clone = arc.clone();
         let mut current_mode = clone.lock().unwrap().current_mode.clone().to_owned();
-        let elapsed = clone.lock().unwrap().game_start.elapsed().unwrap().as_millis() as u64;
+        let elapsed = clone.lock().unwrap().game_start.elapsed().as_millis() as u64;
 
         //TODO: move these fonctions in input manager, like get_text()
         // check input events
@@ -236,7 +236,7 @@ impl Game {
         if mods.alt {
             let mut lock = clone.lock().unwrap();
             let mut settings = Settings::get_mut();
-            let elapsed = lock.game_start.elapsed().unwrap().as_millis() as u64;
+            let elapsed = lock.game_start.elapsed().as_millis() as u64;
 
             let mut delta:f32 = 0.0;
             if keys.contains(&Key::Right) {delta = 0.1;}
@@ -680,7 +680,7 @@ impl Game {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
         let window_size = Vector2::new(args.window_size[0], args.window_size[1]);
         let settings = Settings::get();
-        let elapsed = self.game_start.elapsed().unwrap().as_millis() as u64;
+        let elapsed = self.game_start.elapsed().as_millis() as u64;
         let font = get_font("main");
 
         // mode
@@ -898,10 +898,10 @@ impl Game {
 
 
         // update fps var if needed
-        let fps_elapsed = self.fps_timer.elapsed().unwrap().as_micros() as f64 / 1000.0;
+        let fps_elapsed = self.fps_timer.elapsed().as_micros() as f64 / 1000.0;
         if fps_elapsed >= 100.0 {
             self.fps_last = (self.fps_count as f64 / fps_elapsed * 1000.0) as f32;
-            self.fps_timer = SystemTime::now();
+            self.fps_timer = Instant::now();
             self.fps_count = 0;
         }
         // draw fps
@@ -914,10 +914,10 @@ impl Game {
             font.clone()
         )));
         // draw updates
-        let updates_elapsed = self.update_timer.elapsed().unwrap().as_micros() as f64 / 1000.0;
+        let updates_elapsed = self.update_timer.elapsed().as_micros() as f64 / 1000.0;
         if updates_elapsed >= 100.0 {
             self.update_last = (self.update_count as f64 / updates_elapsed * 1000.0) as f32;
-            self.update_timer = SystemTime::now();
+            self.update_timer = Instant::now();
             self.update_count = 0;
         }
         // draw fps
@@ -955,7 +955,7 @@ impl Game {
             return;
         }
 
-        let elapsed = self.game_start.elapsed().unwrap().as_millis() as u64;
+        let elapsed = self.game_start.elapsed().as_millis() as u64;
         // only return items who's lifetime has expired
         self.render_queue.retain(|e| {
             let lifetime = e.get_lifetime();
