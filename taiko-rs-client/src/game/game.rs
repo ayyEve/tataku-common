@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
-use std::time::{SystemTime, Duration};
+use std::time::{Duration, SystemTime};
 
 use tokio::runtime::{Builder, Runtime};
 use glfw_window::GlfwWindow as AppWindow;
@@ -9,6 +9,7 @@ use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window,input::*, event_loop::*, window::WindowSettings};
 
 use taiko_rs_common::types::UserAction;
+use crate::game::BenchmarkHelper;
 use crate::gameplay::{Beatmap, Replay, KeyPress};
 use crate::databases::{save_all_scores, save_score};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, SONGS_DIR, menu::*};
@@ -38,8 +39,6 @@ pub struct Game {
     pub current_mode: GameMode,
     pub queued_mode: GameMode,
 
-    pub beatmap_pending_refresh: bool,
-
     // volume change things 
     // maybe move these to another object? not really necessary but might help clean up code a bit maybe
     //NOTE: these cant be changed to shape lifetimes as the user might potentially change the selected volume
@@ -61,12 +60,13 @@ pub struct Game {
     transition_last: Option<GameMode>,
     transition_timer: u64,
 
-
     // user list
     show_user_list: bool
 }
 impl Game {
     pub fn new() -> Game {
+        let mut game_init_benchmark = BenchmarkHelper::new("game_init");
+
         let opengl = OpenGL::V3_2;
 
         let mut window: AppWindow = WindowSettings::new("Taiko", [WINDOW_SIZE.x, WINDOW_SIZE.y])
@@ -74,17 +74,25 @@ impl Game {
             .resizable(false)
             .build()
             .unwrap();
+        game_init_benchmark.log("window created", true);
 
         set_icon(&mut window);
+        game_init_benchmark.log("window icon set (jk for now)", true);
 
         let graphics = GlGraphics::new(opengl);
+        game_init_benchmark.log("graphics created", true);
+
         let input_manager = InputManager::new();
+        game_init_benchmark.log("input manager created", true);
 
         let online_manager = Arc::new(tokio::sync::Mutex::new(OnlineManager::new()));
+        game_init_benchmark.log("online manager created", true);
+
         let threading = Builder::new_multi_thread()
             .enable_all()
             .build()
             .unwrap();
+        game_init_benchmark.log("threading created", true);
 
         let mut g = Game {
             current_mode: GameMode::None,
@@ -102,7 +110,6 @@ impl Game {
             // vol things
             vol_selected_index: 0,
             vol_selected_time: 0,
-            beatmap_pending_refresh: false,
 
             // fps
             fps_timer: SystemTime::now(),
@@ -119,6 +126,8 @@ impl Game {
 
             show_user_list: false
         };
+        game_init_benchmark.log("game created", true);
+
 
         //region == menu setup ==
         // main menu
@@ -126,20 +135,27 @@ impl Game {
         let main_menu = Arc::new(Mutex::new(main_menu));
         g.menus.insert("main", main_menu.clone());
 
+        game_init_benchmark.log("main menu created", true);
+
         // setup beatmap select menu
         let beatmap_menu:Box<dyn Menu> = Box::new(BeatmapSelectMenu::new());
         let beatmap_menu = Arc::new(Mutex::new(beatmap_menu));
         g.menus.insert("beatmap", beatmap_menu.clone());
 
+        game_init_benchmark.log("beatmap menu created", true);
+
         // setup settings menu
         let settings_menu:Box<dyn Menu> = Box::new(SettingsMenu::new());
         let settings_menu = Arc::new(Mutex::new(settings_menu));
         g.menus.insert("settings", settings_menu.clone());
+        game_init_benchmark.log("settings menu created", true);
 
         // set current mode to main menu
         g.queue_mode_change(GameMode::InMenu(main_menu.clone()));
 
         g.init();
+        game_init_benchmark.log("game initialized", true);
+
         g
     }
 
@@ -948,7 +964,7 @@ impl Game {
     }
 
 
-    /// extract all zips from the downloads folder into the songs folder
+    /// extract all zips from the downloads folder into the songs folder. not a static function as it uses threading
     pub fn extract_all(&self) {
         let runtime = &self.threading;
 

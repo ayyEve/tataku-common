@@ -8,8 +8,7 @@ const SETTINGS_VERSION: u32 = 2;
 
 lazy_static::lazy_static! {
     static ref SETTINGS: Arc<Mutex<Settings>> = {
-        let settings = Settings::load();
-        Arc::new(Mutex::new(settings))
+        Arc::new(Mutex::new(Settings::load()))
     };
 }
 
@@ -67,6 +66,7 @@ impl Settings {
         save_database(SETTINGS_DATABASE_FILE, writer).expect("Error saving settings.");
     }
 
+    // relatively slow, if you need a more performant get, use get_mut
     pub fn get() -> Settings {
         SETTINGS.lock().unwrap().clone()
     }

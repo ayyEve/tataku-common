@@ -120,9 +120,8 @@ impl Menu for BeatmapSelectMenu {
 
         //TODO: fix this so its not as intensive (ie only check once a second)
         let count = std::fs::read_dir(DOWNLOADS_DIR).unwrap().count();
-        if (!self.pending_refresh && count > 0) || game.lock().unwrap().beatmap_pending_refresh {
+        if (!self.pending_refresh && count > 0) {
             let mut g = game.lock().unwrap();
-            g.beatmap_pending_refresh = false;
             
             self.pending_refresh = true;
             g.extract_all();
@@ -258,10 +257,9 @@ impl Menu for BeatmapSelectMenu {
             self.selected = Some(clicked_tag.clone());
             self.beatmap_scroll.refresh_layout();
 
-            // #[cfg(feature = "textures")] {
-                let t = opengl_graphics::Texture::from_path(clicked.lock().unwrap().metadata.image_filename.clone(), &opengl_graphics::TextureSettings::new()).unwrap();
-                self.background_texture = Some(Image::new(Vector2::new(0.0,0.0), 100.0, t, Vector2::new(WINDOW_SIZE.x as f64, WINDOW_SIZE.y as f64)));
-            // }
+            let t = opengl_graphics::Texture::from_path(clicked.lock().unwrap().metadata.image_filename.clone(), &opengl_graphics::TextureSettings::new()).unwrap();
+            self.background_texture = Some(Image::new(Vector2::new(0.0,0.0), 100.0, t, Vector2::new(WINDOW_SIZE.x as f64, WINDOW_SIZE.y as f64)));
+        
 
             let hash = clicked.lock().unwrap().hash.clone();
             self.selected_beatmap = Some(hash.clone());
@@ -296,9 +294,7 @@ impl Menu for BeatmapSelectMenu {
     }
 
     //TODO: implement search (oh god)
-    fn on_text(&mut self, _text:String) {
-        
-    }
+    fn on_text(&mut self, _text:String) {}
 }
 
 

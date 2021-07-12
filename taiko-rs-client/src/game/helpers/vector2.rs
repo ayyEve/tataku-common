@@ -5,6 +5,7 @@ pub struct Vector2 {
     pub x: f64,
     pub y: f64,
 }
+#[allow(dead_code)]
 impl Vector2 {
     pub const fn new(x:f64, y: f64) -> Self {Self {x, y}}
     pub const fn zero() -> Self {Self {x:0.0, y:0.0}}

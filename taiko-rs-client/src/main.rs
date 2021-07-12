@@ -4,6 +4,7 @@ use std::fmt::Display;
 use std::{fs::File, path::Path};
 use std::io::{self, BufRead, BufReader, Lines};
 
+use game::BenchmarkHelper;
 // local imports
 use game::{Audio, Game, Settings, Vector2};
 
@@ -38,12 +39,15 @@ pub type IoError = std::io::Error;
 
 // main fn
 fn main() {
+    let mut main_benchmark = BenchmarkHelper::new("main");
+
     // check for missing folders
     check_folder(DOWNLOADS_DIR, true);
     check_folder(REPLAYS_DIR, true);
     check_folder(SONGS_DIR, true);
     check_folder("fonts", false);
     check_folder("audio", false);
+    main_benchmark.log("folder check done", true);
 
     let args: Vec<String> = env::args().collect();
     if args.len() > 1 {
@@ -52,11 +56,17 @@ fn main() {
         }
         return;
     }
+    main_benchmark.log("arg check done", true);
+
     
     // intialize audio engine
     let _stream = Audio::setup();
+    main_benchmark.log("audio engine initialized", true);
 
     let game = Game::new();
+    main_benchmark.log("game creation complete", true);
+
+    drop(main_benchmark);
     game.game_loop();
 }
 

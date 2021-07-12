@@ -221,7 +221,6 @@ impl Menu for OsuDirectMenu {
 
         if key == Key::Escape {
             let mut game = game.lock().unwrap();
-            game.beatmap_pending_refresh = true;
             let menu = game.menus.get("main").unwrap().clone();
             game.queue_mode_change(GameMode::InMenu(menu));
         }
