@@ -21,10 +21,8 @@ impl FpsDisplay {
             pos: Vector2::new(0.0, 10.0 + 20.0 * count as f64)
         }
     }
-    pub fn increment(&mut self) {
-        self.count += 1;
-    }
 
+    pub fn increment(&mut self) {self.count += 1}
     pub fn draw(&mut self) -> Text {
         let font = crate::game::get_font("main");
 
@@ -37,7 +35,7 @@ impl FpsDisplay {
 
         Text::new(
             Color::BLACK,
-            -1.0,
+            -99_999_999.0, // should be on top of everything
             self.pos,
             12,
             format!("{:.2}{}", self.last, self.name),

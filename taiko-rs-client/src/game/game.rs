@@ -890,7 +890,7 @@ impl Game {
         }
 
 
-        // draw fps'
+        // draw fps's
         self.render_queue.push(Box::new(self.fps_display.draw()));
         self.render_queue.push(Box::new(self.update_display.draw()));
 
