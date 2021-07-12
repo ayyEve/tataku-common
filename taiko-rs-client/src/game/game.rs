@@ -9,14 +9,11 @@ use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window,input::*, event_loop::*, window::WindowSettings};
 
 use taiko_rs_common::types::UserAction;
-use crate::game::BenchmarkHelper;
 use crate::gameplay::{Beatmap, Replay, KeyPress};
 use crate::databases::{save_all_scores, save_score};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, SONGS_DIR, menu::*};
 use crate::render::{HalfCircle, Rectangle, Renderable, Text, Color, Border};
-use crate::game::{InputManager, Settings, get_font, Vector2, online::USER_ITEM_SIZE, online::OnlineManager};
-
-use super::FpsDisplay;
+use crate::game::{InputManager, Settings, get_font, Vector2, FpsDisplay, BenchmarkHelper, online::{USER_ITEM_SIZE, OnlineManager}};
 
 /// how long should the volume thing be displayed when changed
 const VOLUME_CHANGE_DISPLAY_TIME:u64 = 2000;
@@ -70,7 +67,7 @@ impl Game {
             .graphics_api(opengl)
             .resizable(false)
             .build()
-            .unwrap();
+            .expect("Error creating window");
         game_init_benchmark.log("window created", true);
 
         set_icon(&mut window);
@@ -100,8 +97,6 @@ impl Game {
             input_manager,
             online_manager,
             render_queue: Vec::new(),
-            game_start: Instant::now(),
-
             menus: HashMap::new(),
 
             // vol things
@@ -117,7 +112,9 @@ impl Game {
             transition_last: None,
             transition_timer: 0,
 
-            show_user_list: false
+            // misc
+            show_user_list: false,
+            game_start: Instant::now(),
         };
         game_init_benchmark.log("game created", true);
 
@@ -182,7 +179,6 @@ impl Game {
         }
     }
 
-    pub fn queue_mode_change(&mut self, mode:GameMode) {self.queued_mode = mode}
 
     fn update(&mut self, _delta:f64) {
         self.update_display.increment();
@@ -896,6 +892,8 @@ impl Game {
     }
 
 
+    pub fn queue_mode_change(&mut self, mode:GameMode) {self.queued_mode = mode}
+
     /// extract all zips from the downloads folder into the songs folder. not a static function as it uses threading
     pub fn extract_all(&self) {
         let runtime = &self.threading;
@@ -953,7 +951,6 @@ impl Game {
             }
         }
     }
-
 }
 
 /// tries to set the app window. does nothing if theres an issue
