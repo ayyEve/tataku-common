@@ -441,6 +441,9 @@ impl<'shape> Game<'shape> {
                     // show score menu
                     let menu = ScoreMenu::new(beatmap.score.clone(), Arc::new(Mutex::new(beatmap.clone())));
                     lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(Box::new(menu)))));
+
+                    // cleanup memory-hogs in the beatmap object
+                    beatmap.cleanup();
                 }
             }
 
@@ -535,6 +538,8 @@ impl<'shape> Game<'shape> {
                     // show score menu
                     let menu = ScoreMenu::new(beatmap.score.clone(), Arc::new(Mutex::new(beatmap.clone())));
                     lock.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(Box::new(menu)))));
+
+                    beatmap.cleanup();
                 }
             }
             

@@ -300,6 +300,7 @@ impl Beatmap {
 
         let md5 = format!("{:x}", md5::compute(body).to_owned());
         // does this need to be in its own scope? probably not but whatever
+        // assign values
         {
             let mut locked = beatmap.lock().unwrap();
             let start_time = locked.clone().notes.first().unwrap().lock().unwrap().time() as f64;
@@ -713,6 +714,10 @@ impl Beatmap {
         self.hitwindow_miss = map_difficulty_range(self.metadata.od as f64, 135.0, 95.0, 70.0);
         self.hitwindow_100 = map_difficulty_range(self.metadata.od as f64, 120.0, 80.0, 50.0);
         self.hitwindow_300 = map_difficulty_range(self.metadata.od as f64, 50.0, 35.0, 20.0);
+    }
+    pub fn cleanup(&mut self) {
+        self.timing_bars.clear();
+        self.score = Score::new(self.hash.clone());
     }
 
     pub fn beat_length_at(&self, time:f64, allow_multiplier:bool) -> f64 {

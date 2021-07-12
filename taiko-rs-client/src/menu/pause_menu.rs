@@ -1,5 +1,4 @@
 use std::sync::{Arc, Mutex, MutexGuard};
-
 use piston::{MouseButton, RenderArgs};
 
 use crate::{WINDOW_SIZE, render::*, gameplay::Beatmap};
@@ -68,6 +67,9 @@ impl Menu for PauseMenu {
         if self.exit_button.on_click(pos, button) {
             let menu = game.menus.get("beatmap").unwrap().to_owned();
             game.queue_mode_change(GameMode::InMenu(menu));
+
+            // cleanup memory hogs in the beatmap object
+            self.beatmap.lock().unwrap().cleanup();
         }
     }
 
