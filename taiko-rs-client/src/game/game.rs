@@ -185,7 +185,6 @@ impl Game {
         }
     }
 
-
     fn update(&mut self, _delta:f64) {
         self.update_display.increment();
         // let arc = Arc::new(Mutex::new(self));
@@ -206,10 +205,10 @@ impl Game {
         // users list
         if self.show_user_list {
             if let Ok(om) = self.online_manager.try_lock() {
-                for (_, user) in &om.users.clone() {
+                for (_, user) in &om.users {
                     if let Ok(mut u) = user.try_lock() {
                         if mouse_moved {u.on_mouse_move(mouse_pos)}
-                        if mouse_buttons.len() > 0 {mouse_buttons.retain(|button| !u.on_click(mouse_pos, button.clone()))}
+                        mouse_buttons.retain(|button| !u.on_click(mouse_pos, button.clone()));
                     }
                 }
             }
@@ -222,8 +221,8 @@ impl Game {
             let elapsed = self.game_start.elapsed().as_millis() as u64;
 
             let mut delta:f32 = 0.0;
-            if keys.contains(&Key::Right) {delta = 0.1;}
-            if keys.contains(&Key::Left) {delta = -0.1;}
+            if keys.contains(&Key::Right) {delta = 0.1}
+            if keys.contains(&Key::Left) {delta = -0.1}
             if scroll_delta != 0.0 {
                 delta = scroll_delta as f32 / 10.0;
                 scroll_delta = 0.0;
@@ -236,19 +235,9 @@ impl Game {
 
                 // find out what volume to edit, and edit it
                 match self.vol_selected_index {
-                    0 => { // master
-                        settings.master_vol += delta;
-                        settings.master_vol = settings.master_vol.max(0.0).min(1.0);
-                    },
-                    1 => { // effect
-                        settings.effect_vol += delta;
-                        settings.effect_vol = settings.effect_vol.max(0.0).min(1.0);
-                    },
-                    2 => { // music
-                        settings.music_vol += delta;
-                        settings.music_vol = settings.music_vol.max(0.0).min(1.0);
-                    },
-
+                    0 => settings.master_vol = (settings.master_vol + delta).clamp(0.0, 1.0),
+                    1 => settings.effect_vol = (settings.effect_vol + delta).clamp(0.0, 1.0),
+                    2 => settings.music_vol = (settings.music_vol + delta).clamp(0.0, 1.0),
                     _ => println!("lock.vol_selected_index out of bounds somehow")
                 }
 
@@ -269,33 +258,23 @@ impl Game {
             }
         }
         
-        // check if mouse clicked volume button
-        if self.vol_selected_time > 0 && elapsed as f64 - (self.vol_selected_time as f64) < VOLUME_CHANGE_DISPLAY_TIME as f64 {
-            if mouse_buttons.contains(&MouseButton::Left) || mouse_moved {
-                let window_size = WINDOW_SIZE;
-                let master_pos = window_size - Vector2::new(300.0, 90.0);
-                let effect_pos = window_size - Vector2::new(300.0, 60.0);
-                let music_pos = window_size - Vector2::new(300.0, 30.0);
+        // check if mouse moved over a volume button
+        if mouse_moved && self.vol_selected_time > 0 && elapsed as f64 - (self.vol_selected_time as f64) < VOLUME_CHANGE_DISPLAY_TIME as f64 {
+            let window_size = WINDOW_SIZE;
+            let master_pos = window_size - Vector2::new(300.0, 90.0);
+            let effect_pos = window_size - Vector2::new(300.0, 60.0);
+            let music_pos = window_size - Vector2::new(300.0, 30.0);
 
-                if mouse_pos.x >= master_pos.x {
-                    let mut modified = false;
-                    if mouse_pos.y >= music_pos.y {
-                        self.vol_selected_index = 2;
-                        modified = true;
-                    } else if mouse_pos.y >= effect_pos.y {
-                        self.vol_selected_index = 1;
-                        modified = true;
-                    } else if mouse_pos.y >= master_pos.y {
-                        self.vol_selected_index = 0;
-                        modified = true;
-                    }
-
-                    // was just updated
-                    if modified {
-                        self.vol_selected_time = elapsed;
-                        // remove left click from list as it was consumed by this
-                        mouse_buttons.retain(|e| e == &MouseButton::Left);
-                    }
+            if mouse_pos.x >= master_pos.x {
+                if mouse_pos.y >= music_pos.y {
+                    self.vol_selected_index = 2;
+                    self.vol_selected_time = elapsed;
+                } else if mouse_pos.y >= effect_pos.y {
+                    self.vol_selected_index = 1;
+                    self.vol_selected_time = elapsed;
+                } else if mouse_pos.y >= master_pos.y {
+                    self.vol_selected_index = 0;
+                    self.vol_selected_time = elapsed;
                 }
             }
         }
@@ -366,19 +345,10 @@ impl Game {
                 }
                 
                 // pause button, or focus lost
-                if keys.contains(&Key::Escape) {
-                    // pause
+                if matches!(window_focus_changed, Some(false)) || keys.contains(&Key::Escape) {
                     beatmap.pause();
                     let menu = PauseMenu::new(og_beatmap.clone());
                     self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
-                }
-                if let Some(e) = window_focus_changed {
-                    if !e { // window lost focus, pause
-                        // pause
-                        beatmap.pause();
-                        let menu = PauseMenu::new(og_beatmap.clone());
-                        self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
-                    }
                 }
 
                 // offset adjust
@@ -448,9 +418,7 @@ impl Game {
             }
 
             GameMode::Replaying(ref beatmap, ref replay, ref mut frame_index) => {
-                let settings = Settings::get();
                 let mut beatmap = beatmap.lock().unwrap();
-
                 let time = beatmap.time();
                 // read any frames that need to be read
                 loop {
@@ -522,7 +490,7 @@ impl Game {
                 if keys.contains(&Key::Minus) {beatmap.increment_offset(-5)}
 
                 // volume
-                if volume_changed {beatmap.song.set_volume(settings.get_music_vol())}
+                if volume_changed {beatmap.song.set_volume(Settings::get().get_music_vol())}
 
                 beatmap.update();
 
@@ -583,9 +551,7 @@ impl Game {
         // update game mode
         match &self.queued_mode {
             // queued mode didnt change, set the unlocked's mode to the updated mode
-            GameMode::None => {
-                self.current_mode = current_mode;
-            }
+            GameMode::None => self.current_mode = current_mode,
             GameMode::Closing => {
                 Settings::get().save();
                 self.window.set_should_close(true);
@@ -660,15 +626,13 @@ impl Game {
         // mode
         match &self.current_mode {
             GameMode::Ingame(beatmap) => renderables.extend(beatmap.lock().unwrap().draw(args)),
-            
+            GameMode::InMenu(menu) => renderables.extend(menu.lock().unwrap().draw(args)),
             GameMode::Replaying(beatmap,_,_) => {
                 renderables.extend(beatmap.lock().unwrap().draw(args));
 
                 // draw watching X text
             }
-            GameMode::InMenu(ref menu) => {
-                renderables.extend(menu.lock().unwrap().draw(args));
-            }
+            
             _ => {}
         }
 
@@ -699,6 +663,8 @@ impl Game {
 
         // users list
         if self.show_user_list {
+
+            //TODO: move the set_pos code to update or smth
             let mut counter = 0;
             
             if let Ok(om) = self.online_manager.try_lock() {
@@ -721,12 +687,12 @@ impl Game {
 
         // draw the volume things if needed
         if self.vol_selected_time > 0 && elapsed - self.vol_selected_time < VOLUME_CHANGE_DISPLAY_TIME {
-            let b_size = Vector2::new(300.0, 100.0);
+            const BOX_SIZE:Vector2 = Vector2::new(300.0, 100.0);
             let b = Rectangle::new(
                 Color::WHITE,
                 -7.0,
-                window_size - b_size,
-                b_size,
+                window_size - BOX_SIZE,
+                BOX_SIZE,
                 Some(Border::new(Color::BLACK, 1.2))
             );
             self.render_queue.push(Box::new(b));
@@ -819,15 +785,9 @@ impl Game {
             
             // highlight selected index
             match self.vol_selected_index {
-                0 => {
-                    master_text.color = Color::RED;
-                },
-                1 => {
-                    effect_text.color = Color::RED;
-                },
-                2 => {
-                    music_text.color = Color::RED;
-                },
+                0 => master_text.color = Color::RED,
+                1 => effect_text.color = Color::RED,
+                2 => music_text.color = Color::RED,
                 _ => println!("self.vol_selected_index out of bounds somehow")
             }
 
@@ -846,7 +806,6 @@ impl Game {
             ];
             self.render_queue.extend(a);
         }
-
 
         // draw fps's
         self.render_queue.push(Box::new(self.fps_display.draw()));
