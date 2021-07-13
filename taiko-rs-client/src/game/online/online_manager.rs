@@ -19,6 +19,9 @@ const CONNECT_URL:&str = "ws://localhost:8080";
 pub struct OnlineManager {
     pub connected: bool,
     pub users: HashMap<u32, Arc<Mutex<OnlineUser>>>, // user id is key
+    // pub chat: Chat,
+
+    /// socket writer
     pub writer: Option<Arc<Mutex<WsWriter>>>,
 
     pub buffered_spectator_frames: Vec<SpectatorFrame>,
@@ -31,6 +34,7 @@ impl OnlineManager {
         OnlineManager {
             user_id: 0,
             users: HashMap::new(),
+            // chat: Chat::new(),
             writer: None,
             connected: false,
             buffered_spectator_frames:Vec::new(),

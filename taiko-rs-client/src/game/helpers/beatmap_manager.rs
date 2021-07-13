@@ -16,6 +16,7 @@ impl BeatmapManager {
     }
 
     // TODO: finish implementing this
+    #[allow(dead_code)]
     pub async fn check_downloads(_self:Arc<Mutex<Self>>) {
         let mut files = Vec::new();
         for file in read_dir(DOWNLOADS_DIR).unwrap() {

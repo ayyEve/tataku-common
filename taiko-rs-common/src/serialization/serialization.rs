@@ -1,5 +1,4 @@
-use std::{convert::TryInto, ops::Deref};
-
+use std::convert::TryInto;
 pub trait Serializable {
     fn read(sr:&mut SerializationReader) -> Self;
     fn write(&self, sw:&mut SerializationWriter);
@@ -64,7 +63,7 @@ impl<T:Serializable+Clone,T2:Serializable+Clone> Serializable for (T, T2) {
 }
 // serialization for vecs
 impl<T:Serializable+Clone> Serializable for &Vec<T> {
-    fn read(sr:&mut SerializationReader) -> Self {todo!()}
+    fn read(_sr:&mut SerializationReader) -> Self {todo!()}
 
     fn write(&self, sw:&mut SerializationWriter) {
         println!("write vec start");

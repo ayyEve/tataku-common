@@ -1,4 +1,3 @@
-mod dialog;
 mod beatmap_select;
 mod menu;
 mod score_menu;
@@ -8,6 +7,7 @@ mod menu_elements;
 mod settings_menu;
 mod direct_menu;
 mod loading_menu;
+pub mod dialog;
 
 pub use beatmap_select::*;
 pub use menu::*;

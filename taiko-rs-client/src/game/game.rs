@@ -691,19 +691,11 @@ impl Game {
             )));
 
             // draw old mode
-            if let GameMode::None = self.current_mode {
-                if let Some(old_mode) = &self.transition_last {
-                    match old_mode {
-                        GameMode::InMenu(menu) => {
-                            renderables.extend(menu.lock().unwrap().draw(args));
-                        },
-
-                        _ => {}
-                    }
-                }
+            match (&self.current_mode, &self.transition_last) {
+                (GameMode::None, Some(GameMode::InMenu(menu))) => renderables.extend(menu.lock().unwrap().draw(args)),
+                _ => {}
             }
         }
-        
 
         // users list
         if self.show_user_list {
@@ -712,12 +704,12 @@ impl Game {
             if let Ok(om) = self.online_manager.try_lock() {
                 for (_, user) in &om.users.clone() {
                     if let Ok(mut u) = user.try_lock() {
-
                         let x = if counter % 2 == 0 {0.0} else {USER_ITEM_SIZE.x};
                         let y = (counter - counter % 2) as f64 * USER_ITEM_SIZE.y;
+                        u.set_pos(Vector2::new(x,y));
 
                         counter += 1;
-                        renderables.extend(u.draw(args, Vector2::new(x, y), -100.0));
+                        renderables.extend(u.draw(args, Vector2::zero(), -100.0));
                     }
                 }
             }
@@ -866,14 +858,13 @@ impl Game {
         // slice the queue because loops
         let queue = self.render_queue.as_mut_slice();
         self.graphics.draw(args.viewport(), |c, g| {
-                graphics::clear(GFX_CLEAR_COLOR.into(), g);
+            graphics::clear(GFX_CLEAR_COLOR.into(), g);
 
-                for i in queue.as_mut() {
-                    if i.get_spawn_time() == 0 {i.set_spawn_time(elapsed);}
-                    i.draw(g, c);
-                }
+            for i in queue.as_mut() {
+                if i.get_spawn_time() == 0 {i.set_spawn_time(elapsed);}
+                i.draw(g, c);
             }
-        );
+        });
         
         self.clear_render_queue(false);
         self.fps_display.increment();
