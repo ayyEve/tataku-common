@@ -214,14 +214,11 @@ impl Menu for BeatmapSelectMenu {
 
         // check if leaderboard item was clicked
         if let Some(score_tag) = self.leaderboard_scroll.on_click(pos, button, game) {
-            println!("{}", score_tag);
             // score display
             if let Some(score) = self.current_scores.get(&score_tag) {
                 let score = score.lock().unwrap().clone();
-                println!("b");
 
                 if let Some(selected) = self.get_selected() {
-                    println!("c");
                     let menu = ScoreMenu::new(&score, selected.clone());
                     game.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
                 }
