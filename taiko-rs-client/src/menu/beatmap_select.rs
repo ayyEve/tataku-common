@@ -38,7 +38,6 @@ pub struct BeatmapSelectMenu {
 }
 impl BeatmapSelectMenu {
     pub fn new(beatmap_manager:Arc<Mutex<BeatmapManager>>) -> BeatmapSelectMenu {
-        // let mut b = 
         BeatmapSelectMenu {
             beatmap_manager,
             selected: None,
@@ -51,16 +50,19 @@ impl BeatmapSelectMenu {
             beatmap_scroll: ScrollableArea::new(Vector2::new(WINDOW_SIZE.x - (BEATMAPSET_ITEM_SIZE.x+BEATMAPSET_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y - INFO_BAR_HEIGHT), true),
             leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y - LEADERBOARD_POS.y), true),
         }
-        // b.refresh_maps();
-        // b
     }
 
     /// returns the selected item
-    pub fn get_selected(&self) -> Option<(Arc<Mutex<Beatmap>>, bool)> {
-        if self.selected.is_none() {return None}
-        let s = self.beatmap_scroll.get_tagged(self.selected.as_ref().unwrap().clone()).first().unwrap().get_value();
-        let s = s.downcast_ref::<(Arc<Mutex<Beatmap>>, bool)>();
-        if let Some(b) = s {Some(b.clone())} else {None}
+    pub fn get_selected(&self) -> Option<Arc<Mutex<Beatmap>>> {
+        match &self.selected {
+            Some(hash) => self.beatmap_manager.lock().unwrap().get_by_hash(hash.split('\n').last().unwrap().to_owned().clone()),
+            None => {println!("selected = none");None}
+        }
+
+        // if self.selected.is_none() {return None}
+        // let s = self.beatmap_scroll.get_tagged(self.selected.as_ref().unwrap().clone()).first().unwrap().get_value();
+        // let s = s.downcast_ref::<(Arc<Mutex<Beatmap>>, bool)>();
+        // if let Some(b) = s {Some(b.clone())} else {None}
     }
 
     pub fn refresh_maps(&mut self) {
@@ -145,7 +147,7 @@ impl Menu for BeatmapSelectMenu {
         items.push(Box::new(bar_rect));
 
         // draw selected map info
-        if let Some((b, _play)) = self.get_selected() {
+        if let Some(b) = self.get_selected() {
             let meta = b.lock().unwrap().metadata.clone();
 
             // draw map name top-most left-most
@@ -212,11 +214,14 @@ impl Menu for BeatmapSelectMenu {
 
         // check if leaderboard item was clicked
         if let Some(score_tag) = self.leaderboard_scroll.on_click(pos, button, game) {
+            println!("{}", score_tag);
             // score display
             if let Some(score) = self.current_scores.get(&score_tag) {
                 let score = score.lock().unwrap().clone();
+                println!("b");
 
-                if let Some((selected, _)) = self.get_selected() {
+                if let Some(selected) = self.get_selected() {
+                    println!("c");
                     let menu = ScoreMenu::new(&score, selected.clone());
                     game.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
                 }
@@ -245,8 +250,11 @@ impl Menu for BeatmapSelectMenu {
             }
 
             // get current selected map
-            if let Some((b, _play)) = self.get_selected() {
-                b.lock().unwrap().song.stop();
+            if let Some(b) = self.get_selected() {
+                let mut b = b.lock().unwrap();
+                if b.metadata.version_string() != clicked_tag.split('\n').next().unwrap() {
+                    b.song.stop();
+                }
             }
 
             self.selected = Some(clicked_tag.clone());
@@ -297,8 +305,8 @@ struct BeatmapsetItem {
     hover: bool,
     selected: bool,
     tag: String,
-    pending_play: bool,
 
+    pending_play: bool,
     beatmaps: Vec<Arc<Mutex<Beatmap>>>,
     meta: BeatmapMeta,
     selected_item: usize, // index of selected item
@@ -345,7 +353,7 @@ impl ScrollableItem for BeatmapsetItem {
             Vector2::new(BEATMAPSET_ITEM_SIZE.x, (BEATMAPSET_ITEM_SIZE.y + BEATMAP_ITEM_PADDING) * (self.beatmaps.len()+1) as f64)
         }
     }
-    fn get_tag(&self) -> String {self.tag.clone()}
+    fn get_tag(&self) -> String {format!("{}\n{}", self.tag, self.beatmaps[self.selected_item].lock().unwrap().hash.clone())}
     fn set_tag(&mut self, _tag:&str) {
         self.pending_play = false; 
         self.first.lock().unwrap().song.stop();

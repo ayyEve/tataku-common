@@ -1,17 +1,30 @@
 use std::{collections::HashMap, fs::read_dir, path::Path, sync::{Arc, Mutex}};
-
 use crate::{DOWNLOADS_DIR, gameplay::Beatmap};
 
+// ugh
+type ArcMutexBeatmap = Arc<Mutex<Beatmap>>;
+
 pub struct BeatmapManager {
-    pub beatmaps: Vec<Arc<Mutex<Beatmap>>>,
+    pub beatmaps: Vec<ArcMutexBeatmap>,
+    pub beatmaps_by_hash: HashMap<String, ArcMutexBeatmap>,
 
     pub dirty: bool, // might be useful later
 }
 impl BeatmapManager {
     pub fn new() -> Self {
         Self {
-            beatmaps:Vec::new(),
+            beatmaps: Vec::new(),
+            beatmaps_by_hash: HashMap::new(),
             dirty: false
+        }
+    }
+
+    pub fn check_dirty(&mut self) -> bool {
+        if self.dirty {
+            self.dirty = false;
+            true
+        } else {
+            false
         }
     }
 
@@ -30,6 +43,7 @@ impl BeatmapManager {
         _self.lock().unwrap().dirty = true;
     }
 
+    // adders
     pub fn check_folder(&mut self, dir:String) {
 
         if !Path::new(&dir).is_dir() {return}
@@ -50,27 +64,20 @@ impl BeatmapManager {
         }
     }
 
-    pub fn add_beatmap(&mut self, beatmap:Arc<Mutex<Beatmap>>) {
+    pub fn add_beatmap(&mut self, beatmap:ArcMutexBeatmap) {
 
         // check if we already have this map
         let new_hash = beatmap.lock().unwrap().hash.clone();
-        for i in self.beatmaps.iter() {if i.lock().unwrap().hash == new_hash {println!("skipping map"); return}}
+        if self.beatmaps_by_hash.contains_key(&new_hash) {return println!("map already added")}
 
         // dont have it, add it
-        self.beatmaps.push(beatmap);
+        self.beatmaps_by_hash.insert(new_hash, beatmap.clone());
+        self.beatmaps.push(beatmap.clone());
         self.dirty = true;
     }
 
-    pub fn check_dirty(&mut self) -> bool {
-        if self.dirty {
-            self.dirty = false;
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn all_by_sets(&self) -> Vec<Vec<Arc<Mutex<Beatmap>>>> { // list of sets as (list of beatmaps in the set)
+    // getters
+    pub fn all_by_sets(&self) -> Vec<Vec<ArcMutexBeatmap>> { // list of sets as (list of beatmaps in the set)
         let mut set_map = HashMap::new();
 
         for beatmap in self.beatmaps.iter() {
@@ -83,5 +90,12 @@ impl BeatmapManager {
         let mut sets = Vec::new();
         set_map.values().for_each(|e|sets.push(e.to_owned()));
         sets
+    }
+
+    pub fn get_by_hash(&self, hash:String) -> Option<ArcMutexBeatmap> {
+        match self.beatmaps_by_hash.get(&hash) {
+            Some(b) => Some(b.clone()),
+            None => None
+        }
     }
 }
