@@ -684,7 +684,7 @@ impl Game {
             if self.transition.is_none() {alpha = 1.0 - diff / TRANSITION_TIME as f64}
 
             renderables.push(Box::new(Rectangle::new(
-                [0.0,0.0,0.0, alpha as f32].into(),
+                [0.0, 0.0, 0.0, alpha as f32].into(),
                 -f64::MAX,
                 Vector2::zero(),
                 WINDOW_SIZE,

@@ -5,6 +5,7 @@ mod password_input;
 mod scrollable_area;
 mod checkbox;
 mod slider;
+mod section;
 
 pub use text_input::*;
 pub use button::*;
@@ -13,3 +14,4 @@ pub use password_input::*;
 pub use scrollable_area::*;
 pub use checkbox::*;
 pub use slider::*;
+pub use section::*;
