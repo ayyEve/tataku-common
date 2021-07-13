@@ -7,12 +7,11 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungsten
 
 use crate::game::Settings;
 use super::online_user::OnlineUser;
-use taiko_rs_common::types::UserAction;
 use taiko_rs_common::packets::PacketId;
+use taiko_rs_common::types::{SpectatorFrame, UserAction};
 use taiko_rs_common::serialization::{SerializationReader, SimpleWriter};
 
 type WsWriter = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
-
 
 const CONNECT_URL:&str = "ws://localhost:8080";
 
@@ -21,6 +20,8 @@ pub struct OnlineManager {
     pub connected: bool,
     pub users: HashMap<u32, Arc<Mutex<OnlineUser>>>, // user id is key
     pub writer: Option<Arc<Mutex<WsWriter>>>,
+
+    pub buffered_spectator_frames: Vec<SpectatorFrame>,
     
     user_id: u32, // this user's id
 }
@@ -32,6 +33,7 @@ impl OnlineManager {
             users: HashMap::new(),
             writer: None,
             connected: false,
+            buffered_spectator_frames:Vec::new(),
         }
     }
     pub async fn start(s: Arc<Mutex<Self>>) {

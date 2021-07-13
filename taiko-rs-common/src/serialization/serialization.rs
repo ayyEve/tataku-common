@@ -4,6 +4,10 @@ pub trait Serializable {
     fn read(sr:&mut SerializationReader) -> Self;
     fn write(&self, sw:&mut SerializationWriter);
 }
+impl<T:Serializable> Serializable for &T {
+    fn read(sr:&mut SerializationReader) -> Self {sr.read()}
+    fn write(&self, sw:&mut SerializationWriter) {sw.write(*self)}
+}
 impl Serializable for String {
     fn read(sr:&mut SerializationReader) -> Self {
         sr.read_string()
@@ -48,6 +52,20 @@ impl Serializable for bool {
         sw.write_u8(if *self {1} else {0});
     }
 }
+
+// serialization for tuples
+impl<T:Serializable,T2:Serializable> Serializable for (T, T2) {
+    fn read(sr:&mut SerializationReader) -> Self {
+        (sr.read(), sr.read())
+    }
+
+    fn write(&self, sw:&mut SerializationWriter) {
+        let (a, b) = self;
+        sw.write(a);
+        sw.write(b);
+    }
+}
+
 
 macro_rules! __impl_serializable_numbers {
     ($($t:ty),+) => {

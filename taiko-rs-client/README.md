@@ -17,6 +17,7 @@ TODO:
  - dropdown menu item
  - notification system
  - map backgrounds in-game
+ - scrollable area dragger
   
 - // Gameplay
  - letter ranking

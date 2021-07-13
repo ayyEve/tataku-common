@@ -29,7 +29,7 @@ impl Serializable for Replay {
             count -= 1;
 
             let time:i64 = sr.read_i64();
-            let key:KeyPress = sr.read_u8().into();
+            let key:KeyPress = sr.read();
             r.presses.push((time, key));
         }
         
@@ -44,7 +44,7 @@ impl Serializable for Replay {
 
         for (time, key) in self.presses.as_slice() {
             sw.write(time.to_owned());
-            sw.write(key.to_owned() as u8);
+            sw.write(key.clone());
         }
     }
 }
@@ -74,6 +74,7 @@ impl From<u8> for Playstyle {
     }
 }
 
+
 #[derive(Clone, Debug, Copy)]
 pub enum KeyPress {
     LeftKat = 0,
@@ -98,4 +99,9 @@ impl From<u8> for KeyPress {
             _ => LeftKat // maybe it should panic instead?
         }
     }
+}
+
+impl Serializable for KeyPress {
+    fn read(sr:&mut SerializationReader) -> Self {sr.read_u8().into()}
+    fn write(&self, sw:&mut SerializationWriter) {sw.write_u8(self.clone() as u8)}
 }

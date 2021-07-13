@@ -29,7 +29,7 @@ pub enum PacketId {
     Client_Spectate, // user_id to spectate
     Server_SpectatorJoined, // user_id of spectator
     Client_SpectatorFrames, // frame_count, [(action, |...action_args|)], action = SpectatorAction
-    Server_SpecatorFrames, // sender_id, frame_count, [(action, |...action_args|)], action = SpectatorAction
+    Server_SpectatorFrames, // sender_id, frame_count, [(action, |...action_args|)], action = SpectatorAction
 
     // multiplayer?
 
@@ -48,4 +48,3 @@ impl Serializable for PacketId {
         sw.write_u16(self.clone().into())
     }
 }
-
