@@ -232,9 +232,7 @@ impl Game {
             // check volume changed, if it has, set the selected time to now
             if delta != 0.0 || keys.contains(&Key::Up) || keys.contains(&Key::Down) {
                 // reset index back to 0 (master) if the volume hasnt been touched in a while
-                if elapsed - self.vol_selected_time > VOLUME_CHANGE_DISPLAY_TIME + 1000 {
-                    self.vol_selected_index = 0;
-                }
+                if elapsed - self.vol_selected_time > VOLUME_CHANGE_DISPLAY_TIME + 1000 {self.vol_selected_index = 0}
 
                 // find out what volume to edit, and edit it
                 match self.vol_selected_index {
@@ -270,38 +268,38 @@ impl Game {
                 }
             }
         }
-        {
-            // check if mouse clicked volume button
-            if self.vol_selected_time > 0 && elapsed as f64 - (self.vol_selected_time as f64) < VOLUME_CHANGE_DISPLAY_TIME as f64 {
-                if mouse_buttons.contains(&MouseButton::Left) || mouse_moved {
-                    let window_size = WINDOW_SIZE;
-                    let master_pos = window_size - Vector2::new(300.0, 90.0);
-                    let effect_pos = window_size - Vector2::new(300.0, 60.0);
-                    let music_pos = window_size - Vector2::new(300.0, 30.0);
+        
+        // check if mouse clicked volume button
+        if self.vol_selected_time > 0 && elapsed as f64 - (self.vol_selected_time as f64) < VOLUME_CHANGE_DISPLAY_TIME as f64 {
+            if mouse_buttons.contains(&MouseButton::Left) || mouse_moved {
+                let window_size = WINDOW_SIZE;
+                let master_pos = window_size - Vector2::new(300.0, 90.0);
+                let effect_pos = window_size - Vector2::new(300.0, 60.0);
+                let music_pos = window_size - Vector2::new(300.0, 30.0);
 
-                    if mouse_pos.x >= master_pos.x {
-                        let mut modified = false;
-                        if mouse_pos.y >= music_pos.y {
-                            self.vol_selected_index = 2;
-                            modified = true;
-                        } else if mouse_pos.y >= effect_pos.y {
-                            self.vol_selected_index = 1;
-                            modified = true;
-                        } else if mouse_pos.y >= master_pos.y {
-                            self.vol_selected_index = 0;
-                            modified = true;
-                        }
+                if mouse_pos.x >= master_pos.x {
+                    let mut modified = false;
+                    if mouse_pos.y >= music_pos.y {
+                        self.vol_selected_index = 2;
+                        modified = true;
+                    } else if mouse_pos.y >= effect_pos.y {
+                        self.vol_selected_index = 1;
+                        modified = true;
+                    } else if mouse_pos.y >= master_pos.y {
+                        self.vol_selected_index = 0;
+                        modified = true;
+                    }
 
-                        // was just updated
-                        if modified {
-                            self.vol_selected_time = elapsed;
-                            // remove left click from list as it was consumed by this
-                            mouse_buttons.retain(|e| e == &MouseButton::Left);
-                        }
+                    // was just updated
+                    if modified {
+                        self.vol_selected_time = elapsed;
+                        // remove left click from list as it was consumed by this
+                        mouse_buttons.retain(|e| e == &MouseButton::Left);
                     }
                 }
             }
         }
+        
 
         if keys.contains(&Key::F8) {
             self.show_user_list = !self.show_user_list;
@@ -416,12 +414,12 @@ impl Game {
                     // submit score
                     #[cfg(feature = "online_scores")] 
                     {
-                        let score_clone = beatmap.score.clone();
                         self.threading.spawn(async move {
                             //TODO: do this async
                             println!("submitting score");
-                            let mut writer = crate::game::SerializationWriter::new();
-                            writer.write(score_clone);
+                            let mut writer = taiko_rs_common::serialization::SerializationWriter::new();
+                            writer.write(score.clone());
+                            writer.write(replay.clone());
                             let data = writer.data();
                             
                             let c = reqwest::Client::new();
@@ -442,7 +440,6 @@ impl Game {
                     // show score menu
                     let menu = ScoreMenu::new(&score, og_beatmap.clone());
                     self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
-
                     println!("new menu set");
 
                     // cleanup memory-hogs in the beatmap object
@@ -454,65 +451,63 @@ impl Game {
                 let settings = Settings::get();
                 let mut beatmap = beatmap.lock().unwrap();
 
-                {
-                    let time = beatmap.time();
-                    // read any frames that need to be read
-                    loop {
-                        if *frame_index as usize >= replay.presses.len() {break}
-                        
-                        let (press_time, pressed) = replay.presses[*frame_index as usize];
-                        if press_time > time {break}
+                let time = beatmap.time();
+                // read any frames that need to be read
+                loop {
+                    if *frame_index as usize >= replay.presses.len() {break}
+                    
+                    let (press_time, pressed) = replay.presses[*frame_index as usize];
+                    if press_time > time {break}
 
-                        beatmap.hit(pressed);
-                        match pressed {
-                            KeyPress::LeftKat => {
-                                let mut hit = HalfCircle::new(
-                                    Color::BLUE,
-                                    HIT_POSITION,
-                                    1.0,
-                                    HIT_AREA_RADIUS,
-                                    true
-                                );
-                                hit.set_lifetime(DRUM_LIFETIME_TIME);
-                                self.render_queue.push(Box::new(hit));
-                            },
-                            KeyPress::LeftDon => {
-                                let mut hit = HalfCircle::new(
-                                    Color::RED,
-                                    HIT_POSITION,
-                                    1.0,
-                                    HIT_AREA_RADIUS,
-                                    true
-                                );
-                                hit.set_lifetime(DRUM_LIFETIME_TIME);
-                                self.render_queue.push(Box::new(hit));
-                            },
-                            KeyPress::RightDon => {
-                                let mut hit = HalfCircle::new(
-                                    Color::RED,
-                                    HIT_POSITION,
-                                    1.0,
-                                    HIT_AREA_RADIUS,
-                                    false
-                                );
-                                hit.set_lifetime(DRUM_LIFETIME_TIME);
-                                self.render_queue.push(Box::new(hit));
-                            },
-                            KeyPress::RightKat => {
-                                let mut hit = HalfCircle::new(
-                                    Color::BLUE,
-                                    HIT_POSITION,
-                                    1.0,
-                                    HIT_AREA_RADIUS,
-                                    false
-                                );
-                                hit.set_lifetime(DRUM_LIFETIME_TIME);
-                                self.render_queue.push(Box::new(hit));
-                            },
-                        }
-
-                        *frame_index += 1;
+                    beatmap.hit(pressed);
+                    match pressed {
+                        KeyPress::LeftKat => {
+                            let mut hit = HalfCircle::new(
+                                Color::BLUE,
+                                HIT_POSITION,
+                                1.0,
+                                HIT_AREA_RADIUS,
+                                true
+                            );
+                            hit.set_lifetime(DRUM_LIFETIME_TIME);
+                            self.render_queue.push(Box::new(hit));
+                        },
+                        KeyPress::LeftDon => {
+                            let mut hit = HalfCircle::new(
+                                Color::RED,
+                                HIT_POSITION,
+                                1.0,
+                                HIT_AREA_RADIUS,
+                                true
+                            );
+                            hit.set_lifetime(DRUM_LIFETIME_TIME);
+                            self.render_queue.push(Box::new(hit));
+                        },
+                        KeyPress::RightDon => {
+                            let mut hit = HalfCircle::new(
+                                Color::RED,
+                                HIT_POSITION,
+                                1.0,
+                                HIT_AREA_RADIUS,
+                                false
+                            );
+                            hit.set_lifetime(DRUM_LIFETIME_TIME);
+                            self.render_queue.push(Box::new(hit));
+                        },
+                        KeyPress::RightKat => {
+                            let mut hit = HalfCircle::new(
+                                Color::BLUE,
+                                HIT_POSITION,
+                                1.0,
+                                HIT_AREA_RADIUS,
+                                false
+                            );
+                            hit.set_lifetime(DRUM_LIFETIME_TIME);
+                            self.render_queue.push(Box::new(hit));
+                        },
                     }
+
+                    *frame_index += 1;
                 }
                 
                 // pause button, or focus lost
@@ -548,11 +543,9 @@ impl Game {
                 if volume_changed {menu.on_volume_change()}
 
                 // clicks
-                if mouse_buttons.len() > 0 {
-                    for b in mouse_buttons { 
-                        // game.start_map() can happen here, which needs &mut self
-                        menu.on_click(mouse_pos, b, self);
-                    }
+                for b in mouse_buttons { 
+                    // game.start_map() can happen here, which needs &mut self
+                    menu.on_click(mouse_pos, b, self);
                 }
                 // mouse move
                 if mouse_moved {menu.on_mouse_move(mouse_pos, self)}
@@ -626,17 +619,12 @@ impl Game {
                     _ => {}
                 }
 
-
                 let mut do_transition = true;
                 match &self.current_mode {
                     GameMode::None => do_transition = false,
                     GameMode::InMenu(menu) if menu.lock().unwrap().get_name() == "pause" => do_transition = false,
                     _ => {}
                 }
-                
-                // if let GameMode::InMenu(menu) = &unlocked.current_mode {
-                //     menu.lock().unwrap().on_change(false);
-                // }
 
                 if do_transition {
                     // do a transition
