@@ -659,9 +659,8 @@ impl Game {
 
         // mode
         match &self.current_mode {
-            GameMode::Ingame(beatmap) => {
-                renderables.extend(beatmap.lock().unwrap().draw(args));
-            }
+            GameMode::Ingame(beatmap) => renderables.extend(beatmap.lock().unwrap().draw(args)),
+            
             GameMode::Replaying(beatmap,_,_) => {
                 renderables.extend(beatmap.lock().unwrap().draw(args));
 
