@@ -22,16 +22,18 @@ impl Serializable for Replay {
         
         let _version = sr.read_u16();
         r.playstyle = sr.read_u8().into();
-        let mut count:u64 = sr.read_u64();
-        println!("reading {} replay frames", count);
+        r.presses = sr.read();
 
-        while count > 0 {
-            count -= 1;
+        // let mut count:u64 = sr.read_u64();
+        // println!("reading {} replay frames", count);
 
-            let time:i64 = sr.read_i64();
-            let key:KeyPress = sr.read();
-            r.presses.push((time, key));
-        }
+        // while count > 0 {
+        //     count -= 1;
+
+        //     let time:i64 = sr.read_i64();
+        //     let key:KeyPress = sr.read();
+        //     r.presses.push((time, key));
+        // }
         
         r
     }
@@ -39,13 +41,14 @@ impl Serializable for Replay {
     fn write(&self, sw: &mut SerializationWriter) {
         sw.write(CURRENT_VERSION);
         sw.write(self.playstyle as u8);
-        sw.write(self.presses.len() as u64);
         println!("writing {} replay frames", self.presses.len());
+        sw.write(&self.presses);
 
-        for (time, key) in self.presses.as_slice() {
-            sw.write(time.to_owned());
-            sw.write(key.clone());
-        }
+        // sw.write(self.presses.len() as u64);
+        // for (time, key) in self.presses.as_slice() {
+        //     sw.write(time.to_owned());
+        //     sw.write(key.clone());
+        // }
     }
 }
 
@@ -58,9 +61,7 @@ pub enum Playstyle {
     DDKK = 2
 }
 impl Into<u8> for Playstyle {
-    fn into(self) -> u8 {
-        self as u8
-    }
+    fn into(self) -> u8 {self as u8}
 }
 impl From<u8> for Playstyle {
     fn from(n: u8) -> Self {

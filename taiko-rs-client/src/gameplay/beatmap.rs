@@ -2,6 +2,7 @@ use std::{path::Path, sync::{Arc, Mutex}, time::SystemTime};
 
 use piston::RenderArgs;
 
+use taiko_rs_common::types::{KeyPress, Replay, Score, ScoreHit};
 use super::{*, diff_calc::DifficultyCalculator, beatmap_structs::*};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS, WINDOW_SIZE, game::{Audio, Settings}};
 use crate::{NOTE_RADIUS, enums::Playmode, game::{SoundEffect, get_font, Vector2}, render::{Renderable, Rectangle, Text, Circle, Color, Border}};
@@ -22,7 +23,8 @@ const HIT_TIMING_BAR_COLOR:Color = Color {r:0.0,g:0.0,b:0.0, a:1.0};
 
 #[derive(Clone)]
 pub struct Beatmap {
-    pub score: Score,
+    pub score: Option<Score>,
+    pub replay: Option<Replay>,
 
     pub hash: String,
     pub started: bool,
@@ -61,13 +63,14 @@ impl Beatmap {
         let mut body = String::new();
         let mut current_area = BeatmapSection::Version;
         let mut meta = BeatmapMeta::new();
-        let beatmap = Arc::new(Mutex::new(Beatmap {
+        let mut beatmap = Beatmap {
             hash: String::new(),
             notes: Vec::new(),
             timing_points: Vec::new(),
             timing_bars: Vec::new(),
             song_start: SystemTime::now(),
-            score: Score::new(String::new()),
+            score: None,
+            replay: None,
             metadata: BeatmapMeta::new(),
             song: SoundEffect::new_empty(), // temp until we get the audio file path
             note_index: 0,
@@ -84,7 +87,7 @@ impl Beatmap {
             hitwindow_100: 0.0,
             hitwindow_300: 0.0,
             hitwindow_miss: 0.0,
-        }));
+        };
 
         let parent_dir = Path::new(&dir).parent().unwrap();
         let mut tp_parent: Option<Arc<TimingPoint>> = None;
@@ -108,8 +111,7 @@ impl Beatmap {
                     if line == "[TimingPoints]" {current_area = BeatmapSection::TimingPoints}
                     if line == "[HitObjects]" {
                         // sort timing points before moving onto hitobjects
-                        let mut b2 = beatmap.lock().unwrap();
-                        b2.timing_points.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
+                        beatmap.timing_points.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
 
                         current_area = BeatmapSection::HitObjects; 
                     }
@@ -180,7 +182,7 @@ impl Beatmap {
                             tp_parent = Some(Arc::new(tp.clone()));
                         }
 
-                        beatmap.lock().unwrap().timing_points.push(tp);
+                        beatmap.timing_points.push(tp);
                     },
                     BeatmapSection::HitObjects => {
                         let mut split = line.split(",");
@@ -196,7 +198,7 @@ impl Beatmap {
                         let finisher = (hitsound & 4) > 0;
                         
                         // set later, bc for some reason its inconsistant here
-                        let sv = 1.0; //beatmap.lock().unwrap().slider_velocity_at(time) / SV_FACTOR;
+                        let sv = 1.0; //beatmap.slider_velocity_at(time) / SV_FACTOR;
 
                         if (read_type & 2) > 0 { // slider
                             let _curve = split.next(); // dont care
@@ -205,12 +207,12 @@ impl Beatmap {
 
                             let l = (length * 1.4) * slides as f64;
                             let v2 = 100.0 * (meta.slider_multiplier as f64 * 1.4);
-                            let bl = beatmap.lock().unwrap().beat_length_at(time as f64, true);
+                            let bl = beatmap.beat_length_at(time as f64, true);
                             let end_time = time + (l / v2 * bl) as u64;
                             
                             // convert vars
-                            let v = beatmap.lock().unwrap().slider_velocity_at(time);
-                            let bl = beatmap.lock().unwrap().beat_length_at(time as f64, meta.beatmap_version < 8.0);
+                            let v = beatmap.slider_velocity_at(time);
+                            let bl = beatmap.beat_length_at(time as f64, meta.beatmap_version < 8.0);
                             let skip_period = (bl / meta.slider_tick_rate as f64).min((end_time - time) as f64 / slides as f64);
 
                             if skip_period > 0.0 && meta.mode != Playmode::Taiko && l / v * 1000.0 < 2.0 * bl {
@@ -246,7 +248,7 @@ impl Beatmap {
                                         sound_type.1,
                                         sv
                                     );
-                                    beatmap.lock().unwrap().notes.push(Arc::new(Mutex::new(note)));
+                                    beatmap.notes.push(Arc::new(Mutex::new(note)));
 
                                     if !unified_sound_addition {i = (i + 1) % sound_types.len()}
 
@@ -255,7 +257,7 @@ impl Beatmap {
                                 }
                             } else {
                                 let slider = Slider::new(time, end_time, finisher, sv);
-                                beatmap.lock().unwrap().notes.push(Arc::new(Mutex::new(slider)));
+                                beatmap.notes.push(Arc::new(Mutex::new(slider)));
                             }
 
                         } else if (read_type & 8) > 0 { // spinner
@@ -282,10 +284,10 @@ impl Beatmap {
                             let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
                             // just make a slider for now
                             let spinner = Spinner::new(time, end_time, sv, hits_required);
-                            beatmap.lock().unwrap().notes.push(Arc::new(Mutex::new(spinner)));
+                            beatmap.notes.push(Arc::new(Mutex::new(spinner)));
                         } else { // note
                             let note = Note::new(time, hit_type, finisher, sv);
-                            beatmap.lock().unwrap().notes.push(Arc::new(Mutex::new(note)));
+                            beatmap.notes.push(Arc::new(Mutex::new(note)));
                         }
                     },
 
@@ -299,21 +301,21 @@ impl Beatmap {
         let md5 = format!("{:x}", md5::compute(body).to_owned());
         // does this need to be in its own scope? probably not but whatever
         // assign values
-        {
-            let mut locked = beatmap.lock().unwrap();
-            let start_time = locked.clone().notes.first().unwrap().lock().unwrap().time() as f64;
-            let end_time = locked.clone().notes.last().unwrap().lock().unwrap().end_time() as f64;
+        let start_time = beatmap.notes.first().unwrap().lock().unwrap().time() as f64;
+        let end_time = beatmap.notes.last().unwrap().lock().unwrap().end_time() as f64;
 
-            meta.set_dur((end_time - start_time) as u64);
-            locked.end_time = end_time;
-            locked.metadata = meta.clone();
-            locked.calc_sr();
-            locked.song = SoundEffect::new(&meta.clone().audio_filename);
+        meta.set_dur((end_time - start_time) as u64);
+        beatmap.end_time = end_time;
+        beatmap.metadata = meta.clone();
+        beatmap.calc_sr();
 
-            locked.hash = md5.clone();
-            locked.score = Score::new(md5.clone());
-        }
-        beatmap
+        //TODO!
+        beatmap.song = SoundEffect::new(&meta.clone().audio_filename);
+
+        beatmap.hash = md5.clone();
+        // beatmap.score = Some(Score::new(md5.clone(), Settings::get_mut().username.clone()));
+
+        Arc::new(Mutex::new(beatmap))
     }
 
     pub fn calc_sr(&mut self) {
@@ -334,7 +336,10 @@ impl Beatmap {
     }
 
     pub fn hit(&mut self, key:KeyPress) {
-        self.score.replay.presses.push((self.time(), key));
+        let time = self.time() as f64;
+        if let Some(replay) = self.replay.as_mut() {
+            replay.presses.push((time as i64, key));
+        }
 
         let hit_type:HitType = key.into();
         let mut sound = match hit_type {HitType::Don => "don",HitType::Kat => "kat"};
@@ -344,7 +349,6 @@ impl Beatmap {
             Audio::play(sound);
             return;
         }
-        let time = self.time() as f64;
 
         // check for finisher 2nd hit. 
         if self.note_index > 0 {
@@ -353,15 +357,15 @@ impl Beatmap {
             match last_note.check_finisher(hit_type, time) {
                 ScoreHit::Miss => {return},
                 ScoreHit::X100 => {
-                    self.score.add_pts(100, true);
+                    self.score.as_mut().unwrap().add_pts(100, true);
                     return;
                 },
                 ScoreHit::X300 => {
-                    self.score.add_pts(300, true);
+                    self.score.as_mut().unwrap().add_pts(300, true);
                     return;
                 },
                 ScoreHit::Other(points, _) => {
-                    self.score.add_pts(points as u64, false);
+                    self.score.as_mut().unwrap().add_pts(points as u64, false);
                     return;
                 },
                 ScoreHit::None => {},
@@ -378,7 +382,7 @@ impl Beatmap {
                 Audio::play(sound);
             },
             ScoreHit::Miss => {
-                self.score.hit_miss(time as u64, note_time as u64);
+                self.score.as_mut().unwrap().hit_miss(time as u64, note_time as u64);
                 self.hit_timings.push((time as i64, (time - note_time) as i64));
                 self.next_note();
                 Audio::play(sound);
@@ -387,7 +391,7 @@ impl Beatmap {
                 //TODO: indicate this was a miss
             },
             ScoreHit::X100 => {
-                self.score.hit100(time as u64, note_time as u64);
+                self.score.as_mut().unwrap().hit100(time as u64, note_time as u64);
                 self.hit_timings.push((time as i64, (time - note_time) as i64));
 
                 // only play finisher sounds if the note is both a finisher and was hit
@@ -399,7 +403,7 @@ impl Beatmap {
                 self.next_note();
             },
             ScoreHit::X300 => {
-                self.score.hit300(time as u64, note_time as u64);
+                self.score.as_mut().unwrap().hit300(time as u64, note_time as u64);
                 self.hit_timings.push((time as i64, (time - note_time) as i64));
                 
                 if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon",HitType::Kat => "bigkat"};}
@@ -408,7 +412,7 @@ impl Beatmap {
                 self.next_note();
             },
             ScoreHit::Other(score, consume) => { // used by sliders and spinners
-                self.score.score += score as u64;
+                self.score.as_mut().unwrap().score += score as u64;
                 if consume {self.next_note();}
                 Audio::play(sound);
             }
@@ -450,8 +454,9 @@ impl Beatmap {
             if self.notes[self.note_index].lock().unwrap().causes_miss() {
                 // need to set these manually instead of score.hit_miss,
                 // since we dont want to add anything to the hit error list
-                self.score.xmiss += 1;
-                self.score.combo = 0;
+                let s = self.score.as_mut().unwrap();
+                s.xmiss += 1;
+                s.combo = 0;
             }
 
             self.next_note();
@@ -492,13 +497,15 @@ impl Beatmap {
             HIT_AREA_RADIUS + 2.0
         )));
 
+        let score = self.score.as_ref().unwrap();
+
         // score text
         renderables.push(Box::new(Text::new(
             Color::BLACK,
             0.0,
             Vector2::new(args.window_size[0] - 200.0, 40.0),
             30,
-            crate::format(self.score.score),
+            crate::format(score.score),
             font.clone()
         )));
 
@@ -508,7 +515,7 @@ impl Beatmap {
             0.0,
             Vector2::new(args.window_size[0] - 200.0, 70.0),
             30,
-            format!("{:.2}%", self.score.acc()*100.0),
+            format!("{:.2}%", score.acc()*100.0),
             font.clone()
         )));
 
@@ -518,7 +525,7 @@ impl Beatmap {
             0.0,
             HIT_POSITION - Vector2::new(100.0, 0.0),
             30,
-            crate::format(self.score.combo),
+            crate::format(score.combo),
             font.clone()
         );
         combo_text.center_text(Rectangle::bounds_only(
@@ -707,7 +714,8 @@ impl Beatmap {
             println!("created {} timing bars", self.timing_bars.len());
         }
     
-        self.score = Score::new(self.hash.clone());
+        self.score = Some(Score::new(self.hash.clone(), Settings::get_mut().username.clone()));
+        self.replay = Some(Replay::new());
 
         self.hitwindow_miss = map_difficulty_range(self.metadata.od as f64, 135.0, 95.0, 70.0);
         self.hitwindow_100 = map_difficulty_range(self.metadata.od as f64, 120.0, 80.0, 50.0);
@@ -715,7 +723,8 @@ impl Beatmap {
     }
     pub fn cleanup(&mut self) {
         self.timing_bars.clear();
-        self.score = Score::new(self.hash.clone());
+        self.score = None;
+        self.replay = None;
     }
 
     pub fn beat_length_at(&self, time:f64, allow_multiplier:bool) -> f64 {
@@ -879,4 +888,14 @@ enum BeatmapSection {
     TimingPoints,
     Colors,
     HitObjects,
+}
+
+
+impl Into<HitType> for KeyPress {
+    fn into(self) -> HitType {
+        match self {
+            KeyPress::LeftKat|KeyPress::RightKat => HitType::Kat,
+            KeyPress::LeftDon|KeyPress::RightDon => HitType::Don,
+        }
+    }
 }

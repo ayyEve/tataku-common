@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::{Arc, Mutex}};
 
 use taiko_rs_common::serialization::*;
-use crate::gameplay::{Replay, Score};
+use taiko_rs_common::types::{Replay, Score};
 use crate::{REPLAYS_DIR, SCORE_DATABASE_FILE};
 
 
@@ -47,13 +47,13 @@ pub fn get_scores(hash:String) -> Arc<Mutex<Vec<Score>>> {
     lock.get(&hash).unwrap().clone()
 }
 
-pub fn save_score(s:Score) {
+pub fn save_score(s:&Score) {
     let mut lock = SCORES_CACHE.lock().unwrap();
     if !lock.contains_key(&s.beatmap_hash) {
         lock.insert(s.beatmap_hash.clone(), Arc::new(Mutex::new(Vec::new())));
     }
     let x = lock.get(&s.beatmap_hash).unwrap();
-    x.lock().unwrap().push(s);
+    x.lock().unwrap().push(s.clone());
 }
 
 pub fn save_all_scores() -> std::io::Result<()> {
@@ -77,6 +77,14 @@ pub fn save_all_scores() -> std::io::Result<()> {
 
     // write file
     return save_database(SCORE_DATABASE_FILE, writer);
+}
+
+pub fn save_replay(r:&Replay, s:&Score) -> std::io::Result<()> {
+    let mut writer = SerializationWriter::new();
+    writer.write(r.clone());
+
+    let filename = format!("{}/{}.rs_replay", REPLAYS_DIR,s.hash());
+    save_database(&filename, writer)
 }
 
 pub fn get_local_replay(score_hash:String) -> std::io::Result<Replay> {

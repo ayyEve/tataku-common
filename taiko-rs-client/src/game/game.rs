@@ -8,9 +8,9 @@ use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window,input::*, event_loop::*, window::WindowSettings};
 
-use taiko_rs_common::types::UserAction;
-use crate::gameplay::{Beatmap, Replay, KeyPress};
-use crate::databases::{save_all_scores, save_score};
+use crate::gameplay::Beatmap;
+use crate::databases::{save_all_scores, save_replay, save_score};
+use taiko_rs_common::types::{UserAction, Replay, KeyPress};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, SONGS_DIR, menu::*};
 use crate::render::{HalfCircle, Rectangle, Renderable, Text, Color, Border};
 use crate::game::{InputManager, Settings, get_font, Vector2, online::{USER_ITEM_SIZE, OnlineManager}, helpers::{FpsDisplay, BenchmarkHelper, BeatmapManager}};
@@ -393,12 +393,25 @@ impl Game {
                 // update, then check if complete
                 beatmap.update();
                 if beatmap.completed {
+                    println!("beatmap complete");
+
+                    let score = beatmap.score.as_ref().unwrap();
+                    let replay = beatmap.replay.as_ref().unwrap();
+                    println!("score + replay unwrapped");
+
                     // save score
-                    save_score(beatmap.score.clone());
+                    save_score(&score);
+                    println!("score saved");
+                    match save_replay(&replay, &score) {
+                        Ok(_)=> println!("replay saved ok"),
+                        Err(e) => println!("error saving replay: {}", e),
+                    }
+                    println!("replay saved");
                     match save_all_scores() {
                         Ok(_) => println!("Scores saved successfully"),
                         Err(e) => println!("Failed to save scores! {}", e),
                     }
+                    println!("all scores saved");
 
                     // submit score
                     #[cfg(feature = "online_scores")] 
@@ -427,8 +440,10 @@ impl Game {
                     }
 
                     // show score menu
-                    let menu = ScoreMenu::new(beatmap.score.clone(), Arc::new(Mutex::new(beatmap.clone())));
+                    let menu = ScoreMenu::new(&score, og_beatmap.clone());
                     self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
+
+                    println!("new menu set");
 
                     // cleanup memory-hogs in the beatmap object
                     beatmap.cleanup();
@@ -450,7 +465,7 @@ impl Game {
 
                         beatmap.hit(pressed);
                         match pressed {
-                            crate::gameplay::KeyPress::LeftKat => {
+                            KeyPress::LeftKat => {
                                 let mut hit = HalfCircle::new(
                                     Color::BLUE,
                                     HIT_POSITION,
@@ -461,7 +476,7 @@ impl Game {
                                 hit.set_lifetime(DRUM_LIFETIME_TIME);
                                 self.render_queue.push(Box::new(hit));
                             },
-                            crate::gameplay::KeyPress::LeftDon => {
+                            KeyPress::LeftDon => {
                                 let mut hit = HalfCircle::new(
                                     Color::RED,
                                     HIT_POSITION,
@@ -472,7 +487,7 @@ impl Game {
                                 hit.set_lifetime(DRUM_LIFETIME_TIME);
                                 self.render_queue.push(Box::new(hit));
                             },
-                            crate::gameplay::KeyPress::RightDon => {
+                            KeyPress::RightDon => {
                                 let mut hit = HalfCircle::new(
                                     Color::RED,
                                     HIT_POSITION,
@@ -483,7 +498,7 @@ impl Game {
                                 hit.set_lifetime(DRUM_LIFETIME_TIME);
                                 self.render_queue.push(Box::new(hit));
                             },
-                            crate::gameplay::KeyPress::RightKat => {
+                            KeyPress::RightKat => {
                                 let mut hit = HalfCircle::new(
                                     Color::BLUE,
                                     HIT_POSITION,
@@ -518,7 +533,7 @@ impl Game {
 
                 if beatmap.completed {
                     // show score menu
-                    let menu = ScoreMenu::new(beatmap.score.clone(), Arc::new(Mutex::new(beatmap.clone())));
+                    let menu = ScoreMenu::new(&beatmap.score.as_ref().unwrap(), Arc::new(Mutex::new(beatmap.clone())));
                     self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
 
                     beatmap.cleanup();

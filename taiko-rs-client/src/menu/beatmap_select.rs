@@ -4,13 +4,11 @@ use std::collections::HashMap;
 
 use piston::{Key, MouseButton, RenderArgs};
 
-use crate::SONGS_DIR;
-use crate::gameplay::{Beatmap, BeatmapMeta, Score};
-use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem};
-use crate::{WINDOW_SIZE, DOWNLOADS_DIR, render::*, databases::get_scores};
+use taiko_rs_common::types::Score;
+use crate::gameplay::{Beatmap, BeatmapMeta};
+use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
+use crate::{SONGS_DIR, WINDOW_SIZE, DOWNLOADS_DIR, render::*, databases::get_scores};
 use crate::game::{Game, GameMode, KeyModifiers, Settings, get_font, Vector2, helpers::BeatmapManager};
-
-use super::MenuButton;
 
 // constants
 const INFO_BAR_HEIGHT:f64 = 60.0;
@@ -219,7 +217,7 @@ impl Menu for BeatmapSelectMenu {
                 let score = score.lock().unwrap().clone();
 
                 if let Some((selected, _)) = self.get_selected() {
-                    let menu = ScoreMenu::new(score, selected.clone());
+                    let menu = ScoreMenu::new(&score, selected.clone());
                     game.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
                 }
             }

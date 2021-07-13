@@ -1,8 +1,8 @@
 use crate::serialization::Serializable;
 use super::{KeyPress, Score};
 
-
 pub type SpectatorFrame = (u32, SpectatorFrameData);
+pub type SpectatorFrames = Vec<SpectatorFrame>;
 
 pub enum SpectatorFrameData {
     /// host started a new map
@@ -51,14 +51,14 @@ impl Serializable for SpectatorFrameData {
 
     fn write(&self, sw:&mut crate::serialization::SerializationWriter) {
         match &self {
-            SpectatorFrameData::Play {beatmap_hash} => {sw.write_u8(0); sw.write(beatmap_hash)},
+            SpectatorFrameData::Play {beatmap_hash} => {sw.write_u8(0); sw.write(beatmap_hash.clone())},
             SpectatorFrameData::Pause => sw.write_u8(1),
             SpectatorFrameData::UnPause => sw.write_u8(2),
             SpectatorFrameData::Stop => sw.write_u8(3),
             SpectatorFrameData::Buffer => sw.write_u8(4),
-            SpectatorFrameData::SpectatingOther {user_id} => {sw.write_u8(5); sw.write(user_id)},
-            SpectatorFrameData::KeyPress {key} => {sw.write_u8(6); sw.write(key)},
-            &SpectatorFrameData::ScoreSync {score} => {sw.write_u8(7); sw.write(score)}
+            SpectatorFrameData::SpectatingOther {user_id} => {sw.write_u8(5); sw.write(*user_id)},
+            SpectatorFrameData::KeyPress {key} => {sw.write_u8(6); sw.write(*key)},
+            &SpectatorFrameData::ScoreSync {score} => {sw.write_u8(7); sw.write(score.clone())}
         }
     }
 }

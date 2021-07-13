@@ -1,12 +1,8 @@
-use std::convert::TryInto;
+use std::{convert::TryInto, ops::Deref};
 
 pub trait Serializable {
     fn read(sr:&mut SerializationReader) -> Self;
     fn write(&self, sw:&mut SerializationWriter);
-}
-impl<T:Serializable> Serializable for &T {
-    fn read(sr:&mut SerializationReader) -> Self {sr.read()}
-    fn write(&self, sw:&mut SerializationWriter) {sw.write(*self)}
 }
 impl Serializable for String {
     fn read(sr:&mut SerializationReader) -> Self {
@@ -53,16 +49,57 @@ impl Serializable for bool {
     }
 }
 
+// helper for references
 // serialization for tuples
-impl<T:Serializable,T2:Serializable> Serializable for (T, T2) {
+impl<T:Serializable+Clone,T2:Serializable+Clone> Serializable for (T, T2) {
     fn read(sr:&mut SerializationReader) -> Self {
         (sr.read(), sr.read())
     }
 
     fn write(&self, sw:&mut SerializationWriter) {
-        let (a, b) = self;
+        let (a, b) = self.clone();
         sw.write(a);
         sw.write(b);
+    }
+}
+// serialization for vecs
+impl<T:Serializable+Clone> Serializable for &Vec<T> {
+    fn read(sr:&mut SerializationReader) -> Self {todo!()}
+
+    fn write(&self, sw:&mut SerializationWriter) {
+        println!("write vec start");
+        sw.write_u64(self.len() as u64);
+        for i in self.iter() {
+            sw.write(i.clone())
+        }
+        println!("write vec end");
+    }
+}
+impl<T:Serializable+Clone> Serializable for Vec<T> {
+    fn read(sr:&mut SerializationReader) -> Self {
+        let mut out:Vec<T> = Vec::new();
+        for _ in 0..sr.read_u64() {out.push(sr.read())}
+        out
+    }
+
+    fn write(&self, sw:&mut SerializationWriter) {
+        println!("write vec start");
+        sw.write_u64(self.len() as u64);
+        for i in self.iter() {
+            sw.write(i.clone())
+        }
+        println!("write vec end");
+    }
+}   
+// serialization for options
+impl<T:Serializable+Clone> Serializable for Option<T> {
+    fn read(sr:&mut SerializationReader) -> Self {
+        if sr.read() {Some(sr.read())} else {None}
+    }
+
+    fn write(&self, sw:&mut SerializationWriter) {
+        sw.write(self.is_some());
+        if let Some(t) = self {sw.write(t.clone())}
     }
 }
 

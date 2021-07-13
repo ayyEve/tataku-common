@@ -2,8 +2,10 @@ use std::sync::{Arc, Mutex};
 
 use piston::{MouseButton, RenderArgs};
 
-use crate::{format, render::*};
-use crate::gameplay::{Beatmap, HitError, Score};
+
+use crate::gameplay::Beatmap;
+use crate::{databases, format, render::*};
+use taiko_rs_common::types::{Score, HitError};
 use crate::menu::{Menu, MenuButton, ScrollableItem};
 use crate::game::{Game, GameMode, KeyModifiers, get_font, Vector2};
 
@@ -17,12 +19,12 @@ pub struct ScoreMenu {
     hit_error:HitError
 }
 impl ScoreMenu {
-    pub fn new(score:Score, beatmap: Arc<Mutex<Beatmap>>) -> ScoreMenu {
+    pub fn new(score:&Score, beatmap: Arc<Mutex<Beatmap>>) -> ScoreMenu {
         let hit_error = score.hit_error();
         let back_button = MenuButton::back_button();
 
         ScoreMenu {
-            score,
+            score: score.clone(),
             beatmap,
             hit_error,
             replay_button: MenuButton::new(back_button.get_pos() - Vector2::new(0.0, back_button.size().y), back_button.size(), "Replay"),
@@ -112,8 +114,15 @@ impl Menu for ScoreMenu {
         if self.replay_button.on_click(pos, button) {
             self.beatmap.lock().unwrap().reset();
 
-            game.menus.get("beatmap").unwrap().lock().unwrap().on_change(false);
-            game.queue_mode_change(GameMode::Replaying(self.beatmap.clone(), self.score.replay.clone(), 0));
+            let replay = databases::get_local_replay(self.score.hash());
+
+            match replay {
+                Ok(replay) => {
+                    game.menus.get("beatmap").unwrap().lock().unwrap().on_change(false);
+                    game.queue_mode_change(GameMode::Replaying(self.beatmap.clone(), replay.clone(), 0));
+                },
+                Err(e) => println!("error loading replay: {}", e),
+            }
         }
 
         if self.back_button.on_click(pos, button) {

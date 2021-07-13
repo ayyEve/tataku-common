@@ -28,8 +28,8 @@ pub enum PacketId {
     // spectator?
     Client_Spectate, // user_id to spectate
     Server_SpectatorJoined, // user_id of spectator
-    Client_SpectatorFrames, // frame_count, [(action, |...action_args|)], action = SpectatorAction
-    Server_SpectatorFrames, // sender_id, frame_count, [(action, |...action_args|)], action = SpectatorAction
+    Client_SpectatorFrames, // frame_count, [SpectatorFrame]
+    Server_SpectatorFrames, // sender_id, frame_count, [SpectatorFrame]
 
     // multiplayer?
 

@@ -116,6 +116,13 @@ impl OnlineManager {
                     }
                 }
 
+                // chat
+
+                // spectator
+                PacketId::Server_SpectatorFrames => {
+                    
+                }
+
                 PacketId::Unknown => {
                     println!("got unknown packet id {}, dropping remaining packets", raw_id);
                     continue;
