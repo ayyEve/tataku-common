@@ -6,12 +6,15 @@ use crate::gameplay::{ScoreHit, BAR_COLOR};
 use crate::render::{Circle, Color, HalfCircle, Rectangle, Renderable, Border};
 
 const SLIDER_DOT_RADIUS:f64 = 8.0;
-const SPINNER_RADIUS: f64 = 200.0;
-const SPINNER_POSITION: Vector2 = Vector2::new(100.0, 0.0); // + hit position
+const SPINNER_RADIUS:f64 = 200.0;
+const SPINNER_POSITION:Vector2 = Vector2::new(HIT_POSITION.x + 100.0, HIT_POSITION.y + 0.0);
 const FINISHER_LENIENCY:u64 = 20; // ms
 const NOTE_BORDER_SIZE:f64 = 2.0;
 
 const GRAVITY_SCALING:f64 = 400.0;
+
+const DON_COLOR:Color = Color::new(1.0, 0.0, 0.0, 1.0);
+const KAT_COLOR:Color = Color::new(0.0, 0.0, 1.0, 1.0);
 
 // hitobject trait, implemented by anything that should be hit
 pub trait HitObject {
@@ -40,7 +43,7 @@ pub trait HitObject {
 }
 
 // note
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Note {
     pos: Vector2,
     pub time: u64, // ms
@@ -51,7 +54,6 @@ pub struct Note {
     pub missed: bool,
     pub speed:f64,
 
-    od:f64,
     hitwindow_50:f64,
     hitwindow_100:f64,
     hitwindow_300:f64
@@ -69,7 +71,6 @@ impl Note {
             pos: Vector2::zero(),
 
             // set later
-            od: 1.0,
             hitwindow_50: 0.0,
             hitwindow_100: 0.0,
             hitwindow_300: 0.0
@@ -78,20 +79,14 @@ impl Note {
 
     fn get_color(&mut self) -> Color {
         match self.hit_type {
-            HitType::Don => {
-                return [1.0,0.0,0.0,1.0].into();
-            }
-            HitType::Kat => {
-                return [0.0,0.0,1.0,1.0].into();
-            }
+            HitType::Don => DON_COLOR,
+            HitType::Kat => KAT_COLOR,
         }
     }
 }
 impl HitObject for Note {
     fn set_sv(&mut self, sv:f64) {self.speed = sv}
     fn set_od(&mut self, od:f64) {
-        self.od = od;
-
         self.hitwindow_50 = map_difficulty_range(od, 135.0, 95.0, 70.0);
         self.hitwindow_100 = map_difficulty_range(od, 120.0, 80.0, 50.0);
         self.hitwindow_300 = map_difficulty_range(od, 50.0, 35.0, 20.0);
@@ -100,12 +95,11 @@ impl HitObject for Note {
     fn is_kat(&self) -> bool {self.hit_type == HitType::Kat}
     fn finisher_sound(&self) -> bool {self.finisher}
     fn time(&self) -> u64 {self.time}
-    fn end_time(&self) -> u64 {self.time + 100}
+    fn end_time(&self) -> u64 {self.time + self.hitwindow_50 as u64}
     fn causes_miss(&self) -> bool {true}
+
     fn get_points(&mut self, hit_type:HitType, time:f64) -> ScoreHit {
         let diff = (time - self.time as f64).abs();
-        // println!("hit: {},{},{} : {}, {}", self.hitwindow_300, self.hitwindow_100, self.hitwindow_50, diff, self.od);
-
         if diff < self.hitwindow_300 {
             self.hit_time = time.max(0.0) as u64;
             if hit_type != self.hit_type {
@@ -132,7 +126,6 @@ impl HitObject for Note {
             ScoreHit::None
         }
     }
-
     fn check_finisher(&mut self, hit_type:HitType, time:f64) -> ScoreHit {
         if self.finisher && hit_type == self.hit_type && (time - self.hit_time as f64) < FINISHER_LENIENCY as f64 {
             ScoreHit::X300
@@ -142,13 +135,10 @@ impl HitObject for Note {
     }
 
     fn update(&mut self, beatmap_time: i64) {
-
-        let mut y = 0.0;
-        if self.hit {
-            y = -((beatmap_time as f64 - self.hit_time as f64)*20.0).ln()*20.0 + 1.0;
-        } else if self.missed {
-            y = GRAVITY_SCALING * 9.81 * ((beatmap_time as f64 - self.hit_time as f64)/1000.0).powi(2);
-        }
+        let y = 
+            if self.hit {-((beatmap_time as f64 - self.hit_time as f64)*20.0).ln()*20.0 + 1.0} 
+            else if self.missed {GRAVITY_SCALING * 9.81 * ((beatmap_time as f64 - self.hit_time as f64)/1000.0).powi(2)} 
+            else {0.0};
         
         self.pos = HIT_POSITION + Vector2::new((self.time as f64 - beatmap_time as f64) * self.speed, y);
     }
@@ -170,13 +160,15 @@ impl HitObject for Note {
     }
 
     fn reset(&mut self) {
-        self.pos.x = 0.0;
+        self.pos = Vector2::zero();
         self.hit = false;
         self.missed = false;
+        self.hit_time = 0;
     }
 }
 
 // slider
+#[derive(Clone)]
 pub struct Slider {
     pos: Vector2,
     hit_dots:Vec<SliderDot>, // list of times the slider was hit at
@@ -285,6 +277,7 @@ impl HitObject for Slider {
     }
 }
 /// helper struct for drawing hit slider points
+#[derive(Clone, Copy)]
 struct SliderDot {
     time: f64,
     speed: f64,
@@ -332,6 +325,7 @@ impl SliderDot {
 }
 
 // spinner
+#[derive(Clone, Copy)]
 pub struct Spinner {
     pos: Vector2, // the note in the bar, not the spinner itself
     hit_count: u16,
@@ -383,36 +377,34 @@ impl HitObject for Spinner {
 
     fn update(&mut self, beatmap_time: i64) {
         self.pos = HIT_POSITION + Vector2::new((self.time as f64 - beatmap_time as f64) * self.speed, 0.0);
-        if beatmap_time > self.end_time as i64 {
-            self.complete = true;
-        }
+        if beatmap_time > self.end_time as i64 {self.complete = true}
     }
     fn draw(&mut self, _args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
 
         // if done, dont draw anything
-        if self.complete {return renderables;}
+        if self.complete {return renderables}
 
         // if its time to start hitting the spinner
         if self.pos.x <= HIT_POSITION.x {
-            let color:Color = Color::YELLOW; //if self.last_hit == HitType::Don {[1.0, 0.0, 0.0, 1.0].into()} else {[0.0, 0.0, 1.0, 1.0].into()};
-
             // bg circle
-            let bg = Circle::new(
-                color,
+            let mut bg = Circle::new(
+                Color::YELLOW,
                 -10.0,
-                HIT_POSITION + SPINNER_POSITION,
+                SPINNER_POSITION,
                 SPINNER_RADIUS
             );
+            bg.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
             renderables.push(Box::new(bg));
 
             // draw another circle on top which increases in radius as the counter gets closer to the reqired
-            let fg = Circle::new(
+            let mut fg = Circle::new(
                 Color::WHITE,
                 -11.0,
-                HIT_POSITION + SPINNER_POSITION,
+                SPINNER_POSITION,
                 SPINNER_RADIUS * (self.hit_count as f64 / self.hits_required as f64)
             );
+            fg.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
 
             //TODO: draw a counter
             renderables.push(Box::new(fg));
@@ -449,13 +441,14 @@ impl HitObject for Spinner {
 
 
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum HitType {
     Don,
     Kat
 }
 
-#[derive(Clone, Copy, PartialEq)]
+/// only used for diff calc
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NoteType {
     Note,
     Slider,
