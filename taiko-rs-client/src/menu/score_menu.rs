@@ -27,7 +27,7 @@ impl ScoreMenu {
             score: score.clone(),
             beatmap,
             hit_error,
-            replay_button: MenuButton::new(back_button.get_pos() - Vector2::new(0.0, back_button.size().y), back_button.size(), "Replay"),
+            replay_button: MenuButton::new(back_button.get_pos() - Vector2::new(0.0, back_button.size().y+5.0), back_button.size(), "Replay"),
             back_button,
         }
     }
@@ -102,7 +102,6 @@ impl Menu for ScoreMenu {
             font.clone()
         )));
         
-
         // draw buttons
         list.extend(self.back_button.draw(args, Vector2::zero(), depth));
         list.extend(self.replay_button.draw(args, Vector2::zero(), depth));
