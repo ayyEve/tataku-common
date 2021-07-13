@@ -40,8 +40,7 @@ impl ScrollableArea {
     pub fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut items: Vec<Box<dyn Renderable>> = Vec::new();
 
-        let last_y = if self.items.last().is_some() {self.items.last().unwrap().size().y} else {0.0};
-        let min = -(self.elements_height + last_y) + self.size.y;
+        let min = -self.elements_height + self.size.y;
         let max = 0.0;
 
         self.scroll_pos = if !(min>max) {self.scroll_pos.clamp(min, max)} else {0.0};
@@ -58,10 +57,12 @@ impl ScrollableArea {
             items.extend(item.draw(args, offset, self.depth));
         }
 
-        // helpful for debugging positions
-        // items.push(Box::new(Rectangle::new(Color::TRANSPARENT_WHITE, -10.0, self.pos, self.size, Some(Border {color:Color::BLACK.into(), radius: 2.0}))));
-        // let pos = self.mouse_pos - Vector2::new(0.0, self.scroll_pos);
-        // items.push(Box::new(Circle::new(Color::BLUE, -10.0, pos, 5.0)));
+        // // helpful for debugging positions
+        // items.push(Box::new(Rectangle::new(Color::TRANSPARENT_WHITE, -10.0, self.pos, self.size, Some(Border::new(Color::BLACK, 2.0)))));
+        // // mouse
+        // items.push(Box::new(Circle::new(Color::RED, -10.0, self.mouse_pos, 5.0)));
+        // // mouse relative to scroll pos
+        // items.push(Box::new(Circle::new(Color::BLUE, -10.0, self.mouse_pos + offset, 5.0)));
 
         items
     }

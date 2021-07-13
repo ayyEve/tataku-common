@@ -182,18 +182,21 @@ impl Text {
     pub fn measure_text(&self) -> Vector2 {
         let mut text_size = Vector2::zero();
         let mut font = self.font.lock().unwrap();
-        
-        for ch in self.text.chars() {
-            let character = font.character(self.font_size, ch).unwrap();
+
+        // let block_char = '█';
+        // let character = font.character(self.font_size, block_char).unwrap();
+
+        for _ch in self.text.chars() {
+            let character = font.character(self.font_size, _ch).unwrap();
             text_size.x += character.advance_width();
-            text_size.y += character.advance_height();
+            // text_size.y = text_size.y.max(character.offset[1]); //character.advance_height();
         }
         
         text_size
     }
     pub fn center_text(&mut self, rect:Rectangle) {
         let text_size = self.measure_text();
-        self.pos = rect.pos + (rect.size - text_size)/2.0;
+        self.pos = rect.pos + (rect.size - text_size)/2.0 + Vector2::new(0.0, text_size.y);
     }
 }
 impl Renderable for Text {

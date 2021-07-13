@@ -52,7 +52,7 @@ impl ScrollableItem for MenuButton {
         let mut txt = Text::new(
             Color::WHITE,
             parent_depth,
-            self.pos+pos_offset,
+            Vector2::zero(),
             font_size,
             self.text.clone(),
             get_font("main")
