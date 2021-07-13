@@ -81,8 +81,6 @@ impl BeatmapManager {
 
         let mut sets = Vec::new();
         set_map.values().for_each(|e|sets.push(e.to_owned()));
-
-        println!("set len: {}, map len: {}", sets.len(), self.beatmaps.len());
         sets
     }
 }
