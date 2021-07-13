@@ -22,7 +22,6 @@ pistoncore-glfw_window = "0.71.0"
 # Audio
 cpal = "0.13.3"
 symphonia = { version = "0.3.0", default-features = false, features = ["mp3", "ogg", "wav", "pcm"] }
-rubato = "0.8.1"
 
 # Async
 tokio = {version = "1.7.1", features = ["full"] }

@@ -74,7 +74,7 @@ impl OsuDirectMenu {
 
         // https://b.ppy.sh/preview/100.mp3
         let url = format!("https://b.ppy.sh/preview/{}.mp3", set_id);
-        if let Some(audio) = self.preview.upgrade() { audio.pause(); }
+        if let Some(audio) = self.preview.upgrade() { audio.stop(); }
 
         let req = reqwest::blocking::get(url);
         if let Ok(thing) = req {
