@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::{sync::atomic::{AtomicBool, Ordering}, time::Instant};
 
 use parking_lot::Mutex;
 
@@ -15,6 +15,7 @@ pub struct AudioHandle {
 
     pub(super) delay: Mutex<f32>,
     pub(super) time: Mutex<f32>,
+    pub(super) last_time: Mutex<Instant>,
 }
 
 impl AudioHandle {
@@ -31,6 +32,7 @@ impl AudioHandle {
 
             delay: Mutex::new(0.0),
             time: Mutex::new(0.0),
+            last_time: Mutex::new(Instant::now()),
         }
     }
 
@@ -57,7 +59,7 @@ impl AudioHandle {
     }
 
     pub fn current_time(&self) -> f32 {
-        *self.time.lock() - *self.delay.lock()
+        *self.time.lock() - *self.delay.lock() + self.last_time.lock().elapsed().as_secs_f32() * 1000.0
     }
 
     /// Set the current time of the sound, relative to the start of the sound, in milliseconds.

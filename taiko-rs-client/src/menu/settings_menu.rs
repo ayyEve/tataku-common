@@ -49,7 +49,7 @@ impl SettingsMenu {
         scroll_area.add_item(Box::new(right_don_btn));
         scroll_area.add_item(Box::new(right_kat_btn));
         scroll_area.add_item(Box::new(static_sv));
-        // scroll_area.add_item(Box::new(sv_mult)); // broken
+        scroll_area.add_item(Box::new(sv_mult)); // broken
 
         scroll_area.add_item(Box::new(done_button));
 

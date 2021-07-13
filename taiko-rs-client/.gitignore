@@ -1,8 +1,9 @@
 /target
-/Songs
+/[Ss]ongs
 /audio
 /fonts
 /downloads
+/replays
 
 *.db
 dev_assets.zip

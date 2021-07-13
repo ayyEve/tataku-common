@@ -1,3 +1,4 @@
+use cpal::SampleFormat;
 use cpal::traits::{HostTrait, DeviceTrait, StreamTrait};
 
 use std::sync::{Arc, Weak};
@@ -58,8 +59,9 @@ impl Audio {
         let mut supported_configs = device.supported_output_configs()
             .expect("Error while querying configs.");
 
-        let supported_config_range = supported_configs.next()
-            .expect("No supported config?");
+        let supported_config_range = supported_configs.find(|thing|{
+            thing.channels() == 2 && thing.sample_format() == SampleFormat::F32
+        }).expect("No supported config?");
 
         println!("Range Rate: {}-{}Hz", supported_config_range.min_sample_rate().0, supported_config_range.max_sample_rate().0);
 
@@ -71,7 +73,7 @@ impl Audio {
 
         let (controller, mut queue) = AudioQueue::new();
 
-        std::thread::spawn(move || {   
+        std::thread::spawn(move || {
             let stream = device.build_output_stream(
                 &supported_config.into(),
                 move |data: &mut [f32], info: &cpal::OutputCallbackInfo| {
@@ -88,6 +90,7 @@ impl Audio {
                         }
                     };
 
+                    queue.sync_time();
                     for sample in data.iter_mut() {
                         *sample = queue.next().unwrap_or(0.0);
                     }
@@ -103,7 +106,7 @@ impl Audio {
             stream.play().unwrap();
 
             std::thread::park();
-        });       
+        });
 
         Self {
             queue: controller,

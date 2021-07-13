@@ -1,5 +1,6 @@
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::time::Instant;
 
 use super::{ Sound, AudioHandle, AudioState, utils::interleave };
 
@@ -51,6 +52,10 @@ impl AudioInstance {
 
             handle
         }
+    }
+
+    pub fn set_instant(&mut self, last_time:Instant) {
+        *self.handle.last_time.lock() = last_time;
     }
 
     pub fn set_delay(&mut self, delay: f32) {
@@ -110,6 +115,12 @@ impl AudioInstance {
             }
         }
     }
+
+    pub fn sync_time(&mut self, instant:Instant) {
+        // *self.handle.last_time.lock() = Instant::now();
+        *self.handle.time.lock() = self.current_time();
+        *self.handle.last_time.lock() = instant;
+    }
 }
 
 impl Iterator for AudioInstance {
@@ -155,7 +166,6 @@ impl Iterator for AudioInstance {
         
         self.interpolation_value += ratio;
 
-        *self.handle.time.lock() = self.current_time();
 
         if self.output_buffer.is_empty() {
             None
