@@ -13,7 +13,7 @@ use crate::gameplay::{Beatmap, Replay, KeyPress};
 use crate::databases::{save_all_scores, save_score};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, SONGS_DIR, menu::*};
 use crate::render::{HalfCircle, Rectangle, Renderable, Text, Color, Border};
-use crate::game::{InputManager, Settings, get_font, Vector2, online::{USER_ITEM_SIZE, OnlineManager}, helpers::{FpsDisplay, BenchmarkHelper}};
+use crate::game::{InputManager, Settings, get_font, Vector2, online::{USER_ITEM_SIZE, OnlineManager}, helpers::{FpsDisplay, BenchmarkHelper, BeatmapManager}};
 
 /// how long should the volume thing be displayed when changed
 const VOLUME_CHANGE_DISPLAY_TIME:u64 = 2000;
@@ -35,7 +35,7 @@ pub struct Game {
     pub threading: Runtime,
     
     pub menus: HashMap<&'static str, Arc<Mutex<dyn Menu>>>,
-    pub beatmaps: Vec<Arc<Mutex<Beatmap>>>,
+    pub beatmap_manager: Arc<Mutex<BeatmapManager>>, // must be thread safe
     
     pub current_mode: GameMode,
     pub queued_mode: GameMode,
@@ -64,7 +64,7 @@ pub struct Game {
 }
 impl Game {
     pub fn new() -> Game {
-        let mut game_init_benchmark = BenchmarkHelper::new("game_init");
+        let mut game_init_benchmark = BenchmarkHelper::new("game::new");
 
         let opengl = OpenGL::V3_2;
         let mut window: AppWindow = WindowSettings::new("Taiko", [WINDOW_SIZE.x, WINDOW_SIZE.y])
@@ -103,7 +103,7 @@ impl Game {
 
 
             menus: HashMap::new(),
-            beatmaps: Vec::new(),
+            beatmap_manager: Arc::new(Mutex::new(BeatmapManager::new())),
             current_mode: GameMode::None,
             queued_mode: GameMode::None,
 
@@ -126,28 +126,6 @@ impl Game {
         };
         game_init_benchmark.log("game created", true);
 
-
-        //region == menu setup ==
-        // main menu
-        let main_menu = Arc::new(Mutex::new(MainMenu::new()));
-        g.menus.insert("main", main_menu.clone());
-
-        game_init_benchmark.log("main menu created", true);
-
-        // setup beatmap select menu
-        let beatmap_menu = Arc::new(Mutex::new(BeatmapSelectMenu::new()));
-        g.menus.insert("beatmap", beatmap_menu.clone());
-
-        game_init_benchmark.log("beatmap menu created", true);
-
-        // setup settings menu
-        let settings_menu = Arc::new(Mutex::new(SettingsMenu::new()));
-        g.menus.insert("settings", settings_menu.clone());
-        game_init_benchmark.log("settings menu created", true);
-
-        // // set current mode to main menu
-        // g.queue_mode_change(GameMode::InMenu(main_menu.clone()));
-
         g.init();
         game_init_benchmark.log("game initialized", true);
 
@@ -163,8 +141,27 @@ impl Game {
             }
         });
         
-        let mut loading_menu = LoadingMenu::new();
+        let mut loading_menu = LoadingMenu::new(self.beatmap_manager.clone());
         loading_menu.load(self);
+
+        //region == menu setup ==
+        let mut menu_init_benchmark = BenchmarkHelper::new("game::new");
+        // main menu
+        let main_menu = Arc::new(Mutex::new(MainMenu::new()));
+        self.menus.insert("main", main_menu.clone());
+        menu_init_benchmark.log("main menu created", true);
+
+        // setup beatmap select menu
+        let beatmap_menu = Arc::new(Mutex::new(BeatmapSelectMenu::new(self.beatmap_manager.clone())));
+        self.menus.insert("beatmap", beatmap_menu.clone());
+        menu_init_benchmark.log("beatmap menu created", true);
+
+        // setup settings menu
+        let settings_menu = Arc::new(Mutex::new(SettingsMenu::new()));
+        self.menus.insert("settings", settings_menu.clone());
+        menu_init_benchmark.log("settings menu created", true);
+
+
         self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(loading_menu))));
     }
     pub fn game_loop(mut self) {

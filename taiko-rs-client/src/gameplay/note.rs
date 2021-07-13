@@ -405,9 +405,9 @@ impl HitObject for Spinner {
                 SPINNER_RADIUS * (self.hit_count as f64 / self.hits_required as f64)
             );
             fg.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
-
-            //TODO: draw a counter
             renderables.push(Box::new(fg));
+            
+            //TODO: draw a counter
 
         } else { // just draw the note on the playfield
             let h1 = HalfCircle::new(

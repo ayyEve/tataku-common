@@ -1,13 +1,14 @@
+use std::fs::read_dir;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
-use std::{path::Path, fs::read_dir};
 
 use piston::{Key, MouseButton, RenderArgs};
 
+use crate::SONGS_DIR;
 use crate::gameplay::{Beatmap, BeatmapMeta, Score};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem};
-use crate::game::{Game, GameMode, KeyModifiers, Settings, get_font, Vector2};
-use crate::{WINDOW_SIZE, DOWNLOADS_DIR, SONGS_DIR, render::*, databases::get_scores};
+use crate::{WINDOW_SIZE, DOWNLOADS_DIR, render::*, databases::get_scores};
+use crate::game::{Game, GameMode, KeyModifiers, Settings, get_font, Vector2, helpers::BeatmapManager};
 
 use super::MenuButton;
 
@@ -34,10 +35,14 @@ pub struct BeatmapSelectMenu {
 
     background_texture: Option<Image>,
     pending_refresh: bool,
+
+    beatmap_manager: Arc<Mutex<BeatmapManager>>,
 }
 impl BeatmapSelectMenu {
-    pub fn new() -> BeatmapSelectMenu {
-        let mut b = BeatmapSelectMenu {
+    pub fn new(beatmap_manager:Arc<Mutex<BeatmapManager>>) -> BeatmapSelectMenu {
+        // let mut b = 
+        BeatmapSelectMenu {
+            beatmap_manager,
             selected: None,
             selected_beatmap: None,
             pending_refresh: false,
@@ -47,9 +52,9 @@ impl BeatmapSelectMenu {
 
             beatmap_scroll: ScrollableArea::new(Vector2::new(WINDOW_SIZE.x - (BEATMAPSET_ITEM_SIZE.x+BEATMAPSET_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y - INFO_BAR_HEIGHT), true),
             leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y - LEADERBOARD_POS.y), true),
-        };
-        b.refresh_maps();
-        b
+        }
+        // b.refresh_maps();
+        // b
     }
 
     /// returns the selected item
@@ -63,35 +68,11 @@ impl BeatmapSelectMenu {
     pub fn refresh_maps(&mut self) {
         self.pending_refresh = false;
         self.beatmap_scroll.clear();
+        //TODO: see if we can add new maps non-destructively
 
-        let folders = read_dir(SONGS_DIR).unwrap();
+        let sets = self.beatmap_manager.lock().unwrap().all_by_sets();
         let mut full_list = Vec::new();
-
-        for f in folders {
-            let f = f.unwrap().path();
-            let f = f.to_str().unwrap();
-            if !Path::new(f).is_dir() {continue;}
-            let dir_files = read_dir(f).unwrap();
-            let mut list = Vec::new();
-
-            for file in dir_files {
-                let file = file.unwrap().path();
-                let file = file.to_str().unwrap();
-
-                if file.ends_with(".osu") {
-                    let map = Beatmap::load(file.to_owned());
-                    if map.lock().unwrap().metadata.mode as u8 > 1 {
-                        println!("skipping {}, not a taiko map or convert", map.lock().unwrap().metadata.version_string());
-                        continue;
-                    }
-                    list.push(map);
-                }
-            }
-
-            if list.len() > 0 {
-                full_list.push(Box::new(BeatmapsetItem::new(list)));
-            }
-        }
+        for maps in sets {full_list.push(Box::new(BeatmapsetItem::new(maps)))}
 
         // sort by artist
         full_list.sort_by(|a, b| a.meta.artist.to_lowercase().cmp(&b.meta.artist.to_lowercase()));
@@ -118,15 +99,35 @@ impl BeatmapSelectMenu {
 impl Menu for BeatmapSelectMenu {
     fn update(&mut self, game:&mut Game) {
 
-        //TODO: fix this so its not as intensive (ie only check once a second)
+        //TODO: move this to beatmap_manager
         let count = std::fs::read_dir(DOWNLOADS_DIR).unwrap().count();
         if !self.pending_refresh && count > 0 {
+            println!("downloads folder dirty");
             self.pending_refresh = true;
             game.extract_all();
         }
 
         // wait for main to finish extracting everything from downloads
-        if self.pending_refresh && count == 0 {self.refresh_maps()}
+        if (self.pending_refresh || self.beatmap_manager.lock().unwrap().check_dirty()) && count == 0 {
+            println!("refresh_maps()");
+
+            // we detected maps in downloads, the beatmap manager may not have added the map yet
+
+            //TODO: i hate this, finish implementing BeatmapManager.check_downloads!
+            if self.pending_refresh {
+
+                let mut folders = Vec::new();
+                read_dir(SONGS_DIR).unwrap()
+                    .for_each(|f| {
+                        let f = f.unwrap().path();
+                        folders.push(f.to_str().unwrap().to_owned());
+                    });
+
+                for f in folders {self.beatmap_manager.lock().unwrap().check_folder(f)}
+            }
+
+            self.refresh_maps();
+        }
     }
 
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {

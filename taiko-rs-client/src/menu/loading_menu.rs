@@ -1,19 +1,21 @@
-use std::{fs::read_dir, path::Path, sync::{Arc, Mutex}};
+use std::{fs::read_dir, sync::{Arc, Mutex}};
 
-use crate::{SONGS_DIR, WINDOW_SIZE, game::{Game, Settings, Vector2}, gameplay::Beatmap, menu::Menu, render::{Color, Rectangle, Text}};
+use crate::render::{Color, Rectangle, Text};
+use crate::{SONGS_DIR, WINDOW_SIZE, menu::Menu};
+use crate::game::{Game, Settings, Vector2, helpers::BeatmapManager};
 
 /// helper for when starting the game. will load beatmaps, settings, etc from storage
 /// all while providing the user with its progress (relatively anyways)
 pub struct LoadingMenu {
     pub complete: bool,
-    status: Arc<Mutex<LoadingStatus>>
+    status: Arc<Mutex<LoadingStatus>>,
 }
 
 impl LoadingMenu {
-    pub fn new() -> Self {
+    pub fn new(beatmap_manager: Arc<Mutex<BeatmapManager>>) -> Self {
         Self {
             complete: false,
-            status: Arc::new(Mutex::new(LoadingStatus::new()))
+            status: Arc::new(Mutex::new(LoadingStatus::new(beatmap_manager)))
         }
     }
     pub fn load(&mut self, game:&Game) {
@@ -44,25 +46,7 @@ impl LoadingMenu {
                     s.loading_done = 0;
                 }
 
-                for f in folders {
-                    // let f = f.unwrap().path();
-                    if !Path::new(&f).is_dir() {continue}
-                    let dir_files = read_dir(f).unwrap();
-
-                    for file in dir_files {
-                        let file = file.unwrap().path();
-                        let file = file.to_str().unwrap();
-
-                        if file.ends_with(".osu") {
-                            let map = Beatmap::load(file.to_owned());
-                            if map.lock().unwrap().metadata.mode as u8 > 1 {
-                                println!("skipping {}, not a taiko map or convert", map.lock().unwrap().metadata.version_string());
-                                continue;
-                            }
-                            status.lock().unwrap().beatmaps.push(map);
-                        }
-                    }
-                }
+                for f in folders {status.lock().unwrap().beatmap_manager.lock().unwrap().check_folder(f)}
             }
             
             status.lock().unwrap().stage = LoadingStage::Done;
@@ -71,14 +55,12 @@ impl LoadingMenu {
 }
 
 impl Menu for LoadingMenu {
-
     fn update(&mut self, game:&mut Game) {
         if let LoadingStage::Done = self.status.lock().unwrap().stage {
             let menu = game.menus.get("main").unwrap().clone();
             game.queue_mode_change(crate::game::GameMode::InMenu(menu));
         }
     }
-    
 
     fn draw(&mut self, _args:piston::RenderArgs) -> Vec<Box<dyn crate::render::Renderable>> {
         let mut list: Vec<Box<dyn crate::render::Renderable>> = Vec::new();
@@ -150,19 +132,19 @@ impl Menu for LoadingMenu {
 
 /// async helper
 struct LoadingStatus {
-    pub stage: LoadingStage,
-    pub beatmaps: Vec<Arc<Mutex<Beatmap>>>, // list of beatmaps
+    stage: LoadingStage,
+    beatmap_manager: Arc<Mutex<BeatmapManager>>,
 
-    pub loading_count: usize, // items in the list
-    pub loading_done: usize // items done loading in the list
+    loading_count: usize, // items in the list
+    loading_done: usize // items done loading in the list
 }
 impl LoadingStatus {
-    pub fn new() -> Self {
+    pub fn new(beatmap_manager: Arc<Mutex<BeatmapManager>>) -> Self {
         Self {
-            stage: LoadingStage::None,
-            beatmaps: Vec::new(),
+            beatmap_manager,
             loading_count: 0,
             loading_done: 0,
+            stage: LoadingStage::None,
         }
     }
 }
