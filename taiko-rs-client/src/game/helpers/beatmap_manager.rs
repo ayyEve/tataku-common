@@ -33,7 +33,7 @@ impl BeatmapManager {
     pub async fn check_downloads(_self:Arc<Mutex<Self>>) {
         let mut files = Vec::new();
         for file in read_dir(DOWNLOADS_DIR).unwrap() {
-            if let Ok(file) = file{
+            if let Ok(file) = file {
                 files.push(file)
             }
         }
@@ -65,7 +65,6 @@ impl BeatmapManager {
     }
 
     pub fn add_beatmap(&mut self, beatmap:ArcMutexBeatmap) {
-
         // check if we already have this map
         let new_hash = beatmap.lock().unwrap().hash.clone();
         if self.beatmaps_by_hash.contains_key(&new_hash) {return println!("map already added")}
