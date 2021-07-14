@@ -5,9 +5,9 @@ use crate::{game::Vector2, render::{Color, Text}};
 pub struct FpsDisplay {
     name:String,
     pos:Vector2,
-    pub count: u32,
-    pub timer: Instant,
-    pub last: f32,
+    count: u32,
+    timer: Instant,
+    last: f32,
 }
 
 impl FpsDisplay {
