@@ -1,4 +1,4 @@
-use std::{path::Path, sync::{Arc, Mutex}, time::SystemTime};
+use std::{path::Path, sync::{Arc, Mutex}, time::Instant};
 
 use piston::RenderArgs;
 
@@ -39,7 +39,7 @@ pub struct Beatmap {
     timing_point_index: usize,
 
     pub song: SoundEffect,
-    pub song_start: SystemTime,
+    pub song_start: Instant,
     lead_in_time: f32,
     end_time: f64,
 
@@ -68,7 +68,7 @@ impl Beatmap {
             notes: Vec::new(),
             timing_points: Vec::new(),
             timing_bars: Vec::new(),
-            song_start: SystemTime::now(),
+            song_start: Instant::now(),
             score: None,
             replay: None,
             metadata: BeatmapMeta::new(),
@@ -421,8 +421,8 @@ impl Beatmap {
 
     pub fn update(&mut self) {
         if self.lead_in_time > 0.0 {
-            let elapsed = self.song_start.elapsed().unwrap().as_micros() as f32 / 1000.0;
-            self.song_start = SystemTime::now();
+            let elapsed = self.song_start.elapsed().as_micros() as f32 / 1000.0;
+            self.song_start = Instant::now();
             self.lead_in_time -= elapsed;
 
             if self.lead_in_time <= 0.0 {
@@ -636,7 +636,7 @@ impl Beatmap {
     pub fn start(&mut self) {
         if !self.started {
             self.song.stop();
-            self.song_start = SystemTime::now(); //TODO: remove this actually, time() should be based off the song duration
+            self.song_start = Instant::now(); //TODO: remove this actually, time() should be based off the song duration
             self.started = true;
             self.lead_in_time = LEAD_IN_TIME;
             // volume is set when the song is actually started (when lead_in_time is <= 0)
