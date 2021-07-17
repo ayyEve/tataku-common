@@ -18,7 +18,7 @@ const DON_COLOR:Color = Color::new(1.0, 0.0, 0.0, 1.0);
 const KAT_COLOR:Color = Color::new(0.0, 0.0, 1.0, 1.0);
 
 // hitobject trait, implemented by anything that should be hit
-pub trait HitObject {
+pub trait HitObject: Send {
     fn note_type(&self) -> NoteType;
     fn is_kat(&self) -> bool {false}// needed for diff calc :/
     fn set_sv(&mut self, sv:f64);

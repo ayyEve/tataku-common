@@ -12,7 +12,7 @@ const DECAY_WEIGHT:f64 = 0.9;
 
 pub struct DifficultyCalculator {
     time_rate: f64,
-    difficulty_hitobjects: Vec<Arc<Mutex<DifficultyHitObject>>>
+    difficulty_hitobjects: Vec<DifficultyHitObject>
 }
 impl DifficultyCalculator {
     pub fn new(beatmap: Arc<Mutex<Beatmap>>) -> DifficultyCalculator {
@@ -20,16 +20,16 @@ impl DifficultyCalculator {
         let mut difficulty_hitobjects = Vec::new();
         {
             let lock = beatmap.lock().clone();
-            for i in lock.notes {
-                let x = DifficultyHitObject::new(i);
-                difficulty_hitobjects.push(Arc::new(Mutex::new(x)));
+            for i in lock.notes.lock().iter_mut() {
+                let x = DifficultyHitObject::new(&i);
+                difficulty_hitobjects.push(x);
             }
         }
 
         difficulty_hitobjects.sort_by(|a, b| {
-            let a = a.lock().time();
-            let b = b.lock().time();
-            a.cmp(&b)
+            let a = a.time;
+            let b = b.time;
+            a.partial_cmp(&b).unwrap()
         });
 
         DifficultyCalculator {
@@ -65,9 +65,7 @@ impl DifficultyCalculator {
 
         while let Some(current) = enumerator.next() {
             // println!("calc!");
-            current
-                .lock()
-                .calculate_strains(previous.clone(), self.time_rate);
+            current.calculate_strains(&previous, self.time_rate);
             previous = current;
         }
         true
@@ -101,16 +99,14 @@ impl DifficultyCalculator {
         let mut previous:Option<DifficultyHitObject> = None;
 
         for hitobject in iter {
-            let hitobject = hitobject.lock();
-            let hitobject_time = hitobject.time() as f64;
             // While we are beyond the current interval push the currently available maximum to our strain list
-            while hitobject_time > interval_end_time {
+            while hitobject.time > interval_end_time {
                 highest_strains.push(maximum_strain);
 
                 // The maximum strain of the next interval is not zero by default! We need to take the last hitObject we encountered, take its strain and apply the decay
                 // until the beginning of the next interval.
                 if let Some(previous) = &previous {
-                    let decay = DECAY_BASE.powf(interval_end_time - previous.time() as f64 / 1000.0);
+                    let decay = DECAY_BASE.powf(interval_end_time - previous.time as f64 / 1000.0);
                     maximum_strain = previous.strain * decay;
                 } else {
                     maximum_strain = 0.0;

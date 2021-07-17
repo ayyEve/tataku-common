@@ -1,6 +1,4 @@
 
-use std::sync::Arc;
-use parking_lot::Mutex;
 use crate::{gameplay::note::*};
 
 // constants
@@ -16,38 +14,36 @@ pub struct DifficultyHitObject {
     same_color_since: u32, // 1 default
     last_color_switch_even: ColorSwitch,
     time_elapsed: f64,
-    base_hitobject: Arc<Mutex<dyn HitObject>>
+
+    pub time: f64,
+    note_type: NoteType,
+    is_kat: bool,
 }
 
 impl DifficultyHitObject {
-    pub fn new(base:Arc<Mutex<dyn HitObject>>) -> DifficultyHitObject {
-        DifficultyHitObject {
+    pub fn new(base:&Box<dyn HitObject>) -> Self {
+        Self {
             same_color_since: 1,
             strain: 1.0,
             last_color_switch_even: ColorSwitch::None,
             time_elapsed: 0.0,
-            base_hitobject: base
+
+            time: base.time() as f64,
+            note_type: base.note_type(),
+            is_kat: base.is_kat()
         }
     }
-    pub fn time(&self) -> u64 {
-        self.base_hitobject.lock().time()
-    }
 
-    pub fn calculate_strains(&mut self, previous:Arc<Mutex<DifficultyHitObject>>, time_rate:f64) {
-        let previous = previous.try_lock().expect("error locking previous in calculate_strains");
-        let p_hitobject = previous.base_hitobject.try_lock().expect("error locking p_hitobject");
-        let s_hitobject = self.base_hitobject.clone();
-        let s_hitobject = s_hitobject.try_lock().expect("error locking s_hitobject");
-        
-        self.time_elapsed = (s_hitobject.time() as f64 - p_hitobject.time() as f64) / time_rate;
+    pub fn calculate_strains(&mut self, previous:&DifficultyHitObject, time_rate:f64) {
+        self.time_elapsed = (self.time - previous.time) / time_rate;
         let decay = DECAY_BASE.powf(self.time_elapsed / 1000.0);
 
         let mut addition = 1.0;
-        if p_hitobject.note_type() == NoteType::Note && s_hitobject.note_type() == NoteType::Note &&
-            (s_hitobject.time() as f64 - p_hitobject.time() as f64) < 1000.0 {
+        if previous.note_type == NoteType::Note && self.note_type == NoteType::Note &&
+            (self.time - previous.time) < 1000.0 {
 
             // color change addition
-            if p_hitobject.is_kat() != s_hitobject.is_kat() {
+            if previous.is_kat != self.is_kat {
                 self.last_color_switch_even = if previous.same_color_since % 2 == 0 {ColorSwitch::Even} else {ColorSwitch::Odd};
                 if previous.last_color_switch_even != ColorSwitch::None && previous.last_color_switch_even != self.last_color_switch_even {
                     addition += COLOR_CHANGE_BONUS;

@@ -32,9 +32,9 @@ pub struct Beatmap {
     pub completed: bool,
     
     // lists
-    pub notes: Vec<Arc<Mutex<dyn HitObject + Send>>>,
+    pub notes: Arc<Mutex<Vec<Box<dyn HitObject>>>>,
     pub timing_points: Vec<TimingPoint>,
-    timing_bars: Vec<Arc<Mutex<TimingBar>>>,
+    timing_bars: Vec<TimingBar>,
     // list indices
     note_index: usize,
     timing_point_index: usize,
@@ -66,7 +66,7 @@ impl Beatmap {
         let mut meta = BeatmapMeta::new();
         let mut beatmap = Beatmap {
             hash: String::new(),
-            notes: Vec::new(),
+            notes: Arc::new(Mutex::new(Vec::new())),
             timing_points: Vec::new(),
             timing_bars: Vec::new(),
             song_start: Instant::now(),
@@ -249,7 +249,7 @@ impl Beatmap {
                                         sound_type.1,
                                         sv
                                     );
-                                    beatmap.notes.push(Arc::new(Mutex::new(note)));
+                                    beatmap.notes.lock().push(Box::new(note));
 
                                     if !unified_sound_addition {i = (i + 1) % sound_types.len()}
 
@@ -258,7 +258,7 @@ impl Beatmap {
                                 }
                             } else {
                                 let slider = Slider::new(time, end_time, finisher, sv);
-                                beatmap.notes.push(Arc::new(Mutex::new(slider)));
+                                beatmap.notes.lock().push(Box::new(slider));
                             }
 
                         } else if (read_type & 8) > 0 { // spinner
@@ -285,10 +285,10 @@ impl Beatmap {
                             let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
                             // just make a slider for now
                             let spinner = Spinner::new(time, end_time, sv, hits_required);
-                            beatmap.notes.push(Arc::new(Mutex::new(spinner)));
+                            beatmap.notes.lock().push(Box::new(spinner));
                         } else { // note
                             let note = Note::new(time, hit_type, finisher, sv);
-                            beatmap.notes.push(Arc::new(Mutex::new(note)));
+                            beatmap.notes.lock().push(Box::new(note));
                         }
                     },
 
@@ -302,8 +302,8 @@ impl Beatmap {
         let md5 = format!("{:x}", md5::compute(body).to_owned());
         // does this need to be in its own scope? probably not but whatever
         // assign values
-        let start_time = beatmap.notes.first().unwrap().lock().time() as f64;
-        let end_time = beatmap.notes.last().unwrap().lock().end_time() as f64;
+        let start_time = beatmap.notes.lock().first().unwrap().time() as f64;
+        let end_time = beatmap.notes.lock().last().unwrap().end_time() as f64;
 
         meta.set_dur((end_time - start_time) as u64);
         beatmap.end_time = end_time;
@@ -330,7 +330,6 @@ impl Beatmap {
     pub fn increment_offset(&mut self, delta:i64) {
         self.offset += delta;
         self.offset_changed_time = self.time();
-        println!("offset is now {}", self.offset);
     }
     pub fn next_note(&mut self) {
         self.note_index += 1;
@@ -345,15 +344,18 @@ impl Beatmap {
         let hit_type:HitType = key.into();
         let mut sound = match hit_type {HitType::Don => "don",HitType::Kat => "kat"};
 
+        let notes = self.notes.clone();
+        let mut notes = notes.lock();
+
         // if theres no more notes to hit, return
-        if self.note_index >= self.notes.len() {
+        if self.note_index >= notes.len() {
             Audio::play(sound);
             return;
         }
 
         // check for finisher 2nd hit. 
         if self.note_index > 0 {
-            let mut last_note = self.notes[self.note_index-1].lock();
+            let last_note = notes.get_mut(self.note_index-1).unwrap();
 
             match last_note.check_finisher(hit_type, time) {
                 ScoreHit::Miss => {return},
@@ -373,8 +375,7 @@ impl Beatmap {
             }
         }
 
-        let note = self.notes[self.note_index].clone();
-        let mut note = note.lock();
+        let note = notes.get_mut(self.note_index).unwrap();
         let note_time = note.time() as f64;
 
         match note.get_points(hit_type, time) {
@@ -407,14 +408,14 @@ impl Beatmap {
                 self.score.as_mut().unwrap().hit300(time as u64, note_time as u64);
                 self.hit_timings.push((time as i64, (time - note_time) as i64));
                 
-                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon",HitType::Kat => "bigkat"};}
+                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"};}
                 Audio::play(sound);
 
                 self.next_note();
             },
             ScoreHit::Other(score, consume) => { // used by sliders and spinners
                 self.score.as_mut().unwrap().score += score as u64;
-                if consume {self.next_note();}
+                if consume {self.next_note()}
                 Audio::play(sound);
             }
         }
@@ -434,9 +435,8 @@ impl Beatmap {
         }
 
         let time = self.time();
-
-        for note in self.notes.iter_mut() {
-            note.lock().update(time);
+        for note in self.notes.lock().iter_mut() {
+            note.update(time);
         }
 
 
@@ -445,14 +445,14 @@ impl Beatmap {
         });
 
         // if theres no more notes to hit, show score screen
-        if self.note_index >= self.notes.len() {
+        if self.note_index >= self.notes.lock().len() {
             self.completed = true;
             self.timing_bars.clear();
             return;
         }
 
-        if (self.notes[self.note_index].lock().end_time() as i64) < time {
-            if self.notes[self.note_index].lock().causes_miss() {
+        if (self.notes.lock()[self.note_index].end_time() as i64) < time {
+            if self.notes.lock()[self.note_index].causes_miss() {
                 // need to set these manually instead of score.hit_miss,
                 // since we dont want to add anything to the hit error list
                 let s = self.score.as_mut().unwrap();
@@ -464,7 +464,7 @@ impl Beatmap {
         }
         
         for tb in self.timing_bars.iter_mut() {
-            tb.lock().update(time as f64);
+            tb.update(time as f64);
         }
 
         // check timing point
@@ -476,6 +476,7 @@ impl Beatmap {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
         // load this here, it a bit more performant
         let font = get_font("main");
+        let score = self.score.as_ref().unwrap();
         let time = self.time();
 
         // draw the playfield
@@ -497,8 +498,6 @@ impl Beatmap {
             HIT_POSITION,
             HIT_AREA_RADIUS + 2.0
         )));
-
-        let score = self.score.as_ref().unwrap();
 
         // score text
         renderables.push(Box::new(Text::new(
@@ -627,9 +626,9 @@ impl Beatmap {
         }
 
         // draw notes
-        for note in self.notes.iter_mut() {renderables.extend(note.lock().draw(args));}
+        for note in self.notes.lock().iter_mut() {renderables.extend(note.draw(args));}
         // draw timing lines
-        for tb in self.timing_bars.iter_mut() {renderables.extend(tb.lock().draw(args))}
+        for tb in self.timing_bars.iter_mut() {renderables.extend(tb.draw(args))}
 
         renderables
     }
@@ -655,8 +654,7 @@ impl Beatmap {
         let settings = Settings::get().clone();
 
         let c = self.clone();
-        for note in self.notes.as_mut_slice() {
-            let mut note = note.lock();
+        for note in self.notes.lock().as_mut_slice() {
 
             // set note svs
             if settings.static_sv {
@@ -699,7 +697,7 @@ impl Beatmap {
                 }
 
                 // add timing bar at current time
-                self.timing_bars.push(Arc::new(Mutex::new(TimingBar::new(time as u64, sv))));
+                self.timing_bars.push(TimingBar::new(time as u64, sv));
 
                 if tp_index < parent_tps.len() && parent_tps[tp_index].time <= time + next_bar_time {
                     time = parent_tps[tp_index].time;
@@ -771,6 +769,7 @@ impl Beatmap {
 
 
 // timing bar struct
+#[derive(Copy, Clone, Debug)]
 struct TimingBar {
     time: u64,
     speed: f64,
