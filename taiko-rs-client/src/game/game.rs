@@ -10,7 +10,7 @@ use piston::{Window,input::*, event_loop::*, window::WindowSettings};
 
 use crate::gameplay::Beatmap;
 use crate::databases::{save_all_scores, save_replay, save_score};
-use taiko_rs_common::types::{UserAction, Replay, KeyPress};
+use taiko_rs_common::types::{KeyPress, Replay, SpectatorFrames, UserAction};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, SONGS_DIR, menu::*};
 use crate::render::{HalfCircle, Rectangle, Renderable, Text, Color, Border};
 use crate::game::{InputManager, Settings, get_font, Vector2, online::{USER_ITEM_SIZE, OnlineManager}, helpers::{FpsDisplay, BenchmarkHelper, BeatmapManager}};
@@ -101,7 +101,6 @@ impl Game {
             online_manager,
             render_queue: Vec::new(),
 
-
             menus: HashMap::new(),
             beatmap_manager: Arc::new(Mutex::new(BeatmapManager::new())),
             current_mode: GameMode::None,
@@ -112,8 +111,8 @@ impl Game {
             vol_selected_time: 0,
 
             // fps
-            fps_display:FpsDisplay::new("fps", 0),
-            update_display:FpsDisplay::new("updates/s", 1),
+            fps_display: FpsDisplay::new("fps", 0),
+            update_display: FpsDisplay::new("updates/s", 1),
 
             // transition
             transition: None,
@@ -187,8 +186,6 @@ impl Game {
 
     fn update(&mut self, _delta:f64) {
         self.update_display.increment();
-        // let arc = Arc::new(Mutex::new(self));
-        // let clone = arc.clone();
         let mut current_mode = self.current_mode.clone().to_owned();
         let elapsed = self.game_start.elapsed().as_millis() as u64;
 
@@ -535,6 +532,23 @@ impl Game {
                 menu.update(self);
             }
 
+            GameMode::Spectating(ref data, ref state) => {
+                let mut data = data.lock().unwrap();
+
+                // (try to) read pending data from the online manager
+                match self.online_manager.try_lock() {
+                    Ok(mut online_manager) => data.extend(online_manager.get_pending_spec_frames()),
+                    Err(e) => println!("hmm, {}", e),
+                }
+
+                match &state {
+                    SpectatorState::Buffering => {},
+                    SpectatorState::Watching => todo!(),
+                    SpectatorState::Paused => todo!(),
+                    SpectatorState::MapChanging => todo!(),
+                }
+            }
+
             GameMode::None => {
                 // might be transitioning
                 if self.transition.is_some().clone() && elapsed - self.transition_timer > TRANSITION_TIME / 2 {
@@ -562,6 +576,13 @@ impl Game {
                 self.clear_render_queue(true);
 
                 let online_manager = self.online_manager.clone();
+
+                // let cloned_mode = self.queued_mode.clone();
+                // self.threading.spawn(async move {
+                //     online_manager.lock().await.discord.change_status(cloned_mode);
+                //     OnlineManager::set_action(online_manager, UserAction::Leaving, String::new()).await;
+                // });
+
                 match &self.queued_mode {
                     GameMode::Ingame(map) => {
                         let m = map.lock().unwrap().metadata.clone();
@@ -924,5 +945,17 @@ pub enum GameMode {
     InMenu(Arc<Mutex<dyn Menu>>),
     Replaying(Arc<Mutex<Beatmap>>, Replay, u64),
 
-    // Spectating()
+    #[allow(dead_code)]
+    Spectating(Arc<Mutex<SpectatorFrames>>, SpectatorState), // frames awaiting replay, state
+    // Multiplaying(MultiplayerState), // wink wink nudge nudge (dont hold your breath)
+}
+
+
+#[allow(dead_code)]
+#[derive(Clone, Copy, Debug)]
+pub enum SpectatorState {
+    Buffering, // waiting for data
+    Watching, // host playing
+    Paused, // host paused
+    MapChanging, // host is changing map
 }

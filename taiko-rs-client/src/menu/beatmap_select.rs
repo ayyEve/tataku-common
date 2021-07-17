@@ -56,7 +56,7 @@ impl BeatmapSelectMenu {
     pub fn get_selected(&self) -> Option<Arc<Mutex<Beatmap>>> {
         match &self.selected {
             Some(hash) => self.beatmap_manager.lock().unwrap().get_by_hash(hash.split('\n').last().unwrap().to_owned().clone()),
-            None => {println!("selected = none");None}
+            None => {None}
         }
 
         // if self.selected.is_none() {return None}
@@ -188,7 +188,7 @@ impl Menu for BeatmapSelectMenu {
         items
     }
 
-    fn on_volume_change(&mut self) {self.beatmap_scroll.on_volume_change();}
+    fn on_volume_change(&mut self) {self.beatmap_scroll.on_volume_change()}
     fn on_change(&mut self, into:bool) {
         if into {
             self.beatmap_scroll.refresh_layout();

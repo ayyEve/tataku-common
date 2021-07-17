@@ -4,6 +4,7 @@ use super::{KeyPress, Score};
 pub type SpectatorFrame = (u32, SpectatorFrameData);
 pub type SpectatorFrames = Vec<SpectatorFrame>;
 
+#[derive(Clone, Debug)]
 pub enum SpectatorFrameData {
     /// host started a new map
     Play {beatmap_hash:String},

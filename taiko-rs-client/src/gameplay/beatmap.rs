@@ -8,18 +8,18 @@ use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS, WINDOW_SIZE, game::
 use crate::{NOTE_RADIUS, enums::Playmode, game::{SoundEffect, get_font, Vector2}, render::{Renderable, Rectangle, Text, Circle, Color, Border}};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
-pub const BAR_COLOR:Color = Color {r:0.0, g:0.0,b:0.0,a:1.0}; // timing bar color
+pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // timing bar color
 const BAR_WIDTH:f64 = 4.0; // how wide is a timing bar
 const BAR_SPACING:f64 = 4.0; // how many beats between timing bars
 const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
 const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
-const OFFSET_DRAW_TIME:i64 = 2_000;
+const OFFSET_DRAW_TIME:i64 = 2_000; // how long should the offset be drawn for?
 
 const HIT_TIMING_BAR_SIZE:Vector2 = Vector2::new(WINDOW_SIZE.x / 3.0, 30.0);
 const HIT_TIMING_BAR_POS:Vector2 = Vector2::new(WINDOW_SIZE.x / 2.0 - HIT_TIMING_BAR_SIZE.x / 2.0, WINDOW_SIZE.y - (DURATION_HEIGHT + 3.0 + HIT_TIMING_BAR_SIZE.y + 5.0));
 const HIT_TIMING_DURATION:f64 = 1_000.0; // how long should a hit timing line last
 const HIT_TIMING_FADE:f64 = 300.0; // how long to fade out for
-const HIT_TIMING_BAR_COLOR:Color = Color {r:0.0,g:0.0,b:0.0, a:1.0};
+const HIT_TIMING_BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // hit timing bar color
 
 #[derive(Clone)]
 pub struct Beatmap {
