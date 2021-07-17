@@ -769,6 +769,7 @@ impl Beatmap {
 
 
 // timing bar struct
+//TODO: might be able to reduce this to a (time, speed) and just calc pos on draw
 #[derive(Copy, Clone, Debug)]
 struct TimingBar {
     time: u64,
@@ -788,9 +789,9 @@ impl TimingBar {
         self.pos = HIT_POSITION + Vector2::new(((self.time as f64 - time as f64) * self.speed) - BAR_WIDTH / 2.0, -PLAYFIELD_RADIUS);
     }
 
-    fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
+    fn draw(&mut self, _args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        if self.pos.x + BAR_WIDTH < 0.0 || self.pos.x - BAR_WIDTH > args.window_size[0] as f64 {return renderables}
+        if self.pos.x + BAR_WIDTH < 0.0 || self.pos.x - BAR_WIDTH > WINDOW_SIZE.x as f64 {return renderables}
 
         const SIZE:Vector2 = Vector2::new(BAR_WIDTH, PLAYFIELD_RADIUS*2.0);
         const DEPTH:f64 = f64::MAX-5.0;
