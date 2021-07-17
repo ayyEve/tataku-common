@@ -1,8 +1,9 @@
+use std::sync::Arc;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
+use parking_lot::Mutex;
 use tokio::runtime::{Builder, Runtime};
 use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
@@ -286,7 +287,7 @@ impl Game {
             GameMode::Ingame(ref beatmap) => {
                 let settings = Settings::get();
                 let og_beatmap = beatmap;
-                let mut beatmap = beatmap.lock().unwrap();
+                let mut beatmap = beatmap.lock();
                 
                 if keys.contains(&settings.left_kat) {
                     beatmap.hit(KeyPress::LeftKat);
@@ -415,7 +416,7 @@ impl Game {
             }
 
             GameMode::Replaying(ref beatmap, ref replay, ref mut frame_index) => {
-                let mut beatmap = beatmap.lock().unwrap();
+                let mut beatmap = beatmap.lock();
                 let time = beatmap.time();
                 // read any frames that need to be read
                 loop {
@@ -501,7 +502,7 @@ impl Game {
             }
             
             GameMode::InMenu(ref menu) => {
-                let mut menu = menu.lock().unwrap();
+                let mut menu = menu.lock();
 
                 // menu input events
                 // vol
@@ -533,7 +534,7 @@ impl Game {
             }
 
             GameMode::Spectating(ref data, ref state) => {
-                let mut data = data.lock().unwrap();
+                let mut data = data.lock();
 
                 // (try to) read pending data from the online manager
                 match self.online_manager.try_lock() {
@@ -585,8 +586,8 @@ impl Game {
 
                 match &self.queued_mode {
                     GameMode::Ingame(map) => {
-                        let m = map.lock().unwrap().metadata.clone();
-                        let text = format!("{}-{}[{}]\n{}",m.artist,m.title,m.version,map.lock().unwrap().hash.clone());
+                        let m = map.lock().metadata.clone();
+                        let text = format!("{}-{}[{}]\n{}",m.artist,m.title,m.version,map.lock().hash.clone());
 
                         self.threading.spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Ingame, text).await;
@@ -609,7 +610,7 @@ impl Game {
                 let mut do_transition = true;
                 match &self.current_mode {
                     GameMode::None => do_transition = false,
-                    GameMode::InMenu(menu) if menu.lock().unwrap().get_name() == "pause" => do_transition = false,
+                    GameMode::InMenu(menu) if menu.lock().get_name() == "pause" => do_transition = false,
                     _ => {}
                 }
 
@@ -630,7 +631,7 @@ impl Game {
 
 
                     if let GameMode::InMenu(menu) = &self.current_mode {
-                        menu.lock().unwrap().on_change(true);
+                        menu.lock().on_change(true);
                     }
                 }
             }
@@ -646,10 +647,10 @@ impl Game {
 
         // mode
         match &self.current_mode {
-            GameMode::Ingame(beatmap) => renderables.extend(beatmap.lock().unwrap().draw(args)),
-            GameMode::InMenu(menu) => renderables.extend(menu.lock().unwrap().draw(args)),
+            GameMode::Ingame(beatmap) => renderables.extend(beatmap.lock().draw(args)),
+            GameMode::InMenu(menu) => renderables.extend(menu.lock().draw(args)),
             GameMode::Replaying(beatmap,_,_) => {
-                renderables.extend(beatmap.lock().unwrap().draw(args));
+                renderables.extend(beatmap.lock().draw(args));
 
                 // draw watching X text
             }
@@ -677,7 +678,7 @@ impl Game {
 
             // draw old mode
             match (&self.current_mode, &self.transition_last) {
-                (GameMode::None, Some(GameMode::InMenu(menu))) => renderables.extend(menu.lock().unwrap().draw(args)),
+                (GameMode::None, Some(GameMode::InMenu(menu))) => renderables.extend(menu.lock().draw(args)),
                 _ => {}
             }
         }

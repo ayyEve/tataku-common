@@ -1,6 +1,7 @@
-use std::{path::Path, sync::{Arc, Mutex}, time::Instant};
+use std::{path::Path, sync::Arc, time::Instant};
 
 use piston::RenderArgs;
+use parking_lot::Mutex;
 
 use taiko_rs_common::types::{KeyPress, Replay, Score, ScoreHit};
 use super::{*, diff_calc::DifficultyCalculator, beatmap_structs::*};
@@ -301,8 +302,8 @@ impl Beatmap {
         let md5 = format!("{:x}", md5::compute(body).to_owned());
         // does this need to be in its own scope? probably not but whatever
         // assign values
-        let start_time = beatmap.notes.first().unwrap().lock().unwrap().time() as f64;
-        let end_time = beatmap.notes.last().unwrap().lock().unwrap().end_time() as f64;
+        let start_time = beatmap.notes.first().unwrap().lock().time() as f64;
+        let end_time = beatmap.notes.last().unwrap().lock().end_time() as f64;
 
         meta.set_dur((end_time - start_time) as u64);
         beatmap.end_time = end_time;
@@ -352,7 +353,7 @@ impl Beatmap {
 
         // check for finisher 2nd hit. 
         if self.note_index > 0 {
-            let mut last_note = self.notes[self.note_index-1].lock().unwrap();
+            let mut last_note = self.notes[self.note_index-1].lock();
 
             match last_note.check_finisher(hit_type, time) {
                 ScoreHit::Miss => {return},
@@ -373,7 +374,7 @@ impl Beatmap {
         }
 
         let note = self.notes[self.note_index].clone();
-        let mut note = note.lock().unwrap();
+        let mut note = note.lock();
         let note_time = note.time() as f64;
 
         match note.get_points(hit_type, time) {
@@ -435,7 +436,7 @@ impl Beatmap {
         let time = self.time();
 
         for note in self.notes.iter_mut() {
-            note.lock().unwrap().update(time);
+            note.lock().update(time);
         }
 
 
@@ -450,8 +451,8 @@ impl Beatmap {
             return;
         }
 
-        if (self.notes[self.note_index].lock().unwrap().end_time() as i64) < time {
-            if self.notes[self.note_index].lock().unwrap().causes_miss() {
+        if (self.notes[self.note_index].lock().end_time() as i64) < time {
+            if self.notes[self.note_index].lock().causes_miss() {
                 // need to set these manually instead of score.hit_miss,
                 // since we dont want to add anything to the hit error list
                 let s = self.score.as_mut().unwrap();
@@ -463,7 +464,7 @@ impl Beatmap {
         }
         
         for tb in self.timing_bars.iter_mut() {
-            tb.lock().unwrap().update(time as f64);
+            tb.lock().update(time as f64);
         }
 
         // check timing point
@@ -626,9 +627,9 @@ impl Beatmap {
         }
 
         // draw notes
-        for note in self.notes.iter_mut() {renderables.extend(note.lock().unwrap().draw(args));}
+        for note in self.notes.iter_mut() {renderables.extend(note.lock().draw(args));}
         // draw timing lines
-        for tb in self.timing_bars.iter_mut() {renderables.extend(tb.lock().unwrap().draw(args))}
+        for tb in self.timing_bars.iter_mut() {renderables.extend(tb.lock().draw(args))}
 
         renderables
     }
@@ -655,7 +656,7 @@ impl Beatmap {
 
         let c = self.clone();
         for note in self.notes.as_mut_slice() {
-            let mut note = note.lock().unwrap();
+            let mut note = note.lock();
 
             // set note svs
             if settings.static_sv {

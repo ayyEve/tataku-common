@@ -1,5 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use piston::{MouseButton, RenderArgs};
+
+use parking_lot::Mutex;
 
 use crate::{WINDOW_SIZE, render::*, gameplay::Beatmap};
 use crate::game::{Game, GameMode, KeyModifiers, Vector2};
@@ -28,7 +30,7 @@ impl PauseMenu {
     }
 
     pub fn unpause(&mut self, game:&mut Game) {
-        self.beatmap.lock().unwrap().start();
+        self.beatmap.lock().start();
         game.queue_mode_change(GameMode::Ingame(self.beatmap.clone()));
     }
 }
@@ -57,7 +59,7 @@ impl Menu for PauseMenu {
         
         // retry
         if self.retry_button.on_click(pos, button) {
-            self.beatmap.lock().unwrap().reset();
+            self.beatmap.lock().reset();
             self.unpause(game);
             return;
         }
@@ -68,7 +70,7 @@ impl Menu for PauseMenu {
             game.queue_mode_change(GameMode::InMenu(menu));
 
             // cleanup memory hogs in the beatmap object
-            self.beatmap.lock().unwrap().cleanup();
+            self.beatmap.lock().cleanup();
         }
     }
 

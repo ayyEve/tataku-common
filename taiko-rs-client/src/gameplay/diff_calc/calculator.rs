@@ -1,8 +1,9 @@
-use std::sync::{Arc,Mutex};
+use std::sync::Arc;
+
+use parking_lot::Mutex;
 
 use crate::gameplay::Beatmap;
 use super::difficulty_hit_object::{DifficultyHitObject, DECAY_BASE};
-
 
 // constants
 const STAR_SCALING_FACTOR:f64 = 0.04125;
@@ -18,7 +19,7 @@ impl DifficultyCalculator {
 
         let mut difficulty_hitobjects = Vec::new();
         {
-            let lock = beatmap.lock().unwrap().clone();
+            let lock = beatmap.lock().clone();
             for i in lock.notes {
                 let x = DifficultyHitObject::new(i);
                 difficulty_hitobjects.push(Arc::new(Mutex::new(x)));
@@ -26,8 +27,8 @@ impl DifficultyCalculator {
         }
 
         difficulty_hitobjects.sort_by(|a, b| {
-            let a = a.lock().unwrap().time();
-            let b = b.lock().unwrap().time();
+            let a = a.lock().time();
+            let b = b.lock().time();
             a.cmp(&b)
         });
 
@@ -66,7 +67,6 @@ impl DifficultyCalculator {
             // println!("calc!");
             current
                 .lock()
-                .unwrap()
                 .calculate_strains(previous.clone(), self.time_rate);
             previous = current;
         }
@@ -101,7 +101,7 @@ impl DifficultyCalculator {
         let mut previous:Option<DifficultyHitObject> = None;
 
         for hitobject in iter {
-            let hitobject = hitobject.lock().unwrap();
+            let hitobject = hitobject.lock();
             let hitobject_time = hitobject.time() as f64;
             // While we are beyond the current interval push the currently available maximum to our strain list
             while hitobject_time > interval_end_time {

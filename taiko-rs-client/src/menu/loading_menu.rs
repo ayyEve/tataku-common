@@ -1,4 +1,6 @@
-use std::{fs::read_dir, sync::{Arc, Mutex}};
+use std::{fs::read_dir, sync::Arc};
+
+use parking_lot::Mutex;
 
 use crate::render::{Color, Rectangle, Text};
 use crate::{SONGS_DIR, WINDOW_SIZE, menu::Menu};
@@ -25,11 +27,11 @@ impl LoadingMenu {
             let status = status.clone();
 
             // load settings (probably pointless, as settings will probably be loaded on game start in the future, if they arent already)
-            status.lock().unwrap().stage = LoadingStage::Settings;
+            status.lock().stage = LoadingStage::Settings;
             // let settings = Settings::get();
             drop(Settings::get());
 
-            status.lock().unwrap().stage = LoadingStage::Beatmaps;
+            status.lock().stage = LoadingStage::Beatmaps;
             // load beatmaps
             {
                 let mut folders = Vec::new();
@@ -41,22 +43,22 @@ impl LoadingMenu {
 
                 // set the count and reset the counter
                 {
-                    let mut s = status.lock().unwrap();
+                    let mut s = status.lock();
                     s.loading_count = folders.len();
                     s.loading_done = 0;
                 }
 
-                for f in folders {status.lock().unwrap().beatmap_manager.lock().unwrap().check_folder(f)}
+                for f in folders {status.lock().beatmap_manager.lock().check_folder(f)}
             }
             
-            status.lock().unwrap().stage = LoadingStage::Done;
+            status.lock().stage = LoadingStage::Done;
         });
     }
 }
 
 impl Menu for LoadingMenu {
     fn update(&mut self, game:&mut Game) {
-        if let LoadingStage::Done = self.status.lock().unwrap().stage {
+        if let LoadingStage::Done = self.status.lock().stage {
             let menu = game.menus.get("main").unwrap().clone();
             game.queue_mode_change(crate::game::GameMode::InMenu(menu));
         }
@@ -67,7 +69,7 @@ impl Menu for LoadingMenu {
         let font = crate::game::get_font("main");
 
         // since this is just loading, we dont care about performance here
-        let state = self.status.lock().unwrap();
+        let state = self.status.lock();
 
         let mut text:Text;
 

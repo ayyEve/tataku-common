@@ -1,6 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use piston::{MouseButton, RenderArgs};
+use parking_lot::Mutex;
 
 use crate::{WINDOW_SIZE, render::*};
 use crate::game::{Game, GameMode, get_font, Vector2};

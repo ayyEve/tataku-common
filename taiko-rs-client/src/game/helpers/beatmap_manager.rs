@@ -1,4 +1,5 @@
-use std::{collections::HashMap, fs::read_dir, path::Path, sync::{Arc, Mutex}};
+use std::{collections::HashMap, fs::read_dir, path::Path, sync::Arc};
+use parking_lot::Mutex;
 use crate::{DOWNLOADS_DIR, gameplay::Beatmap};
 
 // ugh
@@ -40,7 +41,7 @@ impl BeatmapManager {
         
         if files.len() == 0 {return}
 
-        _self.lock().unwrap().dirty = true;
+        _self.lock().dirty = true;
     }
 
     // adders
@@ -55,8 +56,8 @@ impl BeatmapManager {
 
             if file.ends_with(".osu") {
                 let map = Beatmap::load(file.to_owned());
-                if map.lock().unwrap().metadata.mode as u8 > 1 {
-                    println!("skipping {}, not a taiko map or convert", map.lock().unwrap().metadata.version_string());
+                if map.lock().metadata.mode as u8 > 1 {
+                    // println!("skipping {}, not a taiko map or convert", map.lock().metadata.version_string());
                     continue;
                 }
                 self.add_beatmap(map);
@@ -66,7 +67,7 @@ impl BeatmapManager {
 
     pub fn add_beatmap(&mut self, beatmap:ArcMutexBeatmap) {
         // check if we already have this map
-        let new_hash = beatmap.lock().unwrap().hash.clone();
+        let new_hash = beatmap.lock().hash.clone();
         if self.beatmaps_by_hash.contains_key(&new_hash) {return println!("map already added")}
 
         // dont have it, add it
@@ -80,7 +81,7 @@ impl BeatmapManager {
         let mut set_map = HashMap::new();
 
         for beatmap in self.beatmaps.iter() {
-            let m = beatmap.lock().unwrap().metadata.clone();
+            let m = beatmap.lock().metadata.clone();
             let key = format!("{}-{}[{}]",m.artist,m.title,m.creator); // good enough for now
             if !set_map.contains_key(&key) {set_map.insert(key.clone(), Vec::new());}
             set_map.get_mut(&key).unwrap().push(beatmap.clone());

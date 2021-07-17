@@ -1,6 +1,6 @@
 
-use std::sync::{Arc, Mutex};
-
+use std::sync::Arc;
+use parking_lot::Mutex;
 use crate::{gameplay::note::*};
 
 // constants
@@ -30,7 +30,7 @@ impl DifficultyHitObject {
         }
     }
     pub fn time(&self) -> u64 {
-        self.base_hitobject.lock().unwrap().time()
+        self.base_hitobject.lock().time()
     }
 
     pub fn calculate_strains(&mut self, previous:Arc<Mutex<DifficultyHitObject>>, time_rate:f64) {

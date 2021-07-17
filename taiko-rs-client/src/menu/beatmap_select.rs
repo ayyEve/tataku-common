@@ -1,7 +1,8 @@
 use std::fs::read_dir;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::collections::HashMap;
 
+use parking_lot::Mutex;
 use piston::{Key, MouseButton, RenderArgs};
 
 use taiko_rs_common::types::Score;
@@ -55,14 +56,9 @@ impl BeatmapSelectMenu {
     /// returns the selected item
     pub fn get_selected(&self) -> Option<Arc<Mutex<Beatmap>>> {
         match &self.selected {
-            Some(hash) => self.beatmap_manager.lock().unwrap().get_by_hash(hash.split('\n').last().unwrap().to_owned().clone()),
+            Some(hash) => self.beatmap_manager.lock().get_by_hash(hash.split('\n').last().unwrap().to_owned().clone()),
             None => {None}
         }
-
-        // if self.selected.is_none() {return None}
-        // let s = self.beatmap_scroll.get_tagged(self.selected.as_ref().unwrap().clone()).first().unwrap().get_value();
-        // let s = s.downcast_ref::<(Arc<Mutex<Beatmap>>, bool)>();
-        // if let Some(b) = s {Some(b.clone())} else {None}
     }
 
     pub fn refresh_maps(&mut self) {
@@ -70,7 +66,7 @@ impl BeatmapSelectMenu {
         self.beatmap_scroll.clear();
         //TODO: see if we can add new maps non-destructively
 
-        let sets = self.beatmap_manager.lock().unwrap().all_by_sets();
+        let sets = self.beatmap_manager.lock().all_by_sets();
         let mut full_list = Vec::new();
         for maps in sets {full_list.push(Box::new(BeatmapsetItem::new(maps)))}
 
@@ -108,7 +104,7 @@ impl Menu for BeatmapSelectMenu {
         }
 
         // wait for main to finish extracting everything from downloads
-        if (self.pending_refresh || self.beatmap_manager.lock().unwrap().check_dirty()) && count == 0 {
+        if (self.pending_refresh || self.beatmap_manager.lock().check_dirty()) && count == 0 {
             println!("refresh_maps()");
 
             // we detected maps in downloads, the beatmap manager may not have added the map yet
@@ -123,7 +119,7 @@ impl Menu for BeatmapSelectMenu {
                         folders.push(f.to_str().unwrap().to_owned());
                     });
 
-                for f in folders {self.beatmap_manager.lock().unwrap().check_folder(f)}
+                for f in folders {self.beatmap_manager.lock().check_folder(f)}
             }
 
             self.refresh_maps();
@@ -148,7 +144,7 @@ impl Menu for BeatmapSelectMenu {
 
         // draw selected map info
         if let Some(b) = self.get_selected() {
-            let meta = b.lock().unwrap().metadata.clone();
+            let meta = b.lock().metadata.clone();
 
             // draw map name top-most left-most
             items.push(Box::new(Text::new(
@@ -216,7 +212,7 @@ impl Menu for BeatmapSelectMenu {
         if let Some(score_tag) = self.leaderboard_scroll.on_click(pos, button, game) {
             // score display
             if let Some(score) = self.current_scores.get(&score_tag) {
-                let score = score.lock().unwrap().clone();
+                let score = score.lock().clone();
 
                 if let Some(selected) = self.get_selected() {
                     let menu = ScoreMenu::new(&score, selected.clone());
@@ -237,7 +233,7 @@ impl Menu for BeatmapSelectMenu {
                     // dirty hack lmao
                     i.set_tag("");
                 }
-                let mut map = clicked.lock().unwrap();
+                let mut map = clicked.lock();
                 map.song.stop();
                 map.reset();
                 map.start(); // TODO: figure out how to do this when checking mode change
@@ -248,7 +244,7 @@ impl Menu for BeatmapSelectMenu {
 
             // get current selected map
             if let Some(b) = self.get_selected() {
-                let mut b = b.lock().unwrap();
+                let mut b = b.lock();
                 if b.metadata.version_string() != clicked_tag.split('\n').next().unwrap() {
                     b.song.stop();
                 }
@@ -257,11 +253,11 @@ impl Menu for BeatmapSelectMenu {
             self.selected = Some(clicked_tag.clone());
             self.beatmap_scroll.refresh_layout();
 
-            let t = opengl_graphics::Texture::from_path(clicked.lock().unwrap().metadata.image_filename.clone(), &opengl_graphics::TextureSettings::new()).unwrap();
+            let t = opengl_graphics::Texture::from_path(clicked.lock().metadata.image_filename.clone(), &opengl_graphics::TextureSettings::new()).unwrap();
             self.background_texture = Some(Image::new(Vector2::zero(), 100.0, t, WINDOW_SIZE));
         
 
-            let hash = clicked.lock().unwrap().hash.clone();
+            let hash = clicked.lock().hash.clone();
             self.selected_beatmap = Some(hash.clone());
             self.load_scores(hash.clone());
         } else {
@@ -318,13 +314,13 @@ impl BeatmapsetItem {
         // sort beatmaps by sr
         let mut beatmaps = beatmaps.clone();
         beatmaps.sort_by(|a, b| {
-            let a = a.lock().unwrap().metadata.sr;
-            let b = b.lock().unwrap().metadata.sr;
+            let a = a.lock().metadata.sr;
+            let b = b.lock().metadata.sr;
             a.partial_cmp(&b).unwrap()
         });
 
         let _first = beatmaps.first().unwrap();
-        let first = _first.lock().unwrap();
+        let first = _first.lock();
         let tag = first.metadata.version_string();
 
         BeatmapsetItem {
@@ -350,10 +346,10 @@ impl ScrollableItem for BeatmapsetItem {
             Vector2::new(BEATMAPSET_ITEM_SIZE.x, (BEATMAPSET_ITEM_SIZE.y + BEATMAP_ITEM_PADDING) * (self.beatmaps.len()+1) as f64)
         }
     }
-    fn get_tag(&self) -> String {format!("{}\n{}", self.tag, self.beatmaps[self.selected_item].lock().unwrap().hash.clone())}
+    fn get_tag(&self) -> String {format!("{}\n{}", self.tag, self.beatmaps[self.selected_item].lock().hash.clone())}
     fn set_tag(&mut self, _tag:&str) {
         self.pending_play = false; 
-        self.first.lock().unwrap().song.stop();
+        self.first.lock().song.stop();
     } // bit of a jank strat: when this is called, reset the play_pending property
     fn get_pos(&self) -> Vector2 {self.pos}
     fn set_pos(&mut self, pos:Vector2) {self.pos = pos}
@@ -426,7 +422,7 @@ impl ScrollableItem for BeatmapsetItem {
                     parent_depth + 4.0,
                     pos + Vector2::new(5.0, 20.0),
                     12,
-                    format!("{}", b.lock().unwrap().metadata.version),
+                    format!("{}", b.lock().metadata.version),
                     font.clone()
                 )));
 
@@ -449,7 +445,7 @@ impl ScrollableItem for BeatmapsetItem {
             if self.selected_item == index {
                 // queue play map
                 self.pending_play = true;
-                self.first.lock().unwrap().song.stop();
+                self.first.lock().song.stop();
             } else {
                 self.selected_item = index;
             }
@@ -459,11 +455,11 @@ impl ScrollableItem for BeatmapsetItem {
         // not yet selected
         if !self.selected && self.hover {
             // start song
-            self.first.lock().unwrap().song.play();
-            self.first.lock().unwrap().song.set_volume(Settings::get().get_music_vol());
+            self.first.lock().song.play();
+            self.first.lock().song.set_volume(Settings::get().get_music_vol());
         } else { // was selected, not anymore
             // stop music
-            self.first.lock().unwrap().song.stop();
+            self.first.lock().song.stop();
         }
 
         self.selected = self.hover;
@@ -474,11 +470,11 @@ impl ScrollableItem for BeatmapsetItem {
         self.hover = self.hover(pos)
     }
     fn on_volume_change(&mut self) {
-        self.first.lock().unwrap().song.set_volume(Settings::get().get_music_vol());
+        self.first.lock().song.set_volume(Settings::get().get_music_vol());
     }
 
     fn dispose(&mut self) {
-        self.first.lock().unwrap().song.stop();
+        self.first.lock().song.stop();
     }
 }
 

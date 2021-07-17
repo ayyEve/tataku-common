@@ -1,7 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use piston::{MouseButton, RenderArgs};
-
+use parking_lot::Mutex;
 
 use crate::gameplay::Beatmap;
 use crate::{databases, format, render::*};
@@ -111,13 +111,13 @@ impl Menu for ScoreMenu {
 
     fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
         if self.replay_button.on_click(pos, button) {
-            self.beatmap.lock().unwrap().reset();
+            self.beatmap.lock().reset();
 
             let replay = databases::get_local_replay(self.score.hash());
 
             match replay {
                 Ok(replay) => {
-                    game.menus.get("beatmap").unwrap().lock().unwrap().on_change(false);
+                    game.menus.get("beatmap").unwrap().lock().on_change(false);
                     game.queue_mode_change(GameMode::Replaying(self.beatmap.clone(), replay.clone(), 0));
                 },
                 Err(e) => println!("error loading replay: {}", e),

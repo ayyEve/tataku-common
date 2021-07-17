@@ -2476,6 +2476,7 @@ dependencies = [
  "futures-util",
  "lazy_static",
  "md5",
+ "parking_lot",
  "piston",
  "piston2d-graphics",
  "piston2d-opengl_graphics",
