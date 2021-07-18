@@ -303,7 +303,7 @@ impl Beatmap {
         // does this need to be in its own scope? probably not but whatever
         // assign values
         let start_time = beatmap.notes.lock().first().unwrap().time() as f64;
-        let end_time = beatmap.notes.lock().last().unwrap().end_time() as f64;
+        let end_time = beatmap.notes.lock().last().unwrap().end_time(0.0) as f64;
 
         meta.set_dur((end_time - start_time) as u64);
         beatmap.end_time = end_time;
@@ -348,10 +348,7 @@ impl Beatmap {
         let mut notes = notes.lock();
 
         // if theres no more notes to hit, return
-        if self.note_index >= notes.len() {
-            Audio::play(sound);
-            return;
-        }
+        if self.note_index >= notes.len() {return Audio::play(sound)}
 
         // check for finisher 2nd hit. 
         if self.note_index > 0 {
@@ -378,7 +375,7 @@ impl Beatmap {
         let note = notes.get_mut(self.note_index).unwrap();
         let note_time = note.time() as f64;
 
-        match note.get_points(hit_type, time) {
+        match note.get_points(hit_type, time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_miss)) {
             ScoreHit::None => {
                 // play sound
                 Audio::play(sound);
@@ -435,14 +432,12 @@ impl Beatmap {
         }
 
         let time = self.time();
-        for note in self.notes.lock().iter_mut() {
-            note.update(time);
-        }
 
+        // update notes
+        for note in self.notes.lock().iter_mut() {note.update(time)}
 
-        self.hit_timings.retain(|(hit_time, _diff)| {
-            time - hit_time < HIT_TIMING_DURATION as i64
-        });
+        // update hit timings bar
+        self.hit_timings.retain(|(hit_time, _)| {time - hit_time < HIT_TIMING_DURATION as i64});
 
         // if theres no more notes to hit, show score screen
         if self.note_index >= self.notes.lock().len() {
@@ -451,7 +446,8 @@ impl Beatmap {
             return;
         }
 
-        if (self.notes.lock()[self.note_index].end_time() as i64) < time {
+        // check if we missed the current note
+        if (self.notes.lock()[self.note_index].end_time(self.hitwindow_miss) as i64) < time {
             if self.notes.lock()[self.note_index].causes_miss() {
                 // need to set these manually instead of score.hit_miss,
                 // since we dont want to add anything to the hit error list
@@ -463,9 +459,8 @@ impl Beatmap {
             self.next_note();
         }
         
-        for tb in self.timing_bars.iter_mut() {
-            tb.update(time as f64);
-        }
+        // TODO: might move tbs to a (time, speed) tuple
+        for tb in self.timing_bars.iter_mut() {tb.update(time as f64)}
 
         // check timing point
         if self.timing_point_index + 1 < self.timing_points.len() && self.timing_points[self.timing_point_index + 1].time <= time as f64 {
@@ -655,6 +650,7 @@ impl Beatmap {
 
         let c = self.clone();
         for note in self.notes.lock().as_mut_slice() {
+            note.reset();
 
             // set note svs
             if settings.static_sv {
@@ -663,9 +659,6 @@ impl Beatmap {
                 let sv = c.slider_velocity_at(note.time()) / SV_FACTOR;
                 note.set_sv(sv);
             }
-
-            note.reset();
-            note.set_od(self.metadata.od as f64); //TODO! change when adding mods
         }
         self.note_index = 0;
         self.song.stop();
@@ -673,6 +666,7 @@ impl Beatmap {
         self.started = false;
         self.lead_in_time = LEAD_IN_TIME;
         self.offset_changed_time = 0;
+        self.timing_point_index = 0;
 
         // setup timing bars
         //TODO: it would be cool if we didnt actually need timing bar objects, and could just draw them

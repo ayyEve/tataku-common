@@ -22,18 +22,17 @@ pub trait HitObject: Send {
     fn note_type(&self) -> NoteType;
     fn is_kat(&self) -> bool {false}// needed for diff calc :/
     fn set_sv(&mut self, sv:f64);
-    fn set_od(&mut self, _od:f64) {}
     /// does this hit object play a finisher sound when hit?
     fn finisher_sound(&self) -> bool {false}
 
     /// time in ms of this hit object
     fn time(&self) -> u64;
-    /// when should the hitobject be considered "finished"
-    fn end_time(&self) -> u64;
+    /// when should the hitobject be considered "finished", should the miss hitwindow be applied (specifically for notes)
+    fn end_time(&self, hitwindow_miss:f64) -> u64;
     /// does this object count as a miss if it is not hit?
     fn causes_miss(&self) -> bool; //TODO: might change this to return an enum of "no", "yes". "yes_combo_only"
     
-    fn get_points(&mut self, hit_type:HitType, time:f64) -> ScoreHit; // if negative, counts as a miss
+    fn get_points(&mut self, hit_type:HitType, time:f64, hit_windows:(f64,f64,f64)) -> ScoreHit; // if negative, counts as a miss
     fn check_finisher(&mut self, _hit_type:HitType, _time:f64) -> ScoreHit {ScoreHit::None}
 
     fn update(&mut self, beatmap_time: i64);
@@ -47,17 +46,13 @@ pub trait HitObject: Send {
 #[derive(Clone, Copy)]
 pub struct Note {
     pos: Vector2,
-    pub time: u64, // ms
+    time: u64, // ms
     hit_time: u64,
-    pub hit_type: HitType,
-    pub finisher:bool,
-    pub hit: bool,
-    pub missed: bool,
-    pub speed:f64,
-
-    hitwindow_50:f64,
-    hitwindow_100:f64,
-    hitwindow_300:f64
+    hit_type: HitType,
+    finisher: bool,
+    hit: bool,
+    missed: bool,
+    speed: f64
 }
 impl Note {
     pub fn new(time:u64, hit_type:HitType, finisher:bool, speed:f64) -> Note {
@@ -70,11 +65,6 @@ impl Note {
             hit: false,
             missed: false,
             pos: Vector2::zero(),
-
-            // set later
-            hitwindow_50: 0.0,
-            hitwindow_100: 0.0,
-            hitwindow_300: 0.0
         }
     }
 
@@ -86,22 +76,19 @@ impl Note {
     }
 }
 impl HitObject for Note {
-    fn set_sv(&mut self, sv:f64) {self.speed = sv}
-    fn set_od(&mut self, od:f64) {
-        self.hitwindow_50 = map_difficulty_range(od, 135.0, 95.0, 70.0);
-        self.hitwindow_100 = map_difficulty_range(od, 120.0, 80.0, 50.0);
-        self.hitwindow_300 = map_difficulty_range(od, 50.0, 35.0, 20.0);
-    }
     fn note_type(&self) -> NoteType {NoteType::Note}
+    fn set_sv(&mut self, sv:f64) {self.speed = sv}
     fn is_kat(&self) -> bool {self.hit_type == HitType::Kat}
     fn finisher_sound(&self) -> bool {self.finisher}
     fn time(&self) -> u64 {self.time}
-    fn end_time(&self) -> u64 {self.time + self.hitwindow_50 as u64}
+    fn end_time(&self, hw_miss:f64) -> u64 {self.time + hw_miss as u64}
     fn causes_miss(&self) -> bool {true}
 
-    fn get_points(&mut self, hit_type:HitType, time:f64) -> ScoreHit {
+    fn get_points(&mut self, hit_type:HitType, time:f64, hit_windows:(f64,f64,f64)) -> ScoreHit {
+        let (hitwindow_miss, hitwindow_100, hitwindow_300) = hit_windows;
+
         let diff = (time - self.time as f64).abs();
-        if diff < self.hitwindow_300 {
+        if diff < hitwindow_300 {
             self.hit_time = time.max(0.0) as u64;
             if hit_type != self.hit_type {
                 self.missed = true;
@@ -110,7 +97,7 @@ impl HitObject for Note {
                 self.hit = true;
                 ScoreHit::X300
             }
-        } else if diff < self.hitwindow_100 {
+        } else if diff < hitwindow_100 {
             self.hit_time = time.max(0.0) as u64;
             if hit_type != self.hit_type {
                 self.missed = true;
@@ -119,7 +106,7 @@ impl HitObject for Note {
                 self.hit = true;
                 ScoreHit::X100
             }
-        } else if diff < self.hitwindow_50 { // too early, miss
+        } else if diff < hitwindow_miss { // too early, miss
             self.hit_time = time.max(0.0) as u64;
             self.missed = true;
             ScoreHit::Miss
@@ -200,12 +187,12 @@ impl Slider {
     }
 }
 impl HitObject for Slider {
-    fn set_sv(&mut self, sv:f64) {self.speed = sv;}
     fn note_type(&self) -> NoteType {NoteType::Slider}
+    fn set_sv(&mut self, sv:f64) {self.speed = sv;}
     fn time(&self) -> u64 {self.time}
-    fn end_time(&self) -> u64 {self.end_time}
+    fn end_time(&self,_:f64) -> u64 {self.end_time}
     fn causes_miss(&self) -> bool {false}
-    fn get_points(&mut self, _hit_type:HitType, time:f64) -> ScoreHit {
+    fn get_points(&mut self, _hit_type:HitType, time:f64, _:(f64,f64,f64)) -> ScoreHit {
         // too soon or too late
         if time < self.time as f64 || time > self.end_time as f64 {return ScoreHit::None}
 
@@ -215,7 +202,7 @@ impl HitObject for Slider {
 
     fn update(&mut self, beatmap_time: i64) {
         self.pos.x = HIT_POSITION.x + (self.time as f64 - beatmap_time as f64) * self.speed;
-        self.end_x = HIT_POSITION.x + (self.end_time() as f64 - beatmap_time as f64) * self.speed;
+        self.end_x = HIT_POSITION.x + (self.end_time(0.0) as f64 - beatmap_time as f64) * self.speed;
 
         // draw hit dots
         for dot in self.hit_dots.as_mut_slice() {
@@ -354,15 +341,15 @@ impl Spinner {
     }
 }
 impl HitObject for Spinner {
+    fn note_type(&self) -> NoteType {NoteType::Spinner}
     fn set_sv(&mut self, sv:f64) {self.speed = sv;}
     fn time(&self) -> u64 {self.time}
-    fn end_time(&self) -> u64 {
+    fn end_time(&self,_:f64) -> u64 {
         // if the spinner is done, end right away
         if self.complete {self.time} else {self.end_time}
     }
     fn causes_miss(&self) -> bool {!self.complete} // if the spinner wasnt completed in time, cause a miss
-    fn note_type(&self) -> NoteType {NoteType::Spinner}
-    fn get_points(&mut self, hit_type:HitType, time:f64) -> ScoreHit {
+    fn get_points(&mut self, hit_type:HitType, time:f64, _:(f64,f64,f64)) -> ScoreHit {
         // too soon or too late
         if time < self.time as f64 || time > self.end_time as f64 {return ScoreHit::None}
         // wrong note, or already done (just in case)

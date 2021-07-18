@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+cd taiko-rs-client
+cargo run --release
+cd ..

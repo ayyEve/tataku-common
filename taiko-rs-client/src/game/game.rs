@@ -26,7 +26,6 @@ const TRANSITION_TIME:u64 = 500;
 const DRUM_LIFETIME_TIME:u64 = 100;
 
 pub struct Game {
-
     // engine things
     render_queue: Vec<Box<dyn Renderable>>,
     pub window: AppWindow,
@@ -51,6 +50,7 @@ pub struct Game {
     // fps
     fps_display: FpsDisplay,
     update_display: FpsDisplay,
+    input_update_display: FpsDisplay,
 
     // transition
     transition: Option<GameMode>,
@@ -114,6 +114,7 @@ impl Game {
             // fps
             fps_display: FpsDisplay::new("fps", 0),
             update_display: FpsDisplay::new("updates/s", 1),
+            input_update_display:FpsDisplay::new("inputs/s", 2),
 
             // transition
             transition: None,
@@ -180,6 +181,9 @@ impl Game {
         while let Some(e) = events.next(&mut self.window) {
             if let Some(args) = e.update_args() {self.update(args.dt*1000.0)}
             if let Some(args) = e.render_args() {self.render(args)}
+            if let Some(Button::Keyboard(_)) = e.press_args() {
+                self.input_update_display.increment();
+            }
             self.input_manager.handle_events(e.clone());
             // e.resize(|args| println!("Resized '{}, {}'", args.window_size[0], args.window_size[1]));
         }
@@ -832,6 +836,7 @@ impl Game {
         // draw fps's
         self.render_queue.push(Box::new(self.fps_display.draw()));
         self.render_queue.push(Box::new(self.update_display.draw()));
+        self.render_queue.push(Box::new(self.input_update_display.draw()));
 
         // sort the queue here (so it only needs to be sorted once per frame, instead of every time a shape is added)
         self.render_queue.sort_by(|a, b| b.get_depth().partial_cmp(&a.get_depth()).unwrap());
