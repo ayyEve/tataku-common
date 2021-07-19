@@ -13,7 +13,7 @@ use crate::gameplay::Beatmap;
 use crate::databases::{save_all_scores, save_replay, save_score};
 use taiko_rs_common::types::{KeyPress, Replay, SpectatorFrames, UserAction};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, SONGS_DIR, menu::*};
-use crate::render::{HalfCircle, Rectangle, Renderable, Text, Color, Border};
+use crate::render::{Border, Color, HalfCircle, Image, Rectangle, Renderable, Text};
 use crate::game::{InputManager, Settings, get_font, Vector2, online::{USER_ITEM_SIZE, OnlineManager}, helpers::{FpsDisplay, BenchmarkHelper, BeatmapManager}};
 
 /// how long should the volume thing be displayed when changed
@@ -62,6 +62,8 @@ pub struct Game {
 
     // misc
     pub game_start: Instant,
+
+    pub background_image: Option<Image>
 }
 impl Game {
     pub fn new() -> Game {
@@ -101,6 +103,7 @@ impl Game {
             input_manager,
             online_manager,
             render_queue: Vec::new(),
+            background_image: None,
 
             menus: HashMap::new(),
             beatmap_manager: Arc::new(Mutex::new(BeatmapManager::new())),
@@ -592,6 +595,12 @@ impl Game {
                     GameMode::Ingame(map) => {
                         let m = map.lock().metadata.clone();
                         let text = format!("{}-{}[{}]\n{}",m.artist,m.title,m.version,map.lock().hash.clone());
+                        
+                        if let Ok(t) = opengl_graphics::Texture::from_path(m.image_filename.clone(), &opengl_graphics::TextureSettings::new()) {
+                            self.background_image = Some(Image::new(Vector2::zero(), f64::INFINITY, t, WINDOW_SIZE));
+                        } else {
+                            self.background_image = None;
+                        }
 
                         self.threading.spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Ingame, text).await;
@@ -648,6 +657,11 @@ impl Game {
         let settings = Settings::get();
         let elapsed = self.game_start.elapsed().as_millis() as u64;
         let font = get_font("main");
+
+        // draw background image here
+        if let Some(img) = self.background_image.as_ref() {
+            renderables.push(Box::new(img.clone()));
+        }
 
         // mode
         match &self.current_mode {
