@@ -95,9 +95,9 @@ impl Menu for MainMenu {
     }
 
     fn on_mouse_move(&mut self, pos:Vector2, _game: &mut Game) {
-        self.play_button.on_mouse_move(pos);
-        self.direct_button.on_mouse_move(pos);
-        self.settings_button.on_mouse_move(pos);
-        self.exit_button.on_mouse_move(pos);
+        self.play_button.check_hover(pos);
+        self.direct_button.check_hover(pos);
+        self.settings_button.check_hover(pos);
+        self.exit_button.check_hover(pos);
     }
 }

@@ -1,5 +1,6 @@
-use std::{rc::Rc, sync::{Arc, Mutex}};
+use std::{rc::Rc, sync::Arc};
 
+use parking_lot::Mutex;
 use opengl_graphics::{GlGraphics, GlyphCache, Texture};
 use graphics::{Context, DrawState, ImageSize, Transformed, character::CharacterCache};
 
@@ -181,7 +182,7 @@ impl Text {
     }
     pub fn measure_text(&self) -> Vector2 {
         let mut text_size = Vector2::zero();
-        let mut font = self.font.lock().unwrap();
+        let mut font = self.font.lock();
 
         // let block_char = '█';
         // let character = font.character(self.font_size, block_char).unwrap();
@@ -211,7 +212,7 @@ impl Renderable for Text {
             self.color.into(),
             self.font_size,
             self.text.as_str(),
-            &mut *self.font.lock().unwrap(),
+            &mut *self.font.lock(),
             c.transform.trans(self.pos.x, self.pos.y),
             g
         ).unwrap();

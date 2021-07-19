@@ -1,7 +1,8 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::{path::Path};
 use std::collections::hash_map::HashMap;
 
+use parking_lot::Mutex;
 use opengl_graphics::{GlyphCache, TextureSettings};
 
 const FONT_LIST:[&'static str; 1] = [
@@ -16,7 +17,6 @@ lazy_static::lazy_static! {
             let glyphs = GlyphCache::new(font, (), TextureSettings::new()).unwrap();
             fonts.insert(font_name.to_owned(), Arc::new(Mutex::new(glyphs)));
         }
-
         fonts
     };
 }

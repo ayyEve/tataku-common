@@ -10,6 +10,7 @@ pub const USER_ITEM_SIZE:Vector2 = Vector2::new(200.0, 100.0);
 pub struct OnlineUser {
     pos: Vector2,
     hover: bool,
+    selected: bool,
 
     pub user_id: u32,
     pub username: String,
@@ -25,6 +26,7 @@ impl OnlineUser {
             action_text: None,
 
             hover: false,
+            selected: false,
             pos: Vector2::zero()
         }
     }
@@ -36,7 +38,11 @@ impl ScrollableItem for OnlineUser {
     fn set_pos(&mut self, pos:Vector2) {self.pos = pos}
     fn get_tag(&self) -> String {self.username.clone()}
     fn set_tag(&mut self, _tag:&str) {}
-    fn on_mouse_move(&mut self, pos:Vector2) {self.hover = self.hover(pos)}
+
+    fn get_hover(&self) -> bool {self.hover}
+    fn set_hover(&mut self, hover:bool) {self.hover = hover}
+    fn get_selected(&self) -> bool {self.selected}
+    fn set_selected(&mut self, selected:bool) {self.selected = selected}
 
 
     fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2, depth:f64) -> Vec<Box<dyn Renderable>> {

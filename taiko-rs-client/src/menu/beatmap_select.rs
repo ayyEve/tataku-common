@@ -359,6 +359,11 @@ impl ScrollableItem for BeatmapsetItem {
         Box::new((self.beatmaps.get(self.selected_item).unwrap().clone(), self.pending_play))
     }
 
+    fn get_hover(&self) -> bool {self.hover}
+    fn set_hover(&mut self, hover:bool) {self.hover = hover}
+    fn get_selected(&self) -> bool {self.selected}
+    fn set_selected(&mut self, selected:bool) {self.selected = selected}
+
     fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut items: Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
@@ -470,7 +475,7 @@ impl ScrollableItem for BeatmapsetItem {
     }
     fn on_mouse_move(&mut self, pos:Vector2) {
         self.mouse_pos = pos;
-        self.hover = self.hover(pos)
+        self.check_hover(pos);
     }
     fn on_volume_change(&mut self) {
         self.first.lock().song.set_volume(Settings::get().get_music_vol());
@@ -485,6 +490,7 @@ impl ScrollableItem for BeatmapsetItem {
 struct LeaderboardItem {
     pos: Vector2,
     hover: bool,
+    selected: bool,
     tag: String,
 
     score: Score,
@@ -500,7 +506,8 @@ impl LeaderboardItem {
             score,
             tag,
             acc,
-            hover: false
+            hover: false,
+            selected: false
         }
     }
 }
@@ -510,6 +517,11 @@ impl ScrollableItem for LeaderboardItem {
     fn set_tag(&mut self, tag:&str) {self.tag = tag.to_owned()}
     fn get_pos(&self) -> Vector2 {self.pos}
     fn set_pos(&mut self, pos:Vector2) {self.pos = pos}
+
+    fn get_hover(&self) -> bool {self.hover}
+    fn set_hover(&mut self, hover:bool) {self.hover = hover}
+    fn get_selected(&self) -> bool {self.selected}
+    fn set_selected(&mut self, selected:bool) {self.selected = selected}
 
     fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut items: Vec<Box<dyn Renderable>> = Vec::new();
@@ -548,5 +560,4 @@ impl ScrollableItem for LeaderboardItem {
     }
 
     fn on_click(&mut self, _pos:Vector2, _button:MouseButton) -> bool {self.hover}
-    fn on_mouse_move(&mut self, pos:Vector2) {self.hover = self.hover(pos);}
 }
