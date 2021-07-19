@@ -81,7 +81,7 @@ impl BeatmapSelectMenu {
 
         // load scores
         let scores = get_scores(map_hash.to_owned());
-        let mut scores = scores.lock().unwrap().clone();
+        let mut scores = scores.lock().clone();
         scores.sort_by(|a, b| {
             b.score.cmp(&a.score)
         });

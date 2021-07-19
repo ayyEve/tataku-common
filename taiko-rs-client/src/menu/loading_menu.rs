@@ -1,9 +1,11 @@
-use std::{fs::read_dir, sync::Arc};
+use std::{fs::read_dir, sync::Arc, time::Duration};
 
+use tokio::time::sleep;
 use parking_lot::Mutex;
 
 use crate::render::{Color, Rectangle, Text};
 use crate::{SONGS_DIR, WINDOW_SIZE, menu::Menu};
+use taiko_rs_common::{types::Score, serialization::Serializable};
 use crate::game::{Game, Settings, Vector2, helpers::BeatmapManager};
 
 /// helper for when starting the game. will load beatmaps, settings, etc from storage
@@ -28,12 +30,17 @@ impl LoadingMenu {
 
             // load settings (probably pointless, as settings will probably be loaded on game start in the future, if they arent already)
             status.lock().stage = LoadingStage::Settings;
-            // let settings = Settings::get();
             drop(Settings::get());
 
-            status.lock().stage = LoadingStage::Beatmaps;
+            // // preload audio // wait until audio rewrite
+            // status.lock().stage = LoadingStage::Audio;
+            // {
+
+            // }
+
             // load beatmaps
             {
+                status.lock().stage = LoadingStage::Beatmaps;
                 let mut folders = Vec::new();
                 read_dir(SONGS_DIR).unwrap()
                     .for_each(|f| {
@@ -54,6 +61,39 @@ impl LoadingMenu {
                 }
             }
             
+            // load scores
+            {
+                status.lock().stage = LoadingStage::Scores;
+
+                // set the count and reset the counter
+                {
+                    let mut s = status.lock();
+                    s.loading_count = 0;
+                    s.loading_done = 0;
+                }
+
+                let reader = taiko_rs_common::serialization::open_database(crate::SCORE_DATABASE_FILE);
+                match reader {
+                    Err(e) => {
+                        println!("Error reading scores db: {:?}", e);
+
+                        status.lock().error = Some("Error reading scores db".to_owned());
+                        sleep(Duration::from_secs(1)).await;
+                        status.lock().error = None;
+                    }
+                    Ok(mut reader) => {
+                        let count = reader.read_u128();
+                        status.lock().loading_count = count as usize;
+                        
+                        for _ in 0..count {
+                            let score = Score::read(&mut reader);
+                            crate::databases::save_score(&score);
+                            status.lock().loading_done += 1;
+                        }
+                    }
+                }
+            }
+
             status.lock().stage = LoadingStage::Done;
         });
     }
@@ -75,57 +115,68 @@ impl Menu for LoadingMenu {
         let state = self.status.lock();
 
         let mut text:Text;
-
-        match state.stage {
-            LoadingStage::None => {
+        match &state.error {
+            Some(error) => {
                 text = Text::new(
                     Color::BLACK,
                     -100.0,
                     Vector2::zero(),
                     32,
-                    format!(""),
+                    error.clone(),
                     font
                 )
             },
-            LoadingStage::Done => {
-                text = Text::new(
-                    Color::BLACK,
-                    -100.0,
-                    Vector2::zero(),
-                    32,
-                    format!("Done"),
-                    font
-                )
-            },
-            LoadingStage::Settings => {
-                text = Text::new(
-                    Color::BLACK,
-                    -100.0,
-                    Vector2::zero(),
-                    32,
-                    format!("Loading Settings"),
-                    font
-                )
-            },
-            LoadingStage::Beatmaps => {
-                text = Text::new(
-                    Color::BLACK,
-                    -100.0,
-                    Vector2::zero(),
-                    32,
-                    format!("Loading Beatmaps ({}/{})", state.loading_done, state.loading_count),
-                    font
-                )
-            },
-            LoadingStage::Scores => {
-                text = Text::new(
-                    Color::BLACK,
-                    -100.0,
-                    Vector2::zero(),
-                    32,
-                    format!("Loading Scores ({}/{})", state.loading_done, state.loading_count),
-                    font
-                )
+            None => match state.stage {
+                LoadingStage::None => {
+                    text = Text::new(
+                        Color::BLACK,
+                        -100.0,
+                        Vector2::zero(),
+                        32,
+                        format!(""),
+                        font
+                    )
+                },
+                LoadingStage::Done => {
+                    text = Text::new(
+                        Color::BLACK,
+                        -100.0,
+                        Vector2::zero(),
+                        32,
+                        format!("Done"),
+                        font
+                    )
+                },
+                LoadingStage::Settings => {
+                    text = Text::new(
+                        Color::BLACK,
+                        -100.0,
+                        Vector2::zero(),
+                        32,
+                        format!("Loading Settings"),
+                        font
+                    )
+                },
+                LoadingStage::Beatmaps => {
+                    text = Text::new(
+                        Color::BLACK,
+                        -100.0,
+                        Vector2::zero(),
+                        32,
+                        format!("Loading Beatmaps ({}/{})", state.loading_done, state.loading_count),
+                        font
+                    )
+                },
+                LoadingStage::Scores => {
+                    text = Text::new(
+                        Color::BLACK,
+                        -100.0,
+                        Vector2::zero(),
+                        32,
+                        format!("Loading Scores ({}/{})", state.loading_done, state.loading_count),
+                        font
+                    )
+                },
             },
         }
 
@@ -138,6 +189,7 @@ impl Menu for LoadingMenu {
 /// async helper
 struct LoadingStatus {
     stage: LoadingStage,
+    error: Option<String>,
     beatmap_manager: Arc<Mutex<BeatmapManager>>,
 
     loading_count: usize, // items in the list
@@ -147,6 +199,7 @@ impl LoadingStatus {
     pub fn new(beatmap_manager: Arc<Mutex<BeatmapManager>>) -> Self {
         Self {
             beatmap_manager,
+            error: None,
             loading_count: 0,
             loading_done: 0,
             stage: LoadingStage::None,
@@ -159,8 +212,8 @@ enum LoadingStage {
     None,
     Settings,
     Beatmaps,
-    #[allow(dead_code)]
-    Scores, // TODO
+    Scores,
+    // Audio,
 
     Done,
 }
