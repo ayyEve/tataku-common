@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, time::Instant};
 use piston::input::*;
 use crate::game::Vector2;
 
@@ -9,9 +9,10 @@ pub struct InputManager {
     pub mouse_buttons: Vec<MouseButton>,
 
     key_states: HashSet<Key>,
-    key_states_once: HashSet<Key>,
+    key_states_once: HashSet<(Key, Instant)>,
     text_cache: String,
-    window_change_focus:Option<bool>,
+    window_change_focus: Option<bool>,
+    register_times: Vec<f32>
 }
 impl InputManager {
     pub fn new() -> InputManager {
@@ -20,12 +21,13 @@ impl InputManager {
             scroll_delta: 0.0,
             mouse_moved: false,
             mouse_buttons: Vec::new(),
+            register_times: Vec::new(),
 
             key_states: HashSet::new(),
             key_states_once: HashSet::new(),
             text_cache: String::new(),
 
-            window_change_focus:None,
+            window_change_focus: None,
         }
     }
 
@@ -34,16 +36,11 @@ impl InputManager {
             match (button.button, button.state) {
                 (Button::Keyboard(key), ButtonState::Press) => {
                     self.key_states.insert(key);
-                    self.key_states_once.insert(key);
-                },
-                (Button::Keyboard(key), ButtonState::Release) => {
-                    self.key_states.remove(&key);
+                    self.key_states_once.insert((key, Instant::now()));
                 },
 
-                (Button::Mouse(mb), ButtonState::Press) => {
-                    self.mouse_buttons.push(mb);
-                }
-
+                (Button::Keyboard(key), ButtonState::Release) => {self.key_states.remove(&key);},
+                (Button::Mouse(mb), ButtonState::Press) => self.mouse_buttons.push(mb),
                 _ => {}
             }
         }
@@ -75,7 +72,7 @@ impl InputManager {
     /// get all keys that were pressed, and clear the pressed list. (will be true when first checked and pressed, false after first check or when key is up)
     pub fn all_down_once(&mut self) -> Vec<Key> {
         let mut down = Vec::new();
-        for i in &self.key_states_once {down.push(i.clone())}
+        for (i, time) in &self.key_states_once {down.push(i.clone()); self.register_times.push(time.elapsed().as_secs_f32()*1000.0)}
         self.key_states_once.clear();
 
         down
@@ -112,6 +109,23 @@ impl InputManager {
         let o = self.window_change_focus.clone();
         self.window_change_focus = None;
         o
+    }
+
+    /// get the input register delay average 
+    /// (min,max,avg)
+    pub fn get_register_delay(&mut self) -> (f32,f32,f32) {
+        let mut sum = 0.0;
+        let mut min = f32::MAX;
+        let mut max = f32::MIN;
+        for i in self.register_times.iter() {
+            sum += i;
+            min = min.min(*i);
+            max = max.max(*i);
+        }
+        sum /= self.register_times.len() as f32;
+        self.register_times.clear();
+
+        (min,max,sum)
     }
 }
 

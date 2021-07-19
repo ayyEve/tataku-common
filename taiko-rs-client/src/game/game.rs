@@ -63,7 +63,12 @@ pub struct Game {
     // misc
     pub game_start: Instant,
 
-    pub background_image: Option<Image>
+    pub background_image: Option<Image>,
+
+
+
+
+    register_timings: (f32,f32,f32)
 }
 impl Game {
     pub fn new() -> Game {
@@ -127,6 +132,7 @@ impl Game {
             // misc
             show_user_list: false,
             game_start: Instant::now(),
+            register_timings: (0.0,0.0,0.0)
         };
         game_init_benchmark.log("game created", true);
 
@@ -184,9 +190,7 @@ impl Game {
         while let Some(e) = events.next(&mut self.window) {
             if let Some(args) = e.update_args() {self.update(args.dt*1000.0)}
             if let Some(args) = e.render_args() {self.render(args)}
-            if let Some(Button::Keyboard(_)) = e.press_args() {
-                self.input_update_display.increment();
-            }
+            if let Some(Button::Keyboard(_)) = e.press_args() {self.input_update_display.increment()}
             self.input_manager.handle_events(e.clone());
             // e.resize(|args| println!("Resized '{}, {}'", args.window_size[0], args.window_size[1]));
         }
@@ -195,7 +199,7 @@ impl Game {
     fn update(&mut self, _delta:f64) {
         self.update_display.increment();
         let mut current_mode = self.current_mode.clone().to_owned();
-        let elapsed = self.game_start.elapsed().as_millis() as u64;
+        let elapsed = (self.game_start.elapsed().as_micros() as f64 / 1000.0) as u64;
 
         // check input events
         let mouse_pos = self.input_manager.mouse_pos;
@@ -206,6 +210,11 @@ impl Game {
         let mods = self.input_manager.get_key_mods();
         let text = self.input_manager.get_text();
         let window_focus_changed = self.input_manager.get_changed_focus();
+
+        // if keys.len() > 0 {
+        //     self.register_timings = self.input_manager.get_register_delay();
+        //     println!("register times: min:{}, max: {}, avg:{}", self.register_timings.0,self.register_timings.1,self.register_timings.2);
+        // }
         
         // users list
         if self.show_user_list {
