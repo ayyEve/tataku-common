@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use piston::{MouseButton, RenderArgs};
 use parking_lot::Mutex;
+use piston::{MouseButton, RenderArgs};
 
 use crate::{WINDOW_SIZE, render::*};
 use crate::game::{Game, GameMode, get_font, Vector2};
@@ -22,13 +22,13 @@ impl MainMenu {
         let middle = WINDOW_SIZE.x /2.0 - BUTTON_SIZE.x/2.0;
         let mut counter = 1.0;
         
-        let play_button = MenuButton::new(Vector2::new(middle,(BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Play");
+        let play_button = MenuButton::new(Vector2::new(middle, (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Play");
         counter += 1.0;
-        let direct_button = MenuButton::new(Vector2::new(middle,(BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "osu!Direct");
+        let direct_button = MenuButton::new(Vector2::new(middle, (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "osu!Direct");
         counter += 1.0;
-        let settings_button = MenuButton::new(Vector2::new(middle,(BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Settings");
+        let settings_button = MenuButton::new(Vector2::new(middle, (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Settings");
         counter += 1.0;
-        let exit_button = MenuButton::new(Vector2::new(middle,(BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Exit");
+        let exit_button = MenuButton::new(Vector2::new(middle, (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Exit");
 
         MainMenu {
             play_button,

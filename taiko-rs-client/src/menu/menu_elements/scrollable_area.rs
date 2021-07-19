@@ -17,11 +17,11 @@ pub struct ScrollableArea {
     /// if list mode, item positions will be modified based on how many items there are (ie, a list)
     list_mode: bool,
 
-    // cache of where the mouse is, needed to check for on_scroll if mouse is over this
+    // cache of where the mouse is, only used for debugging now
     mouse_pos: Vector2,
     elements_height: f64,
 
-    hover:bool
+    hover: bool
 }
 impl ScrollableArea {
     pub fn new(pos: Vector2, size: Vector2, list_mode: bool) -> ScrollableArea {
