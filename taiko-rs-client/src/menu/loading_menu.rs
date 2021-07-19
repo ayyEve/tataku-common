@@ -48,7 +48,10 @@ impl LoadingMenu {
                     s.loading_done = 0;
                 }
 
-                for f in folders {status.lock().beatmap_manager.lock().check_folder(f)}
+                for f in folders {
+                    status.lock().beatmap_manager.lock().check_folder(f);
+                    status.lock().loading_done += 1;
+                }
             }
             
             status.lock().stage = LoadingStage::Done;
