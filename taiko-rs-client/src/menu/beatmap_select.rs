@@ -1,5 +1,5 @@
-use std::fs::read_dir;
 use std::sync::Arc;
+use std::fs::read_dir;
 use std::collections::HashMap;
 
 use parking_lot::Mutex;

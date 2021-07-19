@@ -187,7 +187,7 @@ impl Beatmap {
                     },
                     BeatmapSection::HitObjects => {
                         let mut split = line.split(",");
-                        if split.clone().count() < 2 {continue;} // skip empty lines
+                        if split.clone().count() < 2 {continue} // skip empty lines
 
                         let _x = split.next();
                         let _y = split.next();
@@ -267,21 +267,7 @@ impl Beatmap {
                             let end_time = split.next().unwrap().parse::<u64>().unwrap();
                             let length = end_time as f64 - time as f64;
 
-                            let diff_map:f64;
-                            {
-                                let diff = meta.od as f64;
-                                let min = 3.0;
-                                let mid = 5.0;
-                                let max = 7.5;
-                                if diff > 5.0 {
-                                    diff_map = mid + (max - mid) * (diff - 5.0) / 5.0;
-                                } else if diff < 5.0 {
-                                    diff_map = mid - (mid - min) * (5.0 - diff) / 5.0;
-                                } else {
-                                    diff_map = mid;
-                                }
-                            }
-
+                            let diff_map = map_difficulty_range(meta.od as f64, 3.0, 5.0, 7.5);
                             let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
                             // just make a slider for now
                             let spinner = Spinner::new(time, end_time, sv, hits_required);
