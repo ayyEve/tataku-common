@@ -1,9 +1,10 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::collections::HashMap;
 use std::{fs::File, io::Write};
 
-use piston::{Key, MouseButton};
 use rodio::Sink; // ugh
+use parking_lot::Mutex;
+use piston::{Key, MouseButton};
 
 use crate::{WINDOW_SIZE, DOWNLOADS_DIR};
 use crate::render::{Text, Renderable, Rectangle, Color, Border};
@@ -76,7 +77,7 @@ impl OsuDirectMenu {
 
         // https://b.ppy.sh/preview/100.mp3
         let url = format!("https://b.ppy.sh/preview/{}.mp3", set_id);
-        if let Some(sink) = &self.preview {sink.lock().unwrap().stop()}
+        if let Some(sink) = &self.preview {sink.lock().stop()}
 
         let req = reqwest::blocking::get(url);
         if let Ok(thing) = req {

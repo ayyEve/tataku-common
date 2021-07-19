@@ -4,8 +4,7 @@ use parking_lot::Mutex;
 use opengl_graphics::{GlGraphics, GlyphCache, Texture};
 use graphics::{Context, DrawState, ImageSize, Transformed, character::CharacterCache};
 
-use crate::render::Color;
-use crate::game::Vector2;
+use crate::{render::Color, game::Vector2};
 
 pub trait Renderable {
     fn get_depth(&self) -> f64;

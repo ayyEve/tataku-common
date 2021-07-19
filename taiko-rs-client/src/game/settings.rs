@@ -1,4 +1,6 @@
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::Arc;
+
+use parking_lot::{Mutex, MutexGuard};
 use piston::Key;
 
 use taiko_rs_common::serialization::*;
@@ -68,10 +70,10 @@ impl Settings {
 
     // relatively slow, if you need a more performant get, use get_mut
     pub fn get() -> Settings {
-        SETTINGS.lock().unwrap().clone()
+        SETTINGS.lock().clone()
     }
     pub fn get_mut<'a>() -> MutexGuard<'a, Settings> {
-        SETTINGS.lock().unwrap()
+        SETTINGS.lock()
     }
 
     pub fn get_effect_vol(&self) -> f32 {
