@@ -1,14 +1,10 @@
 // native imports
-use std::env;
 use std::fmt::Display;
 use std::{fs::File, path::Path};
 use std::io::{self, BufRead, BufReader, Lines};
 
-// crate imports
-use cgmath::Vector2;
-
 // local imports
-use game::{Game, Settings};
+use game::{Game, Vector2, helpers::BenchmarkHelper};
 
 // include files
 mod game;
@@ -21,33 +17,36 @@ pub use enums::*;
 
 // constants
 const NOTE_RADIUS:f64 = 32.0;
-const HIT_AREA_RADIUS:f64 = NOTE_RADIUS * 1.3; // NOTE_RADIUS * 1.3
-const HIT_POSITION:Vector2<f64> = Vector2::new(180.0, 200.0);
+const HIT_AREA_RADIUS:f64 = NOTE_RADIUS * 1.3;
+const HIT_POSITION:Vector2 = Vector2::new(180.0, 200.0);
 const PLAYFIELD_RADIUS:f64 = NOTE_RADIUS * 2.0; // actually height, oops
-const WINDOW_SIZE:Vector2<u32> = Vector2::new(1000, 600);
-
+const WINDOW_SIZE:Vector2 = Vector2::new(1000.0, 600.0);
 
 // folders
 pub const DOWNLOADS_DIR:&str = "downloads";
 pub const SONGS_DIR:&str = "songs";
+pub const REPLAYS_DIR:&str = "replays";
+
+// database files
+pub const SCORE_DATABASE_FILE:&str = "scores.db";
 
 // main fn
 fn main() {
+    let mut main_benchmark = BenchmarkHelper::new("main");
+
     // check for missing folders
     check_folder(DOWNLOADS_DIR, true);
+    check_folder(REPLAYS_DIR, true);
     check_folder(SONGS_DIR, true);
     check_folder("fonts", false);
     check_folder("audio", false);
-
-    let args: Vec<String> = env::args().collect();
-    if args.len() > 1 {
-        if args[1].starts_with("settings") {
-            cmd_settings_helper().expect("Error: ");
-        }
-        return;
-    }
+    main_benchmark.log("folder check done", true);
     
     let game = Game::new();
+    let _ = game.threading.enter();
+    main_benchmark.log("game creation complete", true);
+
+    drop(main_benchmark);
     game.game_loop();
 }
 
@@ -61,34 +60,6 @@ fn check_folder(dir:&str, create:bool) {
             panic!("folder does not exist, but is required: {}", dir);
         }
     }
-}
-
-// command line settings editing util, not really needed but meh
-fn cmd_settings_helper() -> io::Result<()> {
-    let mut settings = Settings::get_mut();
-
-    println!("what setting do you want to change?");
-    let mut buffer = String::new();
-    io::stdin().read_line(&mut buffer)?;
-
-    match buffer.trim() {
-        "password" => {
-            println!("type the pass");
-            let mut pass = String::new();
-            io::stdin().read_line(&mut pass)?;
-            settings.password = pass.trim().to_owned();
-            settings.save();
-        }
-
-        "close" => {
-            return std::io::Result::Ok(());
-        }
-
-        _ => {
-            println!("unknown property");
-        }
-    }
-    std::io::Result::Ok(())
 }
 
 /// read a file to the end

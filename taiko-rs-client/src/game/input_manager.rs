@@ -1,10 +1,9 @@
 use std::collections::HashSet;
-
-use cgmath::Vector2;
 use piston::input::*;
+use crate::game::Vector2;
 
 pub struct InputManager {
-    pub mouse_pos: Vector2<f64>,
+    pub mouse_pos: Vector2,
     pub scroll_delta: f64,
     pub mouse_moved: bool,
     pub mouse_buttons: Vec<MouseButton>,
@@ -17,7 +16,7 @@ pub struct InputManager {
 impl InputManager {
     pub fn new() -> InputManager {
         InputManager {
-            mouse_pos: Vector2::new(0.0, 0.0),
+            mouse_pos: Vector2::zero(),
             scroll_delta: 0.0,
             mouse_moved: false,
             mouse_buttons: Vec::new(),
@@ -50,7 +49,7 @@ impl InputManager {
         }
 
         e.mouse_cursor(|pos| {
-            let new_pos:Vector2<f64> = Vector2::new(pos[0], pos[1]);
+            let new_pos = Vector2::new(pos[0], pos[1]);
             if new_pos != self.mouse_pos {self.mouse_moved = true}
             self.mouse_pos = new_pos;
         });
@@ -72,6 +71,7 @@ impl InputManager {
         }
     }
 
+
     /// get all keys that were pressed, and clear the pressed list. (will be true when first checked and pressed, false after first check or when key is up)
     pub fn all_down_once(&mut self) -> Vec<Key> {
         let mut down = Vec::new();
@@ -79,6 +79,25 @@ impl InputManager {
         self.key_states_once.clear();
 
         down
+    }
+
+    /// get all pressed mouse buttons, and reset the pressed array
+    pub fn get_mouse_buttons(&mut self) -> Vec<MouseButton> {
+        let buttons = self.mouse_buttons.clone();
+        self.mouse_buttons.clear();
+        buttons
+    }
+    /// get whether the mouse was moved or not
+    pub fn get_mouse_moved(&mut self) -> bool {
+        let moved = self.mouse_moved;
+        self.mouse_moved = false;
+        moved
+    }
+    /// get how much the mouse wheel as scrolled (vertically) since the last check
+    pub fn get_scroll_delta(&mut self) -> f64 {
+        let delta = self.scroll_delta;
+        self.scroll_delta = 0.0;
+        delta
     }
 
     /// gets any text typed since the last check

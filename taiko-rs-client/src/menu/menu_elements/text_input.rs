@@ -1,15 +1,14 @@
 use std::error::Error;
 
-use cgmath::Vector2;
 use piston::{MouseButton, Key, RenderArgs};
 use clipboard::{ClipboardProvider, ClipboardContext};
 
-use crate::{game::{KeyModifiers, get_font}, menu::ScrollableItem, render::{Rectangle, Renderable, Color, Text, Border}};
+use crate::{game::{KeyModifiers, get_font, Vector2}, menu::ScrollableItem, render::{Rectangle, Renderable, Color, Text, Border}};
 
 #[derive(Clone)]
 pub struct TextInput {
-    pos: Vector2<f64>,
-    size: Vector2<f64>,
+    pos: Vector2,
+    size: Vector2,
     hover: bool,
     selected: bool,
     tag: String,
@@ -19,7 +18,7 @@ pub struct TextInput {
     cursor_index: usize,
 }
 impl TextInput {
-    pub fn new(pos:Vector2<f64>, size: Vector2<f64>, placeholder:&str, value:&str) -> TextInput {
+    pub fn new(pos:Vector2, size: Vector2, placeholder:&str, value:&str) -> TextInput {
         TextInput {
             pos, 
             size, 
@@ -50,20 +49,20 @@ impl TextInput {
     }
 }
 impl ScrollableItem for TextInput {
-    fn size(&self) -> Vector2<f64> {self.size}
-    fn get_pos(&self) -> Vector2<f64> {self.pos}
-    fn set_pos(&mut self, pos:Vector2<f64>) {self.pos = pos}
+    fn size(&self) -> Vector2 {self.size}
+    fn get_pos(&self) -> Vector2 {self.pos}
+    fn set_pos(&mut self, pos:Vector2) {self.pos = pos}
     fn get_tag(&self) -> String {self.tag.clone()}
     fn set_tag(&mut self, tag:&str) {self.tag = tag.to_owned()}
     fn get_value(&self) -> Box<dyn std::any::Any> {Box::new(self.text.clone())}
 
-    fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2<f64>) -> Vec<Box<dyn Renderable>> {
+    fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
 
         let border = Rectangle::new(
             Color::WHITE,
-            1.0,
+            parent_depth + 1.0,
             self.pos+pos_offset,
             self.size, 
             Some(Border::new(if self.hover {Color::BLUE} else if self.selected {Color::RED} else {Color::BLACK}, 1.2))
@@ -73,7 +72,7 @@ impl ScrollableItem for TextInput {
         if self.text.len() > 0 {
             let text = Text::new(
                 Color::BLACK,
-                1.0,
+                parent_depth + 1.0,
                 self.pos+pos_offset + Vector2::new(0.0, 35.0),
                 32,
                 self.text.clone(),
@@ -83,7 +82,7 @@ impl ScrollableItem for TextInput {
         } else {
             let text = Text::new(
                 [0.2,0.2,0.2,1.0].into(),
-                1.0,
+                parent_depth + 1.0,
                 self.pos+pos_offset + Vector2::new(0.0, 35.0),
                 32,
                 self.placeholder.clone(),
@@ -94,7 +93,7 @@ impl ScrollableItem for TextInput {
 
         let width = Text::new(
             Color::BLACK,
-            0.0,
+            parent_depth,
             self.pos+pos_offset,
             32,
             self.text.split_at(self.cursor_index).0.to_owned(),
@@ -104,7 +103,7 @@ impl ScrollableItem for TextInput {
         if self.selected {
             let cursor = Rectangle::new(
                 Color::RED,
-                0.0,
+                parent_depth,
                 self.pos+pos_offset + Vector2::new(width, 0.0),
                 Vector2::new(0.7, self.size.y), 
                 Some(Border::new(Color::RED, 1.2))
@@ -115,10 +114,10 @@ impl ScrollableItem for TextInput {
         list
     }
 
-    fn on_mouse_move(&mut self, p:Vector2<f64>) {
+    fn on_mouse_move(&mut self, p:Vector2) {
         self.hover = self.hover(p); //p.x > self.pos.x && p.x < self.pos.x + self.size.x && p.y > self.pos.y && p.y < self.pos.y + self.size.y;
     }
-    fn on_click(&mut self, pos:Vector2<f64>, _btn:MouseButton) -> bool {
+    fn on_click(&mut self, pos:Vector2, _btn:MouseButton) -> bool {
 
         // try to extrapolate where the mouse was clicked, and change the cursor_index to that
         if self.selected {
@@ -161,31 +160,18 @@ impl ScrollableItem for TextInput {
     }
 
     fn on_key_press(&mut self, key:Key, mods:KeyModifiers) -> bool {
-        if !self.selected {
-            return false;
-        }
+        if !self.selected {return false}
 
         match key {
-            Key::Left => {
-                if self.cursor_index > 0 {
-                    self.cursor_index -= 1;
-                }
-            }
-            Key::Right => {
+            Key::Left if self.cursor_index > 0 => self.cursor_index -= 1,
+            Key::Right if self.cursor_index < self.text.len() => self.cursor_index += 1,
+            Key::Backspace if self.cursor_index > 0 => {
                 if self.cursor_index < self.text.len() {
-                    self.cursor_index += 1;
+                    self.text.remove(self.cursor_index);
+                } else {
+                    self.text.pop();
                 }
-            }
-            Key::Backspace => {
-                if self.cursor_index > 0 {
-                    if self.cursor_index < self.text.len() {
-
-                        self.text.remove(self.cursor_index);
-                    } else {
-                        self.text.pop();
-                    }
-                    self.cursor_index -= 1;
-                }
+                self.cursor_index -= 1;
             }
             
             Key::V => if mods.ctrl {
@@ -193,7 +179,7 @@ impl ScrollableItem for TextInput {
                 match ctx {
                     Ok(mut ctx) => 
                         match ctx.get_contents() {
-                            Ok(text) => self.set_text(text),//for c in text.chars() {self.add_letter(c);},
+                            Ok(text) => self.set_text(text),
                             Err(e) => println!("[Clipboard] Error: {:?}", e),
                         }
                     Err(e) => println!("[Clipboard] Error: {:?}", e),
@@ -207,8 +193,6 @@ impl ScrollableItem for TextInput {
     fn on_text(&mut self, text:String) {
         if !self.selected {return}
 
-        for c in text.chars() {
-            self.add_letter(c);
-        }
+        for c in text.chars() {self.add_letter(c)}
     }
 }

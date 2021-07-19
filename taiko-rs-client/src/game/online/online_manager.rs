@@ -6,13 +6,13 @@ use futures_util::{SinkExt, StreamExt, stream::SplitSink};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::protocol::Message};
 
 use crate::game::Settings;
+use super::discord::Discord;
 use super::online_user::OnlineUser;
-use taiko_rs_common::types::UserAction;
 use taiko_rs_common::packets::PacketId;
+use taiko_rs_common::types::{SpectatorFrames, UserAction};
 use taiko_rs_common::serialization::{SerializationReader, SimpleWriter};
 
 type WsWriter = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
-
 
 const CONNECT_URL:&str = "ws://localhost:8080";
 
@@ -20,9 +20,17 @@ const CONNECT_URL:&str = "ws://localhost:8080";
 pub struct OnlineManager {
     pub connected: bool,
     pub users: HashMap<u32, Arc<Mutex<OnlineUser>>>, // user id is key
-    pub writer: Option<Arc<Mutex<WsWriter>>>,
-    
+    pub discord: Discord,
+
+    // pub chat: Chat,
     user_id: u32, // this user's id
+
+    /// socket writer
+    pub writer: Option<Arc<Mutex<WsWriter>>>,
+
+    // buffers 
+    buffered_spectator_frames: SpectatorFrames,
+    
 }
 
 impl OnlineManager {
@@ -30,8 +38,11 @@ impl OnlineManager {
         OnlineManager {
             user_id: 0,
             users: HashMap::new(),
+            discord: Discord::new(),
+            // chat: Chat::new(),
             writer: None,
             connected: false,
+            buffered_spectator_frames: Vec::new(),
         }
     }
     pub async fn start(s: Arc<Mutex<Self>>) {
@@ -42,18 +53,21 @@ impl OnlineManager {
                 let (writer, mut reader) = ws_stream.split();
                 let writer = Arc::new(Mutex::new(writer));
 
-                // send login packet
-                let settings = Settings::get().clone();
-                let p = SimpleWriter::new().write(PacketId::Client_UserLogin).write(settings.username.clone()).write(settings.password.clone()).done();
-                writer.lock().await.send(Message::Binary(p)).await.expect("poopoo");
+                {
+                    let mut s = s.lock().await;
+                    s.writer = Some(writer);
 
-                s.lock().await.writer = Some(writer);
+                    // send login packet
+                    let settings = Settings::get();
+                    let data = SimpleWriter::new().write(PacketId::Client_UserLogin).write(settings.username.clone()).write(settings.password.clone()).done();
+                    s.send_data(data).await;
+                }
 
                 while let Some(message) = reader.next().await {
                     match message {
                         Ok(Message::Binary(data)) => OnlineManager::handle_packet(s.clone(), data).await,
                         Ok(message) => println!("got something else: {:?}", message),
-    
+
                         Err(oof) => {
                             println!("oof: {}", oof);
                             s.lock().await.connected = false;
@@ -114,13 +128,22 @@ impl OnlineManager {
                     }
                 }
 
+                // chat
+
+                // spectator
+                PacketId::Server_SpectatorFrames => {
+                    let _sender_id = reader.read_u32();
+                    let frames:SpectatorFrames = reader.read();
+                    s.lock().await.buffered_spectator_frames.extend(frames);
+                }
+
                 PacketId::Unknown => {
                     println!("got unknown packet id {}, dropping remaining packets", raw_id);
                     continue;
                 },
 
-                _ => {
-                    println!("hjfd;lgsnjl;dkgsfl");
+                p => {
+                    println!("Got unhandled packet: {:?}", p);
                     continue;
                 }
             }
@@ -128,18 +151,38 @@ impl OnlineManager {
     }
 
     pub async fn set_action(s:Arc<Mutex<Self>>, action:UserAction, action_text:String) {
-        if let Some(writer) = &s.lock().await.writer {
+        let mut s = s.lock().await;
+
+        if let Some(writer) = &s.writer {
             println!("writing update");
-            let p = SimpleWriter::new().write(PacketId::Client_StatusUpdate).write(action).write(action_text).done();
+            let p = SimpleWriter::new().write(PacketId::Client_StatusUpdate).write(action).write(action_text.clone()).done();
             writer.lock().await.send(Message::Binary(p)).await.expect("error: ");
 
             if action == UserAction::Leaving {
                 let p = SimpleWriter::new().write(PacketId::Client_LogOut).done();
                 let _ = writer.lock().await.send(Message::Binary(p)).await;
             }
+            
+            s.discord.change_status(action_text.clone());
+
         } else {
             println!("oof, no writer");
         }
     }
-}
 
+
+    pub async fn send_data(&mut self, data:Vec<u8>) {
+        if let Some(writer) = &self.writer {
+            writer.lock().await.send(Message::Binary(data)).await.expect("error sending packet. oof");
+        }
+    }
+
+    pub async fn _send_spec_frames(s:Arc<Mutex<Self>>, frames:SpectatorFrames) {
+        let data = SimpleWriter::new().write(PacketId::Client_SpectatorFrames).write(frames).done();
+        s.lock().await.send_data(data).await;
+    }
+
+    pub fn get_pending_spec_frames(&mut self) -> SpectatorFrames {
+        std::mem::take(&mut self.buffered_spectator_frames)
+    }
+}

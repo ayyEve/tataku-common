@@ -1,13 +1,13 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use cgmath::Vector2;
 use piston::{MouseButton, RenderArgs};
+use parking_lot::Mutex;
 
 use crate::{WINDOW_SIZE, render::*};
-use crate::game::{Game, GameMode, get_font};
+use crate::game::{Game, GameMode, get_font, Vector2};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
 
-const BUTTON_SIZE: Vector2<f64> = Vector2::new(100.0, 50.0);
+const BUTTON_SIZE: Vector2 = Vector2::new(100.0, 50.0);
 const Y_MARGIN: f64 = 20.0;
 const Y_OFFSET: f64 = 10.0;
 
@@ -19,7 +19,7 @@ pub struct MainMenu {
 }
 impl MainMenu {
     pub fn new() -> MainMenu {
-        let middle = WINDOW_SIZE.x as f64/2.0 - BUTTON_SIZE.x/2.0;
+        let middle = WINDOW_SIZE.x /2.0 - BUTTON_SIZE.x/2.0;
         let mut counter = 1.0;
         
         let play_button = MenuButton::new(Vector2::new(middle,(BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Play");
@@ -41,32 +41,31 @@ impl MainMenu {
 impl Menu for MainMenu {
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
-        let pos_offset = Vector2::new(0.0, 0.0);
+        let pos_offset = Vector2::zero();
+        let depth = 0.0;
 
         // draw welcome text
         let mut welcome_text = Text::new(
             Color::BLACK,
-            -1.0,
+            depth-1.0,
             pos_offset,
             40,
             "Welcome to Taiko.rs".to_owned(),
             get_font("main")
         );
-        welcome_text.center_text(Rectangle::bounds_only(Vector2::new(0.0, 30.0), Vector2::new(WINDOW_SIZE.x as f64, 50.0)));
+        welcome_text.center_text(Rectangle::bounds_only(Vector2::new(0.0, 30.0), Vector2::new(WINDOW_SIZE.x , 50.0)));
         list.push(Box::new(welcome_text));
 
         // draw buttons
-        list.extend(self.play_button.draw(args, pos_offset));
-        list.extend(self.direct_button.draw(args, pos_offset));
-        list.extend(self.settings_button.draw(args, pos_offset));
-        list.extend(self.exit_button.draw(args, pos_offset));
+        list.extend(self.play_button.draw(args, pos_offset, depth));
+        list.extend(self.direct_button.draw(args, pos_offset, depth));
+        list.extend(self.settings_button.draw(args, pos_offset, depth));
+        list.extend(self.exit_button.draw(args, pos_offset, depth));
 
         list
     }
 
-    fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
-        let mut game = game.lock().unwrap();
-
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
         // switch to beatmap selection
         if self.play_button.on_click(pos, button) {
             let menu = game.menus.get("beatmap").unwrap().clone();
@@ -76,7 +75,7 @@ impl Menu for MainMenu {
 
         // open direct menu
         if self.direct_button.on_click(pos, button) {
-            let menu:Arc<Mutex<Box<dyn Menu>>> = Arc::new(Mutex::new(Box::new(OsuDirectMenu::new())));
+            let menu:Arc<Mutex<dyn Menu>> = Arc::new(Mutex::new(OsuDirectMenu::new()));
             game.queue_mode_change(GameMode::InMenu(menu));
             return;
         }
@@ -95,7 +94,7 @@ impl Menu for MainMenu {
         }
     }
 
-    fn on_mouse_move(&mut self, pos:Vector2<f64>, _game:Arc<Mutex<&mut Game>>) {
+    fn on_mouse_move(&mut self, pos:Vector2, _game: &mut Game) {
         self.play_button.on_mouse_move(pos);
         self.direct_button.on_mouse_move(pos);
         self.settings_button.on_mouse_move(pos);

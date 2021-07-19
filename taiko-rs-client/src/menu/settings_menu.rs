@@ -1,14 +1,18 @@
-use std::sync::{Arc, Mutex};
-
-use cgmath::Vector2;
 use piston::{MouseButton, RenderArgs};
 
-use crate::render::*;
-use crate::game::{Game, GameMode, KeyModifiers, Settings};
+use crate::{WINDOW_SIZE, render::*};
+use crate::game::{Game, GameMode, KeyModifiers, Settings, Vector2};
 use crate::menu::{Menu, TextInput, MenuButton, KeyButton, PasswordInput, ScrollableArea, ScrollableItem, Checkbox, Slider};
 
-const BUTTON_SIZE:Vector2<f64> = Vector2::new(100.0, 50.0);
-const KEYBUTTON_SIZE:Vector2<f64> = Vector2::new(400.0, 50.0);
+use super::MenuSection;
+
+const BUTTON_SIZE:Vector2 = Vector2::new(100.0, 50.0);
+const KEYBUTTON_SIZE:Vector2 = Vector2::new(400.0, 50.0);
+
+const SECTION_HEIGHT:f64 = 80.0;
+const SECTION_XOFFSET:f64 = 20.0;
+
+const SCROLLABLE_YOFFSET:f64 = 20.0;
 
 pub struct SettingsMenu {
     scroll_area: ScrollableArea,
@@ -16,10 +20,10 @@ pub struct SettingsMenu {
 impl SettingsMenu {
     pub fn new() -> SettingsMenu {
         let settings = Settings::get();
-        let p = Vector2::new(10.0, 0.0); // scroll area edits the y
+        let p = Vector2::new(10.0 + SECTION_XOFFSET, 0.0); // scroll area edits the y
 
         // setup items
-        let mut scroll_area = ScrollableArea::new(p, Vector2::new(500.0, 500.0), true);
+        let mut scroll_area = ScrollableArea::new(Vector2::new(10.0, SCROLLABLE_YOFFSET), Vector2::new(500.0, WINDOW_SIZE.y - SCROLLABLE_YOFFSET*2.0), true);
         let mut username_input = TextInput::new(p, Vector2::new(600.0, 50.0), "Username", &settings.username);
         let mut password_input = PasswordInput::new(p, Vector2::new(600.0, 50.0), "Password", &settings.password);
         let mut done_button =  MenuButton::new(p, BUTTON_SIZE, "Done");
@@ -42,15 +46,19 @@ impl SettingsMenu {
         sv_mult.set_tag("sv_mult");
 
         // add to scroll area
+        scroll_area.add_item(Box::new(MenuSection::new(p - Vector2::new(SECTION_XOFFSET, 0.0), SECTION_HEIGHT, "Osu Login")));
         scroll_area.add_item(Box::new(username_input));
         scroll_area.add_item(Box::new(password_input));
+        scroll_area.add_item(Box::new(MenuSection::new(p - Vector2::new(SECTION_XOFFSET, 0.0), SECTION_HEIGHT, "Keybinds")));
         scroll_area.add_item(Box::new(left_kat_btn));
         scroll_area.add_item(Box::new(left_don_btn));
         scroll_area.add_item(Box::new(right_don_btn));
         scroll_area.add_item(Box::new(right_kat_btn));
+        scroll_area.add_item(Box::new(MenuSection::new(p - Vector2::new(SECTION_XOFFSET, 0.0), SECTION_HEIGHT, "SV Settings")));
         scroll_area.add_item(Box::new(static_sv));
         scroll_area.add_item(Box::new(sv_mult)); // broken
 
+        //TODO: make this not part of the scrollable?!?!
         scroll_area.add_item(Box::new(done_button));
 
         SettingsMenu {
@@ -58,7 +66,7 @@ impl SettingsMenu {
         }
     }
 
-    pub fn finalize(&self, game:Arc<Mutex<&mut Game>>) {
+    pub fn finalize(&self, game:&mut Game) {
         // write settings to settings
         let mut settings = Settings::get_mut();
 
@@ -98,13 +106,12 @@ impl SettingsMenu {
         // }
         settings.save();
 
-        let mut game = game.lock().unwrap();
         let menu = game.menus.get("main").unwrap().clone();
         game.queue_mode_change(GameMode::InMenu(menu));
     }
 }
 impl Menu for SettingsMenu {
-    fn update(&mut self, _game:Arc<Mutex<&mut Game>>) {
+    fn update(&mut self, _game: &mut Game) {
         self.scroll_area.update();
     }
 
@@ -116,28 +123,31 @@ impl Menu for SettingsMenu {
         self.scroll_area.draw(args)
     }
 
-    fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
-        if let Some(tag) = self.scroll_area.on_click(pos, button, game.clone()) {
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
+        if let Some(tag) = self.scroll_area.on_click(pos, button, game) {
             match tag.as_str() {
-                "done" => self.finalize(game.clone()),
+                "done" => self.finalize(game),
                 _ => {}
             }
         }
     }
 
-    fn on_mouse_move(&mut self, pos:Vector2<f64>, game:Arc<Mutex<&mut Game>>) {
+    fn on_mouse_move(&mut self, pos:Vector2, game:&mut Game) {
         self.scroll_area.on_mouse_move(pos, game);
     }
 
-    fn on_key_press(&mut self, key:piston::Key, game:Arc<Mutex<&mut Game>>, mods:KeyModifiers) {
+    fn on_key_press(&mut self, key:piston::Key, game:&mut Game, mods:KeyModifiers) {
         self.scroll_area.on_key_press(key, mods);
 
         if key == piston::Key::Escape {
-            let mut game = game.lock().unwrap();
             let menu = game.menus.get("main").unwrap().clone();
             game.queue_mode_change(GameMode::InMenu(menu));
             return;
         }
+    }
+
+    fn on_scroll(&mut self, delta:f64, _game:&mut Game) {
+        self.scroll_area.on_scroll(delta);
     }
 
     fn on_text(&mut self, text:String) {

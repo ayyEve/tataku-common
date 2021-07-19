@@ -1,12 +1,12 @@
-use cgmath::Vector2;
+
 use piston::{Key, MouseButton, RenderArgs};
 
-use crate::{menu::ScrollableItem, game::{KeyModifiers,get_font}, render::{Color, Rectangle, Renderable, Text, Border}};
+use crate::{menu::ScrollableItem, game::{KeyModifiers, get_font, Vector2}, render::{Color, Rectangle, Renderable, Text, Border}};
 
 #[derive(Clone)]
 pub struct KeyButton {
-    pos: Vector2<f64>,
-    size: Vector2<f64>,
+    pos: Vector2,
+    size: Vector2,
     selected: bool,
     hover: bool,
     tag:String,
@@ -15,7 +15,7 @@ pub struct KeyButton {
     prefix: String,
 }
 impl KeyButton {
-    pub fn new(pos: Vector2<f64>, size: Vector2<f64>, key:Key, prefix: &str) -> KeyButton {
+    pub fn new(pos: Vector2, size: Vector2, key:Key, prefix: &str) -> KeyButton {
         KeyButton {
             key,
             pos, 
@@ -37,20 +37,20 @@ impl KeyButton {
     }
 }
 impl ScrollableItem for KeyButton {
-    fn size(&self) -> Vector2<f64> {self.size}
-    fn get_pos(&self) -> Vector2<f64> {self.pos}
-    fn set_pos(&mut self, pos:Vector2<f64>) {self.pos = pos;}
+    fn size(&self) -> Vector2 {self.size}
+    fn get_pos(&self) -> Vector2 {self.pos}
+    fn set_pos(&mut self, pos:Vector2) {self.pos = pos;}
     fn get_tag(&self) -> String {self.tag.clone()}
     fn set_tag(&mut self, tag:&str) {self.tag = tag.to_owned()}
     fn get_value(&self) -> Box<dyn std::any::Any> {Box::new(self.key.clone())}
 
-    fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2<f64>) -> Vec<Box<dyn Renderable>> {
+    fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
 
         let border = Rectangle::new(
             Color::WHITE,
-            1.0,
+            parent_depth + 1.0,
             self.pos+pos_offset,
             self.size, 
             Some(Border::new(if self.hover {Color::BLUE} else if self.selected {Color::RED} else {Color::BLACK}, 1.2))
@@ -59,7 +59,7 @@ impl ScrollableItem for KeyButton {
 
         let text = Text::new(
             Color::BLACK,
-            1.0,
+            parent_depth + 1.0,
             self.pos+pos_offset + Vector2::new(0.0, 35.0),
             32,
             format!("{}: {}", self.prefix, self.text()),
@@ -70,33 +70,25 @@ impl ScrollableItem for KeyButton {
         list
     }
 
-    fn on_mouse_move(&mut self, p:Vector2<f64>) {
-        self.hover = p.x > self.pos.x && p.x < self.pos.x + self.size.x && p.y > self.pos.y && p.y < self.pos.y + self.size.y;
-    }
+    fn on_mouse_move(&mut self, p:Vector2) {self.hover = self.hover(p)}
 
-    fn on_click(&mut self, _pos:Vector2<f64>, _btn:MouseButton) -> bool {
+    fn on_click(&mut self, _pos:Vector2, _btn:MouseButton) -> bool {
 
         // try to extrapolate where the mouse was clicked, and change the cursor_index to that
         if self.selected {
             if !self.hover {
                 self.selected = false;
-
                 return false;
             }
             return true;
         }
 
-        if self.hover {
-            self.selected = true;
-        }
-
+        if self.hover {self.selected = true}
         return self.hover
     }
 
     fn on_key_press(&mut self, key:Key, _mods:KeyModifiers) -> bool {
-        if !self.selected {
-            return false;
-        }
+        if !self.selected {return false}
 
         // TODO: check exclusion list
         if key == Key::Escape {

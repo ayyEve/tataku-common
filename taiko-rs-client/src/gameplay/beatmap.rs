@@ -1,44 +1,45 @@
-use std::{path::Path, sync::{Arc, Weak, Mutex}, time::SystemTime};
+use std::{path::Path, sync::{Arc, Weak}, time::Instant};
 
-use cgmath::Vector2;
 use piston::RenderArgs;
+use parking_lot::Mutex;
 
+use taiko_rs_common::types::{KeyPress, Replay, Score, ScoreHit};
 use super::{*, diff_calc::DifficultyCalculator, beatmap_structs::*};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS, WINDOW_SIZE, game::{Audio, AudioHandle, Settings}};
-use crate::{NOTE_RADIUS, enums::Playmode, game::{get_font}, render::{Renderable, Rectangle, Text, Circle, Color, Border}};
+use crate::{NOTE_RADIUS, enums::Playmode, game::{get_font, Vector2}, render::{Renderable, Rectangle, Text, Circle, Color, Border}};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
-pub const BAR_COLOR:Color = Color {r:0.0, g:0.0,b:0.0,a:1.0}; // timing bar color
+pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // timing bar color
 const BAR_WIDTH:f64 = 4.0; // how wide is a timing bar
 const BAR_SPACING:f64 = 4.0; // how many beats between timing bars
 const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
 const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
-const OFFSET_DRAW_TIME:i64 = 2_000;
+const OFFSET_DRAW_TIME:i64 = 2_000; // how long should the offset be drawn for?
 
-const HIT_TIMING_BAR_SIZE:Vector2<f64> = Vector2::new(WINDOW_SIZE.x as f64 / 3.0, 30.0);
-const HIT_TIMING_BAR_POS:Vector2<f64> = Vector2::new(WINDOW_SIZE.x as f64 / 2.0 - HIT_TIMING_BAR_SIZE.x / 2.0, WINDOW_SIZE.y as f64 - (DURATION_HEIGHT + 3.0 + HIT_TIMING_BAR_SIZE.y + 5.0));
+const HIT_TIMING_BAR_SIZE:Vector2 = Vector2::new(WINDOW_SIZE.x / 3.0, 30.0);
+const HIT_TIMING_BAR_POS:Vector2 = Vector2::new(WINDOW_SIZE.x / 2.0 - HIT_TIMING_BAR_SIZE.x / 2.0, WINDOW_SIZE.y - (DURATION_HEIGHT + 3.0 + HIT_TIMING_BAR_SIZE.y + 5.0));
 const HIT_TIMING_DURATION:f64 = 1_000.0; // how long should a hit timing line last
 const HIT_TIMING_FADE:f64 = 300.0; // how long to fade out for
-const HIT_TIMING_BAR_COLOR:Color = Color {r:0.0, g:0.0,b:0.0,a:1.0};
+const HIT_TIMING_BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // hit timing bar color
 
 #[derive(Clone)]
 pub struct Beatmap {
-    pub score: Score,
+    pub score: Option<Score>,
+    pub replay: Option<Replay>,
 
     pub hash: String,
     pub started: bool,
     pub completed: bool,
     
     // lists
-    pub notes: Vec<Arc<Mutex<dyn HitObject>>>,
-    timing_bars: Vec<Arc<Mutex<TimingBar>>>,
-    
-
-    note_index: usize,
+    pub notes: Arc<Mutex<Vec<Box<dyn HitObject>>>>,
     pub timing_points: Vec<TimingPoint>,
+    timing_bars: Vec<TimingBar>,
+    // list indices
+    note_index: usize,
     timing_point_index: usize,
 
-    pub song_start: SystemTime,
+    pub song_start: Instant,
     pub song: Weak<AudioHandle>,
     lead_in_time: f32,
     end_time: f64,
@@ -63,13 +64,14 @@ impl Beatmap {
         let mut body = String::new();
         let mut current_area = BeatmapSection::Version;
         let mut meta = BeatmapMeta::new();
-        let beatmap = Arc::new(Mutex::new(Beatmap {
+        let mut beatmap = Beatmap {
             hash: String::new(),
-            notes: Vec::new(),
+            notes: Arc::new(Mutex::new(Vec::new())),
             timing_points: Vec::new(),
             timing_bars: Vec::new(),
-            song_start: SystemTime::now(),
-            score: Score::new(String::new()),
+            song_start: Instant::now(),
+            score: None,
+            replay: None,
             metadata: BeatmapMeta::new(),
             song: Weak::new(), // temp until we get the audio file path
             note_index: 0,
@@ -86,7 +88,7 @@ impl Beatmap {
             hitwindow_100: 0.0,
             hitwindow_300: 0.0,
             hitwindow_miss: 0.0,
-        }));
+        };
 
         let parent_dir = Path::new(&dir).parent().unwrap();
         let mut tp_parent: Option<Arc<TimingPoint>> = None;
@@ -110,8 +112,7 @@ impl Beatmap {
                     if line == "[TimingPoints]" {current_area = BeatmapSection::TimingPoints}
                     if line == "[HitObjects]" {
                         // sort timing points before moving onto hitobjects
-                        let mut b2 = beatmap.lock().unwrap();
-                        b2.timing_points.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
+                        beatmap.timing_points.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
 
                         current_area = BeatmapSection::HitObjects; 
                     }
@@ -182,7 +183,7 @@ impl Beatmap {
                             tp_parent = Some(Arc::new(tp.clone()));
                         }
 
-                        beatmap.lock().unwrap().timing_points.push(tp);
+                        beatmap.timing_points.push(tp);
                     },
                     BeatmapSection::HitObjects => {
                         let mut split = line.split(",");
@@ -198,7 +199,7 @@ impl Beatmap {
                         let finisher = (hitsound & 4) > 0;
                         
                         // set later, bc for some reason its inconsistant here
-                        let sv = 1.0; //beatmap.lock().unwrap().slider_velocity_at(time) / SV_FACTOR;
+                        let sv = 1.0; //beatmap.slider_velocity_at(time) / SV_FACTOR;
 
                         if (read_type & 2) > 0 { // slider
                             let _curve = split.next(); // dont care
@@ -207,12 +208,12 @@ impl Beatmap {
 
                             let l = (length * 1.4) * slides as f64;
                             let v2 = 100.0 * (meta.slider_multiplier as f64 * 1.4);
-                            let bl = beatmap.lock().unwrap().beat_length_at(time as f64, true);
+                            let bl = beatmap.beat_length_at(time as f64, true);
                             let end_time = time + (l / v2 * bl) as u64;
                             
                             // convert vars
-                            let v = beatmap.lock().unwrap().slider_velocity_at(time);
-                            let bl = beatmap.lock().unwrap().beat_length_at(time as f64, meta.beatmap_version < 8.0);
+                            let v = beatmap.slider_velocity_at(time);
+                            let bl = beatmap.beat_length_at(time as f64, meta.beatmap_version < 8.0);
                             let skip_period = (bl / meta.slider_tick_rate as f64).min((end_time - time) as f64 / slides as f64);
 
                             if skip_period > 0.0 && meta.mode != Playmode::Taiko && l / v * 1000.0 < 2.0 * bl {
@@ -243,13 +244,12 @@ impl Beatmap {
                                     let sound_type = sound_types[i];
 
                                     let note = Note::new(
-                                        beatmap.clone(),
                                         j as u64,
                                         sound_type.0,
                                         sound_type.1,
                                         sv
                                     );
-                                    beatmap.lock().unwrap().notes.push(Arc::new(Mutex::new(note)));
+                                    beatmap.notes.lock().push(Box::new(note));
 
                                     if !unified_sound_addition {i = (i + 1) % sound_types.len()}
 
@@ -257,8 +257,8 @@ impl Beatmap {
                                     if !(j < end_time as f64 + skip_period / 8.0) {break}
                                 }
                             } else {
-                                let slider = Slider::new(beatmap.clone(), time, end_time, finisher, sv);
-                                beatmap.lock().unwrap().notes.push(Arc::new(Mutex::new(slider)));
+                                let slider = Slider::new(time, end_time, finisher, sv);
+                                beatmap.notes.lock().push(Box::new(slider));
                             }
 
                         } else if (read_type & 8) > 0 { // spinner
@@ -284,11 +284,11 @@ impl Beatmap {
 
                             let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
                             // just make a slider for now
-                            let spinner = Spinner::new(beatmap.clone(), time, end_time, sv, hits_required);
-                            beatmap.lock().unwrap().notes.push(Arc::new(Mutex::new(spinner)));
+                            let spinner = Spinner::new(time, end_time, sv, hits_required);
+                            beatmap.notes.lock().push(Box::new(spinner));
                         } else { // note
-                            let note = Note::new(beatmap.clone(), time, hit_type, finisher, sv);
-                            beatmap.lock().unwrap().notes.push(Arc::new(Mutex::new(note)));
+                            let note = Note::new(time, hit_type, finisher, sv);
+                            beatmap.notes.lock().push(Box::new(note));
                         }
                     },
 
@@ -301,21 +301,23 @@ impl Beatmap {
 
         let md5 = format!("{:x}", md5::compute(body).to_owned());
         // does this need to be in its own scope? probably not but whatever
-        {
-            let mut locked = beatmap.lock().unwrap();
-            let start_time = locked.clone().notes.first().unwrap().lock().unwrap().time() as f64;
-            let end_time = locked.clone().notes.last().unwrap().lock().unwrap().end_time() as f64;
+        // assign values
+        let start_time = beatmap.notes.lock().first().unwrap().time() as f64;
+        let end_time = beatmap.notes.lock().last().unwrap().end_time(0.0) as f64;
 
-            meta.set_dur((end_time - start_time) as u64);
-            locked.end_time = end_time;
-            locked.metadata = meta.clone();
-            locked.calc_sr();
-            locked.song = Audio::play(meta.clone().audio_filename);
+        meta.set_dur((end_time - start_time) as u64);
+        beatmap.end_time = end_time;
+        beatmap.metadata = meta.clone();
+        beatmap.calc_sr();
 
-            locked.hash = md5.clone();
-            locked.score = Score::new(md5.clone());
-        }
-        beatmap
+        //TODO!
+        // beatmap.song = SoundEffect::new(&meta.clone().audio_filename);
+        beatmap.song = Audio::play(meta.audio_filename.clone());
+
+        beatmap.hash = md5.clone();
+        // beatmap.score = Some(Score::new(md5.clone(), Settings::get_mut().username.clone()));
+
+        Arc::new(Mutex::new(beatmap))
     }
 
     pub fn calc_sr(&mut self) {
@@ -330,58 +332,61 @@ impl Beatmap {
     pub fn increment_offset(&mut self, delta:i64) {
         self.offset += delta;
         self.offset_changed_time = self.time();
-        println!("offset is now {}", self.offset);
     }
     pub fn next_note(&mut self) {
         self.note_index += 1;
     }
 
     pub fn hit(&mut self, key:KeyPress) {
-        self.score.replay.presses.push((self.time(), key));
+        let time = self.time() as f64;
+        if let Some(replay) = self.replay.as_mut() {
+            replay.presses.push((time as i64, key));
+        }
 
         let hit_type:HitType = key.into();
         let mut sound = match hit_type {HitType::Don => "don",HitType::Kat => "kat"};
 
+        let notes = self.notes.clone();
+        let mut notes = notes.lock();
+
         // if theres no more notes to hit, return
-        if self.note_index >= self.notes.len() {
-            Audio::play_preloaded(sound).expect("Audio not preloaded.");
+        if self.note_index >= notes.len() {
+            Audio::play_preloaded(sound).expect("audio was not preloaded");
             return;
         }
-        let time = self.time() as f64;
 
         // check for finisher 2nd hit. 
         if self.note_index > 0 {
-            let mut last_note = self.notes[self.note_index-1].lock().unwrap();
+            let last_note = notes.get_mut(self.note_index-1).unwrap();
 
             match last_note.check_finisher(hit_type, time) {
                 ScoreHit::Miss => {return},
                 ScoreHit::X100 => {
-                    self.score.add_pts(100, true);
+                    self.score.as_mut().unwrap().add_pts(100, true);
                     return;
                 },
                 ScoreHit::X300 => {
-                    self.score.add_pts(300, true);
+                    self.score.as_mut().unwrap().add_pts(300, true);
                     return;
                 },
                 ScoreHit::Other(points, _) => {
-                    self.score.add_pts(points as u64, false);
+                    self.score.as_mut().unwrap().add_pts(points as u64, false);
                     return;
                 },
                 ScoreHit::None => {},
             }
         }
 
-        let note = self.notes[self.note_index].clone();
-        let mut note = note.lock().unwrap();
+        let note = notes.get_mut(self.note_index).unwrap();
         let note_time = note.time() as f64;
 
-        match note.get_points(hit_type, time) {
+        match note.get_points(hit_type, time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_miss)) {
             ScoreHit::None => {
                 // play sound
                 Audio::play_preloaded(sound).expect("Audio not preloaded.");
             },
             ScoreHit::Miss => {
-                self.score.hit_miss(time as u64, note_time as u64);
+                self.score.as_mut().unwrap().hit_miss(time as u64, note_time as u64);
                 self.hit_timings.push((time as i64, (time - note_time) as i64));
                 self.next_note();
                 Audio::play_preloaded(sound).expect("Audio not preloaded.");
@@ -390,7 +395,7 @@ impl Beatmap {
                 //TODO: indicate this was a miss
             },
             ScoreHit::X100 => {
-                self.score.hit100(time as u64, note_time as u64);
+                self.score.as_mut().unwrap().hit100(time as u64, note_time as u64);
                 self.hit_timings.push((time as i64, (time - note_time) as i64));
 
                 // only play finisher sounds if the note is both a finisher and was hit
@@ -402,7 +407,7 @@ impl Beatmap {
                 self.next_note();
             },
             ScoreHit::X300 => {
-                self.score.hit300(time as u64, note_time as u64);
+                self.score.as_mut().unwrap().hit300(time as u64, note_time as u64);
                 self.hit_timings.push((time as i64, (time - note_time) as i64));
                 
                 if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon",HitType::Kat => "bigkat"};}
@@ -411,8 +416,8 @@ impl Beatmap {
                 self.next_note();
             },
             ScoreHit::Other(score, consume) => { // used by sliders and spinners
-                self.score.score += score as u64;
-                if consume {self.next_note();}
+                self.score.as_mut().unwrap().score += score as u64;
+                if consume {self.next_note()}
                 Audio::play_preloaded(sound).expect("Audio not preloaded.");
             }
         }
@@ -420,8 +425,8 @@ impl Beatmap {
 
     pub fn update(&mut self) {
         if self.lead_in_time > 0.0 {
-            let elapsed = self.song_start.elapsed().unwrap().as_micros() as f32 / 1000.0;
-            self.song_start = SystemTime::now();
+            let elapsed = self.song_start.elapsed().as_micros() as f32 / 1000.0;
+            self.song_start = Instant::now();
             self.lead_in_time -= elapsed;
 
             if self.lead_in_time <= 0.0 {
@@ -434,36 +439,34 @@ impl Beatmap {
 
         let time = self.time();
 
-        for note in self.notes.iter_mut() {
-            note.lock().unwrap().update(time);
-        }
+        // update notes
+        for note in self.notes.lock().iter_mut() {note.update(time)}
 
-
-        self.hit_timings.retain(|(hit_time, _diff)| {
-            time - hit_time < HIT_TIMING_DURATION as i64
-        });
+        // update hit timings bar
+        self.hit_timings.retain(|(hit_time, _)| {time - hit_time < HIT_TIMING_DURATION as i64});
 
         // if theres no more notes to hit, show score screen
-        if self.note_index >= self.notes.len() {
+        if self.note_index >= self.notes.lock().len() {
             self.completed = true;
             self.timing_bars.clear();
             return;
         }
 
-        if (self.notes[self.note_index].lock().unwrap().end_time() as i64) < time {
-            if self.notes[self.note_index].lock().unwrap().causes_miss() {
+        // check if we missed the current note
+        if (self.notes.lock()[self.note_index].end_time(self.hitwindow_miss) as i64) < time {
+            if self.notes.lock()[self.note_index].causes_miss() {
                 // need to set these manually instead of score.hit_miss,
                 // since we dont want to add anything to the hit error list
-                self.score.xmiss += 1;
-                self.score.combo = 0;
+                let s = self.score.as_mut().unwrap();
+                s.xmiss += 1;
+                s.combo = 0;
             }
 
             self.next_note();
         }
         
-        for tb in self.timing_bars.iter_mut() {
-            tb.lock().unwrap().update(time as f64);
-        }
+        // TODO: might move tbs to a (time, speed) tuple
+        for tb in self.timing_bars.iter_mut() {tb.update(time as f64)}
 
         // check timing point
         if self.timing_point_index + 1 < self.timing_points.len() && self.timing_points[self.timing_point_index + 1].time <= time as f64 {
@@ -474,6 +477,7 @@ impl Beatmap {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
         // load this here, it a bit more performant
         let font = get_font("main");
+        let score = self.score.as_ref().unwrap();
         let time = self.time();
 
         // draw the playfield
@@ -502,7 +506,7 @@ impl Beatmap {
             0.0,
             Vector2::new(args.window_size[0] - 200.0, 40.0),
             30,
-            crate::format(self.score.score),
+            crate::format(score.score),
             font.clone()
         )));
 
@@ -512,7 +516,7 @@ impl Beatmap {
             0.0,
             Vector2::new(args.window_size[0] - 200.0, 70.0),
             30,
-            format!("{:.2}%", self.score.acc()*100.0),
+            format!("{:.2}%", score.acc()*100.0),
             font.clone()
         )));
 
@@ -522,7 +526,7 @@ impl Beatmap {
             0.0,
             HIT_POSITION - Vector2::new(100.0, 0.0),
             30,
-            crate::format(self.score.combo),
+            crate::format(score.combo),
             font.clone()
         );
         combo_text.center_text(Rectangle::bounds_only(
@@ -541,7 +545,7 @@ impl Beatmap {
                 format!("Offset: {}", self.offset),
                 font.clone()
             );
-            offset_text.center_text(Rectangle::bounds_only(Vector2::new(0.0,0.0), Vector2::new(WINDOW_SIZE.x as f64, HIT_POSITION.y)));
+            offset_text.center_text(Rectangle::bounds_only(Vector2::zero(), Vector2::new(WINDOW_SIZE.x , HIT_POSITION.y)));
             renderables.push(Box::new(offset_text));
         }
 
@@ -573,21 +577,21 @@ impl Beatmap {
         renderables.push(Box::new(Rectangle::new(
             [0.1960, 0.7372, 0.9058, 1.0].into(),
             17.0,
-            Vector2::new(WINDOW_SIZE.x as f64 / 2.0 - width_300/2.0, HIT_TIMING_BAR_POS.y),
+            Vector2::new(WINDOW_SIZE.x/ 2.0 - width_300/2.0, HIT_TIMING_BAR_POS.y),
             Vector2::new(width_300, HIT_TIMING_BAR_SIZE.y),
             None // for now
         )));
         renderables.push(Box::new(Rectangle::new(
             [0.3411, 0.8901, 0.07450, 1.0].into(),
             18.0,
-            Vector2::new(WINDOW_SIZE.x as f64 / 2.0 - width_100/2.0, HIT_TIMING_BAR_POS.y),
+            Vector2::new(WINDOW_SIZE.x / 2.0 - width_100/2.0, HIT_TIMING_BAR_POS.y),
             Vector2::new(width_100, HIT_TIMING_BAR_SIZE.y),
             None // for now
         )));
         renderables.push(Box::new(Rectangle::new(
             [0.8549, 0.6823, 0.2745, 1.0].into(),
             19.0,
-            Vector2::new(WINDOW_SIZE.x as f64 / 2.0 - width_miss/2.0, HIT_TIMING_BAR_POS.y),
+            Vector2::new(WINDOW_SIZE.x  / 2.0 - width_miss/2.0, HIT_TIMING_BAR_POS.y),
             Vector2::new(width_miss, HIT_TIMING_BAR_SIZE.y),
             None // for now
         )));
@@ -616,16 +620,16 @@ impl Beatmap {
             renderables.push(Box::new(Rectangle::new(
                 c,
                 10.0,
-                Vector2::new(WINDOW_SIZE.x as f64 / 2.0 + pos, HIT_TIMING_BAR_POS.y),
+                Vector2::new(WINDOW_SIZE.x  / 2.0 + pos, HIT_TIMING_BAR_POS.y),
                 Vector2::new(2.0, HIT_TIMING_BAR_SIZE.y),
                 None // for now
             )));
         }
 
         // draw notes
-        for note in self.notes.iter_mut() {renderables.extend(note.lock().unwrap().draw(args));}
+        for note in self.notes.lock().iter_mut() {renderables.extend(note.draw(args));}
         // draw timing lines
-        for tb in self.timing_bars.iter_mut() {renderables.extend(tb.lock().unwrap().draw(args))}
+        for tb in self.timing_bars.iter_mut() {renderables.extend(tb.draw(args))}
 
         renderables
     }
@@ -650,8 +654,8 @@ impl Beatmap {
         let settings = Settings::get().clone();
 
         let c = self.clone();
-        for note in self.notes.as_mut_slice() {
-            let mut note = note.lock().unwrap();
+        for note in self.notes.lock().as_mut_slice() {
+            note.reset();
 
             // set note svs
             if settings.static_sv {
@@ -660,20 +664,18 @@ impl Beatmap {
                 let sv = c.slider_velocity_at(note.time()) / SV_FACTOR;
                 note.set_sv(sv);
             }
-
-            note.reset();
-            note.set_od(self.metadata.od as f64); //TODO! change when adding mods
         }
-        self.note_index = 0;
         {
             let song = self.song.upgrade().unwrap();
             song.pause();
             song.set_position(0.0);
         }
+        self.note_index = 0;
         self.completed = false;
         self.started = false;
         self.lead_in_time = LEAD_IN_TIME;
         self.offset_changed_time = 0;
+        self.timing_point_index = 0;
 
         // setup timing bars
         //TODO: it would be cool if we didnt actually need timing bar objects, and could just draw them
@@ -698,7 +700,7 @@ impl Beatmap {
                 }
 
                 // add timing bar at current time
-                self.timing_bars.push(Arc::new(Mutex::new(TimingBar::new(time as u64, sv))));
+                self.timing_bars.push(TimingBar::new(time as u64, sv));
 
                 if tp_index < parent_tps.len() && parent_tps[tp_index].time <= time + next_bar_time {
                     time = parent_tps[tp_index].time;
@@ -714,11 +716,17 @@ impl Beatmap {
             println!("created {} timing bars", self.timing_bars.len());
         }
     
-        self.score = Score::new(self.hash.clone());
+        self.score = Some(Score::new(self.hash.clone(), Settings::get_mut().username.clone()));
+        self.replay = Some(Replay::new());
 
         self.hitwindow_miss = map_difficulty_range(self.metadata.od as f64, 135.0, 95.0, 70.0);
         self.hitwindow_100 = map_difficulty_range(self.metadata.od as f64, 120.0, 80.0, 50.0);
         self.hitwindow_300 = map_difficulty_range(self.metadata.od as f64, 50.0, 35.0, 20.0);
+    }
+    pub fn cleanup(&mut self) {
+        self.timing_bars.clear();
+        self.score = None;
+        self.replay = None;
     }
 
     pub fn beat_length_at(&self, time:f64, allow_multiplier:bool) -> f64 {
@@ -764,17 +772,19 @@ impl Beatmap {
 
 
 // timing bar struct
+//TODO: might be able to reduce this to a (time, speed) and just calc pos on draw
+#[derive(Copy, Clone, Debug)]
 struct TimingBar {
     time: u64,
     speed: f64,
-    pos: Vector2<f64>
+    pos: Vector2
 }
 impl TimingBar {
     pub fn new(time:u64, speed:f64) -> TimingBar {
         TimingBar {
             time, 
             speed,
-            pos: Vector2::new(0.0, 0.0),
+            pos: Vector2::zero(),
         }
     }
 
@@ -782,11 +792,11 @@ impl TimingBar {
         self.pos = HIT_POSITION + Vector2::new(((self.time as f64 - time as f64) * self.speed) - BAR_WIDTH / 2.0, -PLAYFIELD_RADIUS);
     }
 
-    fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
+    fn draw(&mut self, _args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        if self.pos.x + BAR_WIDTH < 0.0 || self.pos.x - BAR_WIDTH > args.window_size[0] as f64 {return renderables}
+        if self.pos.x + BAR_WIDTH < 0.0 || self.pos.x - BAR_WIDTH > WINDOW_SIZE.x as f64 {return renderables}
 
-        const SIZE:Vector2<f64> = Vector2::new(BAR_WIDTH, PLAYFIELD_RADIUS*2.0);
+        const SIZE:Vector2 = Vector2::new(BAR_WIDTH, PLAYFIELD_RADIUS*2.0);
         const DEPTH:f64 = f64::MAX-5.0;
 
         renderables.push(Box::new(Rectangle::new(
@@ -882,4 +892,14 @@ enum BeatmapSection {
     TimingPoints,
     Colors,
     HitObjects,
+}
+
+
+impl Into<HitType> for KeyPress {
+    fn into(self) -> HitType {
+        match self {
+            KeyPress::LeftKat|KeyPress::RightKat => HitType::Kat,
+            KeyPress::LeftDon|KeyPress::RightDon => HitType::Don,
+        }
+    }
 }

@@ -7,37 +7,32 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-textures = []
 unlimited_fps = []
 
 [dependencies]
 taiko-rs-common = {path="../taiko-rs-common"}
 
-# Graphics
+# framework stuff
+lazy_static = "1.4.0"
+futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
+tokio = { version = "1.7.1", features = ["full"] }
+
+# audio
+cpal = "0.13.3"
+symphonia = { version = "0.3.0", default-features = false, features = ["mp3", "ogg", "wav", "pcm"] }
+
+# piston etc
 piston = "0.53.0"
 piston2d-opengl_graphics = "0.78.0"
 piston2d-graphics = "0.40.0"
 pistoncore-glfw_window = "0.71.0"
 
-# Audio
-cpal = "0.13.3"
-symphonia = { version = "0.3.0", default-features = false, features = ["mp3", "ogg", "wav", "pcm"] }
-
-# Async
-tokio = {version = "1.7.1", features = ["full"] }
-futures-channel = "0.3"
-futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
-
-# Online
-tokio-tungstenite = "0.14.0"
+# networking
 reqwest = { version = "0.11.4", features = ["blocking"] }
+tokio-tungstenite = "0.15.0"
 
-# Utils 
-log = "0.4"
-clipboard = "0.5.0"
-zip = "0.5"
-md5 = "0.7.0"
-image = "0.23.0"
-lazy_static = "1.4.0"
+# helpers
 parking_lot = "0.11.1"
-cgmath = "0.18.0"
+clipboard = "0.5.0"
+md5 = "0.7.0"
+zip = "0.5"

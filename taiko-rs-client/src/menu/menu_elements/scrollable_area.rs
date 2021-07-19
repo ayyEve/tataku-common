@@ -1,10 +1,7 @@
 use std::any::Any;
-use std::sync::{Arc, Mutex};
-
-use cgmath::Vector2;
 use piston::{Key, MouseButton, RenderArgs};
 
-use crate::{render::*, game::{Game, KeyModifiers}};
+use crate::{render::*, game::{Game, KeyModifiers, Vector2}};
 
 // how many pixels should be between items when in list mode?
 const ITEM_MARGIN:f64 = 5.0;
@@ -12,19 +9,20 @@ const ITEM_MARGIN:f64 = 5.0;
 const SCROLL_FACTOR: f64 = 16.0; // 8.0 is good for my laptop's touchpad, but on a mouse wheel its nowwhere near enough
 
 pub struct ScrollableArea {
+    pub depth: f64,
     pub items: Vec<Box<dyn ScrollableItem>>,
     scroll_pos: f64,
-    pos: Vector2<f64>,
-    size: Vector2<f64>,
+    pos: Vector2,
+    size: Vector2,
     /// if list mode, item positions will be modified based on how many items there are (ie, a list)
     list_mode: bool,
 
     // cache of where the mouse is, needed to check for on_scroll if mouse is over this
-    mouse_pos: Vector2<f64>,
+    mouse_pos: Vector2,
     elements_height: f64,
 }
 impl ScrollableArea {
-    pub fn new(pos: Vector2<f64>, size: Vector2<f64>, list_mode: bool) -> ScrollableArea {
+    pub fn new(pos: Vector2, size: Vector2, list_mode: bool) -> ScrollableArea {
         ScrollableArea {
             items: Vec::new(),
             scroll_pos: 0.0,
@@ -32,6 +30,7 @@ impl ScrollableArea {
             size,
             list_mode,
             elements_height: 0.0,
+            depth: 0.0,
 
             mouse_pos: Vector2::new(-999.0,-999.0) // just in case lol
         }
@@ -41,15 +40,10 @@ impl ScrollableArea {
     pub fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut items: Vec<Box<dyn Renderable>> = Vec::new();
 
-        let last_y = if self.items.last().is_some() {self.items.last().unwrap().size().y} else {0.0};
-        let min = -(self.elements_height + last_y) + self.size.y;
+        let min = -self.elements_height + self.size.y;
         let max = 0.0;
-        if !(min>max) {
-            self.scroll_pos = self.scroll_pos.clamp(min, max);
-        } else {
-            self.scroll_pos = 0.0;
-        }
 
+        self.scroll_pos = if !(min>max) {self.scroll_pos.clamp(min, max)} else {0.0};
         let offset = Vector2::new(0.0, self.scroll_pos);
 
         for item in self.items.as_mut_slice() {
@@ -60,20 +54,22 @@ impl ScrollableArea {
             if (pos.y + size.y) + offset.y < self.pos.y || pos.y + offset.y > self.pos.y + self.size.y {continue}
 
             // should be good, draw it
-            items.extend(item.draw(args, offset));
+            items.extend(item.draw(args, offset, self.depth));
         }
 
-        // helpful for debugging positions
-        // items.push(Box::new(Rectangle::new(Color::TRANSPARENT_WHITE, -10.0, self.pos, self.size, Some(Border {color:Color::BLACK.into(), radius: 2.0}))));
-        // let pos = self.mouse_pos - Vector2::new(0.0, self.scroll_pos);
-        // items.push(Box::new(Circle::new(Color::BLUE, -10.0, pos, 5.0)));
+        // // helpful for debugging positions
+        // items.push(Box::new(Rectangle::new(Color::TRANSPARENT_WHITE, -10.0, self.pos, self.size, Some(Border::new(Color::BLACK, 2.0)))));
+        // // mouse
+        // items.push(Box::new(Circle::new(Color::RED, -10.0, self.mouse_pos, 5.0)));
+        // // mouse relative to scroll pos
+        // items.push(Box::new(Circle::new(Color::BLUE, -10.0, self.mouse_pos + offset, 5.0)));
 
         items
     }
 
     // input handlers
     /// returns the tag of the item which was clicked
-    pub fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton, _game:Arc<Mutex<&mut Game>>) -> Option<String> {
+    pub fn on_click(&mut self, pos:Vector2, button:MouseButton, _game: &mut Game) -> Option<String> {
 
         // modify pos here
         let pos = pos - Vector2::new(0.0, self.scroll_pos);
@@ -88,7 +84,7 @@ impl ScrollableArea {
 
         i
     }
-    pub fn on_mouse_move(&mut self, pos:Vector2<f64>, _game:Arc<Mutex<&mut Game>>) {
+    pub fn on_mouse_move(&mut self, pos:Vector2, _game: &mut Game) {
         self.mouse_pos = pos;
 
         let pos = pos-Vector2::new(0.0, self.scroll_pos);
@@ -164,26 +160,26 @@ pub trait ScrollableItem {
     /// run when the item is removed from the list
     fn dispose(&mut self) {}
     fn update(&mut self) {}
-    fn size(&self) -> Vector2<f64>;
+    fn size(&self) -> Vector2;
     fn get_tag(&self) -> String;
     fn set_tag(&mut self, tag:&str);
-    fn get_pos(&self) -> Vector2<f64>;
-    fn set_pos(&mut self, pos:Vector2<f64>);
-    fn hover(&self, p:Vector2<f64>) -> bool {
+    fn get_pos(&self) -> Vector2;
+    fn set_pos(&mut self, pos:Vector2);
+    fn hover(&self, p:Vector2) -> bool {
         let pos = self.get_pos();
         let size = self.size();
         p.x > pos.x && p.x < pos.x + size.x && p.y > pos.y && p.y < pos.y + size.y
     }
 
-    fn draw(&mut self, args:RenderArgs, pos_offset:Vector2<f64>) -> Vec<Box<dyn Renderable>>;
+    fn draw(&mut self, args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>>;
 
     // input handlers
 
     /// when the mouse is clicked
-    fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton) -> bool; // this should be handled
+    fn on_click(&mut self, pos:Vector2, button:MouseButton) -> bool; // this should be handled
 
     /// when the mouse is moved
-    fn on_mouse_move(&mut self, pos:Vector2<f64>);
+    fn on_mouse_move(&mut self, pos:Vector2); // should be handled to check for hover
 
     /// when text is input
     fn on_text(&mut self, _text:String) {}

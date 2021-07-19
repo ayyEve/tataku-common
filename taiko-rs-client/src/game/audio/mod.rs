@@ -14,7 +14,7 @@ mod queue; use queue::*;
 mod instance; use instance::*;
 mod utils;
 
-use crate::Settings;
+use crate::game::Settings;
 
 const SOUND_LIST:[&'static str; 4] = [
     "audio/don.wav",

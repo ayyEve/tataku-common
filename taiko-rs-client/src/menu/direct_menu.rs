@@ -1,19 +1,18 @@
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Weak};
 use std::collections::HashMap;
 use std::{fs::File, io::Write};
 
-use cgmath::Vector2;
 use piston::{Key, MouseButton};
 //use rodio::Sink; // ugh
 
 use crate::{WINDOW_SIZE, DOWNLOADS_DIR};
 use crate::render::{Text, Renderable, Rectangle, Color, Border};
 use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
-use crate::game::{Audio, AudioHandle, Game, GameMode, KeyModifiers, Settings, get_font};
+use crate::game::{Audio, AudioHandle, Game, GameMode, KeyModifiers, Settings, get_font, Vector2};
 
-const DIRECT_ITEM_SIZE:Vector2<f64> = Vector2::new(600.0, 80.0);
+const DIRECT_ITEM_SIZE:Vector2 = Vector2::new(600.0, 80.0);
 const SEARCH_BAR_HEIGHT:f64 = 50.0;
-const DOWNLOAD_ITEM_SIZE:Vector2<f64> = Vector2::new(300.0, 40.0);
+const DOWNLOAD_ITEM_SIZE:Vector2 = Vector2::new(300.0, 40.0);
 const DOWNLOAD_ITEM_YMARGIN:f64 = 30.0;
 const DOWNLOAD_ITEM_YOFFSET:f64 = SEARCH_BAR_HEIGHT + 10.0;
 
@@ -37,13 +36,13 @@ pub struct OsuDirectMenu {
 impl OsuDirectMenu {
     pub fn new() -> OsuDirectMenu {
         let mut x = OsuDirectMenu {
-            scroll_area: ScrollableArea::new(Vector2::new(0.0, SEARCH_BAR_HEIGHT+5.0), Vector2::new(WINDOW_SIZE.x as f64, WINDOW_SIZE.y as f64 - (SEARCH_BAR_HEIGHT+5.0)), true),
+            scroll_area: ScrollableArea::new(Vector2::new(0.0, SEARCH_BAR_HEIGHT+5.0), Vector2::new(WINDOW_SIZE.x , WINDOW_SIZE.y - (SEARCH_BAR_HEIGHT+5.0)), true),
             downloading: Vec::new(),
             queue: Vec::new(),
             items: HashMap::new(),
             selected: None,
             preview: Weak::new(),
-            search_bar: TextInput::new(Vector2::new(0.0, 0.0), Vector2::new(WINDOW_SIZE.x as f64, SEARCH_BAR_HEIGHT), "Search", "")
+            search_bar: TextInput::new(Vector2::zero(), Vector2::new(WINDOW_SIZE.x , SEARCH_BAR_HEIGHT), "Search", "")
         };
         x.do_search();
         x
@@ -95,7 +94,7 @@ impl OsuDirectMenu {
     }
 }
 impl Menu for OsuDirectMenu {
-    fn update(&mut self, _game:Arc<Mutex<&mut Game>>) {
+    fn update(&mut self, _game:&mut Game) {
         // check download statuses
         let dir = std::fs::read_dir(DOWNLOADS_DIR).unwrap();
         let mut files = Vec::new();
@@ -120,7 +119,7 @@ impl Menu for OsuDirectMenu {
         let mut list:Vec<Box<dyn Renderable>> = Vec::new();
         list.extend(self.scroll_area.draw(args));
 
-        list.extend(self.search_bar.draw(args, Vector2::new(0.0,0.0)));
+        list.extend(self.search_bar.draw(args, Vector2::zero(), -90.0));
 
         // draw download items
         if self.downloading.len() > 0 {
@@ -190,11 +189,11 @@ impl Menu for OsuDirectMenu {
         list
     }
     
-    fn on_scroll(&mut self, delta:f64, _game:Arc<Mutex<&mut Game>>) {
+    fn on_scroll(&mut self, delta:f64, _game:&mut Game) {
         self.scroll_area.on_scroll(delta);
     }
 
-    fn on_click(&mut self, pos:Vector2<f64>, button:MouseButton, game:Arc<Mutex<&mut Game>>) {
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
         self.search_bar.on_click(pos, button);
 
         if let Some(key) = self.scroll_area.on_click(pos, button, game) {
@@ -215,17 +214,15 @@ impl Menu for OsuDirectMenu {
         }
     }
 
-    fn on_mouse_move(&mut self, pos:Vector2<f64>, game:Arc<Mutex<&mut Game>>) {
+    fn on_mouse_move(&mut self, pos:Vector2, game:&mut Game) {
         self.search_bar.on_mouse_move(pos);
         self.scroll_area.on_mouse_move(pos, game);
     }
 
-    fn on_key_press(&mut self, key:Key, game:Arc<Mutex<&mut Game>>, mods:KeyModifiers) {
+    fn on_key_press(&mut self, key:Key, game:&mut Game, mods:KeyModifiers) {
         self.search_bar.on_key_press(key, mods);
 
         if key == Key::Escape {
-            let mut game = game.lock().unwrap();
-            game.beatmap_pending_refresh = true;
             let menu = game.menus.get("main").unwrap().clone();
             game.queue_mode_change(GameMode::InMenu(menu));
         }
@@ -283,7 +280,7 @@ fn write_file(file:String, bytes:&[u8]) -> std::io::Result<()> {
 
 #[derive(Clone)]
 struct DirectItem {
-    pos: Vector2<f64>,
+    pos: Vector2,
 
     item: DirectMeta,
     hover: bool,
@@ -293,7 +290,7 @@ struct DirectItem {
 impl DirectItem {
     pub fn from_str(str:String) -> DirectItem {
         DirectItem {
-            pos: Vector2::new(0.0, 0.0), // being set by the scroll area anyways
+            pos: Vector2::zero(), // being set by the scroll area anyways
             item: DirectMeta::from_str(str.clone()),
 
             hover: false,
@@ -318,19 +315,19 @@ impl DirectItem {
 }
 impl ScrollableItem for DirectItem {
     // fn update(&mut self) {}
-    fn size(&self) -> Vector2<f64> {DIRECT_ITEM_SIZE}
-    fn set_pos(&mut self, pos:Vector2<f64>) {self.pos = pos;}
-    fn get_pos(&self) -> Vector2<f64> {self.pos}
+    fn size(&self) -> Vector2 {DIRECT_ITEM_SIZE}
+    fn set_pos(&mut self, pos:Vector2) {self.pos = pos;}
+    fn get_pos(&self) -> Vector2 {self.pos}
     fn get_tag(&self) -> String {self.item.filename.clone()}
     fn set_tag(&mut self, _tag:&str) {}
 
-    fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2<f64>) -> Vec<Box<dyn Renderable>> {
+    fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut list:Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
 
         list.push(Box::new(Rectangle::new(
             Color::WHITE,
-            10.0,
+            parent_depth + 10.0,
             self.pos + pos_offset,
             self.size(),
             Some(Border::new(if self.hover {Color::BLUE} else if self.selected {Color::RED} else {Color::BLACK}, 1.5))
@@ -338,7 +335,7 @@ impl ScrollableItem for DirectItem {
 
         list.push(Box::new(Text::new(
             Color::BLACK,
-            9.9,
+            parent_depth + 9.9,
             self.pos+Vector2::new(5.0, 25.0) + pos_offset,
             20,
             format!("{} - {}", self.item.artist, self.item.title),
@@ -347,7 +344,7 @@ impl ScrollableItem for DirectItem {
 
         list.push(Box::new(Text::new(
             Color::BLACK,
-            9.9,
+            parent_depth + 9.9,
             self.pos+Vector2::new(5.0, 50.0) + pos_offset,
             20,
             format!("Mapped by {}", self.item.creator),
@@ -357,7 +354,7 @@ impl ScrollableItem for DirectItem {
         list
     }
 
-    fn on_click(&mut self, _pos:Vector2<f64>, _button:piston::MouseButton) -> bool {
+    fn on_click(&mut self, _pos:Vector2, _button:piston::MouseButton) -> bool {
 
         if self.selected {
             if self.hover {
@@ -376,7 +373,7 @@ impl ScrollableItem for DirectItem {
         false
     }
 
-    fn on_mouse_move(&mut self, pos:Vector2<f64>) {
+    fn on_mouse_move(&mut self, pos:Vector2) {
         self.hover = self.hover(pos);
     }
 }
