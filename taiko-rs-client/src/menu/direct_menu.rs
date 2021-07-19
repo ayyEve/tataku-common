@@ -10,11 +10,12 @@ use crate::render::{Text, Renderable, Rectangle, Color, Border};
 use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
 use crate::game::{Audio, Game, GameMode, KeyModifiers, Settings, get_font, Vector2};
 
-const DIRECT_ITEM_SIZE:Vector2 = Vector2::new(600.0, 80.0);
-const SEARCH_BAR_HEIGHT:f64 = 50.0;
 const DOWNLOAD_ITEM_SIZE:Vector2 = Vector2::new(300.0, 40.0);
 const DOWNLOAD_ITEM_YMARGIN:f64 = 30.0;
 const DOWNLOAD_ITEM_YOFFSET:f64 = SEARCH_BAR_HEIGHT + 10.0;
+const DOWNLOAD_ITEM_XOFFSET:f64 = 5.0;
+const SEARCH_BAR_HEIGHT:f64 = 50.0;
+const DIRECT_ITEM_SIZE:Vector2 = Vector2::new(WINDOW_SIZE.x - (DOWNLOAD_ITEM_SIZE.x+DOWNLOAD_ITEM_XOFFSET), 80.0);
 
 //TODO: properly implement this lol
 const MAX_CONCURRENT_DOWNLOADS:usize = 5;
@@ -30,13 +31,13 @@ pub struct OsuDirectMenu {
 
     search_bar: TextInput,
 
-    //TODO: figure out how to get this running in a separate thread
+    //TODO: [audio] use Audio::song
     preview: Option<Arc<Mutex<Sink>>>
 }
 impl OsuDirectMenu {
     pub fn new() -> OsuDirectMenu {
         let mut x = OsuDirectMenu {
-            scroll_area: ScrollableArea::new(Vector2::new(0.0, SEARCH_BAR_HEIGHT+5.0), Vector2::new(WINDOW_SIZE.x , WINDOW_SIZE.y - (SEARCH_BAR_HEIGHT+5.0)), true),
+            scroll_area: ScrollableArea::new(Vector2::new(0.0, SEARCH_BAR_HEIGHT+5.0), Vector2::new(WINDOW_SIZE.x - DIRECT_ITEM_SIZE.x, WINDOW_SIZE.y - (SEARCH_BAR_HEIGHT+5.0)), true),
             downloading: Vec::new(),
             queue: Vec::new(),
             items: HashMap::new(),
@@ -44,6 +45,8 @@ impl OsuDirectMenu {
             preview: None,
             search_bar: TextInput::new(Vector2::zero(), Vector2::new(WINDOW_SIZE.x , SEARCH_BAR_HEIGHT), "Search", "")
         };
+        // TODO: [audio] pause playing music, store song and pos. on close, put it back how it was
+
         x.do_search();
         x
     }
@@ -121,7 +124,7 @@ impl Menu for OsuDirectMenu {
         // draw download items
         if self.downloading.len() > 0 {
 
-            let x = args.window_size[0] - (DOWNLOAD_ITEM_SIZE.x+5.0);
+            let x = args.window_size[0] - (DOWNLOAD_ITEM_SIZE.x+DOWNLOAD_ITEM_XOFFSET);
 
             list.push(Box::new(Rectangle::new(
                 Color::WHITE,

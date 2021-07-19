@@ -8,39 +8,7 @@ use crate::{REPLAYS_DIR, SCORE_DATABASE_FILE};
 
 lazy_static::lazy_static! {
     /// SCORES_CACHE.get(.osu_hash) = list of scores
-    static ref SCORES_CACHE: Mutex<HashMap<String, Arc<Mutex<Vec<Score>>>>> = {
-        Mutex::new(HashMap::new())
-
-        // let mut list:HashMap<String, Arc<Mutex<Vec<Score>>>> = HashMap::new();
-        // let reader = open_database(SCORE_DATABASE_FILE);
-
-        // match reader {
-        //     Err(e) => {
-        //         println!("Error reading db: {:?}", e);
-        //         Mutex::new(list)
-        //     }
-        //     Ok(mut reader) => {
-        //         let mut count = reader.read_u128();
-
-        //         while count > 0 {
-        //             count -= 1;
-        //             let score = Score::read(&mut reader);
-        //             let hash = score.beatmap_hash.to_owned();
-
-        //             if !list.contains_key(&hash.clone()) {
-        //                 list.insert(hash.clone(), Arc::new(Mutex::new(Vec::new())));
-        //             }
-
-        //             let l = list.get_mut(&hash.clone()).unwrap();
-        //             l.lock().unwrap().push(score);
-        //         }
-
-        //         Mutex::new(list)
-        //     }
-        // }
-    
-    
-    };
+    static ref SCORES_CACHE: Mutex<HashMap<String, Arc<Mutex<Vec<Score>>>>> = Mutex::new(HashMap::new());
 }
 
 

@@ -23,7 +23,7 @@ impl SettingsMenu {
         let p = Vector2::new(10.0 + SECTION_XOFFSET, 0.0); // scroll area edits the y
 
         // setup items
-        let mut scroll_area = ScrollableArea::new(Vector2::new(10.0, SCROLLABLE_YOFFSET), Vector2::new(500.0, WINDOW_SIZE.y - SCROLLABLE_YOFFSET*2.0), true);
+        let mut scroll_area = ScrollableArea::new(Vector2::new(10.0, SCROLLABLE_YOFFSET), Vector2::new(WINDOW_SIZE.x - 20.0, WINDOW_SIZE.y - SCROLLABLE_YOFFSET*2.0), true);
         let mut username_input = TextInput::new(p, Vector2::new(600.0, 50.0), "Username", &settings.username);
         let mut password_input = PasswordInput::new(p, Vector2::new(600.0, 50.0), "Password", &settings.password);
         let mut done_button =  MenuButton::new(p, BUTTON_SIZE, "Done");

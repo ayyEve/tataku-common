@@ -12,14 +12,16 @@ use crate::{SONGS_DIR, WINDOW_SIZE, DOWNLOADS_DIR, render::*, databases::get_sco
 use crate::game::{Game, GameMode, KeyModifiers, Settings, get_font, Vector2, helpers::BeatmapManager};
 
 // constants
-const INFO_BAR_HEIGHT:f64 = 60.0;
+const INFO_BAR_HEIGHT: f64 = 60.0;
 const BEATMAPSET_ITEM_SIZE: Vector2 = Vector2::new(550.0, 50.0);
 const BEATMAPSET_PAD_RIGHT: f64 = 5.0;
 
 const BEATMAP_ITEM_PADDING: f64 = 5.0;
 const BEATMAP_ITEM_SIZE: Vector2 = Vector2::new(450.0, 50.0);
 
-const LEADERBOARD_POS: Vector2 = Vector2::new(10.0, 100.0);
+
+const LEADERBOARD_PADDING: f64 = 100.0;
+const LEADERBOARD_POS: Vector2 = Vector2::new(10.0, LEADERBOARD_PADDING);
 const LEADERBOARD_ITEM_SIZE: Vector2 = Vector2::new(200.0, 50.0);
 
 pub struct BeatmapSelectMenu {
@@ -48,8 +50,9 @@ impl BeatmapSelectMenu {
             background_texture: None,
             back_button: MenuButton::back_button(),
 
-            beatmap_scroll: ScrollableArea::new(Vector2::new(WINDOW_SIZE.x - (BEATMAPSET_ITEM_SIZE.x+BEATMAPSET_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y - INFO_BAR_HEIGHT), true),
-            leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y - LEADERBOARD_POS.y), true),
+            // beatmap_scroll: ScrollableArea::new(Vector2::new(WINDOW_SIZE.x - (BEATMAPSET_ITEM_SIZE.x + BEATMAPSET_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(WINDOW_SIZE.x - LEADERBOARD_ITEM_SIZE.x, WINDOW_SIZE.y - INFO_BAR_HEIGHT), true),
+            beatmap_scroll: ScrollableArea::new(Vector2::new(LEADERBOARD_POS.x + LEADERBOARD_ITEM_SIZE.x, INFO_BAR_HEIGHT), Vector2::new(WINDOW_SIZE.x - LEADERBOARD_ITEM_SIZE.x, WINDOW_SIZE.y - INFO_BAR_HEIGHT), true),
+            leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(LEADERBOARD_ITEM_SIZE.x, WINDOW_SIZE.y - (LEADERBOARD_PADDING + INFO_BAR_HEIGHT)), true),
         }
     }
 
@@ -82,9 +85,7 @@ impl BeatmapSelectMenu {
         // load scores
         let scores = get_scores(map_hash.to_owned());
         let mut scores = scores.lock().clone();
-        scores.sort_by(|a, b| {
-            b.score.cmp(&a.score)
-        });
+        scores.sort_by(|a, b| b.score.cmp(&a.score));
 
         for s in scores.iter() {
             self.current_scores.insert(s.username.clone(), Arc::new(Mutex::new(s.clone())));
@@ -310,7 +311,6 @@ struct BeatmapsetItem {
 }
 impl BeatmapsetItem {
     fn new(beatmaps: Vec<Arc<Mutex<Beatmap>>>) -> BeatmapsetItem {
-
         // sort beatmaps by sr
         let mut beatmaps = beatmaps.clone();
         beatmaps.sort_by(|a, b| {
@@ -323,9 +323,11 @@ impl BeatmapsetItem {
         let first = _first.lock();
         let tag = first.metadata.version_string();
 
+        const X:f64 = WINDOW_SIZE.x - (BEATMAPSET_ITEM_SIZE.x + BEATMAPSET_PAD_RIGHT + LEADERBOARD_POS.x + LEADERBOARD_ITEM_SIZE.x);
+
         BeatmapsetItem {
             beatmaps: beatmaps.clone(), 
-            pos: Vector2::zero(),
+            pos: Vector2::new(X, 0.0),
             hover: false,
             selected: false,
             pending_play: false,
@@ -334,7 +336,7 @@ impl BeatmapsetItem {
 
             selected_item: 0,
             first: _first.clone(),
-            mouse_pos: Vector2::new(0.0,0.0)
+            mouse_pos: Vector2::zero()
         }
     }
 }
@@ -430,6 +432,7 @@ impl ScrollableItem for BeatmapsetItem {
                 counter += 1;
             }
         }
+        
         items
     }
 

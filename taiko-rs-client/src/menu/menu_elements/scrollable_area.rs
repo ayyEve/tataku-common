@@ -20,6 +20,8 @@ pub struct ScrollableArea {
     // cache of where the mouse is, needed to check for on_scroll if mouse is over this
     mouse_pos: Vector2,
     elements_height: f64,
+
+    hover:bool
 }
 impl ScrollableArea {
     pub fn new(pos: Vector2, size: Vector2, list_mode: bool) -> ScrollableArea {
@@ -32,11 +34,16 @@ impl ScrollableArea {
             elements_height: 0.0,
             depth: 0.0,
 
+            hover:false,
             mouse_pos: Vector2::new(-999.0,-999.0) // just in case lol
         }
     }
 
-    pub fn update(&mut self) {} //TODO: maybe set this up lol
+    pub fn update(&mut self) {
+        for item in self.items.as_mut_slice() {
+            item.update();
+        }
+    }
     pub fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut items: Vec<Box<dyn Renderable>> = Vec::new();
 
@@ -57,12 +64,16 @@ impl ScrollableArea {
             items.extend(item.draw(args, offset, self.depth));
         }
 
-        // // helpful for debugging positions
-        // items.push(Box::new(Rectangle::new(Color::TRANSPARENT_WHITE, -10.0, self.pos, self.size, Some(Border::new(Color::BLACK, 2.0)))));
-        // // mouse
-        // items.push(Box::new(Circle::new(Color::RED, -10.0, self.mouse_pos, 5.0)));
-        // // mouse relative to scroll pos
-        // items.push(Box::new(Circle::new(Color::BLUE, -10.0, self.mouse_pos + offset, 5.0)));
+
+        // helpful for debugging positions
+        if self.hover {
+            items.push(Box::new(Rectangle::new(Color::TRANSPARENT_WHITE, -10.0, self.pos, self.size, Some(Border::new(if self.hover{Color::RED} else {Color::BLACK}, 2.0)))));
+            // mouse
+            items.push(Box::new(Circle::new(Color::RED, -10.0, self.mouse_pos, 5.0)));
+            // mouse relative to scroll pos
+            items.push(Box::new(Circle::new(Color::BLUE, -10.0, self.mouse_pos + offset, 5.0)));
+        }
+
 
         items
     }
@@ -84,17 +95,21 @@ impl ScrollableArea {
 
         i
     }
-    pub fn on_mouse_move(&mut self, pos:Vector2, _game: &mut Game) {
-        self.mouse_pos = pos;
+    pub fn on_mouse_move(&mut self, p:Vector2, _game: &mut Game) {
+        self.mouse_pos = p;
+        self.hover = p.x > self.pos.x && p.x < self.pos.x + self.size.x && p.y > self.pos.y && p.y < self.pos.y + self.size.y;
+        if !self.hover {return}
 
-        let pos = pos-Vector2::new(0.0, self.scroll_pos);
+        let p = p-Vector2::new(0.0, self.scroll_pos);
         for item in self.items.as_mut_slice() {
-            item.on_mouse_move(pos);
+            item.on_mouse_move(p);
         }
     }
 
     pub fn on_scroll(&mut self, delta:f64) {
-        self.scroll_pos += delta * SCROLL_FACTOR;
+        if self.hover {
+            self.scroll_pos += delta * SCROLL_FACTOR;
+        }
     }
     pub fn on_key_press(&mut self, key:Key, mods:KeyModifiers) {
         for item in self.items.as_mut_slice() {
