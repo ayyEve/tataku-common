@@ -375,7 +375,7 @@ impl Beatmap {
         let note = notes.get_mut(self.note_index).unwrap();
         let note_time = note.time() as f64;
 
-        match note.get_points(hit_type, time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_miss)) {
+        match note.get_points(hit_type, time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300)) {
             ScoreHit::None => {
                 // play sound
                 Audio::play(sound);
@@ -648,6 +648,10 @@ impl Beatmap {
     pub fn reset(&mut self) {
         let settings = Settings::get().clone();
 
+        self.hitwindow_miss = map_difficulty_range(self.metadata.od as f64, 135.0, 95.0, 70.0);
+        self.hitwindow_100 = map_difficulty_range(self.metadata.od as f64, 120.0, 80.0, 50.0);
+        self.hitwindow_300 = map_difficulty_range(self.metadata.od as f64, 50.0, 35.0, 20.0);
+
         let c = self.clone();
         for note in self.notes.lock().as_mut_slice() {
             note.reset();
@@ -709,10 +713,6 @@ impl Beatmap {
     
         self.score = Some(Score::new(self.hash.clone(), Settings::get_mut().username.clone()));
         self.replay = Some(Replay::new());
-
-        self.hitwindow_miss = map_difficulty_range(self.metadata.od as f64, 135.0, 95.0, 70.0);
-        self.hitwindow_100 = map_difficulty_range(self.metadata.od as f64, 120.0, 80.0, 50.0);
-        self.hitwindow_300 = map_difficulty_range(self.metadata.od as f64, 50.0, 35.0, 20.0);
     }
     pub fn cleanup(&mut self) {
         self.timing_bars.clear();
@@ -807,7 +807,7 @@ impl TimingBar {
 #[derive(Clone, Debug)]
 pub struct BeatmapMeta {
     pub mode: Playmode,
-    pub beatmap_version:f32,
+    pub beatmap_version: f32,
     pub artist: String,
     pub title: String,
     pub artist_unicode: String,

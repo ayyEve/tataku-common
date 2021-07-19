@@ -19,7 +19,6 @@ const BEATMAPSET_PAD_RIGHT: f64 = 5.0;
 const BEATMAP_ITEM_PADDING: f64 = 5.0;
 const BEATMAP_ITEM_SIZE: Vector2 = Vector2::new(450.0, 50.0);
 
-
 const LEADERBOARD_PADDING: f64 = 100.0;
 const LEADERBOARD_POS: Vector2 = Vector2::new(10.0, LEADERBOARD_PADDING);
 const LEADERBOARD_ITEM_SIZE: Vector2 = Vector2::new(200.0, 50.0);
