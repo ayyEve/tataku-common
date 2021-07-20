@@ -422,7 +422,6 @@ impl ScrollableItem for BeatmapsetItem {
 
         if self.selected && self.hover {
             // find the clicked item
-
             // we only care about y pos, because we know we were clicked
             let rel_y2 = (pos.y - self.pos.y).abs() - BEATMAPSET_ITEM_SIZE.y;
             let index = (((rel_y2 + BEATMAP_ITEM_PADDING/2.0) / (BEATMAP_ITEM_SIZE.y + BEATMAP_ITEM_PADDING)).floor() as usize).clamp(0, self.beatmaps.len() - 1);
@@ -439,7 +438,7 @@ impl ScrollableItem for BeatmapsetItem {
         // not yet selected
         if !self.selected && self.hover {
             // start song
-            Audio::play_song(&self.meta.audio_filename, false);
+            Audio::play_song(&self.meta.audio_filename, false).upgrade().unwrap().set_position(self.meta.audio_preview);
         }
 
         self.selected = self.hover;
