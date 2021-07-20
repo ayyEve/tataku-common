@@ -14,6 +14,7 @@ mod menu;
 mod databases;
 mod enums;
 pub use enums::*;
+pub use game::helpers;
 
 // constants
 const NOTE_RADIUS:f64 = 32.0;
