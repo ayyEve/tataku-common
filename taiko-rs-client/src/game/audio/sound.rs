@@ -1,8 +1,4 @@
-use symphonia::core::{
-    audio::{AudioBufferRef, Signal},
-    io::{MediaSourceStream, MediaSource},
-    probe::Hint
-};
+use symphonia::core::{probe::Hint, audio::{AudioBufferRef, Signal}, io::{MediaSourceStream, MediaSource}};
 
 use std::io::Cursor;
 use std::sync::Arc;
@@ -18,9 +14,7 @@ pub struct Sound {
 impl Sound {
     // todo: make not crash
     pub fn load(path: impl AsRef<str>) -> Self {
-        let file = std::fs::File::open(path.as_ref())
-        .expect("Failed to open file.");
-
+        let file = std::fs::File::open(path.as_ref()).expect("Failed to open file.");
         Sound::decode(file)
     }
 
@@ -39,19 +33,17 @@ impl Sound {
             source,
             &Default::default(),
             &Default::default(),
-        )
-        .expect("Failed to create probe");
+        ).expect("Failed to create probe");
 
         let mut reader = probe.format;
 
         let track = reader.default_track().unwrap();
         let track_id = track.id;
 
-        //println!("Sample Rate Track: {:?}", track.codec_params.sample_format);
-        //println!("Codec Type: {}", track.codec_params.codec);
+        // println!("Sample Rate Track: {:?}", track.codec_params.sample_format);
+        // println!("Codec Type: {}", track.codec_params.codec);
 
-        let mut decoder = symphonia::default::get_codecs().make(&track.codec_params, &Default::default())
-        .expect("Failed to get codecs and produce decoder.");
+        let mut decoder = symphonia::default::get_codecs().make(&track.codec_params, &Default::default()).expect("Failed to get codecs and produce decoder.");
 
         let mut samples = Vec::new();
         let mut sample_rate = 0;
@@ -62,7 +54,7 @@ impl Sound {
 
             match decoder.decode(&packet) {
                 Ok(AudioBufferRef::F32(f)) => {
-                    if sample_rate == 0 { sample_rate = f.spec().rate; }
+                    if sample_rate == 0 { sample_rate = f.spec().rate; println!("sample rate f32: {}", sample_rate)}
                     if channels == 0 { 
                         channels = f.spec().channels.count();
 
@@ -78,8 +70,8 @@ impl Sound {
                 }
 
                 Ok(AudioBufferRef::S32(f)) => {
-                    if sample_rate == 0 { sample_rate = f.spec().rate; }
-                    if channels == 0 { 
+                    if sample_rate == 0 { sample_rate = f.spec().rate; println!("sample rate s32: {}", sample_rate)}
+                    if channels == 0 {
                         channels = f.spec().channels.count();
 
                         // Populate channels vec

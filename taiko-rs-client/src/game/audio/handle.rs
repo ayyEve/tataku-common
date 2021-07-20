@@ -36,9 +36,9 @@ impl AudioHandle {
         }
     }
 
-    pub fn state(&self) -> AudioState {
-        self.state.lock().clone()
-    }
+    // pub fn state(&self) -> AudioState {
+    //     self.state.lock().clone()
+    // }
 
     pub fn set_state(&self, state: AudioState) {
         let mut lock = self.state.lock();
@@ -49,9 +49,9 @@ impl AudioHandle {
         self.state_changed.store(true, Ordering::SeqCst);
     }
 
-    pub fn volume(&self) -> f32 {
-        *self.volume.lock()
-    }
+    // pub fn volume(&self) -> f32 {
+    //     *self.volume.lock()
+    // }
 
     pub fn set_volume(&self, volume: f32) {
         *self.volume.lock() = volume;

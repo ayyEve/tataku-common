@@ -1,4 +1,4 @@
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 use std::collections::HashMap;
 use std::{fs::File, io::Write};
 
@@ -8,7 +8,7 @@ use piston::{Key, MouseButton};
 use crate::{WINDOW_SIZE, DOWNLOADS_DIR};
 use crate::render::{Text, Renderable, Rectangle, Color, Border};
 use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
-use crate::game::{Audio, AudioHandle, Game, GameMode, KeyModifiers, Settings, get_font, Vector2};
+use crate::game::{Audio, Game, GameMode, KeyModifiers, Settings, Vector2, get_font};
 
 const DOWNLOAD_ITEM_SIZE:Vector2 = Vector2::new(300.0, 40.0);
 const DOWNLOAD_ITEM_YMARGIN:f64 = 30.0;
@@ -29,10 +29,10 @@ pub struct OsuDirectMenu {
     queue: Vec<Arc<DirectItem>>,
     selected: Option<String>,
 
-    search_bar: TextInput,
+    /// attempted? succeeded? (path, pos)
+    old_audio: Option<Option<(String, f32)>>,
 
-    //TODO: [audio] use Audio::song
-    preview: Weak<AudioHandle>
+    search_bar: TextInput
 }
 impl OsuDirectMenu {
     pub fn new() -> OsuDirectMenu {
@@ -42,8 +42,8 @@ impl OsuDirectMenu {
             queue: Vec::new(),
             items: HashMap::new(),
             selected: None,
-            preview: Weak::new(),
-            search_bar: TextInput::new(Vector2::zero(), Vector2::new(WINDOW_SIZE.x , SEARCH_BAR_HEIGHT), "Search", "")
+            search_bar: TextInput::new(Vector2::zero(), Vector2::new(WINDOW_SIZE.x , SEARCH_BAR_HEIGHT), "Search", ""),
+            old_audio: None
         };
         // TODO: [audio] pause playing music, store song and pos. on close, put it back how it was
 
@@ -76,24 +76,46 @@ impl OsuDirectMenu {
 
         // https://b.ppy.sh/preview/100.mp3
         let url = format!("https://b.ppy.sh/preview/{}.mp3", set_id);
-        if let Some(audio) = self.preview.upgrade() { audio.stop(); }
 
-        let req = reqwest::blocking::get(url);
+        let req = reqwest::blocking::get(url.clone());
         if let Ok(thing) = req {
             let data = thing.bytes().expect("error converting mp3 preview to bytes");
             let mut data2 = Vec::new();
             data.iter().for_each(|e| data2.push(e.clone()));
 
-            let handle = Audio::play_raw(data2);
+            // store last playing audio if needed
+            if self.old_audio.is_none() {
+                if let Some((key, a)) = Audio::get_song_raw() {
+                    if let Some(a2) = a.upgrade() {
+                        self.old_audio = Some(Some((key, a2.current_time())));
+                    }
+                }
+                // need to store that we made an attempt
+                if let None = self.old_audio {
+                    self.old_audio = Some(None);
+                }
+            }
 
-            let upgrade = handle.upgrade().unwrap(); // should exist since we just created it
-            upgrade.play();
-            upgrade.set_volume(Settings::get().get_music_vol());
-
-            self.preview = handle;
+            Audio::play_song_raw(url, data2);
         } else if let Err(oof) = req {
             println!("error with preview: {}", oof);
-        }        
+        }
+    }
+
+    /// go back to the main menu
+    fn back(&mut self, game:&mut Game) {
+
+        if let Some(old_audio) = &self.old_audio {
+            Audio::stop_song();
+
+            // restore previous audio
+            if let Some((path, pos)) = old_audio.clone() {
+                Audio::play_song(path, false).upgrade().unwrap().set_position(pos);
+            }
+        }
+
+        let menu = game.menus.get("main").unwrap().clone();
+        game.queue_mode_change(GameMode::InMenu(menu));
     }
 }
 impl Menu for OsuDirectMenu {
@@ -225,16 +247,12 @@ impl Menu for OsuDirectMenu {
     fn on_key_press(&mut self, key:Key, game:&mut Game, mods:KeyModifiers) {
         self.search_bar.on_key_press(key, mods);
 
-        if key == Key::Escape {
-            let menu = game.menus.get("main").unwrap().clone();
-            game.queue_mode_change(GameMode::InMenu(menu));
-        }
+        if key == Key::Escape {return self.back(game)}
 
         println!("got key {:?}", key);
         if key == Key::Return {
             self.do_search();
         }
-        
     }
 
     fn on_text(&mut self, text:String) {
@@ -307,11 +325,9 @@ impl DirectItem {
         self.downloading = true;
         let download_dir = format!("downloads/{}", self.item.filename.clone());
         
-        // let username = Settings::get().username;
-        // let password = Settings::get().password;
-        // let url = format!("https://osu.ppy.sh/d/{}?u={}&h={:x}", self.item.filename.clone(), username, md5::compute(password));
-
-        let url = format!("https://osu.ppy.sh/d/{}?u=emibot&h=cdcda2be9c41247386eaa646edb132c2", self.item.filename.clone());
+        let username = Settings::get().username;
+        let password = Settings::get().password;
+        let url = format!("https://osu.ppy.sh/d/{}?u={}&h={:x}", self.item.filename.clone(), username, md5::compute(password));
 
         perform_download(url, download_dir);
     }
@@ -363,22 +379,10 @@ impl ScrollableItem for DirectItem {
     }
 
     fn on_click(&mut self, _pos:Vector2, _button:piston::MouseButton) -> bool {
+        if self.selected && self.hover {self.download()}
 
-        if self.selected {
-            if self.hover {
-                self.download();
-            } else {
-                self.selected  = false;
-                return false;
-            }
-        }
-
-        if self.hover {
-            self.selected = true;
-            return true;
-        }
-
-        false
+        self.selected = self.hover;
+        self.hover
     }
 }
 

@@ -1,6 +1,6 @@
 use std::time::Instant;
 use piston::Key;
-use crate::{WINDOW_SIZE, Vector2, game::{KeyModifiers, Settings}, render::{Rectangle, Renderable, Border, Color, Text}};
+use crate::{Vector2, WINDOW_SIZE, game::{Audio, KeyModifiers, Settings}, render::{Rectangle, Renderable, Border, Color, Text}};
 
 
 
@@ -53,6 +53,11 @@ impl VolumeControl {
             1 => settings.effect_vol = (settings.effect_vol + delta).clamp(0.0, 1.0),
             2 => settings.music_vol = (settings.music_vol + delta).clamp(0.0, 1.0),
             _ => println!("lock.vol_selected_index out of bounds somehow")
+        }
+
+        
+        if let Some(song) = Audio::get_song() {
+            song.set_volume(settings.get_music_vol());
         }
 
         self.vol_selected_time = elapsed;

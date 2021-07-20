@@ -125,12 +125,6 @@ impl ScrollableArea {
             item.on_text(text.clone());
         }
     }
-    pub fn on_volume_change(&mut self) {
-        for item in self.items.as_mut_slice() {
-            item.on_volume_change();
-        }
-    }
-
 
     /// returns index
     pub fn add_item(&mut self, mut item:Box<dyn ScrollableItem>) {
@@ -219,7 +213,4 @@ pub trait ScrollableItem {
 
     /// get a value
     fn get_value(&self) -> Box<dyn Any> {Box::new(0)}
-
-    /// when the volume is changed
-    fn on_volume_change(&mut self) {}
 }

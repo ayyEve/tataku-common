@@ -11,12 +11,12 @@ use piston::{Window, input::*, event_loop::*, window::WindowSettings};
 
 // use crate::gameplay::Beatmap;
 use crate::gameplay::Beatmap;
-use crate::render::{Color, HalfCircle, Image, Rectangle, Renderable};
 use crate::databases::{save_all_scores, save_replay, save_score};
+use crate::render::{Color, HalfCircle, Image, Rectangle, Renderable};
 use taiko_rs_common::types::{KeyPress, Replay, SpectatorFrames, UserAction};
-use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, SONGS_DIR, menu::*};
-use crate::helpers::{FpsDisplay, BenchmarkHelper, BeatmapManager,VolumeControl};
-use crate::game::{InputManager, Settings, Vector2, online::{USER_ITEM_SIZE, OnlineManager}};
+use crate::helpers::{FpsDisplay, BenchmarkHelper, BeatmapManager, VolumeControl};
+use crate::game::{InputManager, Settings, online::{USER_ITEM_SIZE, OnlineManager}};
+use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, SONGS_DIR, Vector2, menu::*};
 
 /// background color
 const GFX_CLEAR_COLOR:Color = Color::WHITE;
@@ -58,7 +58,7 @@ pub struct Game {
     // misc
     pub game_start: Instant,
     pub background_image: Option<Image>,
-    register_timings: (f32,f32,f32)
+    // register_timings: (f32,f32,f32)
 }
 impl Game {
     pub fn new() -> Game {
@@ -117,7 +117,7 @@ impl Game {
             // misc
             show_user_list: false,
             game_start: Instant::now(),
-            register_timings: (0.0,0.0,0.0)
+            // register_timings: (0.0,0.0,0.0)
         };
         game_init_benchmark.log("game created", true);
 
@@ -209,7 +209,6 @@ impl Game {
         if mouse_moved {self.volume_controller.on_mouse_move(mouse_pos)}
         if self.volume_controller.on_key_press(&mut keys, mods) {volume_changed = true}
         if scroll_delta != 0.0 && self.volume_controller.on_mouse_wheel(scroll_delta, mods) {scroll_delta = 0.0; volume_changed = true}
-
         
         // users list
         if keys.contains(&Key::F8) {
@@ -297,9 +296,6 @@ impl Game {
                 // offset adjust
                 if keys.contains(&Key::Equals) {beatmap.increment_offset(5)}
                 if keys.contains(&Key::Minus) {beatmap.increment_offset(-5)}
-
-                // volume
-                if volume_changed {beatmap.song.upgrade().unwrap().set_volume(settings.get_music_vol())}
 
                 // update, then check if complete
                 beatmap.update();

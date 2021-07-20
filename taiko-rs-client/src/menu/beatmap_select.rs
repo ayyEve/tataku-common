@@ -8,8 +8,8 @@ use piston::{Key, MouseButton, RenderArgs};
 use taiko_rs_common::types::Score;
 use crate::gameplay::{Beatmap, BeatmapMeta};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
-use crate::{SONGS_DIR, WINDOW_SIZE, DOWNLOADS_DIR, render::*, databases::get_scores};
-use crate::game::{Game, GameMode, KeyModifiers, Settings, get_font, Vector2, helpers::BeatmapManager};
+use crate::game::{Game, GameMode, KeyModifiers, get_font, Audio, helpers::BeatmapManager};
+use crate::{SONGS_DIR, WINDOW_SIZE, DOWNLOADS_DIR, Vector2, render::*, databases::get_scores};
 
 // constants
 const INFO_BAR_HEIGHT: f64 = 60.0;
@@ -175,20 +175,20 @@ impl Menu for BeatmapSelectMenu {
         items
     }
 
-    fn on_volume_change(&mut self) {self.beatmap_scroll.on_volume_change()}
     fn on_change(&mut self, into:bool) {
         if into {
             self.beatmap_scroll.refresh_layout();
             if let Some(map_hash) = &self.selected_beatmap.clone() {
                 self.load_scores(map_hash.clone());
             }
-        } else {
-            println!("stop musci >:C");
-            // stop the music somehow?
-            for i in self.beatmap_scroll.items.iter_mut() {
-                i.set_tag("no more music >:C");
-            }
         }
+        //  else {
+        //     println!("stop musci >:C");
+        //     // stop the music somehow?
+        //     for i in self.beatmap_scroll.items.iter_mut() {
+        //         i.set_tag("no more music >:C");
+        //     }
+        // }
     }
 
     fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
@@ -225,20 +225,12 @@ impl Menu for BeatmapSelectMenu {
                     i.set_tag("");
                 }
                 let mut map = clicked.lock();
-                map.song.upgrade().unwrap().pause();
+                Audio::stop_song();
                 map.reset();
                 map.start(); // TODO: figure out how to do this when checking mode change
 
                 game.queue_mode_change(GameMode::Ingame(clicked.clone()));
                 return;
-            }
-
-            // get current selected map
-            if let Some(b) = self.get_selected() {
-                let b = b.lock();
-                if b.metadata.version_string() != clicked_tag.split('\n').next().unwrap() {
-                    b.song.upgrade().unwrap().pause();
-                }
             }
 
             self.selected = Some(clicked_tag.clone());
@@ -293,10 +285,7 @@ struct BeatmapsetItem {
     beatmaps: Vec<Arc<Mutex<Beatmap>>>,
     meta: BeatmapMeta,
     selected_item: usize, // index of selected item
-    mouse_pos: Vector2,
-
-    // use this for audio
-    first: Arc<Mutex<Beatmap>>
+    mouse_pos: Vector2
 }
 impl BeatmapsetItem {
     fn new(beatmaps: Vec<Arc<Mutex<Beatmap>>>) -> BeatmapsetItem {
@@ -324,7 +313,6 @@ impl BeatmapsetItem {
             meta: first.metadata.clone(),
 
             selected_item: 0,
-            first: _first.clone(),
             mouse_pos: Vector2::zero()
         }
     }
@@ -340,8 +328,8 @@ impl ScrollableItem for BeatmapsetItem {
     fn get_tag(&self) -> String {format!("{}\n{}", self.tag, self.beatmaps[self.selected_item].lock().hash.clone())}
     fn set_tag(&mut self, _tag:&str) {
         self.pending_play = false; 
-        self.first.lock().song.upgrade().map(|x| { x.pause(); x.set_position(0.0); });
-    } // bit of a jank strat: when this is called, reset the play_pending property
+        // self.first.lock().song.upgrade().map(|x| { x.pause(); x.set_position(0.0); });
+    } // bit of a jank strat: when this is called, reset the pending_play property
     fn get_pos(&self) -> Vector2 {self.pos}
     fn set_pos(&mut self, pos:Vector2) {self.pos = pos}
     fn get_value(&self) -> Box<dyn std::any::Any> {
@@ -442,7 +430,6 @@ impl ScrollableItem for BeatmapsetItem {
             if self.selected_item == index {
                 // queue play map
                 self.pending_play = true;
-                self.first.lock().song.upgrade().map(|x| { x.pause(); x.set_position(0.0); });
             } else {
                 self.selected_item = index;
             }
@@ -452,12 +439,7 @@ impl ScrollableItem for BeatmapsetItem {
         // not yet selected
         if !self.selected && self.hover {
             // start song
-            let song = self.first.lock().song.upgrade().unwrap();
-            song.play();
-            song.set_volume(Settings::get().get_music_vol());
-        } else { // was selected, not anymore
-            // stop music
-            self.first.lock().song.upgrade().map(|x| { x.pause(); x.set_position(0.0); });
+            Audio::play_song(&self.meta.audio_filename, false);
         }
 
         self.selected = self.hover;
@@ -466,13 +448,6 @@ impl ScrollableItem for BeatmapsetItem {
     fn on_mouse_move(&mut self, pos:Vector2) {
         self.mouse_pos = pos;
         self.check_hover(pos);
-    }
-    fn on_volume_change(&mut self) {
-        self.first.lock().song.upgrade().unwrap().set_volume(Settings::get().get_music_vol());
-    }
-
-    fn dispose(&mut self) {
-        self.first.lock().song.upgrade().map(|x| { x.pause(); });
     }
 }
 

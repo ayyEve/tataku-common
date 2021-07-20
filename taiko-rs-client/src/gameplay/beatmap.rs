@@ -40,7 +40,7 @@ pub struct Beatmap {
     timing_point_index: usize,
 
     pub song_start: Instant,
-    pub song: Weak<AudioHandle>,
+    song: Weak<AudioHandle>,
     lead_in_time: f32,
     end_time: f64,
 
@@ -296,48 +296,32 @@ impl Beatmap {
         beatmap.metadata = meta.clone();
         beatmap.calc_sr();
 
-        //TODO!
-        // beatmap.song = SoundEffect::new(&meta.clone().audio_filename);
-        beatmap.song = Audio::play(meta.audio_filename.clone());
-
         beatmap.hash = md5.clone();
-        // beatmap.score = Some(Score::new(md5.clone(), Settings::get_mut().username.clone()));
 
         Arc::new(Mutex::new(beatmap))
     }
 
-    pub fn calc_sr(&mut self) {
-        let mut calc = DifficultyCalculator::new(Arc::new(Mutex::new(self.to_owned())));
-        self.metadata.sr = calc.compute_difficulty();
-    }
-
-    pub fn time(&self) -> i64 {
-        // println!("{}, {}", self.lead_in_time, self.offset);
-        self.song.upgrade().unwrap().current_time() as i64 - (self.lead_in_time as i64) - self.offset
-    }
+    pub fn calc_sr(&mut self) {self.metadata.sr = DifficultyCalculator::new(Arc::new(Mutex::new(self.to_owned()))).compute_difficulty()}
+    pub fn time(&self) -> i64 {self.song.upgrade().unwrap().current_time() as i64 - (self.lead_in_time as i64 + self.offset)}
+    pub fn next_note(&mut self) {self.note_index += 1}
     pub fn increment_offset(&mut self, delta:i64) {
         self.offset += delta;
         self.offset_changed_time = self.time();
     }
-    pub fn next_note(&mut self) {
-        self.note_index += 1;
-    }
 
     pub fn hit(&mut self, key:KeyPress) {
         let time = self.time() as f64;
-        if let Some(replay) = self.replay.as_mut() {
-            replay.presses.push((time as i64, key));
-        }
+        if let Some(replay) = self.replay.as_mut() {replay.presses.push((time as i64, key))}
 
         let hit_type:HitType = key.into();
-        let mut sound = match hit_type {HitType::Don => "don",HitType::Kat => "kat"};
+        let mut sound = match hit_type {HitType::Don => "don", HitType::Kat => "kat"};
 
         let notes = self.notes.clone();
         let mut notes = notes.lock();
 
         // if theres no more notes to hit, return
         if self.note_index >= notes.len() {
-            Audio::play_preloaded(sound).expect("audio was not preloaded");
+            Audio::play_preloaded(sound);
             return;
         }
 
@@ -369,13 +353,14 @@ impl Beatmap {
         match note.get_points(hit_type, time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300)) {
             ScoreHit::None => {
                 // play sound
-                Audio::play_preloaded(sound).expect("Audio not preloaded.");
+                Audio::play_preloaded(sound);
             },
             ScoreHit::Miss => {
                 self.score.as_mut().unwrap().hit_miss(time as u64, note_time as u64);
                 self.hit_timings.push((time as i64, (time - note_time) as i64));
                 self.next_note();
-                Audio::play_preloaded(sound).expect("Audio not preloaded.");
+                Audio::play_preloaded(sound);
+                println!("missed note [bad hit]");
 
                 //TODO: play miss sound
                 //TODO: indicate this was a miss
@@ -387,7 +372,7 @@ impl Beatmap {
                 // only play finisher sounds if the note is both a finisher and was hit
                 // could maybe also just change this to HitObject.get_sound() -> &str
                 if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"};}
-                Audio::play_preloaded(sound).expect("Audio not preloaded.");
+                Audio::play_preloaded(sound);
                 //TODO: indicate this was a bad hit
 
                 self.next_note();
@@ -397,28 +382,32 @@ impl Beatmap {
                 self.hit_timings.push((time as i64, (time - note_time) as i64));
                 
                 if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon",HitType::Kat => "bigkat"};}
-                Audio::play_preloaded(sound).expect("Audio not preloaded.");
+                Audio::play_preloaded(sound);
 
                 self.next_note();
             },
             ScoreHit::Other(score, consume) => { // used by sliders and spinners
                 self.score.as_mut().unwrap().score += score as u64;
                 if consume {self.next_note()}
-                Audio::play_preloaded(sound).expect("Audio not preloaded.");
+                Audio::play_preloaded(sound);
             }
         }
     }
 
     pub fn update(&mut self) {
+
         if self.lead_in_time > 0.0 {
             let elapsed = self.song_start.elapsed().as_micros() as f32 / 1000.0;
             self.song_start = Instant::now();
             self.lead_in_time -= elapsed;
 
             if self.lead_in_time <= 0.0 {
-                self.song.upgrade().unwrap().play();
-                self.song.upgrade().unwrap().set_volume(Settings::get().get_music_vol());
+                let song = self.song.upgrade().unwrap();
+                song.set_position(-self.lead_in_time);
+                song.set_volume(Settings::get().get_music_vol());
+                song.play();
 
+                println!("{}, {}", self.lead_in_time, song.current_time());
                 self.lead_in_time = 0.0;
             }
         }
@@ -434,7 +423,6 @@ impl Beatmap {
         // if theres no more notes to hit, show score screen
         if self.note_index >= self.notes.lock().len() {
             self.completed = true;
-            self.timing_bars.clear();
             return;
         }
 
@@ -447,7 +435,6 @@ impl Beatmap {
                 s.xmiss += 1;
                 s.combo = 0;
             }
-
             self.next_note();
         }
         
@@ -620,15 +607,18 @@ impl Beatmap {
         renderables
     }
 
+    // can be from either paused or new
     pub fn start(&mut self) {
         if !self.started {
             self.song.upgrade().unwrap().set_position(0.0);
-            self.started = true;
             self.lead_in_time = LEAD_IN_TIME;
+            self.song_start = Instant::now();
             // volume is set when the song is actually started (when lead_in_time is <= 0)
+            self.started = true;
             return;
+        } else if self.lead_in_time <= 0.0 {
+            self.song.upgrade().unwrap().play();
         }
-        self.song.upgrade().unwrap().play();
     }
     pub fn pause(&mut self) {
         self.song.upgrade().unwrap().pause();
@@ -638,10 +628,19 @@ impl Beatmap {
     }
     pub fn reset(&mut self) {
         let settings = Settings::get().clone();
-
-        self.hitwindow_miss = map_difficulty_range(self.metadata.od as f64, 135.0, 95.0, 70.0);
-        self.hitwindow_100 = map_difficulty_range(self.metadata.od as f64, 120.0, 80.0, 50.0);
-        self.hitwindow_300 = map_difficulty_range(self.metadata.od as f64, 50.0, 35.0, 20.0);
+        
+        // reset song
+        match self.song.upgrade().clone() {
+            Some(song) => {
+                song.set_position(0.0);
+                song.pause();
+            },
+            None => {
+                self.song = Audio::play_song(self.metadata.audio_filename.clone(), true);
+                let s = self.song.upgrade().unwrap();
+                s.pause();
+            },
+        }
 
         let c = self.clone();
         for note in self.notes.lock().as_mut_slice() {
@@ -655,18 +654,18 @@ impl Beatmap {
                 note.set_sv(sv);
             }
         }
-        if let Some(h) = self.song.upgrade() {
-            h.pause();
-            h.set_position(0.0);
-        } else {
-            self.song = Audio::play(&self.metadata.audio_filename);
-        }
+        
         self.note_index = 0;
+        self.timing_point_index = 0;
         self.completed = false;
         self.started = false;
         self.lead_in_time = LEAD_IN_TIME;
         self.offset_changed_time = 0;
-        self.timing_point_index = 0;
+        self.song_start = Instant::now();
+        // setup hitwindows
+        self.hitwindow_miss = map_difficulty_range(self.metadata.od as f64, 135.0, 95.0, 70.0);
+        self.hitwindow_100 = map_difficulty_range(self.metadata.od as f64, 120.0, 80.0, 50.0);
+        self.hitwindow_300 = map_difficulty_range(self.metadata.od as f64, 50.0, 35.0, 20.0);
 
         // setup timing bars
         //TODO: it would be cool if we didnt actually need timing bar objects, and could just draw them
@@ -707,11 +706,12 @@ impl Beatmap {
             println!("created {} timing bars", self.timing_bars.len());
         }
     
-        self.score = Some(Score::new(self.hash.clone(), Settings::get_mut().username.clone()));
+        self.score = Some(Score::new(self.hash.clone(), settings.username.clone()));
         self.replay = Some(Replay::new());
     }
     pub fn cleanup(&mut self) {
         self.timing_bars.clear();
+        self.hit_timings.clear();
         self.score = None;
         self.replay = None;
     }
@@ -749,11 +749,7 @@ impl Beatmap {
     // something is fucked with this, it returns values wayyyyyyyyyyyyyyyyyyyyyy too high
     pub fn slider_velocity_at(&self, time:u64) -> f64 {
         let bl = self.beat_length_at(time as f64, true);
-        if bl > 0.0 {
-            return 100.0 * (self.metadata.slider_multiplier as f64 * 1.4) * (1000.0 / bl);
-        }
-
-        100.0 * (self.metadata.slider_multiplier as f64 * 1.4)
+        100.0 * (self.metadata.slider_multiplier as f64 * 1.4) * if bl > 0.0 {1000.0 / bl} else {1.0}
     }
 }
 
