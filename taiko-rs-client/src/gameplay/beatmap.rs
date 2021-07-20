@@ -63,7 +63,6 @@ impl Beatmap {
         let lines = crate::read_lines(dir.clone()).expect("Beatmap file not found");
         let mut body = String::new();
         let mut current_area = BeatmapSection::Version;
-        let mut meta = BeatmapMeta::new();
         let mut beatmap = Beatmap {
             hash: String::new(),
             notes: Arc::new(Mutex::new(Vec::new())),
@@ -122,60 +121,58 @@ impl Beatmap {
                 // not a change in area, check line
                 match current_area {
                     BeatmapSection::Version => {
-                        let v = line.split("v").last().unwrap().trim().parse::<f32>();
-                        if let Ok(v) = v {
-                            meta.beatmap_version = v;
-                        } else if let Err(e) = v {
-                            println!("error parsing beatmap version: {}", e);
+                        match line.split("v").last().unwrap().trim().parse::<f32>() {
+                            Ok(v) => beatmap.metadata.beatmap_version = v,
+                            Err(e) => println!("error parsing beatmap version: {}", e),
                         }
-                    },
+                    }
                     BeatmapSection::General => {
                         let mut split = line.split(":");
                         let key = split.next().unwrap().trim();
                         let val = split.next().unwrap().trim();
 
-                        if key == "AudioFilename" {meta.audio_filename = parent_dir.join(val).to_str().unwrap().to_owned();}
+                        if key == "AudioFilename" {beatmap.metadata.audio_filename = parent_dir.join(val).to_str().unwrap().to_owned()}
+                        if key == "PreviewTime" {beatmap.metadata.audio_preview = val.parse().unwrap_or(0.0)}
                         if key == "Mode" {
                             let m = val.parse::<u8>().unwrap();
-                            meta.mode = m.into();
+                            beatmap.metadata.mode = m.into();
                         }
-                    },
+                    }
                     BeatmapSection::Metadata => {
                         let mut split = line.split(":");
                         let key = split.next().unwrap().trim();
                         let val = split.next().unwrap().trim();
                         
-                        if key == "Title" {meta.title = val.to_owned()}
-                        if key == "TitleUnicode" {meta.title_unicode = val.to_owned()}
-                        if key == "Artist" {meta.artist = val.to_owned()}
-                        if key == "ArtistUnicode" {meta.artist_unicode = val.to_owned()}
-                        if key == "Creator" {meta.creator = val.to_owned()}
-                        if key == "Version" {meta.version = val.to_owned()}
-                    },
+                        if key == "Title" {beatmap.metadata.title = val.to_owned()}
+                        if key == "TitleUnicode" {beatmap.metadata.title_unicode = val.to_owned()}
+                        if key == "Artist" {beatmap.metadata.artist = val.to_owned()}
+                        if key == "ArtistUnicode" {beatmap.metadata.artist_unicode = val.to_owned()}
+                        if key == "Creator" {beatmap.metadata.creator = val.to_owned()}
+                        if key == "Version" {beatmap.metadata.version = val.to_owned()}
+                    }
                     BeatmapSection::Difficulty => {
                         let mut split = line.split(":");
                         let key = split.next().unwrap().trim();
                         let val = split.next().unwrap().trim().parse::<f32>().unwrap();
 
-                        if key == "HPDrainRate" {meta.hp = val}
-                        if key == "OverallDifficulty" {meta.od = val}
-                        if key == "SliderMultiplier" {meta.slider_multiplier = val}
-                        if key == "SliderTickRate" {meta.slider_tick_rate = val}
-                    },
+                        if key == "HPDrainRate" {beatmap.metadata.hp = val}
+                        if key == "OverallDifficulty" {beatmap.metadata.od = val}
+                        if key == "SliderMultiplier" {beatmap.metadata.slider_multiplier = val}
+                        if key == "SliderTickRate" {beatmap.metadata.slider_tick_rate = val}
+                    }
                     BeatmapSection::Events => {
                         let mut split = line.split(',');
                         // eventType,startTime,eventParams
                         // 0,0,filename,xOffset,yOffset
                         let event_type = split.next().unwrap();
 
-                        if event_type == "0" {
-                            if split.next().unwrap() == "0" {
-                                let filename = split.next().unwrap().to_owned();
-                                let filename = filename.trim_matches('"');
-                                meta.image_filename = parent_dir.join(filename).to_str().unwrap().to_owned();
-                            }
+                        if event_type == "0" && split.next().unwrap() == "0" {
+                            let filename = split.next().unwrap().to_owned();
+                            let filename = filename.trim_matches('"');
+                            beatmap.metadata.image_filename = parent_dir.join(filename).to_str().unwrap().to_owned();
+                        
                         }
-                    },
+                    }
                     BeatmapSection::TimingPoints => {
                         let tp = TimingPoint::from_str(&line, tp_parent.clone());
 
@@ -184,7 +181,7 @@ impl Beatmap {
                         }
 
                         beatmap.timing_points.push(tp);
-                    },
+                    }
                     BeatmapSection::HitObjects => {
                         let mut split = line.split(",");
                         if split.clone().count() < 2 {continue} // skip empty lines
@@ -192,8 +189,8 @@ impl Beatmap {
                         let _x = split.next();
                         let _y = split.next();
                         let time = split.next().unwrap().parse::<u64>().unwrap();
-                        let read_type = split.next().unwrap().parse::<u64>().unwrap(); // note, slider, spinner
-                        let hitsound = split.next().unwrap().parse::<u32>().unwrap(); // 0 = normal, 2 = whistle, 4 = finish, 8 = clap
+                        let read_type = split.next().unwrap().parse::<u64>().unwrap_or(0); // note, slider, spinner
+                        let hitsound = split.next().unwrap().parse::<u32>().unwrap_or(0); // 0 = normal, 2 = whistle, 4 = finish, 8 = clap
 
                         let hit_type = if (hitsound & (2 | 8)) > 0 {super::HitType::Kat} else {super::HitType::Don};
                         let finisher = (hitsound & 4) > 0;
@@ -207,16 +204,16 @@ impl Beatmap {
                             let length = split.next().unwrap().parse::<f64>().unwrap();
 
                             let l = (length * 1.4) * slides as f64;
-                            let v2 = 100.0 * (meta.slider_multiplier as f64 * 1.4);
+                            let v2 = 100.0 * (beatmap.metadata.slider_multiplier as f64 * 1.4);
                             let bl = beatmap.beat_length_at(time as f64, true);
                             let end_time = time + (l / v2 * bl) as u64;
                             
                             // convert vars
                             let v = beatmap.slider_velocity_at(time);
-                            let bl = beatmap.beat_length_at(time as f64, meta.beatmap_version < 8.0);
-                            let skip_period = (bl / meta.slider_tick_rate as f64).min((end_time - time) as f64 / slides as f64);
+                            let bl = beatmap.beat_length_at(time as f64, beatmap.metadata.beatmap_version < 8.0);
+                            let skip_period = (bl / beatmap.metadata.slider_tick_rate as f64).min((end_time - time) as f64 / slides as f64);
 
-                            if skip_period > 0.0 && meta.mode != Playmode::Taiko && l / v * 1000.0 < 2.0 * bl {
+                            if skip_period > 0.0 && beatmap.metadata.mode != Playmode::Taiko && l / v * 1000.0 < 2.0 * bl {
                                 let mut i = 0;
                                 let mut j = time as f64;
 
@@ -267,7 +264,7 @@ impl Beatmap {
                             let end_time = split.next().unwrap().parse::<u64>().unwrap();
                             let length = end_time as f64 - time as f64;
 
-                            let diff_map = map_difficulty_range(meta.od as f64, 3.0, 5.0, 7.5);
+                            let diff_map = map_difficulty_range(beatmap.metadata.od as f64, 3.0, 5.0, 7.5);
                             let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
                             // just make a slider for now
                             let spinner = Spinner::new(time, end_time, sv, hits_required);
@@ -276,7 +273,7 @@ impl Beatmap {
                             let note = Note::new(time, hit_type, finisher, sv);
                             beatmap.notes.lock().push(Box::new(note));
                         }
-                    },
+                    }
 
                     // dont need to do anything with these for the scope of this game
                     BeatmapSection::Editor => {},
@@ -285,19 +282,16 @@ impl Beatmap {
             }
         }
 
-        let md5 = format!("{:x}", md5::compute(body).to_owned());
-        // does this need to be in its own scope? probably not but whatever
-        // assign values
+        beatmap.notes.lock().sort_by(|a, b| a.time().cmp(&b.time()));
         let start_time = beatmap.notes.lock().first().unwrap().time() as f64;
         let end_time = beatmap.notes.lock().last().unwrap().end_time(0.0) as f64;
 
-        meta.set_dur((end_time - start_time) as u64);
+        beatmap.hash = format!("{:x}", md5::compute(body).to_owned());
+        beatmap.metadata.set_dur((end_time - start_time) as u64);
         beatmap.end_time = end_time;
-        beatmap.metadata = meta.clone();
+
+        // this might be an issue later on *maybe*
         beatmap.calc_sr();
-
-        beatmap.hash = md5.clone();
-
         Arc::new(Mutex::new(beatmap))
     }
 
@@ -395,7 +389,6 @@ impl Beatmap {
             }
         }
 
-        
         let a = Audio::play_preloaded(sound);
         a.upgrade().unwrap().set_volume(hit_volume);
     }
