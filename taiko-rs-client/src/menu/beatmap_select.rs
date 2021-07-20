@@ -27,16 +27,13 @@ pub struct BeatmapSelectMenu {
     /// tag of the selected set
     selected: Option<String>,
     selected_beatmap: Option<String>, // hash of selected map, needed for score refresh
+    beatmap_manager: Arc<Mutex<BeatmapManager>>,
     
     current_scores: HashMap<String, Arc<Mutex<Score>>>,
     beatmap_scroll: ScrollableArea,
     leaderboard_scroll: ScrollableArea,
     back_button: MenuButton,
-
-    background_texture: Option<Image>,
     pending_refresh: bool,
-
-    beatmap_manager: Arc<Mutex<BeatmapManager>>,
 }
 impl BeatmapSelectMenu {
     pub fn new(beatmap_manager:Arc<Mutex<BeatmapManager>>) -> BeatmapSelectMenu {
@@ -46,7 +43,6 @@ impl BeatmapSelectMenu {
             selected_beatmap: None,
             pending_refresh: false,
             current_scores: HashMap::new(),
-            background_texture: None,
             back_button: MenuButton::back_button(),
 
             // beatmap_scroll: ScrollableArea::new(Vector2::new(WINDOW_SIZE.x - (BEATMAPSET_ITEM_SIZE.x + BEATMAPSET_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(WINDOW_SIZE.x - LEADERBOARD_ITEM_SIZE.x, WINDOW_SIZE.y - INFO_BAR_HEIGHT), true),
@@ -176,11 +172,6 @@ impl Menu for BeatmapSelectMenu {
         // back button
         items.extend(self.back_button.draw(args, Vector2::zero(), 0.0));
 
-        // draw background image here
-        if let Some(img) = self.background_texture.as_ref() {
-            items.push(Box::new(img.clone()));
-        }
-
         items
     }
 
@@ -254,8 +245,7 @@ impl Menu for BeatmapSelectMenu {
             self.beatmap_scroll.refresh_layout();
 
             let t = opengl_graphics::Texture::from_path(clicked.lock().metadata.image_filename.clone(), &opengl_graphics::TextureSettings::new()).unwrap();
-            self.background_texture = Some(Image::new(Vector2::zero(), 100.0, t, WINDOW_SIZE));
-        
+            game.background_image = Some(Image::new(Vector2::zero(), f64::MAX, t, WINDOW_SIZE));
 
             let hash = clicked.lock().hash.clone();
             self.selected_beatmap = Some(hash.clone());

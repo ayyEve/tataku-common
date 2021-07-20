@@ -2,7 +2,7 @@ use std::{rc::Rc, sync::Arc};
 
 use parking_lot::Mutex;
 use opengl_graphics::{GlGraphics, GlyphCache, Texture};
-use graphics::{Context, DrawState, Graphics, ImageSize, Transformed, character::CharacterCache};
+use graphics::{Context, DrawState, ImageSize, Transformed, character::CharacterCache};
 
 use crate::{render::Color, game::Vector2};
 

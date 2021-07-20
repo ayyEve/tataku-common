@@ -62,12 +62,7 @@ pub struct Game {
 
     // misc
     pub game_start: Instant,
-
     pub background_image: Option<Image>,
-
-
-
-
     register_timings: (f32,f32,f32)
 }
 impl Game {
@@ -75,15 +70,12 @@ impl Game {
         let mut game_init_benchmark = BenchmarkHelper::new("game::new");
 
         let opengl = OpenGL::V3_2;
-        let mut window: AppWindow = WindowSettings::new("Taiko", [WINDOW_SIZE.x, WINDOW_SIZE.y])
+        let window: AppWindow = WindowSettings::new("Taiko", [WINDOW_SIZE.x, WINDOW_SIZE.y])
             .graphics_api(opengl)
             .resizable(false)
             .build()
             .expect("Error creating window");
         game_init_benchmark.log("window created", true);
-
-        set_icon(&mut window);
-        game_init_benchmark.log("window icon set (jk for now)", true);
 
         let graphics = GlGraphics::new(opengl);
         game_init_benchmark.log("graphics created", true);
@@ -179,19 +171,23 @@ impl Game {
         let mut events = Events::new(EventSettings::new());
 
         //TODO: load this from settings
-        events.set_max_fps(144);
-        events.set_ups(1_000);
 
-        #[cfg(feature = "unlimited_fps")] {
-            events.set_max_fps(10_000);
-            events.set_ups(10_000);
+        {
+            let settings = Settings::get();
+            if settings.unlimited_fps {
+                events.set_max_fps(10_000);
+                events.set_ups(10_000);
+            } else {
+                events.set_max_fps(settings.fps_target);
+                events.set_ups(settings.update_target);
+            }
         }
 
         while let Some(e) = events.next(&mut self.window) {
+            self.input_manager.handle_events(e.clone());
             if let Some(args) = e.update_args() {self.update(args.dt*1000.0)}
             if let Some(args) = e.render_args() {self.render(args)}
             if let Some(Button::Keyboard(_)) = e.press_args() {self.input_update_display.increment()}
-            self.input_manager.handle_events(e.clone());
             // e.resize(|args| println!("Resized '{}, {}'", args.window_size[0], args.window_size[1]));
         }
     }
@@ -604,9 +600,9 @@ impl Game {
                     GameMode::Ingame(map) => {
                         let m = map.lock().metadata.clone();
                         let text = format!("{}-{}[{}]\n{}",m.artist,m.title,m.version,map.lock().hash.clone());
-                        
+
                         if let Ok(t) = opengl_graphics::Texture::from_path(m.image_filename.clone(), &opengl_graphics::TextureSettings::new()) {
-                            self.background_image = Some(Image::new(Vector2::zero(), f64::INFINITY, t, WINDOW_SIZE));
+                            self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, t, WINDOW_SIZE));
                         } else {
                             self.background_image = None;
                         }
@@ -669,8 +665,19 @@ impl Game {
 
         // draw background image here
         if let Some(img) = self.background_image.as_ref() {
+            // dim
             renderables.push(Box::new(img.clone()));
+            // println!("{} > {}", img.get_depth(), f64::MAX - 1.0);
         }
+        let mut color = Color::BLACK;
+        color.a = settings.background_dim;
+        renderables.push(Box::new(Rectangle::new(
+            color,
+            f64::MAX - 1.0,
+            Vector2::zero(),
+            WINDOW_SIZE,
+            None
+        )));
 
         // mode
         match &self.current_mode {
@@ -952,18 +959,6 @@ impl Game {
             }
         }
     }
-}
-
-/// tries to set the app window. does nothing if theres an issue
-fn set_icon(_window:&mut AppWindow) {
-
-    // // read file
-    // if let Ok(img) =  image::open("") {
-
-    //     // glfw::PixelImage
-
-    //     window.window.set_icon_from_pixels(pain);
-    // }
 }
 
 #[derive(Clone)]

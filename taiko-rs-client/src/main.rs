@@ -97,4 +97,3 @@ fn format<T>(num:T) -> String where T:Display{
     new_new.extend(new_str.chars().rev());
     new_new.trim_start_matches(",").to_owned()
 }
-
