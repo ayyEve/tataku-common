@@ -54,10 +54,9 @@ impl AudioQueue {
         }
     }
 
-    pub(super) fn sync_time(&mut self) {
-        let instant = Instant::now();
+    pub(super) fn sync_time(&mut self, now: Instant) {
         for i in self.current_queue.iter_mut() {
-            i.sync_time(instant);
+            i.sync_time(now);
         }
     }
 }

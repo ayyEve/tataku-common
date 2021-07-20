@@ -90,12 +90,12 @@ impl Audio {
                         }
                     };
 
-                    queue.sync_time();
+                    queue.sync_time(instant);
                     for sample in data.iter_mut() {
                         *sample = queue.next().unwrap_or(0.0);
                     }
 
-                    queue.set_delay(delay + instant.elapsed().as_secs_f32() * 1000.0);
+                    queue.set_delay(delay - instant.elapsed().as_secs_f32() * 1000.0);
                 },
                 move |err| {
                     println!("wat: {:?}", err);
