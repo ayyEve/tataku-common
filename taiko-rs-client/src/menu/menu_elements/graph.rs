@@ -1,6 +1,6 @@
 use piston::RenderArgs;
 
-use crate::{game::Vector2, menu::Menu, render::{Color, Line}};
+use crate::{game::Vector2, render::{Border, Color, Line, Rectangle}};
 
 use super::ScrollableItem;
 
@@ -16,42 +16,51 @@ pub struct Graph {
     mid: f32,
 }
 impl Graph {
-    fn map_point(&self, point: f32) -> f64 {
-        //
-        let mapped = (point - self.min) / self.max; // TODO!
 
-        self.pos.y + mapped as f64
+    pub fn new(pos: Vector2, size: Vector2, data_points: Vec<f32>, min: f32, mid: f32, max: f32) -> Self {
+        Self {
+            pos,
+            size,
+            data_points,
+            min,
+            max,
+            mid
+        }
     }
 }
 
 impl ScrollableItem for Graph {
-    fn draw(&mut self, args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn crate::render::Renderable>> {
+    fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn crate::render::Renderable>> {
         let mut list: Vec<Box<dyn crate::render::Renderable>> = Vec::new();
         list.reserve(self.data_points.len());
-
-
-        // TODO: cache this, probably better than recalcing it every time lmao
-        let x_step = self.size.x / self.data_points.len() as f64;
-        let mut prev_y = self.map_point(self.data_points[1]);
-
-        list.push(Box::new(Line::new(
-            Vector2::new(x_step * 0.0, self.map_point(self.data_points[0])),
-            Vector2::new(x_step * 1.0, prev_y),
-            1.5,
+        list.push(Box::new(Rectangle::new(
+            Color::TRANSPARENT_WHITE,
             parent_depth,
-            Color::BLACK
+            self.pos,
+            self.size,
+            Some(Border::new(Color::RED, 1.5))
         )));
+        let colors = [
+            Color::RED,
+            Color::BLUE,
+            Color::GREEN
+        ];
 
-        for i in 1..self.data_points.len() {
-            let data = self.data_points[i];
-            let new_y = self.map_point(data);
+        let data_points = self.data_points.iter().map(|x| (self.max - x.clone()) as f64 * self.size.y / (self.max - self.min).abs() as f64);
+        let data_points:Vec<f64> = data_points.collect();
+        let mut prev_y = data_points[0];
+        let x_step = self.size.x / self.data_points.len() as f64;
+
+        for i in 1..data_points.len() {
+            // let data = self.data_points[i];
+            let new_y = data_points[i];
 
             list.push(Box::new(Line::new(
-                Vector2::new(x_step * (i as f64 - 1.0), prev_y),
-                Vector2::new(x_step * i as f64 , new_y),
+                self.pos + pos_offset + Vector2::new(x_step * (i as f64 - 1.0), prev_y),
+                self.pos + pos_offset + Vector2::new(x_step * i as f64, new_y),
                 1.5,
                 parent_depth,
-                Color::BLACK
+                colors[i%colors.len()]
             )));
             prev_y = new_y;
         }
@@ -62,12 +71,39 @@ impl ScrollableItem for Graph {
     fn size(&self) -> Vector2 {self.size}
 
     fn get_tag(&self) -> String {String::new()}
-    fn set_tag(&mut self, tag:&str) {}
+    fn set_tag(&mut self, _tag:&str) {}
 
     fn get_pos(&self) -> Vector2 {self.pos}
     fn set_pos(&mut self, pos:Vector2) {self.pos = pos}
     fn get_selected(&self) -> bool {false}
-    fn set_selected(&mut self, selected:bool) {}
+    fn set_selected(&mut self, _selected:bool) {}
     fn get_hover(&self) -> bool {false}
-    fn set_hover(&mut self, hover:bool) {}
+    fn set_hover(&mut self, _hover:bool) {}
+}
+
+pub fn map_range_f32(val:f32, val_min:f32, val_max:f32, min:f32, mid:f32, max:f32) -> f32 {
+    let range_mid = val_min + (val_max - val_min) / 2.0;
+
+    println!("val:{}, val_min:{}, val_max:{}, range_mid:{}, min:{}, mid:{}, max:{}", val, val_min,val_max,range_mid,  min, mid, max);
+
+    let t = if range_mid == 0.0 {
+        if val > 0.0 {
+            mid + (max - mid) * val
+        } else if val < 0.0 {
+            mid - (mid - min) * -val
+        } else {
+            mid
+        }
+    } else {
+        if val > range_mid {
+            mid + (max - mid) * (val - range_mid) / range_mid
+        } else if val < range_mid {
+            mid - (mid - min) * (range_mid - val) / range_mid
+        } else {
+            mid
+        }
+    };
+    
+    println!("got {}", t);
+    t
 }

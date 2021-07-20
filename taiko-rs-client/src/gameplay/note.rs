@@ -442,15 +442,3 @@ pub enum NoteType {
     Slider,
     Spinner
 }
-
-
-// stolen from peppy, /shrug
-pub fn map_difficulty_range(diff:f64, min:f64, mid:f64, max:f64) -> f64 {
-    if diff > 5.0 {
-        mid + (max - mid) * (diff - 5.0) / 5.0
-    } else if diff < 5.0 {
-        mid - (mid - min) * (5.0 - diff) / 5.0
-    } else {
-        mid
-    }
-}
