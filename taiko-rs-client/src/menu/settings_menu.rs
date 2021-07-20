@@ -119,18 +119,9 @@ impl Menu for SettingsMenu {
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         list.extend(self.scroll_area.draw(args));
+
         // background
-
-        let mut color = Color::WHITE;
-        color.a = 0.6;
-
-        list.push(Box::new(Rectangle::new(
-            color,
-            f64::MAX - 10.0,
-            Vector2::new(10.0, SCROLLABLE_YOFFSET), 
-            Vector2::new(WINDOW_SIZE.x - 20.0, WINDOW_SIZE.y - SCROLLABLE_YOFFSET*2.0),
-            None
-        )));
+        list.push(self.visibility_bg(Vector2::new(10.0, SCROLLABLE_YOFFSET), Vector2::new(WINDOW_SIZE.x - 20.0, WINDOW_SIZE.y - SCROLLABLE_YOFFSET*2.0)));
 
         list
     }

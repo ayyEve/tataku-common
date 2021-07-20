@@ -28,7 +28,7 @@ impl ScoreMenu {
         let back_button = MenuButton::back_button();
 
         let graph = Graph::new(
-            WINDOW_SIZE - (GRAPH_SIZE + GRAPH_PADDING),
+            Vector2::new(WINDOW_SIZE.x * 2.0/3.0, WINDOW_SIZE.y) - (GRAPH_SIZE + GRAPH_PADDING), //WINDOW_SIZE - (GRAPH_SIZE + GRAPH_PADDING),
             GRAPH_SIZE,
             score.hit_timings.iter().map(|e|*e as f32).collect(),
             -50.0,
@@ -51,9 +51,6 @@ impl Menu for ScoreMenu {
         let font = get_font("main");
 
         let depth = 0.0;
-
-        // graph
-        list.extend(self.graph.draw(args, Vector2::zero(), depth));
 
         // draw score info
         list.push(Box::new(Text::new(
@@ -121,6 +118,13 @@ impl Menu for ScoreMenu {
         // draw buttons
         list.extend(self.back_button.draw(args, Vector2::zero(), depth));
         list.extend(self.replay_button.draw(args, Vector2::zero(), depth));
+
+
+        // graph
+        list.extend(self.graph.draw(args, Vector2::zero(), depth));
+        
+        // draw background so score info is readable
+        list.push(self.visibility_bg(Vector2::one() * 5.0, Vector2::new(WINDOW_SIZE.x * 2.0/3.0, WINDOW_SIZE.y - 5.0)));
 
         list
     }
