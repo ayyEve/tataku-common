@@ -715,6 +715,33 @@ impl Beatmap {
         self.replay = None;
     }
 
+    pub fn skip_intro(&mut self) {
+        if self.note_index > 0 {return}
+
+        let x_needed = WINDOW_SIZE.x;
+        let mut time = self.time();
+
+        let notes = self.notes.lock();
+
+        loop {
+            let mut found = false;
+            for note in notes.iter() {if note.x_at(time) <= x_needed {found = true; break}}
+            if found {break}
+            time += 1;
+        }
+
+        let mut time = time as f32;
+        if self.lead_in_time > 0.0 {
+            if time > self.lead_in_time {
+                time -= self.lead_in_time - 0.01;
+                self.lead_in_time = 0.01;
+            }
+        }
+
+        self.song.upgrade().unwrap().set_position(time);
+    }
+
+
     pub fn beat_length_at(&self, time:f64, allow_multiplier:bool) -> f64 {
         if self.timing_points.len() == 0 {return 0.0}
 
@@ -744,7 +771,6 @@ impl Beatmap {
 
         p.beat_length as f64 * mult
     }
-    
     // something is fucked with this, it returns values wayyyyyyyyyyyyyyyyyyyyyy too high
     pub fn slider_velocity_at(&self, time:u64) -> f64 {
         let bl = self.beat_length_at(time as f64, true);

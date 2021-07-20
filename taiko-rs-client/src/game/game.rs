@@ -233,6 +233,7 @@ impl Game {
                 let og_beatmap = beatmap;
                 let mut beatmap = beatmap.lock();
                 
+                if keys.contains(&Key::Space) {beatmap.skip_intro()}
                 if keys.contains(&settings.left_kat) {
                     beatmap.hit(KeyPress::LeftKat);
 

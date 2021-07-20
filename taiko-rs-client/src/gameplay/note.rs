@@ -40,6 +40,8 @@ pub trait HitObject: Send {
 
     /// set this object back to defaults
     fn reset(&mut self);
+
+    fn x_at(&self, time:i64) -> f64;
 }
 
 // note
@@ -83,6 +85,7 @@ impl HitObject for Note {
     fn time(&self) -> u64 {self.time}
     fn end_time(&self, hw_miss:f64) -> u64 {self.time + hw_miss as u64}
     fn causes_miss(&self) -> bool {true}
+    fn x_at(&self, time:i64) -> f64 {(self.time as f64 - time as f64) * self.speed}
 
     fn get_points(&mut self, hit_type:HitType, time:f64, hit_windows:(f64,f64,f64)) -> ScoreHit {
         let (hitwindow_miss, hitwindow_100, hitwindow_300) = hit_windows;
@@ -161,13 +164,13 @@ pub struct Slider {
     pos: Vector2,
     hit_dots:Vec<SliderDot>, // list of times the slider was hit at
 
-    pub time: u64, // ms
-    pub end_time: u64, // ms
-    pub finisher: bool,
-    pub speed: f64,
+    time: u64, // ms
+    end_time: u64, // ms
+    finisher: bool,
+    speed: f64,
     radius: f64,
-    //TODO: figure out how to calc this
-    end_x:f64
+    //TODO: figure out how to pre-calc this
+    end_x: f64
 }
 impl Slider {
     pub fn new(time:u64, end_time:u64, finisher:bool, speed:f64) -> Slider {
@@ -192,6 +195,8 @@ impl HitObject for Slider {
     fn time(&self) -> u64 {self.time}
     fn end_time(&self,_:f64) -> u64 {self.end_time}
     fn causes_miss(&self) -> bool {false}
+    fn x_at(&self, time:i64) -> f64 {(self.time as f64 - time as f64) * self.speed}
+
     fn get_points(&mut self, _hit_type:HitType, time:f64, _:(f64,f64,f64)) -> ScoreHit {
         // too soon or too late
         if time < self.time as f64 || time > self.end_time as f64 {return ScoreHit::None}
@@ -320,10 +325,10 @@ pub struct Spinner {
     last_hit: HitType,
     complete: bool, // is this spinner done
 
-    pub hits_required: u16, // how many hits until the spinner is "done"
-    pub time: u64, // ms
-    pub end_time: u64, // ms
-    pub speed:f64,
+    hits_required: u16, // how many hits until the spinner is "done"
+    time: u64, // ms
+    end_time: u64, // ms
+    speed: f64,
 }
 impl Spinner {
     pub fn new(time:u64, end_time:u64, speed:f64, hits_required:u16) -> Spinner {
@@ -342,13 +347,15 @@ impl Spinner {
 }
 impl HitObject for Spinner {
     fn note_type(&self) -> NoteType {NoteType::Spinner}
-    fn set_sv(&mut self, sv:f64) {self.speed = sv;}
+    fn set_sv(&mut self, sv:f64) {self.speed = sv}
     fn time(&self) -> u64 {self.time}
     fn end_time(&self,_:f64) -> u64 {
         // if the spinner is done, end right away
         if self.complete {self.time} else {self.end_time}
     }
     fn causes_miss(&self) -> bool {!self.complete} // if the spinner wasnt completed in time, cause a miss
+    fn x_at(&self, time:i64) -> f64 {(self.time as f64 - time as f64) * self.speed}
+    
     fn get_points(&mut self, hit_type:HitType, time:f64, _:(f64,f64,f64)) -> ScoreHit {
         // too soon or too late
         if time < self.time as f64 || time > self.end_time as f64 {return ScoreHit::None}
