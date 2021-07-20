@@ -4,29 +4,42 @@ use piston::{MouseButton, RenderArgs};
 use parking_lot::Mutex;
 
 use crate::gameplay::Beatmap;
-use crate::{databases, format, render::*};
 use taiko_rs_common::types::{Score, HitError};
-use crate::menu::{Menu, MenuButton, ScrollableItem};
+use crate::{WINDOW_SIZE, databases, format, render::*};
+use crate::menu::{Menu, MenuButton, ScrollableItem, Graph};
 use crate::game::{Game, GameMode, KeyModifiers, get_font, Vector2};
+
+const GRAPH_SIZE:Vector2 = Vector2::new(400.0, 200.0);
+const GRAPH_PADDING:Vector2 = Vector2::new(10.0,10.0);
 
 pub struct ScoreMenu {
     score: Score,
-    beatmap:Arc<Mutex<Beatmap>>,
+    beatmap: Arc<Mutex<Beatmap>>,
     back_button: MenuButton,
     replay_button: MenuButton,
+    graph: Graph,
 
     // cached
-    hit_error:HitError
+    hit_error: HitError
 }
 impl ScoreMenu {
     pub fn new(score:&Score, beatmap: Arc<Mutex<Beatmap>>) -> ScoreMenu {
         let hit_error = score.hit_error();
         let back_button = MenuButton::back_button();
 
+        let graph = Graph::new(
+            WINDOW_SIZE - (GRAPH_SIZE + GRAPH_PADDING),
+            GRAPH_SIZE,
+            score.hit_timings.iter().map(|e|*e as f32).collect(),
+            -50.0,
+            50.0
+        );
+
         ScoreMenu {
             score: score.clone(),
             beatmap,
             hit_error,
+            graph,
             replay_button: MenuButton::new(back_button.get_pos() - Vector2::new(0.0, back_button.size().y+5.0), back_button.size(), "Replay"),
             back_button,
         }
@@ -38,6 +51,9 @@ impl Menu for ScoreMenu {
         let font = get_font("main");
 
         let depth = 0.0;
+
+        // graph
+        list.extend(self.graph.draw(args, Vector2::zero(), depth));
 
         // draw score info
         list.push(Box::new(Text::new(
@@ -133,6 +149,7 @@ impl Menu for ScoreMenu {
     fn on_mouse_move(&mut self, pos:Vector2, _game:&mut Game) {
         self.replay_button.on_mouse_move(pos);
         self.back_button.on_mouse_move(pos);
+        self.graph.on_mouse_move(pos);
     }
 
     fn on_key_press(&mut self, key:piston::Key, game: &mut Game, _mods:KeyModifiers) {

@@ -35,8 +35,7 @@ impl Score {
     pub fn hash(&self) -> String {
         // TODO! lol
         format!("{}-{},{},{},{},{},{}", self.beatmap_hash, self.score, self.combo, self.max_combo, self.x100,self.x300,self.xmiss)
-    } 
-
+    }
 
     ///0-1
     pub fn acc(&self) -> f64 {

@@ -114,7 +114,7 @@ impl Game {
             // fps
             fps_display: FpsDisplay::new("fps", 0),
             update_display: FpsDisplay::new("updates/s", 1),
-            input_update_display:FpsDisplay::new("inputs/s", 2),
+            input_update_display: FpsDisplay::new("inputs/s", 2),
 
             // transition
             transition: None,
@@ -169,9 +169,7 @@ impl Game {
     pub fn game_loop(mut self) {
         // input and rendering thread
         let mut events = Events::new(EventSettings::new());
-
-        //TODO: load this from settings
-
+        
         {
             let settings = Settings::get();
             if settings.unlimited_fps {
