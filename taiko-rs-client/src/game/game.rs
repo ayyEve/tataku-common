@@ -210,6 +210,10 @@ impl Game {
 
         
         // users list
+        if keys.contains(&Key::F8) {
+            self.show_user_list = !self.show_user_list;
+            println!("show user list: {}", self.show_user_list);
+        }
         if self.show_user_list {
             if let Ok(om) = self.online_manager.try_lock() {
                 for (_, user) in &om.users {
@@ -221,13 +225,7 @@ impl Game {
             }
         }
 
-
-
-        if keys.contains(&Key::F8) {
-            self.show_user_list = !self.show_user_list;
-            println!("show user list: {}", self.show_user_list);
-        }
-
+        // run update on current move
         match current_mode {
             GameMode::Ingame(ref beatmap) => {
                 let settings = Settings::get();
