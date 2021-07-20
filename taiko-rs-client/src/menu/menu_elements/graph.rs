@@ -13,18 +13,16 @@ pub struct Graph {
     data_points: Vec<f32>,
     min: f32,
     max: f32,
-    mid: f32,
 }
 impl Graph {
 
-    pub fn new(pos: Vector2, size: Vector2, data_points: Vec<f32>, min: f32, mid: f32, max: f32) -> Self {
+    pub fn new(pos: Vector2, size: Vector2, data_points: Vec<f32>, min: f32, max: f32) -> Self {
         Self {
             pos,
             size,
             data_points,
             min,
-            max,
-            mid
+            max
         }
     }
 }
@@ -79,31 +77,4 @@ impl ScrollableItem for Graph {
     fn set_selected(&mut self, _selected:bool) {}
     fn get_hover(&self) -> bool {false}
     fn set_hover(&mut self, _hover:bool) {}
-}
-
-pub fn map_range_f32(val:f32, val_min:f32, val_max:f32, min:f32, mid:f32, max:f32) -> f32 {
-    let range_mid = val_min + (val_max - val_min) / 2.0;
-
-    println!("val:{}, val_min:{}, val_max:{}, range_mid:{}, min:{}, mid:{}, max:{}", val, val_min,val_max,range_mid,  min, mid, max);
-
-    let t = if range_mid == 0.0 {
-        if val > 0.0 {
-            mid + (max - mid) * val
-        } else if val < 0.0 {
-            mid - (mid - min) * -val
-        } else {
-            mid
-        }
-    } else {
-        if val > range_mid {
-            mid + (max - mid) * (val - range_mid) / range_mid
-        } else if val < range_mid {
-            mid - (mid - min) * (range_mid - val) / range_mid
-        } else {
-            mid
-        }
-    };
-    
-    println!("got {}", t);
-    t
 }
