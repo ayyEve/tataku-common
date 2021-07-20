@@ -10,11 +10,12 @@ use crate::render::{Text, Renderable, Rectangle, Color, Border};
 use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
 use crate::game::{Audio, AudioHandle, Game, GameMode, KeyModifiers, Settings, get_font, Vector2};
 
-const DIRECT_ITEM_SIZE:Vector2 = Vector2::new(600.0, 80.0);
-const SEARCH_BAR_HEIGHT:f64 = 50.0;
 const DOWNLOAD_ITEM_SIZE:Vector2 = Vector2::new(300.0, 40.0);
 const DOWNLOAD_ITEM_YMARGIN:f64 = 30.0;
 const DOWNLOAD_ITEM_YOFFSET:f64 = SEARCH_BAR_HEIGHT + 10.0;
+const DOWNLOAD_ITEM_XOFFSET:f64 = 5.0;
+const SEARCH_BAR_HEIGHT:f64 = 50.0;
+const DIRECT_ITEM_SIZE:Vector2 = Vector2::new(WINDOW_SIZE.x - (DOWNLOAD_ITEM_SIZE.x+DOWNLOAD_ITEM_XOFFSET), 80.0);
 
 //TODO: properly implement this lol
 const MAX_CONCURRENT_DOWNLOADS:usize = 5;
@@ -30,13 +31,13 @@ pub struct OsuDirectMenu {
 
     search_bar: TextInput,
 
-    //TODO: figure out how to get this running in a separate thread
+    //TODO: [audio] use Audio::song
     preview: Weak<AudioHandle>
 }
 impl OsuDirectMenu {
     pub fn new() -> OsuDirectMenu {
         let mut x = OsuDirectMenu {
-            scroll_area: ScrollableArea::new(Vector2::new(0.0, SEARCH_BAR_HEIGHT+5.0), Vector2::new(WINDOW_SIZE.x , WINDOW_SIZE.y - (SEARCH_BAR_HEIGHT+5.0)), true),
+            scroll_area: ScrollableArea::new(Vector2::new(0.0, SEARCH_BAR_HEIGHT+5.0), Vector2::new(DIRECT_ITEM_SIZE.x, WINDOW_SIZE.y - SEARCH_BAR_HEIGHT+5.0), true),
             downloading: Vec::new(),
             queue: Vec::new(),
             items: HashMap::new(),
@@ -44,6 +45,8 @@ impl OsuDirectMenu {
             preview: Weak::new(),
             search_bar: TextInput::new(Vector2::zero(), Vector2::new(WINDOW_SIZE.x , SEARCH_BAR_HEIGHT), "Search", "")
         };
+        // TODO: [audio] pause playing music, store song and pos. on close, put it back how it was
+
         x.do_search();
         x
     }
@@ -124,7 +127,7 @@ impl Menu for OsuDirectMenu {
         // draw download items
         if self.downloading.len() > 0 {
 
-            let x = args.window_size[0] - (DOWNLOAD_ITEM_SIZE.x+5.0);
+            let x = args.window_size[0] - (DOWNLOAD_ITEM_SIZE.x+DOWNLOAD_ITEM_XOFFSET);
 
             list.push(Box::new(Rectangle::new(
                 Color::WHITE,
@@ -316,10 +319,15 @@ impl DirectItem {
 impl ScrollableItem for DirectItem {
     // fn update(&mut self) {}
     fn size(&self) -> Vector2 {DIRECT_ITEM_SIZE}
-    fn set_pos(&mut self, pos:Vector2) {self.pos = pos;}
+    fn set_pos(&mut self, pos:Vector2) {self.pos = pos}
     fn get_pos(&self) -> Vector2 {self.pos}
     fn get_tag(&self) -> String {self.item.filename.clone()}
     fn set_tag(&mut self, _tag:&str) {}
+
+    fn get_hover(&self) -> bool {self.hover}
+    fn set_hover(&mut self, hover:bool) {self.hover = hover}
+    fn get_selected(&self) -> bool {self.selected}
+    fn set_selected(&mut self, selected:bool) {self.selected = selected}
 
     fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut list:Vec<Box<dyn Renderable>> = Vec::new();
@@ -371,10 +379,6 @@ impl ScrollableItem for DirectItem {
         }
 
         false
-    }
-
-    fn on_mouse_move(&mut self, pos:Vector2) {
-        self.hover = self.hover(pos);
     }
 }
 

@@ -1,5 +1,5 @@
-use std::fs::read_dir;
 use std::sync::Arc;
+use std::fs::read_dir;
 use std::collections::HashMap;
 
 use parking_lot::Mutex;
@@ -12,30 +12,28 @@ use crate::{SONGS_DIR, WINDOW_SIZE, DOWNLOADS_DIR, render::*, databases::get_sco
 use crate::game::{Game, GameMode, KeyModifiers, Settings, get_font, Vector2, helpers::BeatmapManager};
 
 // constants
-const INFO_BAR_HEIGHT:f64 = 60.0;
+const INFO_BAR_HEIGHT: f64 = 60.0;
 const BEATMAPSET_ITEM_SIZE: Vector2 = Vector2::new(550.0, 50.0);
 const BEATMAPSET_PAD_RIGHT: f64 = 5.0;
 
 const BEATMAP_ITEM_PADDING: f64 = 5.0;
 const BEATMAP_ITEM_SIZE: Vector2 = Vector2::new(450.0, 50.0);
 
-const LEADERBOARD_POS: Vector2 = Vector2::new(10.0, 100.0);
+const LEADERBOARD_PADDING: f64 = 100.0;
+const LEADERBOARD_POS: Vector2 = Vector2::new(10.0, LEADERBOARD_PADDING);
 const LEADERBOARD_ITEM_SIZE: Vector2 = Vector2::new(200.0, 50.0);
 
 pub struct BeatmapSelectMenu {
     /// tag of the selected set
     selected: Option<String>,
     selected_beatmap: Option<String>, // hash of selected map, needed for score refresh
+    beatmap_manager: Arc<Mutex<BeatmapManager>>,
     
     current_scores: HashMap<String, Arc<Mutex<Score>>>,
     beatmap_scroll: ScrollableArea,
     leaderboard_scroll: ScrollableArea,
     back_button: MenuButton,
-
-    background_texture: Option<Image>,
     pending_refresh: bool,
-
-    beatmap_manager: Arc<Mutex<BeatmapManager>>,
 }
 impl BeatmapSelectMenu {
     pub fn new(beatmap_manager:Arc<Mutex<BeatmapManager>>) -> BeatmapSelectMenu {
@@ -45,11 +43,11 @@ impl BeatmapSelectMenu {
             selected_beatmap: None,
             pending_refresh: false,
             current_scores: HashMap::new(),
-            background_texture: None,
             back_button: MenuButton::back_button(),
 
-            beatmap_scroll: ScrollableArea::new(Vector2::new(WINDOW_SIZE.x - (BEATMAPSET_ITEM_SIZE.x+BEATMAPSET_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y - INFO_BAR_HEIGHT), true),
-            leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(BEATMAPSET_ITEM_SIZE.x, WINDOW_SIZE.y - LEADERBOARD_POS.y), true),
+            // beatmap_scroll: ScrollableArea::new(Vector2::new(WINDOW_SIZE.x - (BEATMAPSET_ITEM_SIZE.x + BEATMAPSET_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(WINDOW_SIZE.x - LEADERBOARD_ITEM_SIZE.x, WINDOW_SIZE.y - INFO_BAR_HEIGHT), true),
+            beatmap_scroll: ScrollableArea::new(Vector2::new(LEADERBOARD_POS.x + LEADERBOARD_ITEM_SIZE.x, INFO_BAR_HEIGHT), Vector2::new(WINDOW_SIZE.x - LEADERBOARD_ITEM_SIZE.x, WINDOW_SIZE.y - INFO_BAR_HEIGHT), true),
+            leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(LEADERBOARD_ITEM_SIZE.x, WINDOW_SIZE.y - (LEADERBOARD_PADDING + INFO_BAR_HEIGHT)), true),
         }
     }
 
@@ -81,10 +79,8 @@ impl BeatmapSelectMenu {
 
         // load scores
         let scores = get_scores(map_hash.to_owned());
-        let mut scores = scores.lock().unwrap().clone();
-        scores.sort_by(|a, b| {
-            b.score.cmp(&a.score)
-        });
+        let mut scores = scores.lock().clone();
+        scores.sort_by(|a, b| b.score.cmp(&a.score));
 
         for s in scores.iter() {
             self.current_scores.insert(s.username.clone(), Arc::new(Mutex::new(s.clone())));
@@ -176,11 +172,6 @@ impl Menu for BeatmapSelectMenu {
         // back button
         items.extend(self.back_button.draw(args, Vector2::zero(), 0.0));
 
-        // draw background image here
-        if let Some(img) = self.background_texture.as_ref() {
-            items.push(Box::new(img.clone()));
-        }
-
         items
     }
 
@@ -254,8 +245,7 @@ impl Menu for BeatmapSelectMenu {
             self.beatmap_scroll.refresh_layout();
 
             let t = opengl_graphics::Texture::from_path(clicked.lock().metadata.image_filename.clone(), &opengl_graphics::TextureSettings::new()).unwrap();
-            self.background_texture = Some(Image::new(Vector2::zero(), 100.0, t, WINDOW_SIZE));
-        
+            game.background_image = Some(Image::new(Vector2::zero(), f64::MAX, t, WINDOW_SIZE));
 
             let hash = clicked.lock().hash.clone();
             self.selected_beatmap = Some(hash.clone());
@@ -310,7 +300,6 @@ struct BeatmapsetItem {
 }
 impl BeatmapsetItem {
     fn new(beatmaps: Vec<Arc<Mutex<Beatmap>>>) -> BeatmapsetItem {
-
         // sort beatmaps by sr
         let mut beatmaps = beatmaps.clone();
         beatmaps.sort_by(|a, b| {
@@ -323,9 +312,11 @@ impl BeatmapsetItem {
         let first = _first.lock();
         let tag = first.metadata.version_string();
 
+        const X:f64 = WINDOW_SIZE.x - (BEATMAPSET_ITEM_SIZE.x + BEATMAPSET_PAD_RIGHT + LEADERBOARD_POS.x + LEADERBOARD_ITEM_SIZE.x);
+
         BeatmapsetItem {
             beatmaps: beatmaps.clone(), 
-            pos: Vector2::zero(),
+            pos: Vector2::new(X, 0.0),
             hover: false,
             selected: false,
             pending_play: false,
@@ -334,7 +325,7 @@ impl BeatmapsetItem {
 
             selected_item: 0,
             first: _first.clone(),
-            mouse_pos: Vector2::new(0.0,0.0)
+            mouse_pos: Vector2::zero()
         }
     }
 }
@@ -356,6 +347,11 @@ impl ScrollableItem for BeatmapsetItem {
     fn get_value(&self) -> Box<dyn std::any::Any> {
         Box::new((self.beatmaps.get(self.selected_item).unwrap().clone(), self.pending_play))
     }
+
+    fn get_hover(&self) -> bool {self.hover}
+    fn set_hover(&mut self, hover:bool) {self.hover = hover}
+    fn get_selected(&self) -> bool {self.selected}
+    fn set_selected(&mut self, selected:bool) {self.selected = selected}
 
     fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut items: Vec<Box<dyn Renderable>> = Vec::new();
@@ -430,6 +426,7 @@ impl ScrollableItem for BeatmapsetItem {
                 counter += 1;
             }
         }
+        
         items
     }
 
@@ -468,7 +465,7 @@ impl ScrollableItem for BeatmapsetItem {
     }
     fn on_mouse_move(&mut self, pos:Vector2) {
         self.mouse_pos = pos;
-        self.hover = self.hover(pos)
+        self.check_hover(pos);
     }
     fn on_volume_change(&mut self) {
         self.first.lock().song.upgrade().unwrap().set_volume(Settings::get().get_music_vol());
@@ -483,6 +480,7 @@ impl ScrollableItem for BeatmapsetItem {
 struct LeaderboardItem {
     pos: Vector2,
     hover: bool,
+    selected: bool,
     tag: String,
 
     score: Score,
@@ -498,7 +496,8 @@ impl LeaderboardItem {
             score,
             tag,
             acc,
-            hover: false
+            hover: false,
+            selected: false
         }
     }
 }
@@ -508,6 +507,11 @@ impl ScrollableItem for LeaderboardItem {
     fn set_tag(&mut self, tag:&str) {self.tag = tag.to_owned()}
     fn get_pos(&self) -> Vector2 {self.pos}
     fn set_pos(&mut self, pos:Vector2) {self.pos = pos}
+
+    fn get_hover(&self) -> bool {self.hover}
+    fn set_hover(&mut self, hover:bool) {self.hover = hover}
+    fn get_selected(&self) -> bool {self.selected}
+    fn set_selected(&mut self, selected:bool) {self.selected = selected}
 
     fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut items: Vec<Box<dyn Renderable>> = Vec::new();
@@ -546,5 +550,4 @@ impl ScrollableItem for LeaderboardItem {
     }
 
     fn on_click(&mut self, _pos:Vector2, _button:MouseButton) -> bool {self.hover}
-    fn on_mouse_move(&mut self, pos:Vector2) {self.hover = self.hover(pos);}
 }

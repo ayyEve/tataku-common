@@ -10,7 +10,7 @@ pub struct MenuSection {
     text: String,
     height: f64,
 
-    hover: bool
+    // hover: bool
 }
 impl MenuSection {
     pub fn new(pos:Vector2, height:f64, text:&str) -> Self {
@@ -18,7 +18,7 @@ impl MenuSection {
             pos, 
             height,
             text: text.to_owned(),
-            hover: false
+            // hover: false
         }
     }
 }
@@ -27,10 +27,17 @@ impl ScrollableItem for MenuSection {
     fn set_tag(&mut self, _tag:&str) {}
     fn get_tag(&self) -> String {String::new()}
     fn size(&self) -> crate::game::Vector2 {Vector2::new(300.0, self.height)}
-    fn on_mouse_move(&mut self, pos:crate::game::Vector2) {self.hover = self.hover(pos)}
-    fn on_click(&mut self, _pos:crate::game::Vector2, _button:piston::MouseButton) -> bool {self.hover}
+    fn on_click(&mut self, _pos:crate::game::Vector2, _button:piston::MouseButton) -> bool {false} //{self.hover}
     fn get_pos(&self) -> crate::game::Vector2 {self.pos}
     fn set_pos(&mut self, pos:crate::game::Vector2) {self.pos = pos}
+
+
+    fn get_hover(&self) -> bool {false}
+    fn set_hover(&mut self, _:bool) {}
+    fn get_selected(&self) -> bool {false}
+    fn set_selected(&mut self, _:bool) {}
+    fn get_selectable(&self) -> bool {false}
+
 
     fn draw(&mut self, _args:piston::RenderArgs, pos_offset:crate::game::Vector2, parent_depth:f64) -> Vec<Box<dyn crate::render::Renderable>> {
         const TEXT_OFFSET:f64 = 20.0;

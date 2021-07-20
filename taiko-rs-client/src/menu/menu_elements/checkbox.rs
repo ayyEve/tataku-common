@@ -6,7 +6,8 @@ const INNER_BOX_PADDING:f64 = 8.0;
 pub struct Checkbox {
     pos: Vector2,
     size: Vector2,
-    hover:bool,
+    hover: bool,
+    selected: bool,
     tag: String,
 
     text: String,
@@ -20,6 +21,7 @@ impl Checkbox {
             text: text.to_owned(),
 
             hover: false,
+            selected: false,
             tag: String::new(),
             checked: value
         }
@@ -33,6 +35,12 @@ impl ScrollableItem for Checkbox {
     fn get_tag(&self) -> String {self.tag.clone()}
     fn set_tag(&mut self, tag:&str) {self.tag = tag.to_owned()}
     fn get_value(&self) -> Box<dyn std::any::Any> {Box::new(self.checked)}
+
+    fn get_hover(&self) -> bool {self.hover}
+    fn set_hover(&mut self, hover:bool) {self.hover = hover}
+    fn get_selected(&self) -> bool {self.selected}
+    fn set_selected(&mut self, selected:bool) {self.selected = selected}
+
 
     fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
@@ -81,8 +89,7 @@ impl ScrollableItem for Checkbox {
     }
 
     fn on_click(&mut self, _pos:Vector2, _button:piston::MouseButton) -> bool {
-        if self.hover {self.checked = !self.checked}
+        if self.hover||self.selected {self.checked = !self.checked}
         self.hover
     }
-    fn on_mouse_move(&mut self, pos:Vector2) {self.hover = self.hover(pos)}
 }

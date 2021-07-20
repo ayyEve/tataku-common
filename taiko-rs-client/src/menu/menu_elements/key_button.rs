@@ -44,6 +44,11 @@ impl ScrollableItem for KeyButton {
     fn set_tag(&mut self, tag:&str) {self.tag = tag.to_owned()}
     fn get_value(&self) -> Box<dyn std::any::Any> {Box::new(self.key.clone())}
 
+    fn get_hover(&self) -> bool {self.hover}
+    fn set_hover(&mut self, hover:bool) {self.hover = hover}
+    fn get_selected(&self) -> bool {self.selected}
+    fn set_selected(&mut self, selected:bool) {self.selected = selected}
+
     fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
@@ -69,8 +74,6 @@ impl ScrollableItem for KeyButton {
 
         list
     }
-
-    fn on_mouse_move(&mut self, p:Vector2) {self.hover = self.hover(p)}
 
     fn on_click(&mut self, _pos:Vector2, _btn:MouseButton) -> bool {
 

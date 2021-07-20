@@ -7,18 +7,17 @@ use parking_lot::Mutex;
 use tokio::runtime::{Builder, Runtime};
 use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
-use piston::{Window,input::*, event_loop::*, window::WindowSettings};
+use piston::{Window, input::*, event_loop::*, window::WindowSettings};
 
 // use crate::gameplay::Beatmap;
 use crate::gameplay::Beatmap;
+use crate::render::{Color, HalfCircle, Image, Rectangle, Renderable};
 use crate::databases::{save_all_scores, save_replay, save_score};
 use taiko_rs_common::types::{KeyPress, Replay, SpectatorFrames, UserAction};
 use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, SONGS_DIR, menu::*};
-use crate::render::{HalfCircle, Rectangle, Renderable, Text, Color, Border};
-use crate::game::{InputManager, Settings, get_font, Vector2, online::{USER_ITEM_SIZE, OnlineManager}, helpers::{FpsDisplay, BenchmarkHelper, BeatmapManager}};
+use crate::helpers::{FpsDisplay, BenchmarkHelper, BeatmapManager,VolumeControl};
+use crate::game::{InputManager, Settings, Vector2, online::{USER_ITEM_SIZE, OnlineManager}};
 
-/// how long should the volume thing be displayed when changed
-const VOLUME_CHANGE_DISPLAY_TIME:u64 = 2000;
 /// background color
 const GFX_CLEAR_COLOR:Color = Color::WHITE;
 /// how long do transitions between gamemodes last?
@@ -41,12 +40,7 @@ pub struct Game {
     pub current_mode: GameMode,
     pub queued_mode: GameMode,
 
-    // volume change things 
-    // maybe move these to another object? not really necessary but might help clean up code a bit maybe
-    /// 0-2, 0 = master, 1 = effect, 2 = music
-    vol_selected_index: u8, 
-    ///when the volume was changed, or the selected index changed
-    vol_selected_time: u64,
+    pub volume_controller: VolumeControl,
 
     // fps
     fps_display: FpsDisplay,
@@ -63,21 +57,20 @@ pub struct Game {
 
     // misc
     pub game_start: Instant,
+    pub background_image: Option<Image>,
+    register_timings: (f32,f32,f32)
 }
 impl Game {
     pub fn new() -> Game {
         let mut game_init_benchmark = BenchmarkHelper::new("game::new");
 
         let opengl = OpenGL::V3_2;
-        let mut window: AppWindow = WindowSettings::new("Taiko", [WINDOW_SIZE.x, WINDOW_SIZE.y])
+        let window: AppWindow = WindowSettings::new("Taiko", [WINDOW_SIZE.x, WINDOW_SIZE.y])
             .graphics_api(opengl)
             .resizable(false)
             .build()
             .expect("Error creating window");
         game_init_benchmark.log("window created", true);
-
-        set_icon(&mut window);
-        game_init_benchmark.log("window icon set (jk for now)", true);
 
         let graphics = GlGraphics::new(opengl);
         game_init_benchmark.log("graphics created", true);
@@ -101,21 +94,20 @@ impl Game {
             threading,
             input_manager,
             online_manager,
+            volume_controller:VolumeControl::new(),
             render_queue: Vec::new(),
+            background_image: None,
 
             menus: HashMap::new(),
             beatmap_manager: Arc::new(Mutex::new(BeatmapManager::new())),
             current_mode: GameMode::None,
             queued_mode: GameMode::None,
 
-            // vol things
-            vol_selected_index: 0,
-            vol_selected_time: 0,
 
             // fps
             fps_display: FpsDisplay::new("fps", 0),
             update_display: FpsDisplay::new("updates/s", 1),
-            input_update_display:FpsDisplay::new("inputs/s", 2),
+            input_update_display: FpsDisplay::new("inputs/s", 2),
 
             // transition
             transition: None,
@@ -125,6 +117,7 @@ impl Game {
             // misc
             show_user_list: false,
             game_start: Instant::now(),
+            register_timings: (0.0,0.0,0.0)
         };
         game_init_benchmark.log("game created", true);
 
@@ -170,22 +163,22 @@ impl Game {
         // input and rendering thread
         let mut events = Events::new(EventSettings::new());
 
-        //TODO: load this from settings
-        events.set_max_fps(144);
-        events.set_ups(1_000);
-
-        #[cfg(feature = "unlimited_fps")] {
-            events.set_max_fps(10_000);
-            events.set_ups(10_000);
+        {
+            let settings = Settings::get();
+            if settings.unlimited_fps {
+                events.set_max_fps(10_000);
+                events.set_ups(10_000);
+            } else {
+                events.set_max_fps(settings.fps_target);
+                events.set_ups(settings.update_target);
+            }
         }
 
         while let Some(e) = events.next(&mut self.window) {
+            self.input_manager.handle_events(e.clone());
             if let Some(args) = e.update_args() {self.update(args.dt*1000.0)}
             if let Some(args) = e.render_args() {self.render(args)}
-            if let Some(Button::Keyboard(_)) = e.press_args() {
-                self.input_update_display.increment();
-            }
-            self.input_manager.handle_events(e.clone());
+            if let Some(Button::Keyboard(_)) = e.press_args() {self.input_update_display.increment()}
             // e.resize(|args| println!("Resized '{}, {}'", args.window_size[0], args.window_size[1]));
         }
     }
@@ -193,19 +186,36 @@ impl Game {
     fn update(&mut self, _delta:f64) {
         self.update_display.increment();
         let mut current_mode = self.current_mode.clone().to_owned();
-        let elapsed = self.game_start.elapsed().as_millis() as u64;
+        let elapsed = (self.game_start.elapsed().as_micros() as f64 / 1000.0) as u64;
 
         // check input events
         let mouse_pos = self.input_manager.mouse_pos;
         let mut mouse_buttons = self.input_manager.get_mouse_buttons();
         let mouse_moved = self.input_manager.get_mouse_moved();
         let mut scroll_delta = self.input_manager.get_scroll_delta();
-        let keys = self.input_manager.all_down_once();
+        let mut keys = self.input_manager.all_down_once();
         let mods = self.input_manager.get_key_mods();
         let text = self.input_manager.get_text();
         let window_focus_changed = self.input_manager.get_changed_focus();
+
+        // if keys.len() > 0 {
+        //     self.register_timings = self.input_manager.get_register_delay();
+        //     println!("register times: min:{}, max: {}, avg:{}", self.register_timings.0,self.register_timings.1,self.register_timings.2);
+        // }
+
+        // check for volume change
+        // TODO: volume_changed wont be needed after audio overhaul
+        let mut volume_changed = false;
+        if mouse_moved {self.volume_controller.on_mouse_move(mouse_pos)}
+        if self.volume_controller.on_key_press(&mut keys, mods) {volume_changed = true}
+        if scroll_delta != 0.0 && self.volume_controller.on_mouse_wheel(scroll_delta, mods) {scroll_delta = 0.0; volume_changed = true}
+
         
         // users list
+        if keys.contains(&Key::F8) {
+            self.show_user_list = !self.show_user_list;
+            println!("show user list: {}", self.show_user_list);
+        }
         if self.show_user_list {
             if let Ok(om) = self.online_manager.try_lock() {
                 for (_, user) in &om.users {
@@ -217,77 +227,7 @@ impl Game {
             }
         }
 
-        // check for volume change
-        let mut volume_changed = false;
-        if mods.alt {
-            let mut settings = Settings::get_mut();
-            let elapsed = self.game_start.elapsed().as_millis() as u64;
-
-            let mut delta:f32 = 0.0;
-            if keys.contains(&Key::Right) {delta = 0.1}
-            if keys.contains(&Key::Left) {delta = -0.1}
-            if scroll_delta != 0.0 {
-                delta = scroll_delta as f32 / 10.0;
-                scroll_delta = 0.0;
-            }
-            
-            // check volume changed, if it has, set the selected time to now
-            if delta != 0.0 || keys.contains(&Key::Up) || keys.contains(&Key::Down) {
-                // reset index back to 0 (master) if the volume hasnt been touched in a while
-                if elapsed - self.vol_selected_time > VOLUME_CHANGE_DISPLAY_TIME + 1000 {self.vol_selected_index = 0}
-
-                // find out what volume to edit, and edit it
-                match self.vol_selected_index {
-                    0 => settings.master_vol = (settings.master_vol + delta).clamp(0.0, 1.0),
-                    1 => settings.effect_vol = (settings.effect_vol + delta).clamp(0.0, 1.0),
-                    2 => settings.music_vol = (settings.music_vol + delta).clamp(0.0, 1.0),
-                    _ => println!("lock.vol_selected_index out of bounds somehow")
-                }
-
-                volume_changed = true;
-                self.vol_selected_time = elapsed;
-            }
-
-            // if the volume thing is viewable, check for index selecting keys
-            if elapsed - self.vol_selected_time < VOLUME_CHANGE_DISPLAY_TIME {
-                if keys.contains(&Key::Up) {
-                    self.vol_selected_index = (3+(self.vol_selected_index as i8 - 1)) as u8 % 3;
-                    self.vol_selected_time = elapsed;
-                }
-                if keys.contains(&Key::Down) {
-                    self.vol_selected_index = (self.vol_selected_index + 1) % 3;
-                    self.vol_selected_time = elapsed;
-                }
-            }
-        }
-        
-        // check if mouse moved over a volume button
-        if mouse_moved && self.vol_selected_time > 0 && elapsed as f64 - (self.vol_selected_time as f64) < VOLUME_CHANGE_DISPLAY_TIME as f64 {
-            let window_size = WINDOW_SIZE;
-            let master_pos = window_size - Vector2::new(300.0, 90.0);
-            let effect_pos = window_size - Vector2::new(300.0, 60.0);
-            let music_pos = window_size - Vector2::new(300.0, 30.0);
-
-            if mouse_pos.x >= master_pos.x {
-                if mouse_pos.y >= music_pos.y {
-                    self.vol_selected_index = 2;
-                    self.vol_selected_time = elapsed;
-                } else if mouse_pos.y >= effect_pos.y {
-                    self.vol_selected_index = 1;
-                    self.vol_selected_time = elapsed;
-                } else if mouse_pos.y >= master_pos.y {
-                    self.vol_selected_index = 0;
-                    self.vol_selected_time = elapsed;
-                }
-            }
-        }
-        
-
-        if keys.contains(&Key::F8) {
-            self.show_user_list = !self.show_user_list;
-            println!("show user list: {}", self.show_user_list);
-        }
-
+        // run update on current move
         match current_mode {
             GameMode::Ingame(ref beatmap) => {
                 let settings = Settings::get();
@@ -599,6 +539,12 @@ impl Game {
 
                         let text = format!("{}-{}[{}]\n{}",m.artist,m.title,m.version,h);
 
+                        if let Ok(t) = opengl_graphics::Texture::from_path(m.image_filename.clone(), &opengl_graphics::TextureSettings::new()) {
+                            self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, t, WINDOW_SIZE));
+                        } else {
+                            self.background_image = None;
+                        }
+
                         self.threading.spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Ingame, text).await;
                         });
@@ -650,10 +596,24 @@ impl Game {
 
     fn render(&mut self, args: RenderArgs) {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        let window_size = Vector2::new(args.window_size[0], args.window_size[1]);
         let settings = Settings::get();
         let elapsed = self.game_start.elapsed().as_millis() as u64;
-        let font = get_font("main");
+
+        // draw background image here
+        if let Some(img) = self.background_image.as_ref() {
+            // dim
+            renderables.push(Box::new(img.clone()));
+            // println!("{} > {}", img.get_depth(), f64::MAX - 1.0);
+        }
+        let mut color = Color::BLACK;
+        color.a = settings.background_dim;
+        renderables.push(Box::new(Rectangle::new(
+            color,
+            f64::MAX - 1.0,
+            Vector2::zero(),
+            WINDOW_SIZE,
+            None
+        )));
 
         // mode
         match &self.current_mode {
@@ -713,131 +673,12 @@ impl Game {
             }
         }
 
+        // volume control
+        self.render_queue.extend(self.volume_controller.draw());
 
         // add the things we just made to the render queue
         self.render_queue.extend(renderables);
 
-        // draw the volume things if needed
-        if self.vol_selected_time > 0 && elapsed - self.vol_selected_time < VOLUME_CHANGE_DISPLAY_TIME {
-            const BOX_SIZE:Vector2 = Vector2::new(300.0, 100.0);
-            let b = Rectangle::new(
-                Color::WHITE,
-                -7.0,
-                window_size - BOX_SIZE,
-                BOX_SIZE,
-                Some(Border::new(Color::BLACK, 1.2))
-            );
-            self.render_queue.push(Box::new(b));
-
-            // text 100px wide, bar 190px (10px padding)
-            let border_padding = 10.0;
-            let border_size = Vector2::new(200.0 - border_padding, 20.0);
-            const TEXT_YOFFSET:f64 = -17.0; // bc font measuring broken
-            
-            // == master bar ==
-            // text
-            let mut master_text = Text::new(
-                Color::BLACK,
-                -9.0,
-                window_size - Vector2::new(300.0, 90.0+TEXT_YOFFSET),
-                20,
-                "Master:".to_owned(),
-                font.clone(),
-            );
-            // border
-            let master_border = Rectangle::new(
-                Color::TRANSPARENT_WHITE,
-                -9.0,
-                window_size - Vector2::new(border_size.x + border_padding, 90.0),
-                border_size,
-                Some(Border::new(Color::RED, 1.0))
-            );
-            // fill
-            let master_fill = Rectangle::new(
-                Color::BLUE,
-                -8.0,
-                window_size - Vector2::new(border_size.x + border_padding, 90.0),
-                Vector2::new(border_size.x * settings.master_vol as f64, border_size.y),
-                None
-            );
-
-            // == effects bar ==
-            // text
-            let mut effect_text = Text::new(
-                Color::BLACK,
-                -9.0,
-                window_size - Vector2::new(300.0, 60.0+TEXT_YOFFSET),
-                20,
-                "Effects:".to_owned(),
-                font.clone()
-            );
-            // border
-            let effect_border = Rectangle::new(
-                Color::TRANSPARENT_WHITE,
-                -9.0,
-                window_size - Vector2::new(border_size.x + border_padding, 60.0),
-                border_size,
-                Some(Border::new(Color::RED, 1.0))
-            );
-            // fill
-            let effect_fill = Rectangle::new(
-                Color::BLUE,
-                -8.0,
-                window_size - Vector2::new(border_size.x + border_padding, 60.0),
-                Vector2::new(border_size.x * settings.effect_vol as f64, border_size.y),
-                None
-            );
-
-            // == music bar ==
-            // text
-            let mut music_text = Text::new(
-                Color::BLACK,
-                -9.0,
-                window_size - Vector2::new(300.0, 30.0+TEXT_YOFFSET),
-                20,
-                "Music:".to_owned(),
-                font.clone()
-            );
-            // border
-            let music_border = Rectangle::new(
-                Color::TRANSPARENT_WHITE,
-                -9.0,
-                window_size - Vector2::new(border_size.x + border_padding, 30.0),
-                border_size,
-                Some(Border::new(Color::RED, 1.0))
-            );
-            // fill
-            let music_fill = Rectangle::new(
-                Color::BLUE,
-                -8.0,
-                window_size - Vector2::new(border_size.x + border_padding, 30.0),
-                Vector2::new(border_size.x * settings.music_vol as f64, border_size.y),
-                None
-            );
-            
-            // highlight selected index
-            match self.vol_selected_index {
-                0 => master_text.color = Color::RED,
-                1 => effect_text.color = Color::RED,
-                2 => music_text.color = Color::RED,
-                _ => println!("self.vol_selected_index out of bounds somehow")
-            }
-
-            let a:[Box<dyn Renderable>; 9] = [
-                Box::new(master_text),
-                Box::new(master_border),
-                Box::new(master_fill),
-                
-                Box::new(effect_text),
-                Box::new(effect_border),
-                Box::new(effect_fill),
-
-                Box::new(music_text),
-                Box::new(music_border),
-                Box::new(music_fill),
-            ];
-            self.render_queue.extend(a);
-        }
 
         // draw fps's
         self.render_queue.push(Box::new(self.fps_display.draw()));
@@ -863,10 +704,7 @@ impl Game {
     }
 
     pub fn clear_render_queue(&mut self, remove_all:bool) {
-        if remove_all {
-            self.render_queue.clear();
-            return;
-        }
+        if remove_all {return self.render_queue.clear()}
 
         let elapsed = self.game_start.elapsed().as_millis() as u64;
         // only return items who's lifetime has expired
@@ -937,17 +775,6 @@ impl Game {
     }
 }
 
-/// tries to set the app window. does nothing if theres an issue
-fn set_icon(_window:&mut AppWindow) {
-
-    // // read file
-    // if let Ok(img) =  image::open("") {
-
-    //     // glfw::PixelImage
-
-    //     window.window.set_icon_from_pixels(pain);
-    // }
-}
 
 #[derive(Clone)]
 pub enum GameMode {

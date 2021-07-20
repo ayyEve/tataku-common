@@ -17,9 +17,11 @@ pub struct ScrollableArea {
     /// if list mode, item positions will be modified based on how many items there are (ie, a list)
     list_mode: bool,
 
-    // cache of where the mouse is, needed to check for on_scroll if mouse is over this
+    // cache of where the mouse is, only used for debugging now
     mouse_pos: Vector2,
     elements_height: f64,
+
+    hover: bool
 }
 impl ScrollableArea {
     pub fn new(pos: Vector2, size: Vector2, list_mode: bool) -> ScrollableArea {
@@ -32,18 +34,23 @@ impl ScrollableArea {
             elements_height: 0.0,
             depth: 0.0,
 
-            mouse_pos: Vector2::new(-999.0,-999.0) // just in case lol
+            hover:false,
+            mouse_pos: Vector2::one() * -100.0 // just in case lol
         }
     }
 
-    pub fn update(&mut self) {} //TODO: maybe set this up lol
+    pub fn update(&mut self) {
+        for item in self.items.as_mut_slice() {
+            item.update();
+        }
+    }
     pub fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut items: Vec<Box<dyn Renderable>> = Vec::new();
 
         let min = -self.elements_height + self.size.y;
         let max = 0.0;
 
-        self.scroll_pos = if !(min>max) {self.scroll_pos.clamp(min, max)} else {0.0};
+        self.scroll_pos = if min<=max {self.scroll_pos.clamp(min, max)} else {0.0};
         let offset = Vector2::new(0.0, self.scroll_pos);
 
         for item in self.items.as_mut_slice() {
@@ -57,12 +64,15 @@ impl ScrollableArea {
             items.extend(item.draw(args, offset, self.depth));
         }
 
+
         // // helpful for debugging positions
-        // items.push(Box::new(Rectangle::new(Color::TRANSPARENT_WHITE, -10.0, self.pos, self.size, Some(Border::new(Color::BLACK, 2.0)))));
-        // // mouse
-        // items.push(Box::new(Circle::new(Color::RED, -10.0, self.mouse_pos, 5.0)));
-        // // mouse relative to scroll pos
-        // items.push(Box::new(Circle::new(Color::BLUE, -10.0, self.mouse_pos + offset, 5.0)));
+        // if self.hover {
+        //     items.push(Box::new(Rectangle::new(Color::TRANSPARENT_WHITE, -10.0, self.pos, self.size, Some(Border::new(if self.hover{Color::RED} else {Color::BLACK}, 2.0)))));
+        //     // mouse
+        //     items.push(Box::new(Circle::new(Color::RED, -10.0, self.mouse_pos, 5.0)));
+        //     // mouse relative to scroll pos
+        //     items.push(Box::new(Circle::new(Color::BLUE, -10.0, self.mouse_pos + offset, 5.0)));
+        // }
 
         items
     }
@@ -84,17 +94,25 @@ impl ScrollableArea {
 
         i
     }
-    pub fn on_mouse_move(&mut self, pos:Vector2, _game: &mut Game) {
-        self.mouse_pos = pos;
+    pub fn on_mouse_move(&mut self, p:Vector2, _game: &mut Game) {
+        self.mouse_pos = p;
+        self.hover = p.x > self.pos.x && p.x < self.pos.x + self.size.x && p.y > self.pos.y && p.y < self.pos.y + self.size.y;
+        // if !self.hover {return}
 
-        let pos = pos-Vector2::new(0.0, self.scroll_pos);
+        let p = p-Vector2::new(0.0, self.scroll_pos);
         for item in self.items.as_mut_slice() {
-            item.on_mouse_move(pos);
+            // let pos = item.get_pos();
+            // let size = item.size();
+            // item.set_hover(p.x > pos.x && p.x < pos.x + size.x && p.y > pos.y && p.y < pos.y + size.y);
+
+            item.on_mouse_move(p);
         }
     }
 
     pub fn on_scroll(&mut self, delta:f64) {
-        self.scroll_pos += delta * SCROLL_FACTOR;
+        if self.hover {
+            self.scroll_pos += delta * SCROLL_FACTOR;
+        }
     }
     pub fn on_key_press(&mut self, key:Key, mods:KeyModifiers) {
         for item in self.items.as_mut_slice() {
@@ -117,7 +135,6 @@ impl ScrollableArea {
     /// returns index
     pub fn add_item(&mut self, mut item:Box<dyn ScrollableItem>) {
         if self.list_mode {
-
             let ipos = item.get_pos();
             item.set_pos(self.pos + Vector2::new(ipos.x, self.elements_height));
             self.elements_height += item.size().y + ITEM_MARGIN;
@@ -144,7 +161,6 @@ impl ScrollableArea {
     /// completely refresh the positions for all items in the list (only effective when in list mode)
     pub fn refresh_layout(&mut self) {
         if !self.list_mode {return}
-
         self.elements_height = 0.0;
 
         for item in self.items.as_mut_slice() {
@@ -161,14 +177,25 @@ pub trait ScrollableItem {
     fn dispose(&mut self) {}
     fn update(&mut self) {}
     fn size(&self) -> Vector2;
+    
     fn get_tag(&self) -> String;
     fn set_tag(&mut self, tag:&str);
+
     fn get_pos(&self) -> Vector2;
     fn set_pos(&mut self, pos:Vector2);
-    fn hover(&self, p:Vector2) -> bool {
+
+    fn get_selected(&self) -> bool;
+    fn set_selected(&mut self, selected:bool);
+    fn get_selectable(&self) -> bool {true}
+
+    fn get_hover(&self) -> bool;
+    fn set_hover(&mut self, hover:bool);
+
+    /// fallback for when the item is not in a ScrollableArea
+    fn check_hover(&mut self, p:Vector2) {
         let pos = self.get_pos();
         let size = self.size();
-        p.x > pos.x && p.x < pos.x + size.x && p.y > pos.y && p.y < pos.y + size.y
+        self.set_hover(p.x > pos.x && p.x < pos.x + size.x && p.y > pos.y && p.y < pos.y + size.y)
     }
 
     fn draw(&mut self, args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>>;
@@ -176,10 +203,10 @@ pub trait ScrollableItem {
     // input handlers
 
     /// when the mouse is clicked
-    fn on_click(&mut self, pos:Vector2, button:MouseButton) -> bool; // this should be handled
+    fn on_click(&mut self, _pos:Vector2, _button:MouseButton) -> bool {self.get_hover()}
 
     /// when the mouse is moved
-    fn on_mouse_move(&mut self, pos:Vector2); // should be handled to check for hover
+    fn on_mouse_move(&mut self, p:Vector2) {self.check_hover(p)}
 
     /// when text is input
     fn on_text(&mut self, _text:String) {}
@@ -187,7 +214,7 @@ pub trait ScrollableItem {
     /// when a key is pressed
     fn on_key_press(&mut self, _key:Key, _mods:KeyModifiers) -> bool {false}
     
-    /// when a key is released TODO!()
+    /// when a key is released TODO!
     fn on_key_release(&mut self, _key:Key) {}
 
     /// get a value

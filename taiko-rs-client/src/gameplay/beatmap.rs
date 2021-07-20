@@ -187,7 +187,7 @@ impl Beatmap {
                     },
                     BeatmapSection::HitObjects => {
                         let mut split = line.split(",");
-                        if split.clone().count() < 2 {continue;} // skip empty lines
+                        if split.clone().count() < 2 {continue} // skip empty lines
 
                         let _x = split.next();
                         let _y = split.next();
@@ -267,21 +267,7 @@ impl Beatmap {
                             let end_time = split.next().unwrap().parse::<u64>().unwrap();
                             let length = end_time as f64 - time as f64;
 
-                            let diff_map:f64;
-                            {
-                                let diff = meta.od as f64;
-                                let min = 3.0;
-                                let mid = 5.0;
-                                let max = 7.5;
-                                if diff > 5.0 {
-                                    diff_map = mid + (max - mid) * (diff - 5.0) / 5.0;
-                                } else if diff < 5.0 {
-                                    diff_map = mid - (mid - min) * (5.0 - diff) / 5.0;
-                                } else {
-                                    diff_map = mid;
-                                }
-                            }
-
+                            let diff_map = map_difficulty_range(meta.od as f64, 3.0, 5.0, 7.5);
                             let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
                             // just make a slider for now
                             let spinner = Spinner::new(time, end_time, sv, hits_required);
@@ -380,7 +366,7 @@ impl Beatmap {
         let note = notes.get_mut(self.note_index).unwrap();
         let note_time = note.time() as f64;
 
-        match note.get_points(hit_type, time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_miss)) {
+        match note.get_points(hit_type, time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300)) {
             ScoreHit::None => {
                 // play sound
                 Audio::play_preloaded(sound).expect("Audio not preloaded.");
@@ -653,6 +639,10 @@ impl Beatmap {
     pub fn reset(&mut self) {
         let settings = Settings::get().clone();
 
+        self.hitwindow_miss = map_difficulty_range(self.metadata.od as f64, 135.0, 95.0, 70.0);
+        self.hitwindow_100 = map_difficulty_range(self.metadata.od as f64, 120.0, 80.0, 50.0);
+        self.hitwindow_300 = map_difficulty_range(self.metadata.od as f64, 50.0, 35.0, 20.0);
+
         let c = self.clone();
         for note in self.notes.lock().as_mut_slice() {
             note.reset();
@@ -718,10 +708,6 @@ impl Beatmap {
     
         self.score = Some(Score::new(self.hash.clone(), Settings::get_mut().username.clone()));
         self.replay = Some(Replay::new());
-
-        self.hitwindow_miss = map_difficulty_range(self.metadata.od as f64, 135.0, 95.0, 70.0);
-        self.hitwindow_100 = map_difficulty_range(self.metadata.od as f64, 120.0, 80.0, 50.0);
-        self.hitwindow_300 = map_difficulty_range(self.metadata.od as f64, 50.0, 35.0, 20.0);
     }
     pub fn cleanup(&mut self) {
         self.timing_bars.clear();
@@ -816,7 +802,7 @@ impl TimingBar {
 #[derive(Clone, Debug)]
 pub struct BeatmapMeta {
     pub mode: Playmode,
-    pub beatmap_version:f32,
+    pub beatmap_version: f32,
     pub artist: String,
     pub title: String,
     pub artist_unicode: String,
@@ -901,5 +887,17 @@ impl Into<HitType> for KeyPress {
             KeyPress::LeftKat|KeyPress::RightKat => HitType::Kat,
             KeyPress::LeftDon|KeyPress::RightDon => HitType::Don,
         }
+    }
+}
+
+
+// stolen from peppy, /shrug
+pub fn map_difficulty_range(diff:f64, min:f64, mid:f64, max:f64) -> f64 {
+    if diff > 5.0 {
+        mid + (max - mid) * (diff - 5.0) / 5.0
+    } else if diff < 5.0 {
+        mid - (mid - min) * (5.0 - diff) / 5.0
+    } else {
+        mid
     }
 }
