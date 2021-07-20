@@ -428,9 +428,6 @@ impl Game {
                 if keys.contains(&Key::Equals) {beatmap.increment_offset(5)}
                 if keys.contains(&Key::Minus) {beatmap.increment_offset(-5)}
 
-                // volume
-                //if volume_changed {beatmap.song.set_volume(settings.get_music_vol())}
-
                 beatmap.update();
 
                 if beatmap.completed {
@@ -474,7 +471,7 @@ impl Game {
                 menu.update(self);
             }
 
-            GameMode::Spectating(ref data, ref state) => {
+            GameMode::Spectating(ref data, ref state, ref _beatmap) => {
                 let mut data = data.lock();
 
                 // (try to) read pending data from the online manager
@@ -781,7 +778,7 @@ pub enum GameMode {
     Replaying(Arc<Mutex<Beatmap>>, Replay, u64),
 
     #[allow(dead_code)]
-    Spectating(Arc<Mutex<SpectatorFrames>>, SpectatorState), // frames awaiting replay, state
+    Spectating(Arc<Mutex<SpectatorFrames>>, SpectatorState, Option<Arc<Mutex<Beatmap>>>), // frames awaiting replay, state, beatmap
     // Multiplaying(MultiplayerState), // wink wink nudge nudge (dont hold your breath)
 }
 

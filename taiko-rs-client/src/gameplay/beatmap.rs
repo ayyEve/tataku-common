@@ -360,7 +360,6 @@ impl Beatmap {
                 self.hit_timings.push((time as i64, (time - note_time) as i64));
                 self.next_note();
                 Audio::play_preloaded(sound);
-                println!("missed note [bad hit]");
 
                 //TODO: play miss sound
                 //TODO: indicate this was a miss
@@ -395,7 +394,7 @@ impl Beatmap {
     }
 
     pub fn update(&mut self) {
-
+        // check lead-in time
         if self.lead_in_time > 0.0 {
             let elapsed = self.song_start.elapsed().as_micros() as f32 / 1000.0;
             self.song_start = Instant::now();
@@ -406,12 +405,11 @@ impl Beatmap {
                 song.set_position(-self.lead_in_time);
                 song.set_volume(Settings::get().get_music_vol());
                 song.play();
-
-                println!("{}, {}", self.lead_in_time, song.current_time());
                 self.lead_in_time = 0.0;
             }
         }
 
+        // get the current time
         let time = self.time();
 
         // update notes
@@ -662,6 +660,7 @@ impl Beatmap {
         self.lead_in_time = LEAD_IN_TIME;
         self.offset_changed_time = 0;
         self.song_start = Instant::now();
+
         // setup hitwindows
         self.hitwindow_miss = map_difficulty_range(self.metadata.od as f64, 135.0, 95.0, 70.0);
         self.hitwindow_100 = map_difficulty_range(self.metadata.od as f64, 120.0, 80.0, 50.0);

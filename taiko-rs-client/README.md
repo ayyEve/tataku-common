@@ -16,7 +16,6 @@ TODO:
 - // UI
  - dropdown menu item
  - notification system
- - map backgrounds in-game
  - scrollable area dragger
   
 - // Gameplay
@@ -29,15 +28,12 @@ TODO:
 - // New Audio Engine
  - skip intro
  - handle headphones being unplugged (might require a dropdown to select the output device)
- - store the currently playing music track in audio. should resolve a ton of issues relating to audio playing when it shouldnt, and also make volume tracking much easier
- - dont load all audio with the beatmap, only load it when it should be played, and unload it when not playing
  - hitsound volume *= timing section volume
 
 - // Code
  - refactor code a bit to make it prettier
  - better error handling/messages
  - handle peppy direct download moment (might be best if notifs exist first)
- - separate replays from scores (would help loading)
  - depths that actually make sense
   
 maybe todo:
