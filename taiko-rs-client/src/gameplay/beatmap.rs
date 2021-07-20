@@ -39,7 +39,7 @@ pub struct Beatmap {
     note_index: usize,
     timing_point_index: usize,
 
-    pub song_start: Instant,
+    song_start: Instant,
     song: Weak<AudioHandle>,
     lead_in_time: f32,
     end_time: f64,
@@ -319,9 +319,12 @@ impl Beatmap {
         let notes = self.notes.clone();
         let mut notes = notes.lock();
 
+        let hit_volume = Settings::get().get_effect_vol() * (self.timing_points[self.timing_point_index].volume as f32 / 100.0);
+
         // if theres no more notes to hit, return
         if self.note_index >= notes.len() {
-            Audio::play_preloaded(sound);
+            let a = Audio::play_preloaded(sound);
+            a.upgrade().unwrap().set_volume(hit_volume);
             return;
         }
 
@@ -353,13 +356,13 @@ impl Beatmap {
         match note.get_points(hit_type, time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300)) {
             ScoreHit::None => {
                 // play sound
-                Audio::play_preloaded(sound);
+                // Audio::play_preloaded(sound);
             },
             ScoreHit::Miss => {
                 self.score.as_mut().unwrap().hit_miss(time as u64, note_time as u64);
                 self.hit_timings.push((time as i64, (time - note_time) as i64));
                 self.next_note();
-                Audio::play_preloaded(sound);
+                // Audio::play_preloaded(sound);
 
                 //TODO: play miss sound
                 //TODO: indicate this was a miss
@@ -371,7 +374,7 @@ impl Beatmap {
                 // only play finisher sounds if the note is both a finisher and was hit
                 // could maybe also just change this to HitObject.get_sound() -> &str
                 if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"};}
-                Audio::play_preloaded(sound);
+                // Audio::play_preloaded(sound);
                 //TODO: indicate this was a bad hit
 
                 self.next_note();
@@ -381,16 +384,20 @@ impl Beatmap {
                 self.hit_timings.push((time as i64, (time - note_time) as i64));
                 
                 if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon",HitType::Kat => "bigkat"};}
-                Audio::play_preloaded(sound);
+                // Audio::play_preloaded(sound);
 
                 self.next_note();
             },
             ScoreHit::Other(score, consume) => { // used by sliders and spinners
                 self.score.as_mut().unwrap().score += score as u64;
                 if consume {self.next_note()}
-                Audio::play_preloaded(sound);
+                // Audio::play_preloaded(sound);
             }
         }
+
+        
+        let a = Audio::play_preloaded(sound);
+        a.upgrade().unwrap().set_volume(hit_volume);
     }
 
     pub fn update(&mut self) {
@@ -807,6 +814,7 @@ pub struct BeatmapMeta {
     pub version: String,
     pub audio_filename: String,
     pub image_filename: String,
+    pub audio_preview: f32,
 
     pub duration: u64, // time in ms from first note to last note
     mins: u8,
@@ -833,6 +841,7 @@ impl BeatmapMeta {
             version: unknown.clone(),
             audio_filename: String::new(),
             image_filename: String::new(),
+            audio_preview: 0.0,
             hp: 0.0,
             od: 0.0,
             sr: 0.0,
@@ -840,8 +849,8 @@ impl BeatmapMeta {
             slider_tick_rate: 1.0,
 
             duration: 0,
-            mins:0,
-            secs:0,
+            mins: 0,
+            secs: 0,
         }
     }
     pub fn set_dur(&mut self, duration:u64) {

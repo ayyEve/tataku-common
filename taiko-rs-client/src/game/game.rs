@@ -720,6 +720,11 @@ impl Game {
                     runtime.spawn(async move {
 
                         // unzip file into ./Songs
+
+                        while let Err(_) = std::fs::File::open(filename.path().to_str().unwrap()) {
+                            tokio::time::sleep(Duration::from_millis(1000)).await;
+                        }
+
                         let file = std::fs::File::open(filename.path().to_str().unwrap()).unwrap();
                         let mut archive = zip::ZipArchive::new(file).unwrap();
                         

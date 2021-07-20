@@ -28,7 +28,6 @@ TODO:
 - // New Audio Engine
  - skip intro
  - handle headphones being unplugged (might require a dropdown to select the output device)
- - hitsound volume *= timing section volume
 
 - // Code
  - refactor code a bit to make it prettier
