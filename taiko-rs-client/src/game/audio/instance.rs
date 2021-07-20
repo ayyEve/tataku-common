@@ -54,10 +54,6 @@ impl AudioInstance {
         }
     }
 
-    pub fn set_instant(&mut self, last_time:Instant) {
-        *self.handle.last_time.lock() = last_time;
-    }
-
     pub fn set_delay(&mut self, delay: f32) {
         *self.handle.delay.lock() = delay;
     }

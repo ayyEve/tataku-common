@@ -665,10 +665,11 @@ impl Beatmap {
                 note.set_sv(sv);
             }
         }
-        {
-            let song = self.song.upgrade().unwrap();
-            song.pause();
-            song.set_position(0.0);
+        if let Some(h) = self.song.upgrade() {
+            h.pause();
+            h.set_position(0.0);
+        } else {
+            self.song = Audio::play(&self.metadata.audio_filename);
         }
         self.note_index = 0;
         self.completed = false;
