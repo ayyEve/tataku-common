@@ -203,10 +203,11 @@ impl Game {
         // }
 
         // check for volume change
+        // TODO: volume_changed wont be needed after audio overhaul
         let mut volume_changed = false;
         if mouse_moved {self.volume_controller.on_mouse_move(mouse_pos)}
         if self.volume_controller.on_key_press(&mut keys, mods) {volume_changed = true}
-        if scroll_delta != 0.0 && self.volume_controller.on_mouse_wheel(scroll_delta, mods) {scroll_delta = 0.0}
+        if scroll_delta != 0.0 && self.volume_controller.on_mouse_wheel(scroll_delta, mods) {scroll_delta = 0.0; volume_changed = true}
 
         
         // users list
