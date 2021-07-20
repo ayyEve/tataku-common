@@ -1,5 +1,5 @@
 My taiko sim made in rust. why? idk. enjoy!
-  
+
 required files/folders: (in game root)
  - fonts/main.ttf (Roboto was used in dev)
  - audio
@@ -26,7 +26,6 @@ TODO:
  - online replays (should come with ^, might be best to make an online_score_menu menu to distinguish between local and online scores)
 
 - // New Audio Engine
- - skip intro
  - handle headphones being unplugged (might require a dropdown to select the output device)
 
 - // Code
