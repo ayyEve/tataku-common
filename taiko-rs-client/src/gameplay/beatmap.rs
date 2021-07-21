@@ -4,9 +4,10 @@ use piston::RenderArgs;
 use parking_lot::Mutex;
 
 use taiko_rs_common::types::{KeyPress, Replay, Score, ScoreHit};
-use super::{*, diff_calc::DifficultyCalculator, beatmap_structs::*};
-use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS, WINDOW_SIZE, game::{Audio, AudioHandle, Settings}};
-use crate::{NOTE_RADIUS, enums::Playmode, game::{get_font, Vector2}, render::{Renderable, Rectangle, Text, Circle, Color, Border}};
+use crate::game::{Audio, AudioHandle, Settings, get_font, Vector2};
+use crate::gameplay::{*, diff_calc::DifficultyCalculator, beatmap_structs::*};
+use crate::{enums::Playmode, render::{Renderable, Rectangle, Text, Circle, Color, Border}};
+use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS, WINDOW_SIZE, NOTE_RADIUS, helpers::visibility_bg};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
 pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // timing bar color
@@ -296,7 +297,16 @@ impl Beatmap {
     }
 
     pub fn calc_sr(&mut self) {self.metadata.sr = DifficultyCalculator::new(Arc::new(Mutex::new(self.to_owned()))).compute_difficulty()}
-    pub fn time(&self) -> i64 {self.song.upgrade().unwrap().current_time() as i64 - (self.lead_in_time as i64 + self.offset)}
+    pub fn time(&mut self) -> i64 {
+        match self.song.upgrade() {
+            Some(_song) => {}
+            None => {
+                println!("song doesnt exist at Beatmap.time()!!");
+                self.song = Audio::play_song(self.metadata.audio_filename.clone(), true);
+                self.song.upgrade().unwrap().pause();
+            }
+        }
+        self.song.upgrade().unwrap().current_time() as i64 - (self.lead_in_time as i64 + self.offset)}
     pub fn next_note(&mut self) {self.note_index += 1}
     pub fn increment_offset(&mut self, delta:i64) {
         self.offset += delta;
@@ -448,8 +458,8 @@ impl Beatmap {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
         // load this here, it a bit more performant
         let font = get_font("main");
-        let score = self.score.as_ref().unwrap();
         let time = self.time();
+        let score = self.score.as_ref().unwrap();
 
         // draw the playfield
         let playfield = Rectangle::new(
@@ -470,6 +480,12 @@ impl Beatmap {
             HIT_POSITION,
             HIT_AREA_RADIUS + 2.0
         )));
+
+
+        renderables.push(visibility_bg(
+            Vector2::new(args.window_size[0] - 200.0, 10.0),
+            Vector2::new(180.0, 75.0 - 10.0)
+        ));
 
         // score text
         renderables.push(Box::new(Text::new(
@@ -523,7 +539,7 @@ impl Beatmap {
         // duration bar
         // duration remaining
         renderables.push(Box::new(Rectangle::new(
-            Color::TRANSPARENT_WHITE,
+            Color::new(0.4, 0.4, 0.4, 0.5),
             1.0,
             Vector2::new(0.0, args.window_size[1] - (DURATION_HEIGHT + 3.0)),
             Vector2::new(args.window_size[0], DURATION_HEIGHT),

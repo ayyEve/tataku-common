@@ -1,7 +1,7 @@
 use piston::{MouseButton, RenderArgs};
 
-use crate::{WINDOW_SIZE, render::*, Vector2};
 use crate::game::{Game, GameMode, KeyModifiers, Settings};
+use crate::{WINDOW_SIZE, Vector2, helpers::visibility_bg, render::*};
 use crate::menu::{Menu, TextInput, MenuButton, KeyButton, PasswordInput, ScrollableArea, ScrollableItem, Checkbox, Slider, MenuSection};
 
 const BUTTON_SIZE:Vector2 = Vector2::new(100.0, 50.0);
@@ -121,7 +121,7 @@ impl Menu for SettingsMenu {
         list.extend(self.scroll_area.draw(args));
 
         // background
-        list.push(self.visibility_bg(Vector2::new(10.0, SCROLLABLE_YOFFSET), Vector2::new(WINDOW_SIZE.x - 20.0, WINDOW_SIZE.y - SCROLLABLE_YOFFSET*2.0)));
+        list.push(visibility_bg(Vector2::new(10.0, SCROLLABLE_YOFFSET), Vector2::new(WINDOW_SIZE.x - 20.0, WINDOW_SIZE.y - SCROLLABLE_YOFFSET*2.0)));
 
         list
     }

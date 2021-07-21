@@ -5,9 +5,9 @@ use parking_lot::Mutex;
 
 use crate::gameplay::Beatmap;
 use taiko_rs_common::types::{Score, HitError};
-use crate::{WINDOW_SIZE, databases, format, render::*};
 use crate::menu::{Menu, MenuButton, ScrollableItem, Graph};
 use crate::game::{Game, GameMode, KeyModifiers, get_font, Vector2};
+use crate::{WINDOW_SIZE, databases, format, render::*, helpers::visibility_bg};
 
 const GRAPH_SIZE:Vector2 = Vector2::new(400.0, 200.0);
 const GRAPH_PADDING:Vector2 = Vector2::new(10.0,10.0);
@@ -124,7 +124,7 @@ impl Menu for ScoreMenu {
         list.extend(self.graph.draw(args, Vector2::zero(), depth));
         
         // draw background so score info is readable
-        list.push(self.visibility_bg(Vector2::one() * 5.0, Vector2::new(WINDOW_SIZE.x * 2.0/3.0, WINDOW_SIZE.y - 5.0)));
+        list.push(visibility_bg(Vector2::one() * 5.0, Vector2::new(WINDOW_SIZE.x * 2.0/3.0, WINDOW_SIZE.y - 5.0)));
 
         list
     }
