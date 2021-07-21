@@ -235,19 +235,18 @@ impl Menu for BeatmapSelectMenu {
 
             self.selected = Some(clicked_tag.clone());
             self.beatmap_scroll.refresh_layout();
-
-            let t = opengl_graphics::Texture::from_path(clicked.lock().metadata.image_filename.clone(), &opengl_graphics::TextureSettings::new()).unwrap();
-            game.background_image = Some(Image::new(Vector2::zero(), f64::MAX, t, WINDOW_SIZE));
+            game.set_background_beatmap(clicked.clone());
 
             let hash = clicked.lock().hash.clone();
             self.selected_beatmap = Some(hash.clone());
             self.load_scores(hash.clone());
-        } else {
-            //TODO: hmm
-            self.selected = None;
-            self.beatmap_scroll.refresh_layout();
-            self.leaderboard_scroll.clear();
-        }
+        } 
+        // else {
+        //     //TODO: hmm
+        //     self.selected = None;
+        //     self.beatmap_scroll.refresh_layout();
+        //     self.leaderboard_scroll.clear();
+        // }
 
     }
     fn on_mouse_move(&mut self, pos:Vector2, game:&mut Game) {

@@ -44,6 +44,8 @@ impl Menu for MainMenu {
         let pos_offset = Vector2::zero();
         let depth = 0.0;
 
+
+
         // draw welcome text
         let mut welcome_text = Text::new(
             Color::BLACK,
@@ -54,6 +56,8 @@ impl Menu for MainMenu {
             get_font("main")
         );
         welcome_text.center_text(Rectangle::bounds_only(Vector2::new(0.0, 30.0), Vector2::new(WINDOW_SIZE.x , 50.0)));
+        
+        list.push(crate::helpers::visibility_bg(welcome_text.pos - Vector2::new(0.0, 40.0), Vector2::new(welcome_text.measure_text().x , 50.0)));
         list.push(Box::new(welcome_text));
 
         // draw buttons

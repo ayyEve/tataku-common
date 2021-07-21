@@ -2508,6 +2508,7 @@ dependencies = [
  "piston2d-graphics",
  "piston2d-opengl_graphics",
  "pistoncore-glfw_window",
+ "rand",
  "reqwest",
  "symphonia",
  "taiko-rs-common",

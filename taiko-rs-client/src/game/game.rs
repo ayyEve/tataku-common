@@ -185,10 +185,10 @@ impl Game {
 
     fn update(&mut self, _delta:f64) {
         self.update_display.increment();
-        let mut current_mode = self.current_mode.clone().to_owned();
-        let elapsed = (self.game_start.elapsed().as_micros() as f64 / 1000.0) as u64;
+        let mut current_mode = self.current_mode.clone(); //TODO: is this still needed? it was needed when game was arc<mutex<>>
+        let elapsed = self.game_start.elapsed().as_millis() as u64;
 
-        // check input events
+        // read input events
         let mouse_pos = self.input_manager.mouse_pos;
         let mut mouse_buttons = self.input_manager.get_mouse_buttons();
         let mouse_moved = self.input_manager.get_mouse_moved();
@@ -204,11 +204,9 @@ impl Game {
         // }
 
         // check for volume change
-        // TODO: volume_changed wont be needed after audio overhaul
-        let mut volume_changed = false;
         if mouse_moved {self.volume_controller.on_mouse_move(mouse_pos)}
-        if self.volume_controller.on_key_press(&mut keys, mods) {volume_changed = true}
-        if scroll_delta != 0.0 && self.volume_controller.on_mouse_wheel(scroll_delta, mods) {scroll_delta = 0.0; volume_changed = true}
+        if scroll_delta != 0.0 && self.volume_controller.on_mouse_wheel(scroll_delta, mods) {scroll_delta = 0.0}
+        self.volume_controller.on_key_press(&mut keys, mods);
         
         // users list
         if keys.contains(&Key::F8) {
@@ -444,8 +442,6 @@ impl Game {
                 let mut menu = menu.lock();
 
                 // menu input events
-                // vol
-                if volume_changed {menu.on_volume_change()}
 
                 // clicks
                 for b in mouse_buttons { 
@@ -709,6 +705,17 @@ impl Game {
     }
     
     pub fn queue_mode_change(&mut self, mode:GameMode) {self.queued_mode = mode}
+
+    /// shortcut for setting the game's background texture to a beatmap's image
+    pub fn set_background_beatmap(&mut self, beatmap:Arc<Mutex<Beatmap>>) {
+        match opengl_graphics::Texture::from_path(beatmap.lock().metadata.image_filename.clone(), &opengl_graphics::TextureSettings::new()) {
+            Ok(tex) => self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, WINDOW_SIZE)),
+            Err(e) => {
+                println!("Error loading beatmap texture: {}", e);
+                self.background_image = None; //TODO!: use a known good background image
+            },
+        }
+    }
 
     /// extract all zips from the downloads folder into the songs folder. not a static function as it uses threading
     pub fn extract_all(&self) {
