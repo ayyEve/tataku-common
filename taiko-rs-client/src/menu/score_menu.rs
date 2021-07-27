@@ -103,13 +103,21 @@ impl Menu for ScoreMenu {
             depth + 1.0,
             Vector2::new(50.0, 280.0),
             30,
-            format!("Error: {:.2}ms - {:.2}ms avg", self.hit_error.early, self.hit_error.late),
+            format!("Mean: {:.2}ms", self.hit_error.mean),
             font.clone()
         )));
         list.push(Box::new(Text::new(
             Color::BLACK,
             depth + 1.0,
             Vector2::new(50.0, 320.0),
+            30,
+            format!("Error: {:.2}ms - {:.2}ms avg", self.hit_error.early, self.hit_error.late),
+            font.clone()
+        )));
+        list.push(Box::new(Text::new(
+            Color::BLACK,
+            depth + 1.0,
+            Vector2::new(50.0, 360.0),
             30,
             format!("Deviance: {:.2}ms", self.hit_error.deviance),
             font.clone()

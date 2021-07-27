@@ -25,7 +25,16 @@ pub struct AudioInstance {
 
 impl AudioInstance {
     pub fn new(sound: Sound, stream_sample_rate: u32, playback_speed: f64) -> Self {
-        let interleaved = interleave(&sound.samples);
+        let interleaved = if sound.channels == 1 {
+            let mut vec = sound.samples.as_ref().clone();
+
+            vec.push(vec[0].clone());
+
+            interleave(&vec)
+
+        } else {
+            interleave(&sound.samples)
+        };
 
         let mut temp_iter = interleaved.iter();
 

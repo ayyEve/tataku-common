@@ -68,13 +68,14 @@ impl Score {
             }
         }
 
-        let average = total_all as f64 / self.hit_timings.len() as f64;
+        let mean = total_all as f64 / self.hit_timings.len() as f64;
         let mut variance = 0.0;
         for i in self.hit_timings.as_slice() {
-            variance += (i.clone() as f64 - average).powi(2);
+            variance += (i.clone() as f64 - mean).powi(2);
         }
 
         HitError {
+            mean,
             early: _total as f64 / _count as f64,
             late: total as f64 / count as f64,
             deviance: (variance / self.hit_timings.len() as f64).sqrt()
@@ -170,6 +171,7 @@ pub enum ScoreHit {
 /// helper struct
 #[derive(Copy, Clone, Debug)]
 pub struct HitError {
+    pub mean: f64,
     pub early: f64,
     pub late: f64,
     pub deviance: f64
