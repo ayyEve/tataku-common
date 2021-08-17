@@ -165,7 +165,7 @@ impl Game {
 
         {
             let settings = Settings::get();
-            if settings.unlimited_fps {
+            if settings.unlimited_fps || cfg!(feature="unlimited_fps") {
                 events.set_max_fps(10_000);
                 events.set_ups(10_000);
             } else {
@@ -176,6 +176,7 @@ impl Game {
 
         while let Some(e) = events.next(&mut self.window) {
             self.input_manager.handle_events(e.clone());
+            events.set_max_fps(100);
             if let Some(args) = e.update_args() {self.update(args.dt*1000.0)}
             if let Some(args) = e.render_args() {self.render(args)}
             if let Some(Button::Keyboard(_)) = e.press_args() {self.input_update_display.increment()}
