@@ -115,10 +115,10 @@ impl SettingsMenu {
         game.queue_mode_change(GameMode::InMenu(menu));
     }
 }
-impl Menu for SettingsMenu {
+impl Menu<Game> for SettingsMenu {
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
-        list.extend(self.scroll_area.draw(args));
+        list.extend(self.scroll_area.draw(args, Vector2::zero(), 0.0));
 
         // background
         list.push(visibility_bg(Vector2::new(10.0, SCROLLABLE_YOFFSET), Vector2::new(WINDOW_SIZE.x - 20.0, WINDOW_SIZE.y - SCROLLABLE_YOFFSET*2.0)));
@@ -126,8 +126,8 @@ impl Menu for SettingsMenu {
         list
     }
 
-    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
-        if let Some(tag) = self.scroll_area.on_click(pos, button, game) {
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, mods:KeyModifiers, game:&mut Game) {
+        if let Some(tag) = self.scroll_area.on_click_tagged(pos, button, mods) {
             match tag.as_str() {
                 "done" => self.finalize(game),
                 _ => {}
@@ -146,7 +146,7 @@ impl Menu for SettingsMenu {
     }
 
     fn update(&mut self, _game: &mut Game) {self.scroll_area.update()}
-    fn on_mouse_move(&mut self, pos:Vector2, game:&mut Game) {self.scroll_area.on_mouse_move(pos, game)}
-    fn on_scroll(&mut self, delta:f64, _game:&mut Game) {self.scroll_area.on_scroll(delta)}
+    fn on_mouse_move(&mut self, pos:Vector2, _game:&mut Game) {self.scroll_area.on_mouse_move(pos)}
+    fn on_scroll(&mut self, delta:f64, _game:&mut Game) {self.scroll_area.on_scroll(delta);}
     fn on_text(&mut self, text:String) {self.scroll_area.on_text(text)}
 }

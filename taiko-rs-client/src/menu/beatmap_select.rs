@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::fs::read_dir;
 use std::collections::HashMap;
 
+use ayyeve_piston_ui::render::*;
 use parking_lot::Mutex;
 use piston::{Key, MouseButton, RenderArgs};
 
@@ -9,7 +10,7 @@ use taiko_rs_common::types::Score;
 use crate::gameplay::{Beatmap, BeatmapMeta};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
 use crate::game::{Game, GameMode, KeyModifiers, get_font, Audio, helpers::BeatmapManager};
-use crate::{SONGS_DIR, WINDOW_SIZE, DOWNLOADS_DIR, Vector2, render::*, databases::get_scores};
+use crate::{SONGS_DIR, WINDOW_SIZE, DOWNLOADS_DIR, Vector2, databases::get_scores};
 
 // constants
 const INFO_BAR_HEIGHT: f64 = 60.0;
@@ -43,7 +44,7 @@ impl BeatmapSelectMenu {
             selected_beatmap: None,
             pending_refresh: false,
             current_scores: HashMap::new(),
-            back_button: MenuButton::back_button(),
+            back_button: MenuButton::back_button(WINDOW_SIZE),
 
             // beatmap_scroll: ScrollableArea::new(Vector2::new(WINDOW_SIZE.x - (BEATMAPSET_ITEM_SIZE.x + BEATMAPSET_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(WINDOW_SIZE.x - LEADERBOARD_ITEM_SIZE.x, WINDOW_SIZE.y - INFO_BAR_HEIGHT), true),
             beatmap_scroll: ScrollableArea::new(Vector2::new(LEADERBOARD_POS.x + LEADERBOARD_ITEM_SIZE.x, INFO_BAR_HEIGHT), Vector2::new(WINDOW_SIZE.x - LEADERBOARD_ITEM_SIZE.x, WINDOW_SIZE.y - INFO_BAR_HEIGHT), true),
@@ -88,7 +89,7 @@ impl BeatmapSelectMenu {
         }
     }
 }
-impl Menu for BeatmapSelectMenu {
+impl Menu<Game> for BeatmapSelectMenu {
     fn update(&mut self, game:&mut Game) {
 
         //TODO: move this to beatmap_manager
@@ -164,10 +165,10 @@ impl Menu for BeatmapSelectMenu {
         }
 
         // beatmap scroll
-        items.extend(self.beatmap_scroll.draw(args));
+        items.extend(self.beatmap_scroll.draw(args, Vector2::zero(), 0.0));
 
         // leaderboard scroll
-        items.extend(self.leaderboard_scroll.draw(args));
+        items.extend(self.leaderboard_scroll.draw(args, Vector2::zero(), 0.0));
 
         // back button
         items.extend(self.back_button.draw(args, Vector2::zero(), 0.0));
@@ -191,16 +192,16 @@ impl Menu for BeatmapSelectMenu {
         // }
     }
 
-    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, mods: ayyeve_piston_ui::menu::KeyModifiers, game:&mut Game) {
 
-        if self.back_button.on_click(pos, button) {
+        if self.back_button.on_click(pos, button, mods) {
             let menu = game.menus.get("main").unwrap().clone();
             game.queue_mode_change(GameMode::InMenu(menu));
             return;
         }
 
         // check if leaderboard item was clicked
-        if let Some(score_tag) = self.leaderboard_scroll.on_click(pos, button, game) {
+        if let Some(score_tag) = self.leaderboard_scroll.on_click_tagged(pos, button, mods) {
             // score display
             if let Some(score) = self.current_scores.get(&score_tag) {
                 let score = score.lock().clone();
@@ -214,7 +215,7 @@ impl Menu for BeatmapSelectMenu {
         }
 
         // check if beatmap item was clicked
-        if let Some(clicked_tag) = self.beatmap_scroll.on_click(pos, button, game) {
+        if let Some(clicked_tag) = self.beatmap_scroll.on_click_tagged(pos, button, mods) {
             let clicked = self.beatmap_scroll.get_tagged(clicked_tag.clone()).first().unwrap().get_value();
             let (clicked, play) = clicked.downcast_ref::<(Arc<Mutex<Beatmap>>, bool)>().unwrap();
 
@@ -249,10 +250,10 @@ impl Menu for BeatmapSelectMenu {
         // }
 
     }
-    fn on_mouse_move(&mut self, pos:Vector2, game:&mut Game) {
+    fn on_mouse_move(&mut self, pos:Vector2, _game:&mut Game) {
         self.back_button.on_mouse_move(pos);
-        self.beatmap_scroll.on_mouse_move(pos, game);
-        self.leaderboard_scroll.on_mouse_move(pos, game);
+        self.beatmap_scroll.on_mouse_move(pos);
+        self.leaderboard_scroll.on_mouse_move(pos);
     }
     fn on_scroll(&mut self, delta:f64, _game:&mut Game) {
         self.beatmap_scroll.on_scroll(delta);
@@ -417,7 +418,7 @@ impl ScrollableItem for BeatmapsetItem {
         items
     }
 
-    fn on_click(&mut self, pos:Vector2, _button:MouseButton) -> bool {
+    fn on_click(&mut self, pos:Vector2, _button:MouseButton, _mods:KeyModifiers) -> bool {
 
         if self.selected && self.hover {
             // find the clicked item
@@ -522,5 +523,5 @@ impl ScrollableItem for LeaderboardItem {
         items
     }
 
-    fn on_click(&mut self, _pos:Vector2, _button:MouseButton) -> bool {self.hover}
+    fn on_click(&mut self, _pos:Vector2, _button:MouseButton, _mods:KeyModifiers) -> bool {self.hover}
 }

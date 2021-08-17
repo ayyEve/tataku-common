@@ -1,5 +1,5 @@
 use std::time::Instant;
-use crate::{game::Vector2, render::{Color, Text}};
+use crate::{Vector2, render::{Color, Text}};
 
 /// fps display helper, cleans up some of the code in game
 pub struct FpsDisplay {

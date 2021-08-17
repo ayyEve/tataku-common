@@ -107,6 +107,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
+name = "ayyeve-piston-ui"
+version = "0.1.0"
+source = "git+https://gitlab.ayyeve.xyz/ayyEve/ayyeve-piston-ui#3fe0145d4936ccca256967f650fa632696a56e14"
+dependencies = [
+ "clipboard",
+ "lazy_static",
+ "parking_lot",
+ "piston",
+ "piston2d-graphics",
+ "piston2d-opengl_graphics",
+]
+
+[[package]]
 name = "base-x"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2498,6 +2511,7 @@ dependencies = [
 name = "taiko-rs-client"
 version = "0.1.0"
 dependencies = [
+ "ayyeve-piston-ui",
  "clipboard",
  "cpal",
  "futures-util",

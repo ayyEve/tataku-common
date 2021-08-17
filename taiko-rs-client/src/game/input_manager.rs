@@ -1,6 +1,7 @@
 use std::{collections::HashSet, time::Instant};
 use piston::input::*;
-use crate::game::Vector2;
+use crate::Vector2;
+pub use ayyeve_piston_ui::menu::KeyModifiers;
 
 pub struct InputManager {
     pub mouse_pos: Vector2,
@@ -127,12 +128,4 @@ impl InputManager {
 
         (min,max,sum)
     }
-}
-
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct KeyModifiers {
-    pub alt: bool,
-    pub ctrl: bool,
-    pub shift: bool
 }

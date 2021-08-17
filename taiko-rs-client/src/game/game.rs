@@ -34,7 +34,7 @@ pub struct Game {
     pub online_manager: Arc<tokio::sync::Mutex<OnlineManager>>,
     pub threading: Runtime,
     
-    pub menus: HashMap<&'static str, Arc<Mutex<dyn Menu>>>,
+    pub menus: HashMap<&'static str, Arc<Mutex<dyn Menu<Game>>>>,
     pub beatmap_manager: Arc<Mutex<BeatmapManager>>, // must be thread safe
     
     pub current_mode: GameMode,
@@ -176,7 +176,6 @@ impl Game {
 
         while let Some(e) = events.next(&mut self.window) {
             self.input_manager.handle_events(e.clone());
-            events.set_max_fps(100);
             if let Some(args) = e.update_args() {self.update(args.dt*1000.0)}
             if let Some(args) = e.render_args() {self.render(args)}
             if let Some(Button::Keyboard(_)) = e.press_args() {self.input_update_display.increment()}
@@ -219,7 +218,7 @@ impl Game {
                 for (_, user) in &om.users {
                     if let Ok(mut u) = user.try_lock() {
                         if mouse_moved {u.on_mouse_move(mouse_pos)}
-                        mouse_buttons.retain(|button| !u.on_click(mouse_pos, button.clone()));
+                        mouse_buttons.retain(|button| !u.on_click(mouse_pos, button.clone(), mods));
                     }
                 }
             }
@@ -447,7 +446,7 @@ impl Game {
                 // clicks
                 for b in mouse_buttons { 
                     // game.start_map() can happen here, which needs &mut self
-                    menu.on_click(mouse_pos, b, self);
+                    menu.on_click(mouse_pos, b, mods, self);
                 }
                 // mouse move
                 if mouse_moved {menu.on_mouse_move(mouse_pos, self)}
@@ -788,7 +787,7 @@ pub enum GameMode {
     None, // use this as the inital game mode, but me sure to change it after
     Closing,
     Ingame(Arc<Mutex<Beatmap>>),
-    InMenu(Arc<Mutex<dyn Menu>>),
+    InMenu(Arc<Mutex<dyn Menu<Game>>>),
     Replaying(Arc<Mutex<Beatmap>>, Replay, u64),
 
     #[allow(dead_code)]

@@ -4,12 +4,13 @@ use std::{fs::File, path::Path};
 use std::io::{self, BufRead, BufReader, Lines};
 
 // local imports
-use game::{Game, Vector2, helpers::BenchmarkHelper};
+use game::{Game, helpers::BenchmarkHelper};
+pub use ayyeve_piston_ui::render;
+pub use ayyeve_piston_ui::render::Vector2;
 
 // include files
 mod game;
 mod gameplay;
-mod render;
 mod menu;
 mod databases;
 mod enums;

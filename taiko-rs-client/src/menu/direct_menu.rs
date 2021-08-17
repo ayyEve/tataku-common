@@ -5,10 +5,10 @@ use std::{fs::File, io::Write};
 use piston::{Key, MouseButton};
 //use rodio::Sink; // ugh
 
-use crate::{WINDOW_SIZE, DOWNLOADS_DIR};
+use crate::{WINDOW_SIZE, DOWNLOADS_DIR, Vector2};
 use crate::render::{Text, Renderable, Rectangle, Color, Border};
 use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
-use crate::game::{Audio, Game, GameMode, KeyModifiers, Settings, Vector2, get_font};
+use crate::game::{Audio, Game, GameMode, KeyModifiers, Settings, get_font};
 
 const DOWNLOAD_ITEM_SIZE:Vector2 = Vector2::new(300.0, 40.0);
 const DOWNLOAD_ITEM_YMARGIN:f64 = 30.0;
@@ -118,7 +118,7 @@ impl OsuDirectMenu {
         game.queue_mode_change(GameMode::InMenu(menu));
     }
 }
-impl Menu for OsuDirectMenu {
+impl Menu<Game> for OsuDirectMenu {
     fn update(&mut self, _game:&mut Game) {
         // check download statuses
         let dir = std::fs::read_dir(DOWNLOADS_DIR).unwrap();
@@ -142,7 +142,7 @@ impl Menu for OsuDirectMenu {
 
     fn draw(&mut self, args:piston::RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list:Vec<Box<dyn Renderable>> = Vec::new();
-        list.extend(self.scroll_area.draw(args));
+        list.extend(self.scroll_area.draw(args, Vector2::zero(), 0.0));
 
         list.extend(self.search_bar.draw(args, Vector2::zero(), -90.0));
 
@@ -218,10 +218,10 @@ impl Menu for OsuDirectMenu {
         self.scroll_area.on_scroll(delta);
     }
 
-    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
-        self.search_bar.on_click(pos, button);
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, mods:KeyModifiers, _game:&mut Game) {
+        self.search_bar.on_click(pos, button, mods);
 
-        if let Some(key) = self.scroll_area.on_click(pos, button, game) {
+        if let Some(key) = self.scroll_area.on_click_tagged(pos, button, mods) {
             if let Some(selected) = self.selected.clone() {
                 if key == selected {
                     if let Some(item) = self.items.get(&key) {
@@ -239,9 +239,9 @@ impl Menu for OsuDirectMenu {
         }
     }
 
-    fn on_mouse_move(&mut self, pos:Vector2, game:&mut Game) {
+    fn on_mouse_move(&mut self, pos:Vector2, _game:&mut Game) {
         self.search_bar.on_mouse_move(pos);
-        self.scroll_area.on_mouse_move(pos, game);
+        self.scroll_area.on_mouse_move(pos);
     }
 
     fn on_key_press(&mut self, key:Key, game:&mut Game, mods:KeyModifiers) {
@@ -378,7 +378,7 @@ impl ScrollableItem for DirectItem {
         list
     }
 
-    fn on_click(&mut self, _pos:Vector2, _button:piston::MouseButton) -> bool {
+    fn on_click(&mut self, _pos:Vector2, _button:piston::MouseButton, _mods:KeyModifiers) -> bool {
         if self.selected && self.hover {self.download()}
 
         self.selected = self.hover;

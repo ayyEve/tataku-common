@@ -23,9 +23,10 @@ symphonia = { version = "0.3.0", default-features = false, features = ["mp3", "o
 
 # piston etc
 piston = "0.53.0"
-piston2d-opengl_graphics = "0.78.0"
 piston2d-graphics = "0.40.0"
 pistoncore-glfw_window = "0.71.0"
+piston2d-opengl_graphics = "0.78.0"
+ayyeve-piston-ui = {git = "https://gitlab.ayyeve.xyz/ayyEve/ayyeve-piston-ui"}
 
 # networking
 reqwest = { version = "0.11.4", features = ["blocking"] }

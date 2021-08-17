@@ -3,9 +3,9 @@ use piston::{MouseButton, RenderArgs};
 
 use parking_lot::Mutex;
 
-use crate::{WINDOW_SIZE, render::*, gameplay::Beatmap};
-use crate::game::{Game, GameMode, KeyModifiers, Vector2};
-use crate::menu::{Menu, MenuButton, menu_elements::ScrollableItem};
+use crate::game::{Game, GameMode, KeyModifiers};
+use crate::menu::{Menu, MenuButton, ScrollableItem};
+use crate::{WINDOW_SIZE, Vector2, render::*, gameplay::Beatmap};
 
 const BUTTON_SIZE:Vector2 = Vector2::new(100.0, 50.0);
 const Y_MARGIN:f64 = 20.0;
@@ -34,7 +34,7 @@ impl PauseMenu {
         game.queue_mode_change(GameMode::Ingame(self.beatmap.clone()));
     }
 }
-impl Menu for PauseMenu {
+impl Menu<Game> for PauseMenu {
     fn get_name(&self) -> &str {"pause"}
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
@@ -49,23 +49,22 @@ impl Menu for PauseMenu {
         list
     }
 
-    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
-
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, mods:KeyModifiers, game:&mut Game) {
         // continue map
-        if self.continue_button.on_click(pos, button) {
+        if self.continue_button.on_click(pos, button, mods) {
             self.unpause(game);
             return;
         }
         
         // retry
-        if self.retry_button.on_click(pos, button) {
+        if self.retry_button.on_click(pos, button, mods) {
             self.beatmap.lock().reset();
             self.unpause(game);
             return;
         }
 
         // return to song select
-        if self.exit_button.on_click(pos, button) {
+        if self.exit_button.on_click(pos, button, mods) {
             let menu = game.menus.get("beatmap").unwrap().to_owned();
             game.queue_mode_change(GameMode::InMenu(menu));
 

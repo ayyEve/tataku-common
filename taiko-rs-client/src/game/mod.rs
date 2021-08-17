@@ -11,4 +11,3 @@ pub use game::*;
 pub use settings::*;
 pub use input_manager::*;
 pub use fonts::*;
-pub use helpers::Vector2;

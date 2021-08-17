@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
+use ayyeve_piston_ui::menu::KeyModifiers;
 use parking_lot::Mutex;
 use piston::{MouseButton, RenderArgs};
 
-use crate::{WINDOW_SIZE, render::*};
-use crate::game::{Game, GameMode, get_font, Vector2};
+use crate::{WINDOW_SIZE, Vector2, render::*};
+use crate::game::{Game, GameMode, get_font};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
 
 const BUTTON_SIZE: Vector2 = Vector2::new(100.0, 50.0);
@@ -38,7 +39,7 @@ impl MainMenu {
         }
     }
 }
-impl Menu for MainMenu {
+impl Menu<Game> for MainMenu {
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let pos_offset = Vector2::zero();
@@ -69,30 +70,30 @@ impl Menu for MainMenu {
         list
     }
 
-    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, mods:KeyModifiers, game:&mut Game) {
         // switch to beatmap selection
-        if self.play_button.on_click(pos, button) {
+        if self.play_button.on_click(pos, button, mods) {
             let menu = game.menus.get("beatmap").unwrap().clone();
             game.queue_mode_change(GameMode::InMenu(menu));
             return;
         }
 
         // open direct menu
-        if self.direct_button.on_click(pos, button) {
-            let menu:Arc<Mutex<dyn Menu>> = Arc::new(Mutex::new(OsuDirectMenu::new()));
+        if self.direct_button.on_click(pos, button, mods) {
+            let menu:Arc<Mutex<dyn Menu<Game>>> = Arc::new(Mutex::new(OsuDirectMenu::new()));
             game.queue_mode_change(GameMode::InMenu(menu));
             return;
         }
 
         // open settings menu
-        if self.settings_button.on_click(pos, button) {
+        if self.settings_button.on_click(pos, button, mods) {
             let menu = game.menus.get("settings").unwrap().clone();
             game.queue_mode_change(GameMode::InMenu(menu));
             return;
         }
 
         // quit game
-        if self.exit_button.on_click(pos, button) {
+        if self.exit_button.on_click(pos, button, mods) {
             game.queue_mode_change(GameMode::Closing);
             return;
         }

@@ -4,10 +4,10 @@ use piston::RenderArgs;
 use parking_lot::Mutex;
 
 use taiko_rs_common::types::{KeyPress, Replay, Score, ScoreHit};
-use crate::game::{Audio, AudioHandle, Settings, get_font, Vector2};
+use crate::game::{Audio, AudioHandle, Settings, get_font};
 use crate::gameplay::{*, diff_calc::DifficultyCalculator, beatmap_structs::*};
 use crate::{enums::Playmode, render::{Renderable, Rectangle, Text, Circle, Color, Border}};
-use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS, WINDOW_SIZE, NOTE_RADIUS, helpers::visibility_bg};
+use crate::{HIT_AREA_RADIUS, HIT_POSITION, PLAYFIELD_RADIUS, WINDOW_SIZE, NOTE_RADIUS, Vector2, helpers::visibility_bg};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
 pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // timing bar color

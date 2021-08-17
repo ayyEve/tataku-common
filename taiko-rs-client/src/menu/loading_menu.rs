@@ -6,8 +6,8 @@ use rand::prelude::*;
 
 use crate::game::Audio;
 use crate::render::{Color, Rectangle, Text};
-use crate::{SONGS_DIR, WINDOW_SIZE, menu::Menu};
-use crate::game::{Game, Vector2, helpers::BeatmapManager};
+use crate::{SONGS_DIR, WINDOW_SIZE, Vector2, menu::Menu};
+use crate::game::{Game, helpers::BeatmapManager};
 use taiko_rs_common::{types::Score, serialization::Serializable};
 
 /// helper for when starting the game. will load beatmaps, settings, etc from storage
@@ -105,7 +105,7 @@ impl LoadingMenu {
     }
 }
 
-impl Menu for LoadingMenu {
+impl Menu<Game> for LoadingMenu {
     fn update(&mut self, game:&mut Game) {
         if let LoadingStage::Done = self.status.lock().stage {
             let menu = game.menus.get("main").unwrap().clone();

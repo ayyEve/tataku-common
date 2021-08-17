@@ -1,7 +1,7 @@
 use piston::RenderArgs;
 
 use taiko_rs_common::types::ScoreHit;
-use crate::game::Vector2;
+use crate::Vector2;
 use crate::gameplay::BAR_COLOR;
 use crate::{HIT_POSITION, NOTE_RADIUS};
 use crate::render::{Circle, Color, HalfCircle, Rectangle, Renderable, Border};

@@ -132,7 +132,10 @@ impl Serializable for Settings {
             s.unlimited_fps = sr.read();
             s.fps_target = sr.read();
             s.update_target = sr.read();
-            s.window_size = sr.read();
+            s.window_size = Vector2::new(
+                sr.read(),
+                sr.read()
+            );
             s.background_dim = sr.read();
         }
 
@@ -164,18 +167,8 @@ impl Serializable for Settings {
         sw.write(self.unlimited_fps);
         sw.write(self.fps_target);
         sw.write(self.update_target);
-        sw.write(self.window_size);
+        sw.write(self.window_size.x);
+        sw.write(self.window_size.y);
         sw.write(self.background_dim);
-    }
-}
-
-impl Serializable for Vector2 {
-    fn read(sr:&mut SerializationReader) -> Self {
-        Vector2::new(sr.read(), sr.read())
-    }
-
-    fn write(&self, sw:&mut SerializationWriter) {
-        sw.write(self.x);
-        sw.write(self.y);
     }
 }
