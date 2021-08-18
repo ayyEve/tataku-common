@@ -162,8 +162,6 @@ impl Game {
         // input and rendering thread
         let mut events = Events::new(EventSettings::new());
 
-
-
         {
             let settings = Settings::get();
             if settings.unlimited_fps || cfg!(feature="unlimited_fps") {

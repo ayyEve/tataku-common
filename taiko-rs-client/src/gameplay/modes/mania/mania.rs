@@ -456,13 +456,25 @@ impl GameMode for ManiaGame {
                 Some(Border::new(Color::GREEN, 1.2))
             )));
 
+            // hit area for this col
             list.push(Box::new(Rectangle::new(
-                if self.column_states[col as usize] {self.get_color(col)} else {Color::TRANSPARENT_WHITE},
+                Color::TRANSPARENT_WHITE,
                 -100.0,
                 Vector2::new(x, HIT_Y),
                 NOTE_SIZE,
                 Some(Border::new(Color::RED, 2.0))
             )));
+            // draw button state for this col
+            if self.column_states[col as usize] {
+                list.push(Box::new(Rectangle::new(
+                    self.get_color(col),
+                    -110.0,
+                    Vector2::new(x, HIT_Y),
+                    NOTE_SIZE,
+                    Some(Border::new(Color::RED, 2.0))
+                )));
+            }
+
         }
         
         list.push(Box::new(Rectangle::new(

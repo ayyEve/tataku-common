@@ -162,7 +162,7 @@ impl HitObject for ManiaHold {
         // start
         let note = Rectangle::new(
             Color::YELLOW,
-            -100.0,
+            -100.1,
             self.pos,
             NOTE_SIZE,
             Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
@@ -182,7 +182,7 @@ impl HitObject for ManiaHold {
         // end
         let note = Rectangle::new(
             Color::YELLOW,
-            -100.0,
+            -100.1,
             self.pos + Vector2::new(0.0, self.end_y - self.pos.y),
             NOTE_SIZE,
             Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
