@@ -81,7 +81,17 @@ pub enum KeyPress {
     LeftKat = 0,
     LeftDon = 1,
     RightDon = 2,
-    RightKat = 3
+    RightKat = 3,
+
+    Mania1 = 4,
+    Mania2 = 5,
+    Mania3 = 6,
+    Mania4 = 7,
+    Mania5 = 8,
+    Mania6 = 9,
+    Mania7 = 10,
+    Mania8 = 11,
+    Mania9 = 12,
 }
 impl Into<u8> for KeyPress {
     fn into(self) -> u8 {

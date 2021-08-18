@@ -7,7 +7,7 @@ use opengl_graphics::GlyphCache;
 use taiko_rs_common::types::{KeyPress, PlayMode, Replay, Score};
 
 use crate::gameplay::*;
-use crate::{HIT_POSITION, WINDOW_SIZE, Vector2};
+use crate::{WINDOW_SIZE, Vector2};
 use crate::render::{Renderable, Rectangle, Text, Color};
 use crate::game::{Audio, AudioHandle, Settings, get_font};
 
@@ -123,12 +123,12 @@ impl IngameManager {
             Some(song) => {
                 song.set_position(0.0);
                 song.pause();
-            },
+            }
             None => {
                 self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true);
                 let s = self.song.upgrade().unwrap();
                 s.pause();
-            },
+            }
         }
 
         self.gamemode.lock().reset(self.beatmap.clone());
@@ -291,7 +291,7 @@ impl IngameManager {
                 format!("Offset: {}", self.offset),
                 font.clone()
             );
-            offset_text.center_text(Rectangle::bounds_only(Vector2::zero(), Vector2::new(WINDOW_SIZE.x , HIT_POSITION.y)));
+            offset_text.center_text(Rectangle::bounds_only(Vector2::zero(), Vector2::new(WINDOW_SIZE.x , WINDOW_SIZE.y * 2.0/3.0)));
             list.push(Box::new(offset_text));
         }
 

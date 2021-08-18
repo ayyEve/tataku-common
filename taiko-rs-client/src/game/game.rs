@@ -103,7 +103,6 @@ impl Game {
             current_state: GameState::None,
             queued_state: GameState::None,
 
-
             // fps
             fps_display: FpsDisplay::new("fps", 0),
             update_display: FpsDisplay::new("updates/s", 1),
@@ -162,6 +161,8 @@ impl Game {
     pub fn game_loop(mut self) {
         // input and rendering thread
         let mut events = Events::new(EventSettings::new());
+
+
 
         {
             let settings = Settings::get();
@@ -231,7 +232,6 @@ impl Game {
         // run update on current state
         match current_state {
             GameState::Ingame(ref manager) => {
-                // let settings = Settings::get();
                 let mut lock = manager.lock();
                 
                 // pause button, or focus lost, only if not replaying
@@ -679,7 +679,6 @@ pub enum GameState {
     Closing,
     Ingame(Arc<Mutex<IngameManager>>),
     InMenu(Arc<Mutex<dyn Menu<Game>>>),
-    // Replaying(Arc<Mutex<Beatmap>>, Replay, u64),
 
     #[allow(dead_code)]
     Spectating(Arc<Mutex<SpectatorFrames>>, SpectatorState, Option<Arc<Mutex<Beatmap>>>), // frames awaiting replay, state, beatmap

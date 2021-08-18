@@ -56,10 +56,10 @@ impl BeatmapManager {
 
             if file.ends_with(".osu") {
                 let map = Beatmap::load(file.to_owned());
-                if map.lock().metadata.mode as u8 > 1 {
-                    // println!("skipping {}, not a taiko map or convert", map.lock().metadata.version_string());
-                    continue;
-                }
+                // if map.lock().metadata.mode as u8 > 1 {
+                //     // println!("skipping {}, not a taiko map or convert", map.lock().metadata.version_string());
+                //     // continue;
+                // }
                 self.add_beatmap(map);
             }
         }

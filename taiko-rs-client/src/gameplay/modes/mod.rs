@@ -1,25 +1,28 @@
+use std::sync::Arc;
+
+use parking_lot::Mutex;
 use taiko_rs_common::types::PlayMode;
 
-use self::taiko::TaikoGame;
 use super::{Beatmap, GameMode};
 
 pub mod taiko;
-
+pub mod mania;
 
 use PlayMode::*;
-pub fn select_gamemode_from_playmode(playmode:PlayMode, beatmap:&Beatmap) -> impl GameMode {
+pub fn select_gamemode_from_playmode(playmode:PlayMode, beatmap:&Beatmap) -> Arc<Mutex<dyn GameMode>> {
+    println!("playmode: {:?}", playmode);
     match playmode {
         Standard => {
-            TaikoGame::new(beatmap)
-        },
+            Arc::new(Mutex::new(taiko::TaikoGame::new(beatmap)))
+        }
         Taiko => {
-            TaikoGame::new(beatmap)
-        },
+            Arc::new(Mutex::new(taiko::TaikoGame::new(beatmap)))
+        }
         Catch => {
-            TaikoGame::new(beatmap)
-        },
+            Arc::new(Mutex::new(taiko::TaikoGame::new(beatmap)))
+        }
         Mania => {
-            TaikoGame::new(beatmap)
-        },
+            Arc::new(Mutex::new(mania::ManiaGame::new(beatmap)))
+        }
     }
 }

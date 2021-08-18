@@ -20,6 +20,7 @@ pub struct Beatmap {
     pub notes: Vec<NoteDef>,
     pub sliders: Vec<SliderDef>,
     pub spinners: Vec<SpinnerDef>,
+    pub holds: Vec<HoldDef>,
 }
 impl Beatmap {
     pub fn load(dir:String) -> Arc<Mutex<Beatmap>> {
@@ -31,6 +32,7 @@ impl Beatmap {
             notes: Vec::new(),
             sliders: Vec::new(),
             spinners: Vec::new(),
+            holds: Vec::new(),
             timing_points: Vec::new(),
             metadata: BeatmapMeta::new(),
             end_time: 0.0,
@@ -136,7 +138,7 @@ impl Beatmap {
                         let x = split.next().unwrap().parse::<f64>().unwrap();
                         let y = split.next().unwrap().parse::<f64>().unwrap();
                         let time = split.next().unwrap().parse::<f64>().unwrap();
-                        let read_type = split.next().unwrap().parse::<u64>().unwrap_or(0); // note, slider, spinner
+                        let read_type = split.next().unwrap().parse::<u64>().unwrap_or(0); // note, slider, spinner, hold
                         let hitsound = split.next().unwrap().parse::<u32>().unwrap_or(0); // 0 = normal, 2 = whistle, 4 = finish, 8 = clap
 
                         if (read_type & 2) > 0 { // slider
@@ -202,6 +204,16 @@ impl Beatmap {
                             // let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
                             // let spinner = Spinner::new(time, end_time, sv, hits_required);
                             // beatmap.notes.lock().push(Box::new(spinner));
+                        } else if (read_type & 2u64.pow(7)) > 0 { // mania hold
+                            let end_time = split.next().unwrap().split(":").next().unwrap().parse::<f64>().unwrap();
+                            beatmap.holds.push(HoldDef {
+                                pos: Vector2::new(x, y),
+                                time,
+                                end_time,
+                                hitsound,
+                                hitsamples: Vec::new()
+                            });
+
                         } else { // note
 
                             beatmap.notes.push(NoteDef {
@@ -309,7 +321,6 @@ pub struct SpinnerDef {
 
 #[derive(Clone, Debug)]
 pub struct HoldDef {
-    /// col = floor(x * columnCount / 512)
     pub pos: Vector2,
     pub time: f64,
     pub hitsound: u32,

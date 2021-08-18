@@ -226,8 +226,9 @@ impl Menu<Game> for BeatmapSelectMenu {
                 Audio::stop_song();
                 let map = clicked.lock();
 
-                let gamemode = select_gamemode_from_playmode(self.mode, &map.clone());
-                let manager = IngameManager::new(map.clone(), Arc::new(Mutex::new(gamemode)));
+                let playmode = if map.metadata.mode == PlayMode::Standard {self.mode} else {map.metadata.mode};
+                let gamemode = select_gamemode_from_playmode(playmode, &map.clone());
+                let manager = IngameManager::new(map.clone(), gamemode);
                 game.queue_state_change(GameState::Ingame(Arc::new(Mutex::new(manager))));
                 return;
             }
@@ -384,6 +385,7 @@ impl ScrollableItem for BeatmapsetItem {
             }
 
             for b in self.beatmaps.as_slice() {
+                let meta = &b.lock().metadata;
                 // bounding rect
                 items.push(Box::new(Rectangle::new(
                     [0.2, 0.2, 0.2, 1.0].into(),
@@ -404,7 +406,7 @@ impl ScrollableItem for BeatmapsetItem {
                     parent_depth + 4.0,
                     pos + Vector2::new(5.0, 20.0),
                     12,
-                    format!("{}", b.lock().metadata.version),
+                    format!("({:?}) - {}", meta.mode, meta.version),
                     font.clone()
                 )));
 

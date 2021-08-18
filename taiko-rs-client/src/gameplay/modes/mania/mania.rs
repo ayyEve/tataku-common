@@ -1,3 +1,5 @@
+use std::u8;
+
 use ayyeve_piston_ui::render::*;
 use piston::RenderArgs;
 use taiko_rs_common::types::KeyPress;
@@ -6,19 +8,22 @@ use taiko_rs_common::types::PlayMode;
 
 use crate::game::Audio;
 use crate::game::Settings;
+use crate::gameplay::HoldDef;
 use crate::gameplay::SliderDef;
 use crate::gameplay::SpinnerDef;
 use crate::gameplay::map_difficulty_range;
-use crate::{WINDOW_SIZE, Vector2, helpers::visibility_bg};
 use crate::gameplay::{GameMode, HitObject, Beatmap, IngameManager, TimingPoint};
+use crate::{WINDOW_SIZE, Vector2, helpers::visibility_bg};
 
-use super::*;
+use super::{ManiaHold, ManiaNote};
 
 
-pub const NOTE_RADIUS:f64 = 32.0;
-pub const HIT_AREA_RADIUS:f64 = NOTE_RADIUS * 1.3;
-pub const HIT_POSITION:Vector2 = Vector2::new(180.0, 200.0);
-pub const PLAYFIELD_RADIUS:f64 = NOTE_RADIUS * 2.0; // actually height, oops
+pub const COLUMN_WIDTH: f64 = 100.0;
+pub const NOTE_SIZE:Vector2 = Vector2::new(COLUMN_WIDTH, 20.0);
+pub const NOTE_BORDER_SIZE:f64 = 2.0;
+pub const HIT_Y:f64 = WINDOW_SIZE.y - 200.0;
+const COLUMN_SIZE:Vector2 = Vector2::new(COLUMN_WIDTH, WINDOW_SIZE.y - HIT_Y);
+
 
 pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // timing bar color
 const BAR_WIDTH:f64 = 4.0; // how wide is a timing bar
@@ -39,16 +44,19 @@ const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
 // const OFFSET_DRAW_TIME:i64 = 2_000; // how long should the offset be drawn for?
 
 /// how long should the drum buttons last for?
-const DRUM_LIFETIME_TIME:u64 = 100;
+// const DRUM_LIFETIME_TIME:u64 = 100;
 
+const COLUMN_COUNT:u8 = 4; //TODO!!
 
-pub struct TaikoGame {
+pub struct ManiaGame {
     // lists
-    pub notes: Vec<Box<dyn HitObject>>,
+    columns: Vec<Vec<Box<dyn HitObject>>>,
     timing_bars: Vec<TimingBar>,
     // list indices
-    note_index: usize,
     timing_point_index: usize,
+    column_indices: Vec<usize>,
+    /// true if held
+    column_states: Vec<bool>,
 
     // hit timing bar stuff
     /// map time, diff (note - hit) //TODO: figure out how to draw this efficiently
@@ -58,19 +66,36 @@ pub struct TaikoGame {
     hitwindow_miss: f64,
 
     end_time: f64,
+    column_count: u8,
 
-    render_queue: Vec<Box<HalfCircle>>,
+    render_queue: Vec<Box<Rectangle>>,
 }
-impl TaikoGame {
-    pub fn next_note(&mut self) {self.note_index += 1}
+impl ManiaGame {
+    /// get the x_pos for `col`
+    pub fn col_pos(&self, col:u8) -> f64{
+        let total_width = self.column_count as f64 * COLUMN_WIDTH;
+        let x_offset = (WINDOW_SIZE.x - total_width) / 2.0;
+
+        x_offset + col as f64 * COLUMN_WIDTH
+    }
+
+    pub fn get_color(&self, _col:u8) -> Color {
+        Color::WHITE
+    }
+
+    fn next_note(&mut self, col:usize) {
+        (*self.column_indices.get_mut(col).unwrap()) += 1;
+    }
 }
 
-impl GameMode for TaikoGame {
-    fn playmode(&self) -> PlayMode {PlayMode::Taiko}
+impl GameMode for ManiaGame {
+    fn playmode(&self) -> PlayMode {PlayMode::Mania}
     fn new(beatmap:&Beatmap) -> Self {
+        println!("mania!");
         let mut s = Self {
-            notes: Vec::new(),
-            note_index: 0,
+            columns: Vec::new(),
+            column_indices:Vec::new(),
+            column_states: Vec::new(),
 
             timing_bars: Vec::new(),
             timing_point_index: 0,
@@ -81,94 +106,73 @@ impl GameMode for TaikoGame {
             hitwindow_300: 0.0,
             hitwindow_miss: 0.0,
 
+            column_count: COLUMN_COUNT,
             render_queue: Vec::new()
         };
 
+        // init defaults for the columsn
+        for _col in 0..s.column_count {
+            s.columns.push(Vec::new());
+            s.column_indices.push(0);
+            s.column_states.push(false);
+        }
+
         // add notes
         for note in beatmap.notes.iter() {
-            let hit_type = if (note.hitsound & (2 | 8)) > 0 {super::HitType::Kat} else {super::HitType::Don};
-            let finisher = (note.hitsound & 4) > 0;
+            if beatmap.metadata.mode == PlayMode::Mania {
+                let column = (note.pos.x * s.column_count as f64 / 512.0).floor() as u8;
+                let x = s.col_pos(column);
+                s.columns[column as usize].push(Box::new(ManiaNote::new(
+                    note.time as u64,
+                    x,
+                    1.0
+                )));
+            }
+        }
+        for hold in beatmap.holds.iter() {
+            let HoldDef {pos, time, end_time, ..} = hold.to_owned();
+            let time = time as u64;
 
-            s.notes.push(Box::new(TaikoNote::new(
-                note.time as u64,
-                hit_type,
-                finisher,
+            let column = (pos.x * s.column_count as f64 / 512.0).floor() as u8;
+            let x = s.col_pos(column);
+            println!("hold: {:?}, col: {}, x:{}", pos, column, x);
+            s.columns[column as usize].push(Box::new(ManiaHold::new(
+                time as u64,
+                end_time as u64,
+                x,
                 1.0
             )));
         }
+        
         for slider in beatmap.sliders.iter() {
-            let SliderDef {time, slides, length, ..} = slider.to_owned();
+            let SliderDef {pos, time, slides, length, ..} = slider.to_owned();
             let time = time as u64;
-            let finisher = (slider.hitsound & 4) > 0;
 
             let l = (length * 1.4) * slides as f64;
             let v2 = 100.0 * (beatmap.metadata.slider_multiplier as f64 * 1.4);
             let bl = beatmap.beat_length_at(time as f64, true);
             let end_time = time + (l / v2 * bl) as u64;
-            
-            // convert vars
-            let v = beatmap.slider_velocity_at(time as u64);
-            let bl = beatmap.beat_length_at(time as f64, beatmap.metadata.beatmap_version < 8.0);
-            let skip_period = (bl / beatmap.metadata.slider_tick_rate as f64).min((end_time - time) as f64 / slides as f64);
-
-            if skip_period > 0.0 && beatmap.metadata.mode != PlayMode::Taiko && l / v * 1000.0 < 2.0 * bl {
-                let mut i = 0;
-                let mut j = time as f64;
-
-                // load sounds
-                // let sound_list_raw = if let Some(list) = split.next() {list.split("|")} else {"".split("")};
-
-                // when loading, if unified just have it as sound_types with 1 index
-                let mut sound_types:Vec<(HitType, bool)> = Vec::new();
-
-                // for i in sound_list_raw {
-                //     if let Ok(hitsound) = i.parse::<u32>() {
-                //         let hit_type = if (hitsound & (2 | 8)) > 0 {super::HitType::Kat} else {super::HitType::Don};
-                //         let finisher = (hitsound & 4) > 0;
-                //         sound_types.push((hit_type, finisher));
-                //     }
-                // }
-                
-                let unified_sound_addition = sound_types.len() == 0;
-                if unified_sound_addition {
-                    sound_types.push((HitType::Don, false));
-                }
-
-                //TODO: could this be turned into a for i in (x..y).step(n) ?
-                loop {
-                    let sound_type = sound_types[i];
-
-                    let note = TaikoNote::new(
-                        j as u64,
-                        sound_type.0,
-                        sound_type.1,
-                        1.0
-                    );
-                    s.notes.push(Box::new(note));
-
-                    if !unified_sound_addition {i = (i + 1) % sound_types.len()}
-
-                    j += skip_period;
-                    if !(j < end_time as f64 + skip_period / 8.0) {break}
-                }
-            } else {
-                let slider = TaikoSlider::new(time, end_time, finisher, 1.0);
-                s.notes.push(Box::new(slider));
+    
+            if beatmap.metadata.mode == PlayMode::Mania {
+                let column = (pos.x * s.column_count as f64 / 512.0).floor() as u8;
+                let x = s.col_pos(column);
+                s.columns[column as usize].push(Box::new(ManiaHold::new(
+                    time as u64,
+                    end_time as u64,
+                    x,
+                    1.0
+                )));
             }
         }
         for spinner in beatmap.spinners.iter() {
             let SpinnerDef {time, end_time, ..} = spinner;
-
-            let length = end_time - time;
-            let diff_map = map_difficulty_range(beatmap.metadata.od as f64, 3.0, 5.0, 7.5);
-            let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
-
-            s.notes.push(Box::new(TaikoSpinner::new(*time as u64, *end_time as u64, 1.0, hits_required)));
+            //TODO
         }
 
-        s.notes.sort_by(|a, b|a.time().cmp(&b.time()));
-        s.end_time = s.notes.iter().last().unwrap().time() as f64;
-
+        for col in s.columns.iter_mut() {
+            col.sort_by(|a, b|a.time().cmp(&b.time()));
+            s.end_time = s.end_time.max(col.iter().last().unwrap().time() as f64);
+        }
         s
     }
 
@@ -178,91 +182,38 @@ impl GameMode for TaikoGame {
             manager.replay.presses.push((time as i64, key));
         }
 
-        // draw drum
-        match key {
-            KeyPress::LeftKat => {
-                let mut hit = HalfCircle::new(
-                    Color::BLUE,
-                    HIT_POSITION,
-                    1.0,
-                    HIT_AREA_RADIUS,
-                    true
-                );
-                hit.set_lifetime(DRUM_LIFETIME_TIME);
-                self.render_queue.push(Box::new(hit));
-            },
-            KeyPress::LeftDon => {
-                let mut hit = HalfCircle::new(
-                    Color::RED,
-                    HIT_POSITION,
-                    1.0,
-                    HIT_AREA_RADIUS,
-                    true
-                );
-                hit.set_lifetime(DRUM_LIFETIME_TIME);
-                self.render_queue.push(Box::new(hit));
-            },
-            KeyPress::RightDon => {
-                let mut hit = HalfCircle::new(
-                    Color::RED,
-                    HIT_POSITION,
-                    1.0,
-                    HIT_AREA_RADIUS,
-                    false
-                );
-                hit.set_lifetime(DRUM_LIFETIME_TIME);
-                self.render_queue.push(Box::new(hit));
-            },
-            KeyPress::RightKat => {
-                let mut hit = HalfCircle::new(
-                    Color::BLUE,
-                    HIT_POSITION,
-                    1.0,
-                    HIT_AREA_RADIUS,
-                    false
-                );
-                hit.set_lifetime(DRUM_LIFETIME_TIME);
-                self.render_queue.push(Box::new(hit));
-            },
-            _=> {}
-        }
+        let col:u8 = match key {
+            KeyPress::Mania1 => 0,
+            KeyPress::Mania2 => 1,
+            KeyPress::Mania3 => 2,
+            KeyPress::Mania4 => 3,
+            KeyPress::Mania5 => 4,
+            KeyPress::Mania6 => 5,
+            KeyPress::Mania7 => 6,
+            KeyPress::Mania8 => 7,
+            KeyPress::Mania9 => 8,
+            _ => return
+        };
 
-        let hit_type:HitType = key.into();
-        let mut sound = match hit_type {HitType::Don => "don", HitType::Kat => "kat"};
-        let hit_volume = Settings::get().get_effect_vol() * (manager.beatmap.timing_points[self.timing_point_index].volume as f32 / 100.0);
+
+        let col = col as usize;
+        println!("col: {} -> {}", col, self.column_indices[col]);
+        
+        // let hit_type:HitType = key.into();
+        // let mut sound = match hit_type {HitType::Don => "don", HitType::Kat => "kat"};
+        // let hit_volume = Settings::get().get_effect_vol() * (manager.beatmap.timing_points[self.timing_point_index].volume as f32 / 100.0);
 
         // if theres no more notes to hit, return after playing the sound
-        if self.note_index >= self.notes.len() {
-            let a = Audio::play_preloaded(sound);
-            a.upgrade().unwrap().set_volume(hit_volume);
+        if self.column_indices[col] >= self.columns[col].len() {
+            // let a = Audio::play_preloaded(sound);
+            // a.upgrade().unwrap().set_volume(hit_volume);
             return;
         }
-
-        // check for finisher 2nd hit. 
-        if self.note_index > 0 {
-            let last_note = self.notes.get_mut(self.note_index-1).unwrap();
-
-            match last_note.check_finisher(hit_type, time) {
-                ScoreHit::Miss => {return},
-                ScoreHit::X100 => {
-                    manager.score.add_pts(100, true);
-                    return;
-                },
-                ScoreHit::X300 => {
-                    manager.score.add_pts(300, true);
-                    return;
-                },
-                ScoreHit::Other(points, _) => {
-                    manager.score.add_pts(points as u64, false);
-                    return;
-                },
-                ScoreHit::None => {},
-            }
-        }
-
-        let note = self.notes.get_mut(self.note_index).unwrap();
+        let note = &mut self.columns[col][self.column_indices[col]];
         let note_time = note.time() as f64;
-        match note.get_points(hit_type, time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300)) {
+        *self.column_states.get_mut(col).unwrap() = true;
+
+        match note.get_points(crate::gameplay::modes::taiko::HitType::Don, time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300)) {
             ScoreHit::None => {
                 // play sound
                 // Audio::play_preloaded(sound);
@@ -270,42 +221,35 @@ impl GameMode for TaikoGame {
             ScoreHit::Miss => {
                 manager.score.hit_miss(time as u64, note_time as u64);
                 self.hit_timings.push((time as i64, (time - note_time) as i64));
-                self.next_note();
+                self.next_note(col);
                 // Audio::play_preloaded(sound);
-
                 //TODO: play miss sound
                 //TODO: indicate this was a miss
             },
             ScoreHit::X100 => {
                 manager.score.hit100(time as u64, note_time as u64);
                 self.hit_timings.push((time as i64, (time - note_time) as i64));
-
-                // only play finisher sounds if the note is both a finisher and was hit
-                // could maybe also just change this to HitObject.get_sound() -> &str
-                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"};}
                 // Audio::play_preloaded(sound);
                 //TODO: indicate this was a bad hit
 
-                self.next_note();
+                self.next_note(col);
             },
             ScoreHit::X300 => {
                 manager.score.hit300(time as u64, note_time as u64);
                 self.hit_timings.push((time as i64, (time - note_time) as i64));
-                
-                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"};}
                 // Audio::play_preloaded(sound);
 
-                self.next_note();
+                self.next_note(col);
             },
             ScoreHit::Other(score, consume) => { // used by sliders and spinners
                 manager.score.score += score as u64;
-                if consume {self.next_note()}
+                if consume {self.next_note(col)}
                 // Audio::play_preloaded(sound);
             }
         }
 
-        let a = Audio::play_preloaded(sound);
-        a.upgrade().unwrap().set_volume(hit_volume);
+        // let a = Audio::play_preloaded(sound);
+        // a.upgrade().unwrap().set_volume(hit_volume);
     }
 
     fn update(&mut self, manager:&mut IngameManager) {
@@ -313,31 +257,37 @@ impl GameMode for TaikoGame {
         let time = manager.time();
 
         // update notes
-        for note in self.notes.iter_mut() {note.update(time)}
+        for col in self.columns.iter_mut() {
+            for note in col.iter_mut() {note.update(time)}
+        }
 
         // update hit timings bar
         self.hit_timings.retain(|(hit_time, _)| {time - hit_time < HIT_TIMING_DURATION as i64});
 
-        // if theres no more notes to hit, show score screen
-        if self.note_index >= self.notes.len() {
+        // show score screen if map is over
+        if time >= self.end_time as i64 {
             manager.completed = true;
             return;
         }
 
         // check if we missed the current note
-        if (self.notes[self.note_index].end_time(self.hitwindow_miss) as i64) < time {
-            if self.notes[self.note_index].causes_miss() {
-                // need to set these manually instead of score.hit_miss,
-                // since we dont want to add anything to the hit error list
-                let s = &mut manager.score;
-                s.xmiss += 1;
-                s.combo = 0;
+        for col in 0..self.column_count as usize {
+            if self.column_indices[col] >= self.columns[col].len() {continue}
+            let note = &self.columns[col][self.column_indices[col]];
+            if (note.end_time(self.hitwindow_miss) as i64) <= time {
+                if note.causes_miss() {
+                    // need to set these manually instead of score.hit_miss,
+                    // since we dont want to add anything to the hit error list
+                    let s = &mut manager.score;
+                    s.xmiss += 1;
+                    s.combo = 0;
+                }
+                self.next_note(col);
             }
-            self.next_note();
         }
         
         // TODO: might move tbs to a (time, speed) tuple
-        for tb in self.timing_bars.iter_mut() {tb.update(time as f64)}
+        // for tb in self.timing_bars.iter_mut() {tb.update(time as f64)}
 
         let timing_points = &manager.beatmap.timing_points;
         // check timing point
@@ -357,30 +307,30 @@ impl GameMode for TaikoGame {
         self.render_queue.clear();
 
         // draw the playfield
-        let playfield = Rectangle::new(
-            [0.2, 0.2, 0.2, 1.0].into(),
-            f64::MAX-4.0,
-            Vector2::new(0.0, HIT_POSITION.y - (PLAYFIELD_RADIUS + 2.0)),
-            Vector2::new(args.window_size[0], (PLAYFIELD_RADIUS+2.0) * 2.0),
-            if manager.beatmap.timing_points[self.timing_point_index].kiai {
-                Some(Border::new(Color::YELLOW, 2.0))
-            } else {None}
-        );
-        list.push(Box::new(playfield));
+        // let playfield = Rectangle::new(
+        //     [0.2, 0.2, 0.2, 1.0].into(),
+        //     f64::MAX-4.0,
+        //     Vector2::new(0.0, HIT_POSITION.y - (PLAYFIELD_RADIUS + 2.0)),
+        //     Vector2::new(args.window_size[0], (PLAYFIELD_RADIUS+2.0) * 2.0),
+        //     if manager.beatmap.timing_points[self.timing_point_index].kiai {
+        //         Some(Border::new(Color::YELLOW, 2.0))
+        //     } else {None}
+        // );
+        // list.push(Box::new(playfield));
 
         // draw the hit area
-        list.push(Box::new(Circle::new(
-            Color::BLACK,
-            f64::MAX,
-            HIT_POSITION,
-            HIT_AREA_RADIUS + 2.0
-        )));
+        // list.push(Box::new(Circle::new(
+        //     Color::BLACK,
+        //     f64::MAX,
+        //     HIT_POSITION,
+        //     HIT_AREA_RADIUS + 2.0
+        // )));
 
-
-        list.push(visibility_bg(
-            Vector2::new(args.window_size[0] - 200.0, 10.0),
-            Vector2::new(180.0, 75.0 - 10.0)
-        ));
+        // // playfield bg
+        // list.push(visibility_bg(
+        //     Vector2::new(args.window_size[0] - 200.0, 10.0),
+        //     Vector2::new(180.0, 75.0 - 10.0)
+        // ));
 
         // score text
         list.push(Box::new(Text::new(
@@ -402,20 +352,20 @@ impl GameMode for TaikoGame {
             font.clone()
         )));
 
-        // combo text
-        let mut combo_text = Text::new(
-            Color::WHITE,
-            0.0,
-            HIT_POSITION - Vector2::new(100.0, 0.0),
-            30,
-            crate::format(score.combo),
-            font.clone()
-        );
-        combo_text.center_text(Rectangle::bounds_only(
-            Vector2::new(0.0, HIT_POSITION.y - HIT_AREA_RADIUS/2.0),
-            Vector2::new(HIT_POSITION.x - NOTE_RADIUS, HIT_AREA_RADIUS)
-        ));
-        list.push(Box::new(combo_text));
+        // // combo text
+        // let mut combo_text = Text::new(
+        //     Color::WHITE,
+        //     0.0,
+        //     HIT_POSITION - Vector2::new(100.0, 0.0),
+        //     30,
+        //     crate::format(score.combo),
+        //     font.clone()
+        // );
+        // combo_text.center_text(Rectangle::bounds_only(
+        //     Vector2::new(0.0, HIT_POSITION.y - HIT_AREA_RADIUS/2.0),
+        //     Vector2::new(HIT_POSITION.x - NOTE_RADIUS, HIT_AREA_RADIUS)
+        // ));
+        // list.push(Box::new(combo_text));
 
 
         // duration bar
@@ -495,8 +445,38 @@ impl GameMode for TaikoGame {
         }
 
 
+        // draw columns
+        for col in 0..self.column_count {
+            let x = self.col_pos(col);
+            list.push(Box::new(Rectangle::new(
+                self.get_color(col),
+                1000.0,
+                Vector2::new(x, 0.0),
+                Vector2::new(COLUMN_WIDTH, WINDOW_SIZE.y),
+                Some(Border::new(Color::GREEN, 1.2))
+            )));
+
+            list.push(Box::new(Rectangle::new(
+                if self.column_states[col as usize] {self.get_color(col)} else {Color::TRANSPARENT_WHITE},
+                -100.0,
+                Vector2::new(x, HIT_Y),
+                NOTE_SIZE,
+                Some(Border::new(Color::RED, 2.0))
+            )));
+        }
+        
+        list.push(Box::new(Rectangle::new(
+            Color::new(0.0, 0.0, 0.0, 0.8),
+            1000.0,
+            Vector2::new(self.col_pos(0), 0.0),
+            Vector2::new(self.col_pos(self.column_count) - self.col_pos(0), WINDOW_SIZE.y),
+            Some(Border::new(Color::GREEN, 1.2))
+        )));
+
         // draw notes
-        for note in self.notes.iter_mut() {list.extend(note.draw(args));}
+        for col in self.columns.iter_mut() {
+            for note in col.iter_mut() {list.extend(note.draw(args))}
+        }
         // draw timing lines
         for tb in self.timing_bars.iter_mut() {list.extend(tb.draw(args))}
     }
@@ -504,39 +484,76 @@ impl GameMode for TaikoGame {
 
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
         let settings = Settings::get();
-
+        let mut game_key = KeyPress::RightDon;
         if key == settings.left_kat {
-            self.hit(KeyPress::LeftKat, manager);
+            game_key = KeyPress::Mania1;
+            // self.hit(, manager);
         }
         if key == settings.left_don {
-            self.hit(KeyPress::LeftDon, manager);
+            game_key = KeyPress::Mania2;
+            // self.hit(KeyPress::Mania2, manager);
         }
         if key == settings.right_don {
-            self.hit(KeyPress::RightDon, manager);
+            game_key = KeyPress::Mania3;
+            // self.hit(KeyPress::Mania3, manager);
         }
         if key == settings.right_kat {
-            self.hit(KeyPress::RightKat, manager);
+            game_key = KeyPress::Mania4;
+            // self.hit(KeyPress::Mania4, manager);
+        }
+
+
+        self.hit(game_key, manager);
+    }
+    fn key_up(&mut self, key:piston::Key, _manager:&mut IngameManager) {
+        let settings = Settings::get();
+        let mut game_key = KeyPress::RightDon;
+        if key == settings.left_kat {
+            game_key = KeyPress::Mania1;
+        }
+        if key == settings.left_don {
+            game_key = KeyPress::Mania2;
+        }
+        if key == settings.right_don {
+            game_key = KeyPress::Mania3;
+        }
+        if key == settings.right_kat {
+            game_key = KeyPress::Mania4;
         }
         
+        let col:usize = match game_key {
+            KeyPress::Mania1 => 0,
+            KeyPress::Mania2 => 1,
+            KeyPress::Mania3 => 2,
+            KeyPress::Mania4 => 3,
+            KeyPress::Mania5 => 4,
+            KeyPress::Mania6 => 5,
+            KeyPress::Mania7 => 6,
+            KeyPress::Mania8 => 7,
+            KeyPress::Mania9 => 8,
+            _ => return
+        };
+
+        *self.column_states.get_mut(col).unwrap() = false;
     }
-    fn key_up(&mut self, _key:piston::Key, _manager:&mut IngameManager) {}
 
     fn reset(&mut self, beatmap:Beatmap) {
         let settings = Settings::get();
         
-        for note in self.notes.as_mut_slice() {
-            note.reset();
+        for col in self.columns.iter_mut() {
+            for note in col.iter_mut() {
+                note.reset();
 
-            // set note svs
-            if settings.static_sv {
-                note.set_sv(settings.sv_multiplier as f64);
-            } else {
-                let sv = beatmap.slider_velocity_at(note.time()) / SV_FACTOR;
-                note.set_sv(sv);
+                // set note svs
+                if settings.static_sv {
+                    note.set_sv(settings.sv_multiplier as f64);
+                } else {
+                    let sv = beatmap.slider_velocity_at(note.time()) / SV_FACTOR;
+                    note.set_sv(sv);
+                }
             }
         }
         
-        self.note_index = 0;
         self.timing_point_index = 0;
 
         let od = beatmap.metadata.od as f64;
@@ -589,14 +606,17 @@ impl GameMode for TaikoGame {
 
 
     fn skip_intro(&mut self, manager: &mut IngameManager) {
-        if self.note_index > 0 {return}
-
         let x_needed = WINDOW_SIZE.x;
         let mut time = manager.time();
 
         loop {
             let mut found = false;
-            for note in self.notes.iter() {if note.x_at(time) <= x_needed {found = true; break}}
+
+            for col in self.columns.iter_mut() {
+                for note in col.iter_mut() {
+                    if note.x_at(time) <= x_needed {found = true; break}
+                }
+            }
             if found {break}
             time += 1;
         }
@@ -611,7 +631,6 @@ impl GameMode for TaikoGame {
 
         manager.song.upgrade().unwrap().set_position(time);
     }
-
 }
 
 
@@ -633,23 +652,23 @@ impl TimingBar {
     }
 
     pub fn update(&mut self, time:f64) {
-        self.pos = HIT_POSITION + Vector2::new(((self.time as f64 - time as f64) * self.speed) - BAR_WIDTH / 2.0, -PLAYFIELD_RADIUS);
+        // self.pos = HIT_POSITION + Vector2::new(((self.time as f64 - time as f64) * self.speed) - BAR_WIDTH / 2.0, -PLAYFIELD_RADIUS);
     }
 
     fn draw(&mut self, _args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
         if self.pos.x + BAR_WIDTH < 0.0 || self.pos.x - BAR_WIDTH > WINDOW_SIZE.x as f64 {return renderables}
 
-        const SIZE:Vector2 = Vector2::new(BAR_WIDTH, PLAYFIELD_RADIUS*2.0);
-        const DEPTH:f64 = f64::MAX-5.0;
+        // const SIZE:Vector2 = Vector2::new(BAR_WIDTH, PLAYFIELD_RADIUS*2.0);
+        // const DEPTH:f64 = f64::MAX-5.0;
 
-        renderables.push(Box::new(Rectangle::new(
-            BAR_COLOR,
-            DEPTH,
-            self.pos,
-            SIZE,
-            None
-        )));
+        // renderables.push(Box::new(Rectangle::new(
+        //     BAR_COLOR,
+        //     DEPTH,
+        //     self.pos,
+        //     SIZE,
+        //     None
+        // )));
 
         renderables
     }

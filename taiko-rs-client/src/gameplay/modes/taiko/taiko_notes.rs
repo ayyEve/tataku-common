@@ -6,7 +6,7 @@ use crate::Vector2;
 use crate::gameplay::BAR_COLOR;
 use crate::gameplay::HitObject;
 use crate::gameplay::NoteType;
-use crate::{HIT_POSITION, NOTE_RADIUS};
+use super::{HIT_POSITION, NOTE_RADIUS};
 use crate::render::{Circle, Color, HalfCircle, Rectangle, Renderable, Border};
 
 const SLIDER_DOT_RADIUS:f64 = 8.0;
@@ -426,6 +426,7 @@ impl Into<HitType> for KeyPress {
         match self {
             KeyPress::LeftKat|KeyPress::RightKat => HitType::Kat,
             KeyPress::LeftDon|KeyPress::RightDon => HitType::Don,
+            _ => {panic!("mania key while playing taiko")}
         }
     }
 }

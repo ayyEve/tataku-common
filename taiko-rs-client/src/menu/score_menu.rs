@@ -152,7 +152,7 @@ impl Menu<Game> for ScoreMenu {
                     let beatmap = self.beatmap.clone();
                     let gamemode = select_gamemode_from_playmode(self.score.playmode, &beatmap);
 
-                    let mut manager = IngameManager::new(beatmap, Arc::new(Mutex::new(gamemode)));
+                    let mut manager = IngameManager::new(beatmap, gamemode);
                     manager.replaying = true;
                     manager.replay = replay.clone();
                     game.queue_state_change(GameState::Ingame(Arc::new(Mutex::new(manager))));
