@@ -13,8 +13,8 @@ use piston::{Window, input::*, event_loop::*, window::WindowSettings};
 use crate::gameplay::{Beatmap, IngameManager};
 use crate::{WINDOW_SIZE, SONGS_DIR, Vector2, menu::*};
 use crate::render::{Color, Image, Rectangle, Renderable};
+use taiko_rs_common::types::{SpectatorFrames, UserAction};
 use crate::databases::{save_all_scores, save_replay, save_score};
-use taiko_rs_common::types::{Replay, SpectatorFrames, UserAction};
 use crate::helpers::{FpsDisplay, BenchmarkHelper, BeatmapManager, VolumeControl};
 use crate::game::{InputManager, Settings, online::{USER_ITEM_SIZE, OnlineManager}};
 
@@ -188,10 +188,13 @@ impl Game {
 
         // read input events
         let mouse_pos = self.input_manager.mouse_pos;
-        let mut mouse_buttons = self.input_manager.get_mouse_buttons();
+        let mut mouse_down = self.input_manager.get_mouse_down();
+        let mouse_up = self.input_manager.get_mouse_up();
         let mouse_moved = self.input_manager.get_mouse_moved();
         let mut scroll_delta = self.input_manager.get_scroll_delta();
-        let mut keys = self.input_manager.all_down_once();
+
+        let mut keys_down = self.input_manager.get_keys_down();
+        let keys_up = self.input_manager.get_keys_up();
         let mods = self.input_manager.get_key_mods();
         let text = self.input_manager.get_text();
         let window_focus_changed = self.input_manager.get_changed_focus();
@@ -204,10 +207,10 @@ impl Game {
         // check for volume change
         if mouse_moved {self.volume_controller.on_mouse_move(mouse_pos)}
         if scroll_delta != 0.0 && self.volume_controller.on_mouse_wheel(scroll_delta, mods) {scroll_delta = 0.0}
-        self.volume_controller.on_key_press(&mut keys, mods);
+        self.volume_controller.on_key_press(&mut keys_down, mods);
         
         // users list
-        if keys.contains(&Key::F8) {
+        if keys_down.contains(&Key::F8) {
             self.show_user_list = !self.show_user_list;
             println!("show user list: {}", self.show_user_list);
         }
@@ -216,7 +219,7 @@ impl Game {
                 for (_, user) in &om.users {
                     if let Ok(mut u) = user.try_lock() {
                         if mouse_moved {u.on_mouse_move(mouse_pos)}
-                        mouse_buttons.retain(|button| !u.on_click(mouse_pos, button.clone(), mods));
+                        mouse_down.retain(|button| !u.on_click(mouse_pos, button.clone(), mods));
                     }
                 }
             }
@@ -229,163 +232,98 @@ impl Game {
                 // let settings = Settings::get();
                 let mut lock = manager.lock();
                 
-                if keys.contains(&Key::Space) {lock.gamemode.lock().skip_intro()}
-                // pause button, or focus lost
-                if matches!(window_focus_changed, Some(false)) || keys.contains(&Key::Escape) {
+                // pause button, or focus lost, only if not replaying
+                if !lock.replaying && matches!(window_focus_changed, Some(false)) || keys_down.contains(&Key::Escape) {
                     lock.pause();
                     let menu = PauseMenu::new(manager.clone());
                     self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
                 }
 
                 // offset adjust
-                if keys.contains(&Key::Equals) {lock.increment_offset(5)}
-                if keys.contains(&Key::Minus) {lock.increment_offset(-5)}
+                if keys_down.contains(&Key::Equals) {lock.increment_offset(5)}
+                if keys_down.contains(&Key::Minus) {lock.increment_offset(-5)}
 
-                for k in keys.iter() {
+                if mouse_moved {
+                    lock.mouse_move(mouse_pos);
+                }
+                for btn in mouse_down {
+                    lock.mouse_down(btn);
+                }
+                for btn in mouse_up {
+                    lock.mouse_up(btn);
+                }
+
+                for k in keys_down.iter() {
                     lock.key_down(*k);
+                }
+                for k in keys_up.iter() {
+                    lock.key_up(*k);
                 }
 
                 // update, then check if complete
                 lock.update();
                 if lock.completed {
                     println!("beatmap complete");
-
-                    let score = lock.score.as_ref().unwrap();
-                    let replay = lock.replay.as_ref().unwrap();
+                    let score = &lock.score;
+                    let replay = &lock.replay;
                     println!("score + replay unwrapped");
 
-                    // save score
-                    save_score(&score);
-                    println!("score saved");
-                    match save_replay(&replay, &score) {
-                        Ok(_)=> println!("replay saved ok"),
-                        Err(e) => println!("error saving replay: {}", e),
+                    if !lock.replaying {
+                        // save score
+                        save_score(&score);
+                        println!("score saved");
+                        match save_replay(&replay, &score) {
+                            Ok(_)=> println!("replay saved ok"),
+                            Err(e) => println!("error saving replay: {}", e),
+                        }
+                        println!("replay saved");
+                        match save_all_scores() {
+                            Ok(_) => println!("Scores saved successfully"),
+                            Err(e) => println!("Failed to save scores! {}", e),
+                        }
+                        println!("all scores saved");
+
+                        // submit score
+                        #[cfg(feature = "online_scores")] 
+                        {
+                            self.threading.spawn(async move {
+                                //TODO: do this async
+                                println!("submitting score");
+                                let mut writer = taiko_rs_common::serialization::SerializationWriter::new();
+                                writer.write(score.clone());
+                                writer.write(replay.clone());
+                                let data = writer.data();
+                                
+                                let c = reqwest::Client::new();
+                                let res = c.post("http://localhost:8000/score_submit")
+                                    .body(data)
+                                    .send().await;
+
+                                match res {
+                                    Ok(_isgood) => {
+                                        //TODO: do something with the response?
+                                        println!("score submitted successfully");
+                                    },
+                                    Err(e) => println!("error submitting score: {}", e),
+                                }
+                            });
+                        }
+
                     }
-                    println!("replay saved");
-                    match save_all_scores() {
-                        Ok(_) => println!("Scores saved successfully"),
-                        Err(e) => println!("Failed to save scores! {}", e),
+
+
+                    // used to indicate user stopped watching a replay
+                    if lock.replaying && !lock.started {
+                        // go back to beatmap select
+                        let menu = self.menus.get("beatmap").unwrap();
+                        let menu = menu.clone();
+                        self.queue_mode_change(GameMode::InMenu(menu));
+                    } else {
+                        // show score menu
+                        let menu = ScoreMenu::new(&score, lock.beatmap.clone());
+                        self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
                     }
-                    println!("all scores saved");
-
-                    // submit score
-                    #[cfg(feature = "online_scores")] 
-                    {
-                        self.threading.spawn(async move {
-                            //TODO: do this async
-                            println!("submitting score");
-                            let mut writer = taiko_rs_common::serialization::SerializationWriter::new();
-                            writer.write(score.clone());
-                            writer.write(replay.clone());
-                            let data = writer.data();
-                            
-                            let c = reqwest::Client::new();
-                            let res = c.post("http://localhost:8000/score_submit")
-                                .body(data)
-                                .send().await;
-
-                            match res {
-                                Ok(_isgood) => {
-                                    //TODO: do something with the response?
-                                    println!("score submitted successfully");
-                                },
-                                Err(e) => println!("error submitting score: {}", e),
-                            }
-                        });
-                    }
-
-                    // show score menu
-                    let menu = ScoreMenu::new(&score, lock.beatmap.clone());
-                    self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
-                    println!("new menu set");
-
-                    // cleanup memory-hogs in the beatmap object
-                    // lock.cleanup();
                 }
-            }
-
-            GameMode::Replaying(ref beatmap, ref replay, ref mut frame_index) => {
-                // let mut beatmap = beatmap.lock();
-                // let time = beatmap.time();
-                // // read any frames that need to be read
-                // loop {
-                //     if *frame_index as usize >= replay.presses.len() {break}
-                    
-                //     let (press_time, pressed) = replay.presses[*frame_index as usize];
-                //     if press_time > time {break}
-
-                //     beatmap.hit(pressed);
-                //     match pressed {
-                //         KeyPress::LeftKat => {
-                //             let mut hit = HalfCircle::new(
-                //                 Color::BLUE,
-                //                 HIT_POSITION,
-                //                 1.0,
-                //                 HIT_AREA_RADIUS,
-                //                 true
-                //             );
-                //             hit.set_lifetime(DRUM_LIFETIME_TIME);
-                //             self.render_queue.push(Box::new(hit));
-                //         },
-                //         KeyPress::LeftDon => {
-                //             let mut hit = HalfCircle::new(
-                //                 Color::RED,
-                //                 HIT_POSITION,
-                //                 1.0,
-                //                 HIT_AREA_RADIUS,
-                //                 true
-                //             );
-                //             hit.set_lifetime(DRUM_LIFETIME_TIME);
-                //             self.render_queue.push(Box::new(hit));
-                //         },
-                //         KeyPress::RightDon => {
-                //             let mut hit = HalfCircle::new(
-                //                 Color::RED,
-                //                 HIT_POSITION,
-                //                 1.0,
-                //                 HIT_AREA_RADIUS,
-                //                 false
-                //             );
-                //             hit.set_lifetime(DRUM_LIFETIME_TIME);
-                //             self.render_queue.push(Box::new(hit));
-                //         },
-                //         KeyPress::RightKat => {
-                //             let mut hit = HalfCircle::new(
-                //                 Color::BLUE,
-                //                 HIT_POSITION,
-                //                 1.0,
-                //                 HIT_AREA_RADIUS,
-                //                 false
-                //             );
-                //             hit.set_lifetime(DRUM_LIFETIME_TIME);
-                //             self.render_queue.push(Box::new(hit));
-                //         },
-                //     }
-
-                //     *frame_index += 1;
-                // }
-                
-                // // pause button, or focus lost
-                // if keys.contains(&Key::Escape) {
-                //     beatmap.reset();
-                //     let menu = self.menus.get("beatmap").unwrap().clone();
-                //     self.queue_mode_change(GameMode::InMenu(menu));
-                // }
-
-                // // offset adjust
-                // if keys.contains(&Key::Equals) {beatmap.increment_offset(5)}
-                // if keys.contains(&Key::Minus) {beatmap.increment_offset(-5)}
-
-                // beatmap.update();
-
-                // if beatmap.completed {
-                //     // show score menu
-                //     let menu = ScoreMenu::new(&beatmap.score.as_ref().unwrap(), Arc::new(Mutex::new(beatmap.clone())));
-                //     self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
-
-                //     beatmap.cleanup();
-                // }
-            
             }
             
             GameMode::InMenu(ref menu) => {
@@ -394,7 +332,7 @@ impl Game {
                 // menu input events
 
                 // clicks
-                for b in mouse_buttons { 
+                for b in mouse_down { 
                     // game.start_map() can happen here, which needs &mut self
                     menu.on_click(mouse_pos, b, mods, self);
                 }
@@ -404,7 +342,7 @@ impl Game {
                 if scroll_delta.abs() > 0.0 {menu.on_scroll(scroll_delta, self)}
 
                 //check keys down
-                for key in keys {menu.on_key_press(key, self, mods)}
+                for key in keys_down {menu.on_key_press(key, self, mods)}
                 //TODO: check keys up (or remove it, probably not used anywhere)
 
                 // check text
@@ -460,7 +398,6 @@ impl Game {
             _ => {
                 // if the mode is being changed, clear all shapes, even ones with a lifetime
                 self.clear_render_queue(true);
-
                 let online_manager = self.online_manager.clone();
 
                 // let cloned_mode = self.queued_mode.clone();
@@ -470,14 +407,13 @@ impl Game {
                 // });
 
                 match &self.queued_mode {
-                    GameMode::Ingame(map) => {
-                        let (m, h) = { 
-                            let lock = map.lock();
+                    GameMode::Ingame(manager) => {
+                        let (m, h) = {
+                            let mut lock = manager.lock();
+                            lock.start();
 
                             (lock.beatmap.metadata.clone(), lock.beatmap.hash.clone())
                         };
-
-                        let text = format!("{}-{}[{}]\n{}",m.artist,m.title,m.version,h);
 
                         if let Ok(t) = opengl_graphics::Texture::from_path(m.image_filename.clone(), &opengl_graphics::TextureSettings::new()) {
                             self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, t, WINDOW_SIZE));
@@ -485,6 +421,7 @@ impl Game {
                             self.background_image = None;
                         }
 
+                        let text = format!("{}-{}[{}]\n{}", m.artist, m.title, m.version, h);
                         self.threading.spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Ingame, text).await;
                         });
@@ -559,11 +496,6 @@ impl Game {
         match &self.current_mode {
             GameMode::Ingame(manager) => manager.lock().draw(args, &mut renderables),
             GameMode::InMenu(menu) => renderables.extend(menu.lock().draw(args)),
-            // GameMode::Replaying(beatmap,_,_) => {
-            //     renderables.extend(beatmap.lock().draw(args));
-
-            //     // draw watching X text
-            // }
             
             _ => {}
         }
@@ -619,11 +551,11 @@ impl Game {
         // add the things we just made to the render queue
         self.render_queue.extend(renderables);
 
-
         // draw fps's
-        self.render_queue.push(Box::new(self.fps_display.draw()));
-        self.render_queue.push(Box::new(self.update_display.draw()));
-        self.render_queue.push(Box::new(self.input_update_display.draw()));
+        self.fps_display.draw(&mut self.render_queue);
+        self.update_display.draw(&mut self.render_queue);
+        self.input_update_display.draw(&mut self.render_queue);
+
 
         // sort the queue here (so it only needs to be sorted once per frame, instead of every time a shape is added)
         self.render_queue.sort_by(|a, b| b.get_depth().partial_cmp(&a.get_depth()).unwrap());
@@ -738,7 +670,7 @@ pub enum GameMode {
     Closing,
     Ingame(Arc<Mutex<IngameManager>>),
     InMenu(Arc<Mutex<dyn Menu<Game>>>),
-    Replaying(Arc<Mutex<Beatmap>>, Replay, u64),
+    // Replaying(Arc<Mutex<Beatmap>>, Replay, u64),
 
     #[allow(dead_code)]
     Spectating(Arc<Mutex<SpectatorFrames>>, SpectatorState, Option<Arc<Mutex<Beatmap>>>), // frames awaiting replay, state, beatmap

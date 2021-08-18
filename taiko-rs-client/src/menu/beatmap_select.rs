@@ -183,13 +183,6 @@ impl Menu<Game> for BeatmapSelectMenu {
                 self.load_scores(map_hash.clone());
             }
         }
-        //  else {
-        //     println!("stop musci >:C");
-        //     // stop the music somehow?
-        //     for i in self.beatmap_scroll.items.iter_mut() {
-        //         i.set_tag("no more music >:C");
-        //     }
-        // }
     }
 
     fn on_click(&mut self, pos:Vector2, button:MouseButton, mods: ayyeve_piston_ui::menu::KeyModifiers, game:&mut Game) {
@@ -225,12 +218,12 @@ impl Menu<Game> for BeatmapSelectMenu {
                     // dirty hack lmao
                     i.set_tag("");
                 }
-                let mut map = clicked.lock();
                 Audio::stop_song();
+                let map = clicked.lock();
                 // map.reset();
                 // map.start(); // TODO: figure out how to do this when checking mode change
                 let mut manager = IngameManager::new(map.clone());
-                manager.start();
+                // manager.start();
 
                 game.queue_mode_change(GameMode::Ingame(Arc::new(Mutex::new(manager))));
                 return;

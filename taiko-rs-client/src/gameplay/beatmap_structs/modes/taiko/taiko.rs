@@ -59,126 +59,10 @@ pub struct TaikoGame {
 }
 impl TaikoGame {
     pub fn next_note(&mut self) {self.note_index += 1}
-
-    pub fn hit(&mut self, key:KeyPress, manager:&mut IngameManager) {
-        let time = manager.time() as f64;
-        if let Some(replay) = manager.replay.as_mut() {replay.presses.push((time as i64, key))}
-
-        let hit_type:HitType = key.into();
-        let mut sound = match hit_type {HitType::Don => "don", HitType::Kat => "kat"};
-
-        let hit_volume = Settings::get().get_effect_vol() * (manager.beatmap.timing_points[self.timing_point_index].volume as f32 / 100.0);
-
-        // if theres no more notes to hit, return
-        if self.note_index >= self.notes.len() {
-            let a = Audio::play_preloaded(sound);
-            a.upgrade().unwrap().set_volume(hit_volume);
-            return;
-        }
-
-        // check for finisher 2nd hit. 
-        if self.note_index > 0 {
-            let last_note = self.notes.get_mut(self.note_index-1).unwrap();
-
-            match last_note.check_finisher(hit_type, time) {
-                ScoreHit::Miss => {return},
-                ScoreHit::X100 => {
-                    manager.score.as_mut().unwrap().add_pts(100, true);
-                    return;
-                },
-                ScoreHit::X300 => {
-                    manager.score.as_mut().unwrap().add_pts(300, true);
-                    return;
-                },
-                ScoreHit::Other(points, _) => {
-                    manager.score.as_mut().unwrap().add_pts(points as u64, false);
-                    return;
-                },
-                ScoreHit::None => {},
-            }
-        }
-
-        let note = self.notes.get_mut(self.note_index).unwrap();
-        let note_time = note.time() as f64;
-
-        let pts = note.get_points(hit_type, time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300));
-        println!("got pts: {:?}", pts);
-        match pts {
-            ScoreHit::None => {
-                // play sound
-                // Audio::play_preloaded(sound);
-            },
-            ScoreHit::Miss => {
-                manager.score.as_mut().unwrap().hit_miss(time as u64, note_time as u64);
-                self.hit_timings.push((time as i64, (time - note_time) as i64));
-                self.next_note();
-                // Audio::play_preloaded(sound);
-
-                //TODO: play miss sound
-                //TODO: indicate this was a miss
-            },
-            ScoreHit::X100 => {
-                manager.score.as_mut().unwrap().hit100(time as u64, note_time as u64);
-                self.hit_timings.push((time as i64, (time - note_time) as i64));
-
-                // only play finisher sounds if the note is both a finisher and was hit
-                // could maybe also just change this to HitObject.get_sound() -> &str
-                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"};}
-                // Audio::play_preloaded(sound);
-                //TODO: indicate this was a bad hit
-
-                self.next_note();
-            },
-            ScoreHit::X300 => {
-                manager.score.as_mut().unwrap().hit300(time as u64, note_time as u64);
-                self.hit_timings.push((time as i64, (time - note_time) as i64));
-                
-                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"};}
-                // Audio::play_preloaded(sound);
-
-                self.next_note();
-            },
-            ScoreHit::Other(score, consume) => { // used by sliders and spinners
-                manager.score.as_mut().unwrap().score += score as u64;
-                if consume {self.next_note()}
-                // Audio::play_preloaded(sound);
-            }
-        }
-
-        let a = Audio::play_preloaded(sound);
-        a.upgrade().unwrap().set_volume(hit_volume);
-    }
-
-
-    pub fn skip_intro(&mut self, manager: &mut IngameManager) {
-        if self.note_index > 0 {return}
-
-        let x_needed = WINDOW_SIZE.x;
-        let mut time = manager.time();
-
-        loop {
-            let mut found = false;
-            for note in self.notes.iter() {if note.x_at(time) <= x_needed {found = true; break}}
-            if found {break}
-            time += 1;
-        }
-
-        let mut time = time as f32;
-        if manager.lead_in_time > 0.0 {
-            if time > manager.lead_in_time {
-                time -= manager.lead_in_time - 0.01;
-                manager.lead_in_time = 0.01;
-            }
-        }
-
-        manager.song.upgrade().unwrap().set_position(time);
-    }
-
 }
 
 impl GameMode for TaikoGame {
     fn new(beatmap:&Beatmap) -> Self {
-
         let mut s = Self {
             notes: Vec::new(),
             note_index: 0,
@@ -277,10 +161,145 @@ impl GameMode for TaikoGame {
             s.notes.push(Box::new(TaikoSpinner::new(*time as u64, *end_time as u64, 1.0, hits_required)));
         }
 
-        s.notes.sort_by(|a,b|a.time().cmp(&b.time()));
+        s.notes.sort_by(|a, b|a.time().cmp(&b.time()));
         s.end_time = s.notes.iter().last().unwrap().time() as f64;
 
         s
+    }
+
+    fn hit(&mut self, key:KeyPress, manager:&mut IngameManager) {
+        let time = manager.time() as f64;
+        if !manager.replaying {
+            manager.replay.presses.push((time as i64, key));
+        }
+
+        // draw drum
+        match key {
+            KeyPress::LeftKat => {
+                let mut hit = HalfCircle::new(
+                    Color::BLUE,
+                    HIT_POSITION,
+                    1.0,
+                    HIT_AREA_RADIUS,
+                    true
+                );
+                hit.set_lifetime(DRUM_LIFETIME_TIME);
+                self.render_queue.push(Box::new(hit));
+            },
+            KeyPress::LeftDon => {
+                let mut hit = HalfCircle::new(
+                    Color::RED,
+                    HIT_POSITION,
+                    1.0,
+                    HIT_AREA_RADIUS,
+                    true
+                );
+                hit.set_lifetime(DRUM_LIFETIME_TIME);
+                self.render_queue.push(Box::new(hit));
+            },
+            KeyPress::RightDon => {
+                let mut hit = HalfCircle::new(
+                    Color::RED,
+                    HIT_POSITION,
+                    1.0,
+                    HIT_AREA_RADIUS,
+                    false
+                );
+                hit.set_lifetime(DRUM_LIFETIME_TIME);
+                self.render_queue.push(Box::new(hit));
+            },
+            KeyPress::RightKat => {
+                let mut hit = HalfCircle::new(
+                    Color::BLUE,
+                    HIT_POSITION,
+                    1.0,
+                    HIT_AREA_RADIUS,
+                    false
+                );
+                hit.set_lifetime(DRUM_LIFETIME_TIME);
+                self.render_queue.push(Box::new(hit));
+            },
+        }
+
+        let hit_type:HitType = key.into();
+        let mut sound = match hit_type {HitType::Don => "don", HitType::Kat => "kat"};
+        let hit_volume = Settings::get().get_effect_vol() * (manager.beatmap.timing_points[self.timing_point_index].volume as f32 / 100.0);
+
+        // if theres no more notes to hit, return after playing the sound
+        if self.note_index >= self.notes.len() {
+            let a = Audio::play_preloaded(sound);
+            a.upgrade().unwrap().set_volume(hit_volume);
+            return;
+        }
+
+        // check for finisher 2nd hit. 
+        if self.note_index > 0 {
+            let last_note = self.notes.get_mut(self.note_index-1).unwrap();
+
+            match last_note.check_finisher(hit_type, time) {
+                ScoreHit::Miss => {return},
+                ScoreHit::X100 => {
+                    manager.score.add_pts(100, true);
+                    return;
+                },
+                ScoreHit::X300 => {
+                    manager.score.add_pts(300, true);
+                    return;
+                },
+                ScoreHit::Other(points, _) => {
+                    manager.score.add_pts(points as u64, false);
+                    return;
+                },
+                ScoreHit::None => {},
+            }
+        }
+
+        let note = self.notes.get_mut(self.note_index).unwrap();
+        let note_time = note.time() as f64;
+        match note.get_points(hit_type, time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300)) {
+            ScoreHit::None => {
+                // play sound
+                // Audio::play_preloaded(sound);
+            },
+            ScoreHit::Miss => {
+                manager.score.hit_miss(time as u64, note_time as u64);
+                self.hit_timings.push((time as i64, (time - note_time) as i64));
+                self.next_note();
+                // Audio::play_preloaded(sound);
+
+                //TODO: play miss sound
+                //TODO: indicate this was a miss
+            },
+            ScoreHit::X100 => {
+                manager.score.hit100(time as u64, note_time as u64);
+                self.hit_timings.push((time as i64, (time - note_time) as i64));
+
+                // only play finisher sounds if the note is both a finisher and was hit
+                // could maybe also just change this to HitObject.get_sound() -> &str
+                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"};}
+                // Audio::play_preloaded(sound);
+                //TODO: indicate this was a bad hit
+
+                self.next_note();
+            },
+            ScoreHit::X300 => {
+                manager.score.hit300(time as u64, note_time as u64);
+                self.hit_timings.push((time as i64, (time - note_time) as i64));
+                
+                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"};}
+                // Audio::play_preloaded(sound);
+
+                self.next_note();
+            },
+            ScoreHit::Other(score, consume) => { // used by sliders and spinners
+                manager.score.score += score as u64;
+                if consume {self.next_note()}
+                // Audio::play_preloaded(sound);
+            }
+        }
+
+        let a = Audio::play_preloaded(sound);
+        a.upgrade().unwrap().set_volume(hit_volume);
     }
 
     fn update(&mut self, manager:&mut IngameManager) {
@@ -304,7 +323,7 @@ impl GameMode for TaikoGame {
             if self.notes[self.note_index].causes_miss() {
                 // need to set these manually instead of score.hit_miss,
                 // since we dont want to add anything to the hit error list
-                let s = manager.score.as_mut().unwrap();
+                let s = &mut manager.score;
                 s.xmiss += 1;
                 s.combo = 0;
             }
@@ -320,12 +339,11 @@ impl GameMode for TaikoGame {
             self.timing_point_index += 1;
         }
     }
-
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
         // load this here, it a bit more performant
         let font = manager.font.clone();
         let time = manager.time();
-        let score = manager.score.as_ref().unwrap();
+        let score = &manager.score;
 
         for i in self.render_queue.iter() {
             list.push(i.clone());
@@ -477,71 +495,25 @@ impl GameMode for TaikoGame {
         for tb in self.timing_bars.iter_mut() {list.extend(tb.draw(args))}
     }
 
+
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
         let settings = Settings::get();
 
         if key == settings.left_kat {
             self.hit(KeyPress::LeftKat, manager);
-
-            let mut hit = HalfCircle::new(
-                Color::BLUE,
-                HIT_POSITION,
-                1.0,
-                HIT_AREA_RADIUS,
-                true
-            );
-            hit.set_lifetime(DRUM_LIFETIME_TIME);
-            self.render_queue.push(Box::new(hit));
         }
         if key == settings.left_don {
             self.hit(KeyPress::LeftDon, manager);
-
-            let mut hit = HalfCircle::new(
-                Color::RED,
-                HIT_POSITION,
-                1.0,
-                HIT_AREA_RADIUS,
-                true
-            );
-            hit.set_lifetime(DRUM_LIFETIME_TIME);
-            self.render_queue.push(Box::new(hit));
         }
         if key == settings.right_don {
             self.hit(KeyPress::RightDon, manager);
-
-            let mut hit = HalfCircle::new(
-                Color::RED,
-                HIT_POSITION,
-                1.0,
-                HIT_AREA_RADIUS,
-                false
-            );
-            hit.set_lifetime(DRUM_LIFETIME_TIME);
-            self.render_queue.push(Box::new(hit));
         }
         if key == settings.right_kat {
             self.hit(KeyPress::RightKat, manager);
-
-            let mut hit = HalfCircle::new(
-                Color::BLUE,
-                HIT_POSITION,
-                1.0,
-                HIT_AREA_RADIUS,
-                false
-            );
-            hit.set_lifetime(DRUM_LIFETIME_TIME);
-            self.render_queue.push(Box::new(hit));
         }
         
     }
-
     fn key_up(&mut self, _key:piston::Key, _manager:&mut IngameManager) {}
-    fn mouse_move(&mut self, _pos:Vector2, _manager:&mut IngameManager) {}
-    fn mouse_down(&mut self, _btn:piston::MouseButton, _manager:&mut IngameManager) {}
-    fn mouse_up(&mut self, _btn:piston::MouseButton, _manager:&mut IngameManager) {}
-    fn pause(&mut self, _manager:&mut IngameManager) {}
-    fn unpause(&mut self, _manager:&mut IngameManager) {}
-
 
     fn reset(&mut self, beatmap:Beatmap) {
         let settings = Settings::get();
@@ -608,13 +580,33 @@ impl GameMode for TaikoGame {
     
     }
 
+
+
+    fn skip_intro(&mut self, manager: &mut IngameManager) {
+        if self.note_index > 0 {return}
+
+        let x_needed = WINDOW_SIZE.x;
+        let mut time = manager.time();
+
+        loop {
+            let mut found = false;
+            for note in self.notes.iter() {if note.x_at(time) <= x_needed {found = true; break}}
+            if found {break}
+            time += 1;
+        }
+
+        let mut time = time as f32;
+        if manager.lead_in_time > 0.0 {
+            if time > manager.lead_in_time {
+                time -= manager.lead_in_time - 0.01;
+                manager.lead_in_time = 0.01;
+            }
+        }
+
+        manager.song.upgrade().unwrap().set_position(time);
+    }
+
 }
-
-
-
-
-
-
 
 
 // timing bar struct
@@ -656,4 +648,3 @@ impl TimingBar {
         renderables
     }
 }
-

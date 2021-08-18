@@ -4,7 +4,7 @@ use piston::RenderArgs;
 use parking_lot::Mutex;
 use opengl_graphics::GlyphCache;
 
-use taiko_rs_common::types::{Replay, Score};
+use taiko_rs_common::types::{KeyPress, Replay, Score};
 use crate::game::{Audio, AudioHandle, Settings, get_font};
 use crate::gameplay::*;
 use crate::render::{Renderable, Rectangle, Text, Color};
@@ -25,11 +25,12 @@ const OFFSET_DRAW_TIME:i64 = 2_000; // how long should the offset be drawn for?
 
 
 pub struct IngameManager {
-    pub score: Option<Score>,
-    pub replay: Option<Replay>,
+    pub score: Score,
+    pub replay: Replay,
 
     pub started: bool,
     pub completed: bool,
+    pub replaying: bool,
 
     pub song_start: Instant,
     pub song: Weak<AudioHandle>,
@@ -44,26 +45,32 @@ pub struct IngameManager {
 
 
     pub font: Arc<Mutex< GlyphCache<'static>>>,
+
+
+    /// if in replay mode, what replay frame are we at?
+    replay_frame: u64
 }
 impl IngameManager {
     pub fn new(beatmap: Beatmap) -> Self {
 
         Self {
             gamemode: Arc::new(Mutex::new(TaikoGame::new(&beatmap))),
-            beatmap,
 
             song_start: Instant::now(),
-            score: None,
-            replay: None,
+            score: Score::new(beatmap.hash.clone(), Settings::get().username.clone()),
+            replay: Replay::new(),
+            beatmap,
 
             song: Weak::new(), // temp until we get the audio file path
             started: false,
             completed: false,
+            replaying: false,
 
             lead_in_time: LEAD_IN_TIME,
 
             offset: 0,
             offset_changed_time: 0,
+            replay_frame: 0,
             font: get_font("main"),
         }
     }
@@ -89,7 +96,6 @@ impl IngameManager {
     // can be from either paused or new
     pub fn start(&mut self) {
         if !self.started {
-
             self.reset();
 
             match self.song.upgrade() {
@@ -105,8 +111,8 @@ impl IngameManager {
             self.song_start = Instant::now();
             // volume is set when the song is actually started (when lead_in_time is <= 0)
             self.started = true;
-
             return;
+
         } else if self.lead_in_time <= 0.0 {
             self.song.upgrade().unwrap().play();
         }
@@ -140,9 +146,13 @@ impl IngameManager {
         self.lead_in_time = LEAD_IN_TIME;
         self.offset_changed_time = 0;
         self.song_start = Instant::now();
+        self.score = Score::new(self.beatmap.hash.clone(), settings.username.clone());
+        self.replay_frame = 0;
 
-        self.score = Some(Score::new(self.beatmap.hash.clone(), settings.username.clone()));
-        self.replay = Some(Replay::new());
+        // only reset the replay if we arent replaying
+        if !self.replaying {
+            self.replay = Replay::new();
+        }
     }
 
 
@@ -161,7 +171,71 @@ impl IngameManager {
                 self.lead_in_time = 0.0;
             }
         }
+        let time = self.time();
 
+        if self.replaying {
+            let m = self.gamemode.clone();
+            let mut m = m.lock();
+
+            // read any frames that need to be read
+            loop {
+                if self.replay_frame as usize >= self.replay.presses.len() {break}
+                
+                let (press_time, pressed) = self.replay.presses[self.replay_frame as usize];
+                if press_time > time {break}
+                m.hit(pressed, self);
+
+                // this should be handled by the gamemode
+                // match pressed {
+                //     KeyPress::LeftKat => {
+                //         let mut hit = HalfCircle::new(
+                //             Color::BLUE,
+                //             HIT_POSITION,
+                //             1.0,
+                //             HIT_AREA_RADIUS,
+                //             true
+                //         );
+                //         hit.set_lifetime(DRUM_LIFETIME_TIME);
+                //         self.render_queue.push(Box::new(hit));
+                //     },
+                //     KeyPress::LeftDon => {
+                //         let mut hit = HalfCircle::new(
+                //             Color::RED,
+                //             HIT_POSITION,
+                //             1.0,
+                //             HIT_AREA_RADIUS,
+                //             true
+                //         );
+                //         hit.set_lifetime(DRUM_LIFETIME_TIME);
+                //         self.render_queue.push(Box::new(hit));
+                //     },
+                //     KeyPress::RightDon => {
+                //         let mut hit = HalfCircle::new(
+                //             Color::RED,
+                //             HIT_POSITION,
+                //             1.0,
+                //             HIT_AREA_RADIUS,
+                //             false
+                //         );
+                //         hit.set_lifetime(DRUM_LIFETIME_TIME);
+                //         self.render_queue.push(Box::new(hit));
+                //     },
+                //     KeyPress::RightKat => {
+                //         let mut hit = HalfCircle::new(
+                //             Color::BLUE,
+                //             HIT_POSITION,
+                //             1.0,
+                //             HIT_AREA_RADIUS,
+                //             false
+                //         );
+                //         hit.set_lifetime(DRUM_LIFETIME_TIME);
+                //         self.render_queue.push(Box::new(hit));
+                //     },
+                // }
+
+                self.replay_frame += 1;
+            }
+        }
 
         let m = self.gamemode.clone();
         let mut m = m.lock();
@@ -172,6 +246,21 @@ impl IngameManager {
     pub fn key_down(&mut self, key:piston::Key) {
         let m = self.gamemode.clone();
         let mut m = m.lock();
+
+        if self.replaying {
+            // check replay-only keys
+            if key == piston::Key::Escape {
+                self.started = false;
+                self.completed = true;
+                return;
+            }
+        }
+
+        // skip intro
+        if key == piston::Key::Space {
+            m.skip_intro(self);
+        }
+
         m.key_down(key, self);
     }
     pub fn key_up(&mut self, key:piston::Key) {
@@ -180,19 +269,25 @@ impl IngameManager {
         m.key_up(key, self);
     }
     pub fn mouse_move(&mut self, pos:Vector2) {
-
+        let m = self.gamemode.clone();
+        let mut m = m.lock();
+        m.mouse_move(pos, self);
     }
     pub fn mouse_down(&mut self, btn:piston::MouseButton) {
-
+        let m = self.gamemode.clone();
+        let mut m = m.lock();
+        m.mouse_down(btn, self);
     }
     pub fn mouse_up(&mut self, btn:piston::MouseButton) {
-
+        let m = self.gamemode.clone();
+        let mut m = m.lock();
+        m.mouse_up(btn, self);
     }
 
 
     pub fn draw(&mut self, args: RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         let time = self.time();
-        let font = self.font.clone(); //get_font("main");
+        let font = self.font.clone();
 
         // draw offset
         if self.offset_changed_time > 0 && time - self.offset_changed_time < OFFSET_DRAW_TIME {
@@ -221,19 +316,20 @@ impl IngameManager {
 
 pub trait GameMode {
     fn new(beatmap:&Beatmap) -> Self where Self: Sized;
+    fn hit(&mut self, key:KeyPress, manager:&mut IngameManager);
 
     fn update(&mut self, manager:&mut IngameManager);
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list: &mut Vec<Box<dyn Renderable>>);
 
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager);
     fn key_up(&mut self, key:piston::Key, manager:&mut IngameManager);
-    fn mouse_move(&mut self, pos:Vector2, manager:&mut IngameManager);
-    fn mouse_down(&mut self, btn:piston::MouseButton, manager:&mut IngameManager);
-    fn mouse_up(&mut self, btn:piston::MouseButton, manager:&mut IngameManager);
+    fn mouse_move(&mut self, _pos:Vector2, _manager:&mut IngameManager) {}
+    fn mouse_down(&mut self, _btn:piston::MouseButton, _manager:&mut IngameManager) {}
+    fn mouse_up(&mut self, _btn:piston::MouseButton, _manager:&mut IngameManager) {}
 
-    fn pause(&mut self, manager:&mut IngameManager);
-    fn unpause(&mut self, manager:&mut IngameManager);
+
+    fn skip_intro(&mut self, manager: &mut IngameManager);
+    fn pause(&mut self, _manager:&mut IngameManager) {}
+    fn unpause(&mut self, _manager:&mut IngameManager) {}
     fn reset(&mut self, beatmap:Beatmap);
-
-    fn skip_intro(&mut self) {}
 }

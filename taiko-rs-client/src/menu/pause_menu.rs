@@ -33,7 +33,7 @@ impl PauseMenu {
 
     pub fn unpause(&mut self, game:&mut Game) {
         // self.beatmap.lock().start();
-        self.manager.lock().start();
+        // self.manager.lock().start();
         game.queue_mode_change(GameMode::Ingame(self.manager.clone()));
     }
 }

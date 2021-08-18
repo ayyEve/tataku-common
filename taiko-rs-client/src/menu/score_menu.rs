@@ -3,7 +3,7 @@ use std::sync::Arc;
 use piston::{MouseButton, RenderArgs};
 use parking_lot::Mutex;
 
-use crate::gameplay::Beatmap;
+use crate::gameplay::{Beatmap, IngameManager};
 use taiko_rs_common::types::{Score, HitError};
 use crate::menu::{Menu, MenuButton, ScrollableItem, Graph};
 use crate::game::{Game, GameMode, KeyModifiers, get_font};
@@ -51,6 +51,7 @@ impl Menu<Game> for ScoreMenu {
         let font = get_font("main");
 
         let depth = 0.0;
+        list.reserve(9);
 
         // draw score info
         list.push(Box::new(Text::new(
@@ -143,11 +144,15 @@ impl Menu<Game> for ScoreMenu {
             // self.beatmap.lock().reset();
 
             let replay = databases::get_local_replay(self.score.hash());
-
             match replay {
                 Ok(replay) => {
-                    game.menus.get("beatmap").unwrap().lock().on_change(false);
+                    // game.menus.get("beatmap").unwrap().lock().on_change(false);
                     // game.queue_mode_change(GameMode::Replaying(self.beatmap.clone(), replay.clone(), 0));
+
+                    let mut manager = IngameManager::new(self.beatmap.clone());
+                    manager.replaying = true;
+                    manager.replay = replay.clone();
+                    game.queue_mode_change(GameMode::Ingame(Arc::new(Mutex::new(manager))));
                 },
                 Err(e) => println!("error loading replay: {}", e),
             }
