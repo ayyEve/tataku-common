@@ -14,7 +14,7 @@ const GRAPH_PADDING:Vector2 = Vector2::new(10.0,10.0);
 
 pub struct ScoreMenu {
     score: Score,
-    beatmap: Arc<Mutex<Beatmap>>,
+    beatmap: Beatmap,
     back_button: MenuButton,
     replay_button: MenuButton,
     graph: Graph,
@@ -23,7 +23,7 @@ pub struct ScoreMenu {
     hit_error: HitError
 }
 impl ScoreMenu {
-    pub fn new(score:&Score, beatmap: Arc<Mutex<Beatmap>>) -> ScoreMenu {
+    pub fn new(score:&Score, beatmap: Beatmap) -> ScoreMenu {
         let hit_error = score.hit_error();
         let back_button = MenuButton::back_button(WINDOW_SIZE);
 
@@ -140,14 +140,14 @@ impl Menu<Game> for ScoreMenu {
     fn on_click(&mut self, pos:Vector2, button:MouseButton, _mods:KeyModifiers, game:&mut Game) {
         let mods = game.input_manager.get_key_mods();
         if self.replay_button.on_click(pos, button, mods) {
-            self.beatmap.lock().reset();
+            // self.beatmap.lock().reset();
 
             let replay = databases::get_local_replay(self.score.hash());
 
             match replay {
                 Ok(replay) => {
                     game.menus.get("beatmap").unwrap().lock().on_change(false);
-                    game.queue_mode_change(GameMode::Replaying(self.beatmap.clone(), replay.clone(), 0));
+                    // game.queue_mode_change(GameMode::Replaying(self.beatmap.clone(), replay.clone(), 0));
                 },
                 Err(e) => println!("error loading replay: {}", e),
             }

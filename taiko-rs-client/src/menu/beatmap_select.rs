@@ -7,7 +7,7 @@ use parking_lot::Mutex;
 use piston::{Key, MouseButton, RenderArgs};
 
 use taiko_rs_common::types::Score;
-use crate::gameplay::{Beatmap, BeatmapMeta};
+use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
 use crate::game::{Game, GameMode, KeyModifiers, get_font, Audio, helpers::BeatmapManager};
 use crate::{SONGS_DIR, WINDOW_SIZE, DOWNLOADS_DIR, Vector2, databases::get_scores};
@@ -207,7 +207,7 @@ impl Menu<Game> for BeatmapSelectMenu {
                 let score = score.lock().clone();
 
                 if let Some(selected) = self.get_selected() {
-                    let menu = ScoreMenu::new(&score, selected.clone());
+                    let menu = ScoreMenu::new(&score, selected.lock().clone());
                     game.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
                 }
             }
@@ -227,10 +227,12 @@ impl Menu<Game> for BeatmapSelectMenu {
                 }
                 let mut map = clicked.lock();
                 Audio::stop_song();
-                map.reset();
-                map.start(); // TODO: figure out how to do this when checking mode change
+                // map.reset();
+                // map.start(); // TODO: figure out how to do this when checking mode change
+                let mut manager = IngameManager::new(map.clone());
+                manager.start();
 
-                game.queue_mode_change(GameMode::Ingame(clicked.clone()));
+                game.queue_mode_change(GameMode::Ingame(Arc::new(Mutex::new(manager))));
                 return;
             }
 

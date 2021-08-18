@@ -17,13 +17,13 @@ pub struct DifficultyCalculator {
 impl DifficultyCalculator {
     pub fn new(beatmap: Arc<Mutex<Beatmap>>) -> DifficultyCalculator {
 
-        let mut difficulty_hitobjects = Vec::new();
+        let mut difficulty_hitobjects:Vec<DifficultyHitObject> = Vec::new();
         {
-            let lock = beatmap.lock().clone();
-            for i in lock.notes.lock().iter_mut() {
-                let x = DifficultyHitObject::new(&i);
-                difficulty_hitobjects.push(x);
-            }
+            // let lock = beatmap.lock().clone();
+            // for i in lock.notes.lock().iter_mut() {
+            //     let x = DifficultyHitObject::new(&i);
+            //     difficulty_hitobjects.push(x);
+            // }
         }
 
         difficulty_hitobjects.sort_by(|a, b| {

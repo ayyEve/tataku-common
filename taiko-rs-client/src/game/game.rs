@@ -10,20 +10,18 @@ use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
 
 // use crate::gameplay::Beatmap;
-use crate::gameplay::Beatmap;
+use crate::gameplay::{Beatmap, IngameManager};
+use crate::{WINDOW_SIZE, SONGS_DIR, Vector2, menu::*};
+use crate::render::{Color, Image, Rectangle, Renderable};
 use crate::databases::{save_all_scores, save_replay, save_score};
-use crate::render::{Color, HalfCircle, Image, Rectangle, Renderable};
-use taiko_rs_common::types::{KeyPress, Replay, SpectatorFrames, UserAction};
+use taiko_rs_common::types::{Replay, SpectatorFrames, UserAction};
 use crate::helpers::{FpsDisplay, BenchmarkHelper, BeatmapManager, VolumeControl};
 use crate::game::{InputManager, Settings, online::{USER_ITEM_SIZE, OnlineManager}};
-use crate::{HIT_AREA_RADIUS, HIT_POSITION, WINDOW_SIZE, SONGS_DIR, Vector2, menu::*};
 
 /// background color
 const GFX_CLEAR_COLOR:Color = Color::WHITE;
 /// how long do transitions between gamemodes last?
 const TRANSITION_TIME:u64 = 500;
-/// how long should the drum buttons last for?
-const DRUM_LIFETIME_TIME:u64 = 100;
 
 pub struct Game {
     // engine things
@@ -185,7 +183,7 @@ impl Game {
 
     fn update(&mut self, _delta:f64) {
         self.update_display.increment();
-        let mut current_mode = self.current_mode.clone(); //TODO: is this still needed? it was needed when game was arc<mutex<>>
+        let mut current_mode = self.current_mode.clone();
         let elapsed = self.game_start.elapsed().as_millis() as u64;
 
         // read input events
@@ -224,85 +222,36 @@ impl Game {
             }
         }
 
+
         // run update on current move
         match current_mode {
-            GameMode::Ingame(ref beatmap) => {
-                let settings = Settings::get();
-                let og_beatmap = beatmap;
-                let mut beatmap = beatmap.lock();
+            GameMode::Ingame(ref manager) => {
+                // let settings = Settings::get();
+                let mut lock = manager.lock();
                 
-                if keys.contains(&Key::Space) {beatmap.skip_intro()}
-                if keys.contains(&settings.left_kat) {
-                    beatmap.hit(KeyPress::LeftKat);
-
-                    let mut hit = HalfCircle::new(
-                        Color::BLUE,
-                        HIT_POSITION,
-                        1.0,
-                        HIT_AREA_RADIUS,
-                        true
-                    );
-                    hit.set_lifetime(DRUM_LIFETIME_TIME);
-                    self.render_queue.push(Box::new(hit));
-                }
-                if keys.contains(&settings.left_don) {
-                    beatmap.hit(KeyPress::LeftDon);
-
-                    let mut hit = HalfCircle::new(
-                        Color::RED,
-                        HIT_POSITION,
-                        1.0,
-                        HIT_AREA_RADIUS,
-                        true
-                    );
-                    hit.set_lifetime(DRUM_LIFETIME_TIME);
-                    self.render_queue.push(Box::new(hit));
-                }
-                if keys.contains(&settings.right_don) {
-                    beatmap.hit(KeyPress::RightDon);
-
-                    let mut hit = HalfCircle::new(
-                        Color::RED,
-                        HIT_POSITION,
-                        1.0,
-                        HIT_AREA_RADIUS,
-                        false
-                    );
-                    hit.set_lifetime(DRUM_LIFETIME_TIME);
-                    self.render_queue.push(Box::new(hit));
-                }
-                if keys.contains(&settings.right_kat) {
-                    beatmap.hit(KeyPress::RightKat);
-
-                    let mut hit = HalfCircle::new(
-                        Color::BLUE,
-                        HIT_POSITION,
-                        1.0,
-                        HIT_AREA_RADIUS,
-                        false
-                    );
-                    hit.set_lifetime(DRUM_LIFETIME_TIME);
-                    self.render_queue.push(Box::new(hit));
-                }
-                
+                if keys.contains(&Key::Space) {lock.gamemode.lock().skip_intro()}
                 // pause button, or focus lost
                 if matches!(window_focus_changed, Some(false)) || keys.contains(&Key::Escape) {
-                    beatmap.pause();
-                    let menu = PauseMenu::new(og_beatmap.clone());
+                    lock.pause();
+                    let menu = PauseMenu::new(manager.clone());
                     self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
                 }
 
                 // offset adjust
-                if keys.contains(&Key::Equals) {beatmap.increment_offset(5)}
-                if keys.contains(&Key::Minus) {beatmap.increment_offset(-5)}
+                if keys.contains(&Key::Equals) {lock.increment_offset(5)}
+                if keys.contains(&Key::Minus) {lock.increment_offset(-5)}
+
+                for k in keys.iter() {
+                    lock.key_down(*k);
+                }
 
                 // update, then check if complete
-                beatmap.update();
-                if beatmap.completed {
+                lock.update();
+                if lock.completed {
                     println!("beatmap complete");
 
-                    let score = beatmap.score.as_ref().unwrap();
-                    let replay = beatmap.replay.as_ref().unwrap();
+                    let score = lock.score.as_ref().unwrap();
+                    let replay = lock.replay.as_ref().unwrap();
                     println!("score + replay unwrapped");
 
                     // save score
@@ -346,96 +295,97 @@ impl Game {
                     }
 
                     // show score menu
-                    let menu = ScoreMenu::new(&score, og_beatmap.clone());
+                    let menu = ScoreMenu::new(&score, lock.beatmap.clone());
                     self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
                     println!("new menu set");
 
                     // cleanup memory-hogs in the beatmap object
-                    beatmap.cleanup();
+                    // lock.cleanup();
                 }
             }
 
             GameMode::Replaying(ref beatmap, ref replay, ref mut frame_index) => {
-                let mut beatmap = beatmap.lock();
-                let time = beatmap.time();
-                // read any frames that need to be read
-                loop {
-                    if *frame_index as usize >= replay.presses.len() {break}
+                // let mut beatmap = beatmap.lock();
+                // let time = beatmap.time();
+                // // read any frames that need to be read
+                // loop {
+                //     if *frame_index as usize >= replay.presses.len() {break}
                     
-                    let (press_time, pressed) = replay.presses[*frame_index as usize];
-                    if press_time > time {break}
+                //     let (press_time, pressed) = replay.presses[*frame_index as usize];
+                //     if press_time > time {break}
 
-                    beatmap.hit(pressed);
-                    match pressed {
-                        KeyPress::LeftKat => {
-                            let mut hit = HalfCircle::new(
-                                Color::BLUE,
-                                HIT_POSITION,
-                                1.0,
-                                HIT_AREA_RADIUS,
-                                true
-                            );
-                            hit.set_lifetime(DRUM_LIFETIME_TIME);
-                            self.render_queue.push(Box::new(hit));
-                        },
-                        KeyPress::LeftDon => {
-                            let mut hit = HalfCircle::new(
-                                Color::RED,
-                                HIT_POSITION,
-                                1.0,
-                                HIT_AREA_RADIUS,
-                                true
-                            );
-                            hit.set_lifetime(DRUM_LIFETIME_TIME);
-                            self.render_queue.push(Box::new(hit));
-                        },
-                        KeyPress::RightDon => {
-                            let mut hit = HalfCircle::new(
-                                Color::RED,
-                                HIT_POSITION,
-                                1.0,
-                                HIT_AREA_RADIUS,
-                                false
-                            );
-                            hit.set_lifetime(DRUM_LIFETIME_TIME);
-                            self.render_queue.push(Box::new(hit));
-                        },
-                        KeyPress::RightKat => {
-                            let mut hit = HalfCircle::new(
-                                Color::BLUE,
-                                HIT_POSITION,
-                                1.0,
-                                HIT_AREA_RADIUS,
-                                false
-                            );
-                            hit.set_lifetime(DRUM_LIFETIME_TIME);
-                            self.render_queue.push(Box::new(hit));
-                        },
-                    }
+                //     beatmap.hit(pressed);
+                //     match pressed {
+                //         KeyPress::LeftKat => {
+                //             let mut hit = HalfCircle::new(
+                //                 Color::BLUE,
+                //                 HIT_POSITION,
+                //                 1.0,
+                //                 HIT_AREA_RADIUS,
+                //                 true
+                //             );
+                //             hit.set_lifetime(DRUM_LIFETIME_TIME);
+                //             self.render_queue.push(Box::new(hit));
+                //         },
+                //         KeyPress::LeftDon => {
+                //             let mut hit = HalfCircle::new(
+                //                 Color::RED,
+                //                 HIT_POSITION,
+                //                 1.0,
+                //                 HIT_AREA_RADIUS,
+                //                 true
+                //             );
+                //             hit.set_lifetime(DRUM_LIFETIME_TIME);
+                //             self.render_queue.push(Box::new(hit));
+                //         },
+                //         KeyPress::RightDon => {
+                //             let mut hit = HalfCircle::new(
+                //                 Color::RED,
+                //                 HIT_POSITION,
+                //                 1.0,
+                //                 HIT_AREA_RADIUS,
+                //                 false
+                //             );
+                //             hit.set_lifetime(DRUM_LIFETIME_TIME);
+                //             self.render_queue.push(Box::new(hit));
+                //         },
+                //         KeyPress::RightKat => {
+                //             let mut hit = HalfCircle::new(
+                //                 Color::BLUE,
+                //                 HIT_POSITION,
+                //                 1.0,
+                //                 HIT_AREA_RADIUS,
+                //                 false
+                //             );
+                //             hit.set_lifetime(DRUM_LIFETIME_TIME);
+                //             self.render_queue.push(Box::new(hit));
+                //         },
+                //     }
 
-                    *frame_index += 1;
-                }
+                //     *frame_index += 1;
+                // }
                 
-                // pause button, or focus lost
-                if keys.contains(&Key::Escape) {
-                    beatmap.reset();
-                    let menu = self.menus.get("beatmap").unwrap().clone();
-                    self.queue_mode_change(GameMode::InMenu(menu));
-                }
+                // // pause button, or focus lost
+                // if keys.contains(&Key::Escape) {
+                //     beatmap.reset();
+                //     let menu = self.menus.get("beatmap").unwrap().clone();
+                //     self.queue_mode_change(GameMode::InMenu(menu));
+                // }
 
-                // offset adjust
-                if keys.contains(&Key::Equals) {beatmap.increment_offset(5)}
-                if keys.contains(&Key::Minus) {beatmap.increment_offset(-5)}
+                // // offset adjust
+                // if keys.contains(&Key::Equals) {beatmap.increment_offset(5)}
+                // if keys.contains(&Key::Minus) {beatmap.increment_offset(-5)}
 
-                beatmap.update();
+                // beatmap.update();
 
-                if beatmap.completed {
-                    // show score menu
-                    let menu = ScoreMenu::new(&beatmap.score.as_ref().unwrap(), Arc::new(Mutex::new(beatmap.clone())));
-                    self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
+                // if beatmap.completed {
+                //     // show score menu
+                //     let menu = ScoreMenu::new(&beatmap.score.as_ref().unwrap(), Arc::new(Mutex::new(beatmap.clone())));
+                //     self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
 
-                    beatmap.cleanup();
-                }
+                //     beatmap.cleanup();
+                // }
+            
             }
             
             GameMode::InMenu(ref menu) => {
@@ -524,7 +474,7 @@ impl Game {
                         let (m, h) = { 
                             let lock = map.lock();
 
-                            (lock.metadata.clone(), lock.hash.clone())
+                            (lock.beatmap.metadata.clone(), lock.beatmap.hash.clone())
                         };
 
                         let text = format!("{}-{}[{}]\n{}",m.artist,m.title,m.version,h);
@@ -607,13 +557,13 @@ impl Game {
 
         // mode
         match &self.current_mode {
-            GameMode::Ingame(beatmap) => renderables.extend(beatmap.lock().draw(args)),
+            GameMode::Ingame(manager) => manager.lock().draw(args, &mut renderables),
             GameMode::InMenu(menu) => renderables.extend(menu.lock().draw(args)),
-            GameMode::Replaying(beatmap,_,_) => {
-                renderables.extend(beatmap.lock().draw(args));
+            // GameMode::Replaying(beatmap,_,_) => {
+            //     renderables.extend(beatmap.lock().draw(args));
 
-                // draw watching X text
-            }
+            //     // draw watching X text
+            // }
             
             _ => {}
         }
@@ -786,7 +736,7 @@ impl Game {
 pub enum GameMode {
     None, // use this as the inital game mode, but me sure to change it after
     Closing,
-    Ingame(Arc<Mutex<Beatmap>>),
+    Ingame(Arc<Mutex<IngameManager>>),
     InMenu(Arc<Mutex<dyn Menu<Game>>>),
     Replaying(Arc<Mutex<Beatmap>>, Replay, u64),
 
