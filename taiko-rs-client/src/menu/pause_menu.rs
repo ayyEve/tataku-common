@@ -3,7 +3,7 @@ use piston::{MouseButton, RenderArgs};
 
 use parking_lot::Mutex;
 
-use crate::game::{Game, GameMode, KeyModifiers};
+use crate::game::{Game, GameState, KeyModifiers};
 use crate::gameplay::IngameManager;
 use crate::menu::{Menu, MenuButton, ScrollableItem};
 use crate::{WINDOW_SIZE, Vector2, render::*};
@@ -34,7 +34,7 @@ impl PauseMenu {
     pub fn unpause(&mut self, game:&mut Game) {
         // self.beatmap.lock().start();
         // self.manager.lock().start();
-        game.queue_mode_change(GameMode::Ingame(self.manager.clone()));
+        game.queue_state_change(GameState::Ingame(self.manager.clone()));
     }
 }
 impl Menu<Game> for PauseMenu {
@@ -69,7 +69,7 @@ impl Menu<Game> for PauseMenu {
         // return to song select
         if self.exit_button.on_click(pos, button, mods) {
             let menu = game.menus.get("beatmap").unwrap().to_owned();
-            game.queue_mode_change(GameMode::InMenu(menu));
+            game.queue_state_change(GameState::InMenu(menu));
 
             // cleanup memory hogs in the beatmap object
             // self.manager.lock().cleanup();

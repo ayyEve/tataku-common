@@ -6,7 +6,7 @@ use parking_lot::Mutex;
 use crate::gameplay::{Beatmap, IngameManager};
 use taiko_rs_common::types::{Score, HitError};
 use crate::menu::{Menu, MenuButton, ScrollableItem, Graph};
-use crate::game::{Game, GameMode, KeyModifiers, get_font};
+use crate::game::{Game, GameState, KeyModifiers, get_font};
 use crate::{WINDOW_SIZE, databases, format, Vector2, render::*, helpers::visibility_bg};
 
 const GRAPH_SIZE:Vector2 = Vector2::new(400.0, 200.0);
@@ -152,15 +152,15 @@ impl Menu<Game> for ScoreMenu {
                     let mut manager = IngameManager::new(self.beatmap.clone());
                     manager.replaying = true;
                     manager.replay = replay.clone();
-                    game.queue_mode_change(GameMode::Ingame(Arc::new(Mutex::new(manager))));
+                    game.queue_state_change(GameState::Ingame(Arc::new(Mutex::new(manager))));
                 },
                 Err(e) => println!("error loading replay: {}", e),
             }
         }
 
         if self.back_button.on_click(pos, button, mods) {
-            let menu = game.menus.get("beatmap").unwrap().to_owned();
-            game.queue_mode_change(GameMode::InMenu(menu));
+            let menu = game.menus.get("beatmap").unwrap().clone();
+            game.queue_state_change(GameState::InMenu(menu));
         }
     }
 
@@ -172,7 +172,8 @@ impl Menu<Game> for ScoreMenu {
 
     fn on_key_press(&mut self, key:piston::Key, game: &mut Game, _mods:KeyModifiers) {
         if key == piston::Key::Escape {
-            game.current_mode = GameMode::InMenu(game.menus.get("beatmap").unwrap().to_owned());
+            let menu = game.menus.get("beatmap").unwrap().clone();
+            game.queue_state_change(GameState::InMenu(menu));
         }
     }
 }

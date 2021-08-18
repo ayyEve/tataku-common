@@ -5,7 +5,7 @@ use parking_lot::Mutex;
 use piston::{MouseButton, RenderArgs};
 
 use crate::{WINDOW_SIZE, Vector2, render::*};
-use crate::game::{Game, GameMode, get_font};
+use crate::game::{Game, GameState, get_font};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
 
 const BUTTON_SIZE: Vector2 = Vector2::new(100.0, 50.0);
@@ -74,27 +74,27 @@ impl Menu<Game> for MainMenu {
         // switch to beatmap selection
         if self.play_button.on_click(pos, button, mods) {
             let menu = game.menus.get("beatmap").unwrap().clone();
-            game.queue_mode_change(GameMode::InMenu(menu));
+            game.queue_state_change(GameState::InMenu(menu));
             return;
         }
 
         // open direct menu
         if self.direct_button.on_click(pos, button, mods) {
             let menu:Arc<Mutex<dyn Menu<Game>>> = Arc::new(Mutex::new(OsuDirectMenu::new()));
-            game.queue_mode_change(GameMode::InMenu(menu));
+            game.queue_state_change(GameState::InMenu(menu));
             return;
         }
 
         // open settings menu
         if self.settings_button.on_click(pos, button, mods) {
             let menu = game.menus.get("settings").unwrap().clone();
-            game.queue_mode_change(GameMode::InMenu(menu));
+            game.queue_state_change(GameState::InMenu(menu));
             return;
         }
 
         // quit game
         if self.exit_button.on_click(pos, button, mods) {
-            game.queue_mode_change(GameMode::Closing);
+            game.queue_state_change(GameState::Closing);
             return;
         }
     }

@@ -8,7 +8,7 @@ use piston::{Key, MouseButton};
 use crate::{WINDOW_SIZE, DOWNLOADS_DIR, Vector2};
 use crate::render::{Text, Renderable, Rectangle, Color, Border};
 use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
-use crate::game::{Audio, Game, GameMode, KeyModifiers, Settings, get_font};
+use crate::game::{Audio, Game, GameState, KeyModifiers, Settings, get_font};
 
 const DOWNLOAD_ITEM_SIZE:Vector2 = Vector2::new(300.0, 40.0);
 const DOWNLOAD_ITEM_YMARGIN:f64 = 30.0;
@@ -115,7 +115,7 @@ impl OsuDirectMenu {
         }
 
         let menu = game.menus.get("main").unwrap().clone();
-        game.queue_mode_change(GameMode::InMenu(menu));
+        game.queue_state_change(GameState::InMenu(menu));
     }
 }
 impl Menu<Game> for OsuDirectMenu {

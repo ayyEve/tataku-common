@@ -35,8 +35,8 @@ pub struct Game {
     pub menus: HashMap<&'static str, Arc<Mutex<dyn Menu<Game>>>>,
     pub beatmap_manager: Arc<Mutex<BeatmapManager>>, // must be thread safe
     
-    pub current_mode: GameMode,
-    pub queued_mode: GameMode,
+    pub current_state: GameState,
+    pub queued_state: GameState,
 
     pub volume_controller: VolumeControl,
 
@@ -46,8 +46,8 @@ pub struct Game {
     input_update_display: FpsDisplay,
 
     // transition
-    transition: Option<GameMode>,
-    transition_last: Option<GameMode>,
+    transition: Option<GameState>,
+    transition_last: Option<GameState>,
     transition_timer: u64,
 
     // user list
@@ -98,8 +98,8 @@ impl Game {
 
             menus: HashMap::new(),
             beatmap_manager: Arc::new(Mutex::new(BeatmapManager::new())),
-            current_mode: GameMode::None,
-            queued_mode: GameMode::None,
+            current_state: GameState::None,
+            queued_state: GameState::None,
 
 
             // fps
@@ -155,7 +155,7 @@ impl Game {
         menu_init_benchmark.log("settings menu created", true);
 
 
-        self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(loading_menu))));
+        self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(loading_menu))));
     }
     pub fn game_loop(mut self) {
         // input and rendering thread
@@ -183,7 +183,7 @@ impl Game {
 
     fn update(&mut self, _delta:f64) {
         self.update_display.increment();
-        let mut current_mode = self.current_mode.clone();
+        let current_state = self.current_state.clone();
         let elapsed = self.game_start.elapsed().as_millis() as u64;
 
         // read input events
@@ -212,7 +212,7 @@ impl Game {
         // users list
         if keys_down.contains(&Key::F8) {
             self.show_user_list = !self.show_user_list;
-            println!("show user list: {}", self.show_user_list);
+            println!("Show user list: {}", self.show_user_list);
         }
         if self.show_user_list {
             if let Ok(om) = self.online_manager.try_lock() {
@@ -226,9 +226,9 @@ impl Game {
         }
 
 
-        // run update on current move
-        match current_mode {
-            GameMode::Ingame(ref manager) => {
+        // run update on current state
+        match current_state {
+            GameState::Ingame(ref manager) => {
                 // let settings = Settings::get();
                 let mut lock = manager.lock();
                 
@@ -236,7 +236,7 @@ impl Game {
                 if !lock.replaying && matches!(window_focus_changed, Some(false)) || keys_down.contains(&Key::Escape) {
                     lock.pause();
                     let menu = PauseMenu::new(manager.clone());
-                    self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
+                    self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
                 }
 
                 // offset adjust
@@ -317,16 +317,16 @@ impl Game {
                         // go back to beatmap select
                         let menu = self.menus.get("beatmap").unwrap();
                         let menu = menu.clone();
-                        self.queue_mode_change(GameMode::InMenu(menu));
+                        self.queue_state_change(GameState::InMenu(menu));
                     } else {
                         // show score menu
                         let menu = ScoreMenu::new(&score, lock.beatmap.clone());
-                        self.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
+                        self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
                     }
                 }
             }
             
-            GameMode::InMenu(ref menu) => {
+            GameState::InMenu(ref menu) => {
                 let mut menu = menu.lock();
 
                 // menu input events
@@ -356,7 +356,7 @@ impl Game {
                 menu.update(self);
             }
 
-            GameMode::Spectating(ref data, ref state, ref _beatmap) => {
+            GameState::Spectating(ref data, ref state, ref _beatmap) => {
                 let mut data = data.lock();
 
                 // (try to) read pending data from the online manager
@@ -373,11 +373,11 @@ impl Game {
                 }
             }
 
-            GameMode::None => {
+            GameState::None => {
                 // might be transitioning
                 if self.transition.is_some().clone() && elapsed - self.transition_timer > TRANSITION_TIME / 2 {
                     let trans = self.transition.as_ref().unwrap().clone();
-                    self.queue_mode_change(trans);
+                    self.queue_state_change(trans);
                     self.transition = None;
                     self.transition_timer = elapsed;
                 }
@@ -387,10 +387,10 @@ impl Game {
         }
         
         // update game mode
-        match &self.queued_mode {
+        match &self.queued_state {
             // queued mode didnt change, set the unlocked's mode to the updated mode
-            GameMode::None => self.current_mode = current_mode,
-            GameMode::Closing => {
+            GameState::None => self.current_state = current_state,
+            GameState::Closing => {
                 Settings::get().save();
                 self.window.set_should_close(true);
             }
@@ -406,8 +406,8 @@ impl Game {
                 //     OnlineManager::set_action(online_manager, UserAction::Leaving, String::new()).await;
                 // });
 
-                match &self.queued_mode {
-                    GameMode::Ingame(manager) => {
+                match &self.queued_state {
+                    GameState::Ingame(manager) => {
                         let (m, h) = {
                             let mut lock = manager.lock();
                             lock.start();
@@ -426,12 +426,12 @@ impl Game {
                             OnlineManager::set_action(online_manager, UserAction::Ingame, text).await;
                         });
                     },
-                    GameMode::InMenu(_) => {
+                    GameState::InMenu(_) => {
                         self.threading.spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Idle, String::new()).await;
                         });
                     },
-                    GameMode::Closing => {
+                    GameState::Closing => {
                         // send logoff
                         self.threading.spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Leaving, String::new()).await;
@@ -441,29 +441,28 @@ impl Game {
                 }
 
                 let mut do_transition = true;
-                match &self.current_mode {
-                    GameMode::None => do_transition = false,
-                    GameMode::InMenu(menu) if menu.lock().get_name() == "pause" => do_transition = false,
+                match &self.current_state {
+                    GameState::None => do_transition = false,
+                    GameState::InMenu(menu) if menu.lock().get_name() == "pause" => do_transition = false,
                     _ => {}
                 }
 
                 if do_transition {
                     // do a transition
-                    let qm = &self.queued_mode;
+                    let qm = &self.queued_state;
                     self.transition = Some(qm.clone());
                     self.transition_timer = elapsed;
-                    self.transition_last = Some(self.current_mode.clone());
-                    self.queued_mode = GameMode::None;
-                    self.current_mode = GameMode::None;
+                    self.transition_last = Some(self.current_state.clone());
+                    self.queued_state = GameState::None;
+                    self.current_state = GameState::None;
                 } else {
                     // old mode was none, or was pause menu, transition to new mode
-                    let mode = self.queued_mode.clone();
+                    let mode = self.queued_state.clone();
 
-                    self.current_mode = mode.clone();
-                    self.queued_mode = GameMode::None;
+                    self.current_state = mode.clone();
+                    self.queued_state = GameState::None;
 
-
-                    if let GameMode::InMenu(menu) = &self.current_mode {
+                    if let GameState::InMenu(menu) = &self.current_state {
                         menu.lock().on_change(true);
                     }
                 }
@@ -493,9 +492,9 @@ impl Game {
         )));
 
         // mode
-        match &self.current_mode {
-            GameMode::Ingame(manager) => manager.lock().draw(args, &mut renderables),
-            GameMode::InMenu(menu) => renderables.extend(menu.lock().draw(args)),
+        match &self.current_state {
+            GameState::Ingame(manager) => manager.lock().draw(args, &mut renderables),
+            GameState::InMenu(menu) => renderables.extend(menu.lock().draw(args)),
             
             _ => {}
         }
@@ -519,8 +518,8 @@ impl Game {
             )));
 
             // draw old mode
-            match (&self.current_mode, &self.transition_last) {
-                (GameMode::None, Some(GameMode::InMenu(menu))) => renderables.extend(menu.lock().draw(args)),
+            match (&self.current_state, &self.transition_last) {
+                (GameState::None, Some(GameState::InMenu(menu))) => renderables.extend(menu.lock().draw(args)),
                 _ => {}
             }
         }
@@ -586,7 +585,7 @@ impl Game {
         });
     }
     
-    pub fn queue_mode_change(&mut self, mode:GameMode) {self.queued_mode = mode}
+    pub fn queue_state_change(&mut self, state:GameState) {self.queued_state = state}
 
     /// shortcut for setting the game's background texture to a beatmap's image
     pub fn set_background_beatmap(&mut self, beatmap:Arc<Mutex<Beatmap>>) {
@@ -665,7 +664,7 @@ impl Game {
 
 
 #[derive(Clone)]
-pub enum GameMode {
+pub enum GameState {
     None, // use this as the inital game mode, but me sure to change it after
     Closing,
     Ingame(Arc<Mutex<IngameManager>>),

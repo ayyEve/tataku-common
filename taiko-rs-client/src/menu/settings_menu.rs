@@ -1,6 +1,6 @@
 use piston::{MouseButton, RenderArgs};
 
-use crate::game::{Game, GameMode, KeyModifiers, Settings};
+use crate::game::{Game, GameState, KeyModifiers, Settings};
 use crate::{WINDOW_SIZE, Vector2, helpers::visibility_bg, render::*};
 use crate::menu::{Menu, TextInput, MenuButton, KeyButton, PasswordInput, ScrollableArea, ScrollableItem, Checkbox, Slider, MenuSection};
 
@@ -112,7 +112,7 @@ impl SettingsMenu {
         settings.save();
 
         let menu = game.menus.get("main").unwrap().clone();
-        game.queue_mode_change(GameMode::InMenu(menu));
+        game.queue_state_change(GameState::InMenu(menu));
     }
 }
 impl Menu<Game> for SettingsMenu {
@@ -140,7 +140,7 @@ impl Menu<Game> for SettingsMenu {
 
         if key == piston::Key::Escape {
             let menu = game.menus.get("main").unwrap().clone();
-            game.queue_mode_change(GameMode::InMenu(menu));
+            game.queue_state_change(GameState::InMenu(menu));
             return;
         }
     }

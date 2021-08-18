@@ -109,7 +109,7 @@ impl Menu<Game> for LoadingMenu {
     fn update(&mut self, game:&mut Game) {
         if let LoadingStage::Done = self.status.lock().stage {
             let menu = game.menus.get("main").unwrap().clone();
-            game.queue_mode_change(crate::game::GameMode::InMenu(menu));
+            game.queue_state_change(crate::game::GameState::InMenu(menu));
 
             // select a map to load bg and intro audio from (TODO! add our own?)
             let manager = self.beatmap_manager.lock();

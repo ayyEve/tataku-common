@@ -1,6 +1,6 @@
 mod beatmap;
 mod note;
-pub mod diff_calc;
+// pub mod diff_calc;
 mod beatmap_structs;
 mod ingame_manager;
 

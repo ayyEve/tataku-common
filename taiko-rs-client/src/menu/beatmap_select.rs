@@ -7,10 +7,11 @@ use parking_lot::Mutex;
 use piston::{Key, MouseButton, RenderArgs};
 
 use taiko_rs_common::types::Score;
+use crate::Playmode;
 use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
-use crate::game::{Game, GameMode, KeyModifiers, get_font, Audio, helpers::BeatmapManager};
 use crate::{SONGS_DIR, WINDOW_SIZE, DOWNLOADS_DIR, Vector2, databases::get_scores};
+use crate::game::{Game, GameState, KeyModifiers, get_font, Audio, helpers::BeatmapManager};
 
 // constants
 const INFO_BAR_HEIGHT: f64 = 60.0;
@@ -186,10 +187,9 @@ impl Menu<Game> for BeatmapSelectMenu {
     }
 
     fn on_click(&mut self, pos:Vector2, button:MouseButton, mods: ayyeve_piston_ui::menu::KeyModifiers, game:&mut Game) {
-
         if self.back_button.on_click(pos, button, mods) {
             let menu = game.menus.get("main").unwrap().clone();
-            game.queue_mode_change(GameMode::InMenu(menu));
+            game.queue_state_change(GameState::InMenu(menu));
             return;
         }
 
@@ -201,7 +201,7 @@ impl Menu<Game> for BeatmapSelectMenu {
 
                 if let Some(selected) = self.get_selected() {
                     let menu = ScoreMenu::new(&score, selected.lock().clone());
-                    game.queue_mode_change(GameMode::InMenu(Arc::new(Mutex::new(menu))));
+                    game.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
                 }
             }
             return;
@@ -220,12 +220,8 @@ impl Menu<Game> for BeatmapSelectMenu {
                 }
                 Audio::stop_song();
                 let map = clicked.lock();
-                // map.reset();
-                // map.start(); // TODO: figure out how to do this when checking mode change
-                let mut manager = IngameManager::new(map.clone());
-                // manager.start();
-
-                game.queue_mode_change(GameMode::Ingame(Arc::new(Mutex::new(manager))));
+                let manager = IngameManager::new(map.clone());
+                game.queue_state_change(GameState::Ingame(Arc::new(Mutex::new(manager))));
                 return;
             }
 
@@ -237,6 +233,7 @@ impl Menu<Game> for BeatmapSelectMenu {
             self.selected_beatmap = Some(hash.clone());
             self.load_scores(hash.clone());
         } 
+        
         // else {
         //     //TODO: hmm
         //     self.selected = None;
@@ -244,6 +241,7 @@ impl Menu<Game> for BeatmapSelectMenu {
         //     self.leaderboard_scroll.clear();
         // }
 
+        self.beatmap_scroll.refresh_layout();
     }
     fn on_mouse_move(&mut self, pos:Vector2, _game:&mut Game) {
         self.back_button.on_mouse_move(pos);
@@ -258,7 +256,7 @@ impl Menu<Game> for BeatmapSelectMenu {
     fn on_key_press(&mut self, key:piston::Key, game:&mut Game, _mods:KeyModifiers) {
         if key == Key::Escape {
             let menu = game.menus.get("main").unwrap().clone();
-            game.queue_mode_change(GameMode::InMenu(menu));
+            game.queue_state_change(GameState::InMenu(menu));
         }
         if key == Key::F5 {
             self.refresh_maps();
@@ -275,6 +273,8 @@ struct BeatmapsetItem {
     hover: bool,
     selected: bool,
     tag: String,
+
+    mode: Playmode,
 
     pending_play: bool,
     beatmaps: Vec<Arc<Mutex<Beatmap>>>,
@@ -295,7 +295,6 @@ impl BeatmapsetItem {
         let _first = beatmaps.first().unwrap();
         let first = _first.lock();
         let tag = first.metadata.version_string();
-
         const X:f64 = WINDOW_SIZE.x - (BEATMAPSET_ITEM_SIZE.x + BEATMAPSET_PAD_RIGHT + LEADERBOARD_POS.x + LEADERBOARD_ITEM_SIZE.x);
 
         BeatmapsetItem {
@@ -306,6 +305,7 @@ impl BeatmapsetItem {
             pending_play: false,
             tag,
             meta: first.metadata.clone(),
+            mode: Playmode::Taiko,
 
             selected_item: 0,
             mouse_pos: Vector2::zero()
