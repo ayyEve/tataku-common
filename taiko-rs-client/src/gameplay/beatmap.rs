@@ -1,7 +1,8 @@
 use std::{path::Path, sync::Arc};
 
 use parking_lot::Mutex;
-use crate::{Vector2, render::Color, enums::Playmode, gameplay::beatmap_structs::*};
+use taiko_rs_common::types::PlayMode;
+use crate::{Vector2, render::Color, gameplay::beatmap_structs::*};
 
 /// timing bar color
 pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0);
@@ -330,7 +331,7 @@ pub enum CurveType {
 // contains beatmap info unrelated to notes and timing points, etc
 #[derive(Clone, Debug)]
 pub struct BeatmapMeta {
-    pub mode: Playmode,
+    pub mode: PlayMode,
     pub beatmap_version: f32,
     pub artist: String,
     pub title: String,
@@ -357,7 +358,7 @@ impl BeatmapMeta {
         let unknown = "Unknown".to_owned();
 
         BeatmapMeta {
-            mode: Playmode::Taiko,
+            mode: PlayMode::Taiko,
             beatmap_version: 0.0,
             artist: unknown.clone(),
             title: unknown.clone(),

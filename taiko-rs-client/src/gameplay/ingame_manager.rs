@@ -4,24 +4,15 @@ use piston::RenderArgs;
 use parking_lot::Mutex;
 use opengl_graphics::GlyphCache;
 
-use taiko_rs_common::types::{KeyPress, Replay, Score};
-use crate::game::{Audio, AudioHandle, Settings, get_font};
-use crate::gameplay::*;
-use crate::render::{Renderable, Rectangle, Text, Color};
-use crate::{HIT_POSITION, WINDOW_SIZE, Vector2};
+use taiko_rs_common::types::{KeyPress, PlayMode, Replay, Score};
 
-use super::modes::taiko::TaikoGame;
+use crate::gameplay::*;
+use crate::{HIT_POSITION, WINDOW_SIZE, Vector2};
+use crate::render::{Renderable, Rectangle, Text, Color};
+use crate::game::{Audio, AudioHandle, Settings, get_font};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
-// const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
-// const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
 const OFFSET_DRAW_TIME:i64 = 2_000; // how long should the offset be drawn for?
-
-// const HIT_TIMING_BAR_SIZE:Vector2 = Vector2::new(WINDOW_SIZE.x / 3.0, 30.0);
-// const HIT_TIMING_BAR_POS:Vector2 = Vector2::new(WINDOW_SIZE.x / 2.0 - HIT_TIMING_BAR_SIZE.x / 2.0, WINDOW_SIZE.y - (DURATION_HEIGHT + 3.0 + HIT_TIMING_BAR_SIZE.y + 5.0));
-// const HIT_TIMING_DURATION:f64 = 1_000.0; // how long should a hit timing line last
-// const HIT_TIMING_FADE:f64 = 300.0; // how long to fade out for
-// const HIT_TIMING_BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // hit timing bar color
 
 
 pub struct IngameManager {
@@ -51,14 +42,15 @@ pub struct IngameManager {
     replay_frame: u64
 }
 impl IngameManager {
-    pub fn new(beatmap: Beatmap) -> Self {
+    pub fn new(beatmap: Beatmap, gamemode: Arc<Mutex<dyn GameMode>>) -> Self {
+        let playmode = gamemode.lock().playmode();
 
         Self {
-            gamemode: Arc::new(Mutex::new(TaikoGame::new(&beatmap))),
-
             song_start: Instant::now(),
-            score: Score::new(beatmap.hash.clone(), Settings::get().username.clone()),
+            score: Score::new(beatmap.hash.clone(), Settings::get().username.clone(), playmode),
+
             replay: Replay::new(),
+            gamemode,
             beatmap,
 
             song: Weak::new(), // temp until we get the audio file path
@@ -146,7 +138,7 @@ impl IngameManager {
         self.lead_in_time = LEAD_IN_TIME;
         self.offset_changed_time = 0;
         self.song_start = Instant::now();
-        self.score = Score::new(self.beatmap.hash.clone(), settings.username.clone());
+        self.score = Score::new(self.beatmap.hash.clone(), settings.username.clone(), self.gamemode.lock().playmode());
         self.replay_frame = 0;
 
         // only reset the replay if we arent replaying
@@ -316,6 +308,7 @@ impl IngameManager {
 
 pub trait GameMode {
     fn new(beatmap:&Beatmap) -> Self where Self: Sized;
+    fn playmode(&self) -> PlayMode;
     fn hit(&mut self, key:KeyPress, manager:&mut IngameManager);
 
     fn update(&mut self, manager:&mut IngameManager);

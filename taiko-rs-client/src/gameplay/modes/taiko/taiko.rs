@@ -2,8 +2,8 @@ use ayyeve_piston_ui::render::*;
 use piston::RenderArgs;
 use taiko_rs_common::types::KeyPress;
 use taiko_rs_common::types::ScoreHit;
+use taiko_rs_common::types::PlayMode;
 
-use crate::Playmode;
 use crate::game::Audio;
 use crate::game::Settings;
 use crate::gameplay::SliderDef;
@@ -62,6 +62,7 @@ impl TaikoGame {
 }
 
 impl GameMode for TaikoGame {
+    fn playmode(&self) -> PlayMode {PlayMode::Taiko}
     fn new(beatmap:&Beatmap) -> Self {
         let mut s = Self {
             notes: Vec::new(),
@@ -106,7 +107,7 @@ impl GameMode for TaikoGame {
             let bl = beatmap.beat_length_at(time as f64, beatmap.metadata.beatmap_version < 8.0);
             let skip_period = (bl / beatmap.metadata.slider_tick_rate as f64).min((end_time - time) as f64 / slides as f64);
 
-            if skip_period > 0.0 && beatmap.metadata.mode != Playmode::Taiko && l / v * 1000.0 < 2.0 * bl {
+            if skip_period > 0.0 && beatmap.metadata.mode != PlayMode::Taiko && l / v * 1000.0 < 2.0 * bl {
                 let mut i = 0;
                 let mut j = time as f64;
 

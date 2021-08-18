@@ -7,7 +7,9 @@ use parking_lot::Mutex;
 use piston::{Key, MouseButton, RenderArgs};
 
 use taiko_rs_common::types::Score;
-use crate::Playmode;
+use taiko_rs_common::types::PlayMode;
+
+use crate::gameplay::modes::select_gamemode_from_playmode;
 use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
 use crate::{SONGS_DIR, WINDOW_SIZE, DOWNLOADS_DIR, Vector2, databases::get_scores};
@@ -26,6 +28,8 @@ const LEADERBOARD_POS: Vector2 = Vector2::new(10.0, LEADERBOARD_PADDING);
 const LEADERBOARD_ITEM_SIZE: Vector2 = Vector2::new(200.0, 50.0);
 
 pub struct BeatmapSelectMenu {
+
+    mode: PlayMode,
     /// tag of the selected set
     selected: Option<String>,
     selected_beatmap: Option<String>, // hash of selected map, needed for score refresh
@@ -41,6 +45,7 @@ impl BeatmapSelectMenu {
     pub fn new(beatmap_manager:Arc<Mutex<BeatmapManager>>) -> BeatmapSelectMenu {
         BeatmapSelectMenu {
             beatmap_manager,
+            mode: PlayMode::Taiko,
             selected: None,
             selected_beatmap: None,
             pending_refresh: false,
@@ -220,7 +225,9 @@ impl Menu<Game> for BeatmapSelectMenu {
                 }
                 Audio::stop_song();
                 let map = clicked.lock();
-                let manager = IngameManager::new(map.clone());
+
+                let gamemode = select_gamemode_from_playmode(self.mode, &map.clone());
+                let manager = IngameManager::new(map.clone(), Arc::new(Mutex::new(gamemode)));
                 game.queue_state_change(GameState::Ingame(Arc::new(Mutex::new(manager))));
                 return;
             }
@@ -274,8 +281,6 @@ struct BeatmapsetItem {
     selected: bool,
     tag: String,
 
-    mode: Playmode,
-
     pending_play: bool,
     beatmaps: Vec<Arc<Mutex<Beatmap>>>,
     meta: BeatmapMeta,
@@ -305,7 +310,6 @@ impl BeatmapsetItem {
             pending_play: false,
             tag,
             meta: first.metadata.clone(),
-            mode: Playmode::Taiko,
 
             selected_item: 0,
             mouse_pos: Vector2::zero()
@@ -322,8 +326,7 @@ impl ScrollableItem for BeatmapsetItem {
     }
     fn get_tag(&self) -> String {format!("{}\n{}", self.tag, self.beatmaps[self.selected_item].lock().hash.clone())}
     fn set_tag(&mut self, _tag:&str) {
-        self.pending_play = false; 
-        // self.first.lock().song.upgrade().map(|x| { x.pause(); x.set_position(0.0); });
+        self.pending_play = false;
     } // bit of a jank strat: when this is called, reset the pending_play property
     fn get_pos(&self) -> Vector2 {self.pos}
     fn set_pos(&mut self, pos:Vector2) {self.pos = pos}

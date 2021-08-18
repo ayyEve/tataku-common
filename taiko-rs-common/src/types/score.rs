@@ -1,12 +1,15 @@
 use core::fmt;
 use crate::serialization::{Serializable, SerializationReader, SerializationWriter};
 
+use super::PlayMode;
+
 const CURRENT_VERSION: u16 = 1;
 
 #[derive(Clone, Debug)]
 pub struct Score {
     pub username: String,
     pub beatmap_hash: String,
+    pub playmode: PlayMode,
     pub score: u64,
     pub combo: u16,
     pub max_combo: u16,
@@ -19,10 +22,11 @@ pub struct Score {
     pub hit_timings: Vec<i32>
 }
 impl Score {
-    pub fn new(hash:String, username:String) -> Score {
+    pub fn new(hash:String, username:String, playmode:PlayMode) -> Score {
         Score {
             username,
             beatmap_hash: hash,
+            playmode,
             score: 0,
             combo: 0,
             max_combo: 0,
@@ -120,6 +124,7 @@ impl Serializable for Score {
         Score {
             username: sr.read(),
             beatmap_hash: sr.read(),
+            playmode: sr.read(),
             score: sr.read(),
             combo: sr.read(),
             max_combo: sr.read(),
@@ -134,6 +139,7 @@ impl Serializable for Score {
         sw.write(CURRENT_VERSION);
         sw.write(self.username.clone());
         sw.write(self.beatmap_hash.clone());
+        sw.write(self.playmode);
         sw.write(self.score);
         sw.write(self.combo);
         sw.write(self.max_combo);
@@ -144,8 +150,9 @@ impl Serializable for Score {
 }
 impl fmt::Display for Score {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{{ Score (h:{}, score:{}, combo:{}. max_combo: {}, x100:{},x300:{},xmiss:{}) }}", 
+        write!(f, "{{ Score (h:{}, m:{:?}, score:{}, combo:{}. max_combo: {}, x100:{},x300:{},xmiss:{}) }}", 
             self.beatmap_hash, 
+            self.playmode,
             self.score,
             self.combo,
             self.max_combo,
