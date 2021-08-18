@@ -70,9 +70,6 @@ impl Menu<Game> for PauseMenu {
         if self.exit_button.on_click(pos, button, mods) {
             let menu = game.menus.get("beatmap").unwrap().to_owned();
             game.queue_state_change(GameState::InMenu(menu));
-
-            // cleanup memory hogs in the beatmap object
-            // self.manager.lock().cleanup();
         }
     }
 

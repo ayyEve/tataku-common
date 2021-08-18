@@ -18,6 +18,8 @@ use crate::databases::{save_all_scores, save_replay, save_score};
 use crate::helpers::{FpsDisplay, BenchmarkHelper, BeatmapManager, VolumeControl};
 use crate::game::{InputManager, Settings, online::{USER_ITEM_SIZE, OnlineManager}};
 
+use super::Audio;
+
 /// background color
 const GFX_CLEAR_COLOR:Color = Color::WHITE;
 /// how long do transitions between gamemodes last?
@@ -427,6 +429,14 @@ impl Game {
                         });
                     },
                     GameState::InMenu(_) => {
+                        if let GameState::InMenu(menu) = &self.current_state {
+                            if menu.lock().get_name() == "pause" {
+                                if let Some(song) = Audio::get_song() {
+                                    song.play();
+                                }
+                            }
+                        }
+
                         self.threading.spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Idle, String::new()).await;
                         });
