@@ -1,25 +1,15 @@
 use piston::RenderArgs;
 
-use taiko_rs_common::types::KeyPress;
-use taiko_rs_common::types::ScoreHit;
 use crate::Vector2;
-use crate::gameplay::HitObject;
-use crate::gameplay::NoteType;
-use crate::gameplay::modes::taiko::HitType;
+use crate::gameplay::{HitObject, NoteType};
 use crate::render::{Color, Rectangle, Renderable, Border};
 
-use super::COLUMN_WIDTH;
-use super::HIT_Y;
-use super::{NOTE_BORDER_SIZE, NOTE_SIZE};
-
-
-const GRAVITY_SCALING:f64 = 400.0;
-
+use super::{NOTE_BORDER_SIZE, NOTE_SIZE, COLUMN_WIDTH, HIT_Y};
 
 
 pub trait ManiaHitObject: HitObject {
     fn hit(&mut self, time:f64);
-    fn release(&mut self, time:f64) {}
+    fn release(&mut self, _time:f64) {}
     fn miss(&mut self, time:f64);
     fn was_hit(&self) -> bool {false}
 
@@ -68,7 +58,7 @@ impl HitObject for ManiaNote {
     }
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        if self.pos.y + NOTE_SIZE.y < 0.0 || self.pos.y - NOTE_SIZE.y > args.window_size[1] as f64 {return renderables}
+        if self.pos.y + NOTE_SIZE.y < 0.0 || self.pos.y > args.window_size[1] as f64 {return renderables}
 
         if self.hit {
             return renderables;
@@ -149,7 +139,8 @@ impl HitObject for ManiaHold {
     }
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        if self.end_y < 0.0 || self.pos.y > args.window_size[1] as f64 {return renderables}
+        // println!("end_y: {}, pos: {}, window height: {}", self.end_y, self.pos.y, args.window_size[1]);
+        if self.pos.y < 0.0 || self.end_y > args.window_size[1] as f64 {return renderables}
 
         if self.holding {
             let y_at = self.y_at(self.hold_start);
@@ -203,33 +194,6 @@ impl HitObject for ManiaHold {
                 Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
             )));
         }
-
-
-        // start circle
-        // let mut start_c = Circle::new(
-        //     Color::YELLOW,
-        //     self.time as f64,
-        //     self.pos + Vector2::new(0.0, NOTE_RADIUS),
-        //     NOTE_RADIUS
-        // );
-        // start_c.border = Some(Border {
-        //     color: Color::BLACK.into(),
-        //     radius: NOTE_BORDER_SIZE
-        // });
-        // renderables.push(Box::new(start_c));
-        
-        // // end circle
-        // let mut end_c = Circle::new(
-        //     Color::YELLOW,
-        //     self.time as f64,
-        //     Vector2::new(self.end_x, self.pos.y + self.radius),
-        //     self.radius
-        // );
-        // end_c.border = Some(Border {
-        //     color: Color::BLACK.into(),
-        //     radius: NOTE_BORDER_SIZE
-        // });
-        // renderables.push(Box::new(end_c));
         
         renderables
     }
