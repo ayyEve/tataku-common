@@ -4,7 +4,7 @@ use piston::RenderArgs;
 use parking_lot::Mutex;
 use opengl_graphics::GlyphCache;
 
-use taiko_rs_common::types::{KeyPress, PlayMode, Replay, Score};
+use taiko_rs_common::types::{KeyPress, PlayMode, Replay, ReplayFrame, Score};
 
 use crate::gameplay::*;
 use crate::{WINDOW_SIZE, Vector2};
@@ -171,11 +171,11 @@ impl IngameManager {
 
             // read any frames that need to be read
             loop {
-                if self.replay_frame as usize >= self.replay.presses.len() {break}
+                if self.replay_frame as usize >= self.replay.frames.len() {break}
                 
-                let (press_time, pressed) = self.replay.presses[self.replay_frame as usize];
-                if press_time > time {break}
-                m.hit(pressed, self);
+                let (frame_time, frame) = self.replay.frames[self.replay_frame as usize];
+                if frame_time > time {break}
+                m.handle_replay_frame(frame, self);
 
                 // this should be handled by the gamemode
                 // match pressed {
@@ -309,7 +309,9 @@ impl IngameManager {
 pub trait GameMode {
     fn new(beatmap:&Beatmap) -> Self where Self: Sized;
     fn playmode(&self) -> PlayMode;
-    fn hit(&mut self, key:KeyPress, manager:&mut IngameManager);
+    // fn hit(&mut self, key:KeyPress, manager:&mut IngameManager);
+
+    fn handle_replay_frame(&mut self, frame:ReplayFrame, manager:&mut IngameManager);
 
     fn update(&mut self, manager:&mut IngameManager);
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list: &mut Vec<Box<dyn Renderable>>);

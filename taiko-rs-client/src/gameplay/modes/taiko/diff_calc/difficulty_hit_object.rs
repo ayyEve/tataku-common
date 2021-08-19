@@ -1,5 +1,5 @@
 
-use crate::{gameplay::note::*};
+use crate::{gameplay::{modes::taiko::TaikoHitObject, note::*}};
 
 // constants
 pub const DECAY_BASE:f64 = 0.30;
@@ -21,7 +21,7 @@ pub struct DifficultyHitObject {
 }
 
 impl DifficultyHitObject {
-    pub fn new(base:&Box<dyn HitObject>) -> Self {
+    pub fn new(base:&Box<dyn TaikoHitObject>) -> Self {
         Self {
             same_color_since: 1,
             strain: 1.0,

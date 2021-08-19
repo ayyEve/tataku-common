@@ -1,6 +1,7 @@
 use ayyeve_piston_ui::render::*;
 use piston::RenderArgs;
 use taiko_rs_common::types::KeyPress;
+use taiko_rs_common::types::ReplayFrame;
 use taiko_rs_common::types::ScoreHit;
 use taiko_rs_common::types::PlayMode;
 
@@ -44,7 +45,7 @@ const DRUM_LIFETIME_TIME:u64 = 100;
 
 pub struct TaikoGame {
     // lists
-    pub notes: Vec<Box<dyn HitObject>>,
+    pub notes: Vec<Box<dyn TaikoHitObject>>,
     timing_bars: Vec<TimingBar>,
     // list indices
     note_index: usize,
@@ -172,11 +173,15 @@ impl GameMode for TaikoGame {
         s
     }
 
-    fn hit(&mut self, key:KeyPress, manager:&mut IngameManager) {
+    fn handle_replay_frame(&mut self, frame:ReplayFrame, manager:&mut IngameManager) {
         let time = manager.time() as f64;
         if !manager.replaying {
-            manager.replay.presses.push((time as i64, key));
+            manager.replay.frames.push((time as i64, frame.clone()));
         }
+        let key = match frame {
+            ReplayFrame::Press(k) => k,
+            ReplayFrame::Release(k) => k
+        };
 
         // draw drum
         match key {
@@ -307,6 +312,7 @@ impl GameMode for TaikoGame {
         let a = Audio::play_preloaded(sound);
         a.upgrade().unwrap().set_volume(hit_volume);
     }
+
 
     fn update(&mut self, manager:&mut IngameManager) {
         // get the current time
@@ -506,18 +512,17 @@ impl GameMode for TaikoGame {
         let settings = Settings::get();
 
         if key == settings.left_kat {
-            self.hit(KeyPress::LeftKat, manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftKat), manager);
         }
         if key == settings.left_don {
-            self.hit(KeyPress::LeftDon, manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftDon), manager);
         }
         if key == settings.right_don {
-            self.hit(KeyPress::RightDon, manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::RightDon), manager);
         }
         if key == settings.right_kat {
-            self.hit(KeyPress::RightKat, manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::RightKat), manager);
         }
-        
     }
     fn key_up(&mut self, _key:piston::Key, _manager:&mut IngameManager) {}
 

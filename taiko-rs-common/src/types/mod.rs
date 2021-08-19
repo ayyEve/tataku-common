@@ -12,7 +12,6 @@ pub use spectator::*;
 use crate::serialization::Serializable;
 
 
-
 use PlayMode::*;
 #[derive(Debug,Clone,Copy,PartialEq)]
 pub enum PlayMode {

@@ -21,6 +21,23 @@ const DON_COLOR:Color = Color::new(1.0, 0.0, 0.0, 1.0);
 const KAT_COLOR:Color = Color::new(0.0, 0.0, 1.0, 1.0);
 
 
+pub trait TaikoHitObject: HitObject {
+    fn is_kat(&self) -> bool {false}// needed for diff calc :/
+    fn set_sv(&mut self, sv:f64);
+    /// does this hit object play a finisher sound when hit?
+    fn finisher_sound(&self) -> bool {false}
+
+    /// does this object count as a miss if it is not hit?
+    fn causes_miss(&self) -> bool; //TODO: might change this to return an enum of "no", "yes". "yes_combo_only"
+    
+    fn get_points(&mut self, hit_type:HitType, time:f64, hit_windows:(f64,f64,f64)) -> ScoreHit; // if negative, counts as a miss
+    fn check_finisher(&mut self, _hit_type:HitType, _time:f64) -> ScoreHit {ScoreHit::None}
+
+
+    fn x_at(&self, time:i64) -> f64;
+}
+
+
 // note
 #[derive(Clone, Copy)]
 pub struct TaikoNote {
@@ -56,11 +73,45 @@ impl TaikoNote {
 }
 impl HitObject for TaikoNote {
     fn note_type(&self) -> NoteType {NoteType::Note}
+    fn time(&self) -> u64 {self.time}
+    fn end_time(&self, hw_miss:f64) -> u64 {self.time + hw_miss as u64}
+    fn update(&mut self, beatmap_time: i64) {
+        let y = 
+            if self.hit {-((beatmap_time as f64 - self.hit_time as f64)*20.0).ln()*20.0 + 1.0} 
+            else if self.missed {GRAVITY_SCALING * 9.81 * ((beatmap_time as f64 - self.hit_time as f64)/1000.0).powi(2)} 
+            else {0.0};
+        
+        self.pos = HIT_POSITION + Vector2::new((self.time as f64 - beatmap_time as f64) * self.speed, y);
+    }
+    fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
+        let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
+
+        if self.pos.x + NOTE_RADIUS < 0.0 || self.pos.x - NOTE_RADIUS > args.window_size[0] as f64 {return renderables}
+
+        let mut note = Circle::new(
+            self.get_color(),
+            self.time as f64,
+            self.pos,
+            if self.finisher {NOTE_RADIUS*1.6666} else {NOTE_RADIUS}
+        );
+        note.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
+        renderables.push(Box::new(note));
+
+        renderables
+    }
+
+    fn reset(&mut self) {
+        self.pos = Vector2::zero();
+        self.hit = false;
+        self.missed = false;
+        self.hit_time = 0;
+    }
+}
+impl TaikoHitObject for TaikoNote {
     fn set_sv(&mut self, sv:f64) {self.speed = sv}
     fn is_kat(&self) -> bool {self.hit_type == HitType::Kat}
     fn finisher_sound(&self) -> bool {self.finisher}
-    fn time(&self) -> u64 {self.time}
-    fn end_time(&self, hw_miss:f64) -> u64 {self.time + hw_miss as u64}
+
     fn causes_miss(&self) -> bool {true}
     fn x_at(&self, time:i64) -> f64 {(self.time as f64 - time as f64) * self.speed}
 
@@ -101,39 +152,8 @@ impl HitObject for TaikoNote {
             ScoreHit::None
         }
     }
-
-    fn update(&mut self, beatmap_time: i64) {
-        let y = 
-            if self.hit {-((beatmap_time as f64 - self.hit_time as f64)*20.0).ln()*20.0 + 1.0} 
-            else if self.missed {GRAVITY_SCALING * 9.81 * ((beatmap_time as f64 - self.hit_time as f64)/1000.0).powi(2)} 
-            else {0.0};
-        
-        self.pos = HIT_POSITION + Vector2::new((self.time as f64 - beatmap_time as f64) * self.speed, y);
-    }
-    fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
-        let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-
-        if self.pos.x + NOTE_RADIUS < 0.0 || self.pos.x - NOTE_RADIUS > args.window_size[0] as f64 {return renderables}
-
-        let mut note = Circle::new(
-            self.get_color(),
-            self.time as f64,
-            self.pos,
-            if self.finisher {NOTE_RADIUS*1.6666} else {NOTE_RADIUS}
-        );
-        note.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
-        renderables.push(Box::new(note));
-
-        renderables
-    }
-
-    fn reset(&mut self) {
-        self.pos = Vector2::zero();
-        self.hit = false;
-        self.missed = false;
-        self.hit_time = 0;
-    }
 }
+
 
 // slider
 #[derive(Clone)]
@@ -168,20 +188,8 @@ impl TaikoSlider {
 }
 impl HitObject for TaikoSlider {
     fn note_type(&self) -> NoteType {NoteType::Slider}
-    fn set_sv(&mut self, sv:f64) {self.speed = sv;}
     fn time(&self) -> u64 {self.time}
     fn end_time(&self,_:f64) -> u64 {self.end_time}
-    fn causes_miss(&self) -> bool {false}
-    fn x_at(&self, time:i64) -> f64 {(self.time as f64 - time as f64) * self.speed}
-
-    fn get_points(&mut self, _hit_type:HitType, time:f64, _:(f64,f64,f64)) -> ScoreHit {
-        // too soon or too late
-        if time < self.time as f64 || time > self.end_time as f64 {return ScoreHit::None}
-
-        self.hit_dots.push(SliderDot::new(time, self.speed));
-        ScoreHit::Other(100, false)
-    }
-
     fn update(&mut self, beatmap_time: i64) {
         self.pos.x = HIT_POSITION.x + (self.time as f64 - beatmap_time as f64) * self.speed;
         self.end_x = HIT_POSITION.x + (self.end_time(0.0) as f64 - beatmap_time as f64) * self.speed;
@@ -245,6 +253,21 @@ impl HitObject for TaikoSlider {
         self.pos.x = 0.0;
         self.end_x = 0.0;
     }
+}
+impl TaikoHitObject for TaikoSlider {
+    fn set_sv(&mut self, sv:f64) {self.speed = sv}
+
+    fn causes_miss(&self) -> bool {false}
+    fn x_at(&self, time:i64) -> f64 {(self.time as f64 - time as f64) * self.speed}
+
+    fn get_points(&mut self, _hit_type:HitType, time:f64, _:(f64,f64,f64)) -> ScoreHit {
+        // too soon or too late
+        if time < self.time as f64 || time > self.end_time as f64 {return ScoreHit::None}
+
+        self.hit_dots.push(SliderDot::new(time, self.speed));
+        ScoreHit::Other(100, false)
+    }
+
 }
 /// helper struct for drawing hit slider points
 #[derive(Clone, Copy)]
@@ -324,27 +347,10 @@ impl TaikoSpinner {
 }
 impl HitObject for TaikoSpinner {
     fn note_type(&self) -> NoteType {NoteType::Spinner}
-    fn set_sv(&mut self, sv:f64) {self.speed = sv}
     fn time(&self) -> u64 {self.time}
     fn end_time(&self,_:f64) -> u64 {
         // if the spinner is done, end right away
         if self.complete {self.time} else {self.end_time}
-    }
-    fn causes_miss(&self) -> bool {!self.complete} // if the spinner wasnt completed in time, cause a miss
-    fn x_at(&self, time:i64) -> f64 {(self.time as f64 - time as f64) * self.speed}
-    
-    fn get_points(&mut self, hit_type:HitType, time:f64, _:(f64,f64,f64)) -> ScoreHit {
-        // too soon or too late
-        if time < self.time as f64 || time > self.end_time as f64 {return ScoreHit::None}
-        // wrong note, or already done (just in case)
-        if self.last_hit == hit_type || self.complete {return ScoreHit::None}
-
-        self.last_hit = hit_type;
-        self.hit_count += 1;
-        
-        if self.hit_count == self.hits_required {self.complete = true}
-
-        ScoreHit::Other(100, self.complete)
     }
 
     fn update(&mut self, beatmap_time: i64) {
@@ -410,7 +416,26 @@ impl HitObject for TaikoSpinner {
         self.complete = false;
     }
 }
+impl TaikoHitObject for TaikoSpinner {
+    fn set_sv(&mut self, sv:f64) {self.speed = sv}
 
+    fn causes_miss(&self) -> bool {!self.complete} // if the spinner wasnt completed in time, cause a miss
+    fn x_at(&self, time:i64) -> f64 {(self.time as f64 - time as f64) * self.speed}
+    
+    fn get_points(&mut self, hit_type:HitType, time:f64, _:(f64,f64,f64)) -> ScoreHit {
+        // too soon or too late
+        if time < self.time as f64 || time > self.end_time as f64 {return ScoreHit::None}
+        // wrong note, or already done (just in case)
+        if self.last_hit == hit_type || self.complete {return ScoreHit::None}
+
+        self.last_hit = hit_type;
+        self.hit_count += 1;
+        
+        if self.hit_count == self.hits_required {self.complete = true}
+
+        ScoreHit::Other(100, self.complete)
+    }
+}
 
 
 #[derive(Clone, Copy, Debug, PartialEq)]

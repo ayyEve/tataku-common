@@ -1,5 +1,5 @@
 
-use crate::{gameplay::note::*};
+use crate::{gameplay::{modes::mania::ManiaHitObject, note::*}};
 
 // constants
 pub const DECAY_BASE:f64 = 0.30;
@@ -17,11 +17,11 @@ pub struct DifficultyHitObject {
 
     pub time: f64,
     note_type: NoteType,
-    is_kat: bool,
+    // is_kat: bool,
 }
 
 impl DifficultyHitObject {
-    pub fn new(base:&Box<dyn HitObject>) -> Self {
+    pub fn new(base:&Box<dyn ManiaHitObject>) -> Self {
         Self {
             same_color_since: 1,
             strain: 1.0,
@@ -30,7 +30,7 @@ impl DifficultyHitObject {
 
             time: base.time() as f64,
             note_type: base.note_type(),
-            is_kat: base.is_kat()
+            // is_kat: base.is_kat()
         }
     }
 
@@ -43,15 +43,6 @@ impl DifficultyHitObject {
             (self.time - previous.time) < 1000.0 {
 
             // color change addition
-            if previous.is_kat != self.is_kat {
-                self.last_color_switch_even = if previous.same_color_since % 2 == 0 {ColorSwitch::Even} else {ColorSwitch::Odd};
-                if previous.last_color_switch_even != ColorSwitch::None && previous.last_color_switch_even != self.last_color_switch_even {
-                    addition += COLOR_CHANGE_BONUS;
-                }
-            } else {
-                self.last_color_switch_even = previous.last_color_switch_even;
-                self.same_color_since = previous.same_color_since + 1;
-            }
 
             // rhythm change addition
             // We don't want a division by zero if some random mapper decides to put 2 HitObjects at the same time.
