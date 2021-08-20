@@ -4,21 +4,14 @@ use ayyeve_piston_ui::render::*;
 use piston::RenderArgs;
 use taiko_rs_common::types::KeyPress;
 use taiko_rs_common::types::ReplayFrame;
-use taiko_rs_common::types::ScoreHit;
 use taiko_rs_common::types::PlayMode;
 
-use crate::game::Audio;
+// use crate::game::Audio;
 use crate::game::Settings;
-use crate::gameplay::HoldDef;
-use crate::gameplay::NoteType;
-use crate::gameplay::SliderDef;
-use crate::gameplay::SpinnerDef;
-use crate::gameplay::map_difficulty_range;
-use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint};
+use super::{ManiaHold, ManiaNote, ManiaHitObject};
 use crate::{WINDOW_SIZE, Vector2, helpers::visibility_bg};
-
-use super::ManiaHitObject;
-use super::{ManiaHold, ManiaNote};
+use crate::gameplay::{HoldDef, NoteType};
+use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint, map_difficulty_range};
 
 
 pub const COLUMN_WIDTH: f64 = 100.0;
@@ -28,8 +21,9 @@ pub const HIT_Y:f64 = WINDOW_SIZE.y - 100.0;
 
 
 pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // timing bar color
-const BAR_WIDTH:f64 = 4.0; // how wide is a timing bar
+const BAR_HEIGHT:f64 = 4.0; // how tall is a timing bar
 const BAR_SPACING:f64 = 4.0; // how many beats between timing bars
+const BAR_DEPTH:f64 = -90.0; // how many beats between timing bars
 
 
 const HIT_TIMING_BAR_SIZE:Vector2 = Vector2::new(WINDOW_SIZE.x / 3.0, 30.0);
@@ -38,16 +32,8 @@ const HIT_TIMING_DURATION:f64 = 1_000.0; // how long should a hit timing line la
 const HIT_TIMING_FADE:f64 = 300.0; // how long to fade out for
 const HIT_TIMING_BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // hit timing bar color
 
-
-
-// const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
-const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
+// const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
 const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
-// const OFFSET_DRAW_TIME:i64 = 2_000; // how long should the offset be drawn for?
-
-/// how long should the drum buttons last for?
-// const DRUM_LIFETIME_TIME:u64 = 100;
-
 const COLUMN_COUNT:u8 = 4; //TODO!!
 
 pub struct ManiaGame {
@@ -88,6 +74,17 @@ impl ManiaGame {
     fn next_note(&mut self, col:usize) {
         (*self.column_indices.get_mut(col).unwrap()) += 1;
     }
+
+    fn set_sv(&mut self, sv:f64) {
+        for col in self.columns.iter_mut() {
+            for note in col.iter_mut() {
+                note.set_sv(sv);
+            }
+        }
+        for bar in self.timing_bars.iter_mut() {
+            bar.set_sv(sv);
+        }
+    }
 }
 
 impl GameMode for ManiaGame {
@@ -125,8 +122,7 @@ impl GameMode for ManiaGame {
                 let x = s.col_pos(column);
                 s.columns[column as usize].push(Box::new(ManiaNote::new(
                     note.time as u64,
-                    x,
-                    1.0
+                    x
                 )));
             }
         }
@@ -139,33 +135,29 @@ impl GameMode for ManiaGame {
             s.columns[column as usize].push(Box::new(ManiaHold::new(
                 time as u64,
                 end_time as u64,
-                x,
-                1.0
+                x
             )));
         }
         
-        for slider in beatmap.sliders.iter() {
-            let SliderDef {pos, time, slides, length, ..} = slider.to_owned();
-            let time = time as u64;
+        for _slider in beatmap.sliders.iter() {
+            // let SliderDef {pos, time, slides, length, ..} = slider.to_owned();
+            // let time = time as u64;
 
-            let l = (length * 1.4) * slides as f64;
-            let v2 = 100.0 * (beatmap.metadata.slider_multiplier as f64 * 1.4);
-            let bl = beatmap.beat_length_at(time as f64, true);
-            let end_time = time + (l / v2 * bl) as u64;
+            // let l = (length * 1.4) * slides as f64;
+            // let v2 = 100.0 * (beatmap.metadata.slider_multiplier as f64 * 1.4);
+            // let bl = beatmap.beat_length_at(time as f64, true);
+            // let end_time = time + (l / v2 * bl) as u64;
     
-            if beatmap.metadata.mode == PlayMode::Mania {
-                let column = (pos.x * s.column_count as f64 / 512.0).floor() as u8;
-                let x = s.col_pos(column);
-                s.columns[column as usize].push(Box::new(ManiaHold::new(
-                    time as u64,
-                    end_time as u64,
-                    x,
-                    1.0
-                )));
-            }
+            // let column = (pos.x * s.column_count as f64 / 512.0).floor() as u8;
+            // let x = s.col_pos(column);
+            // s.columns[column as usize].push(Box::new(ManiaHold::new(
+            //     time as u64,
+            //     end_time as u64,
+            //     x
+            // )));
         }
-        for spinner in beatmap.spinners.iter() {
-            let SpinnerDef {time, end_time, ..} = spinner;
+        for _spinner in beatmap.spinners.iter() {
+            // let SpinnerDef {time, end_time, ..} = spinner;
             //TODO
         }
 
@@ -218,9 +210,9 @@ impl GameMode for ManiaGame {
                     manager.score.hit300(time as u64, note_time as u64);
                     self.hit_timings.push((time as i64, (time - note_time as f64) as i64));
                     // Audio::play_preloaded(sound);
-
-                    self.next_note(col);
-
+                    if note.note_type() != NoteType::Hold {
+                        self.next_note(col);
+                    }
                 } else if diff < self.hitwindow_100 {
                     note.hit(time as f64);
 
@@ -229,13 +221,17 @@ impl GameMode for ManiaGame {
                     // Audio::play_preloaded(sound);
                     //TODO: indicate this was a bad hit
 
-                    self.next_note(col);
+                    if note.note_type() != NoteType::Hold {
+                        self.next_note(col);
+                    }
                 } else if diff < self.hitwindow_miss { // too early, miss
                     note.miss(time);
 
                     manager.score.hit_miss(time as u64, note_time as u64);
                     self.hit_timings.push((time as i64, (time - note_time as f64) as i64));
-                    self.next_note(col);
+                    if note.note_type() != NoteType::Hold {
+                        self.next_note(col);
+                    }
                     // Audio::play_preloaded(sound);
                     //TODO: play miss sound
                     //TODO: indicate this was a miss
@@ -243,6 +239,7 @@ impl GameMode for ManiaGame {
                     // play sound
                     // Audio::play_preloaded(sound);
                 }
+            
             }
             ReplayFrame::Release(key) => {
                 let col:usize = match key {
@@ -258,12 +255,143 @@ impl GameMode for ManiaGame {
                     _ => return
                 };
                 *self.column_states.get_mut(col).unwrap() = false;
+                if self.column_indices[col] >= self.columns[col].len() {return}
 
                 let note = &mut self.columns[col][self.column_indices[col]];
+                if time < note.time() as f64 - self.hitwindow_miss 
+                || time > note.end_time(self.hitwindow_miss) as f64 {return}
                 note.release(time);
+
+                if note.note_type() == NoteType::Hold {
+                    let note_time = note.end_time(0.0) as f64;
+                    let diff = (time - note_time as f64).abs();
+                    println!("{} = {} - {}", diff, time, note_time);
+                    // normal note
+                    if diff < self.hitwindow_300 {
+                        manager.score.hit300(time as u64, note_time as u64);
+                        self.hit_timings.push((time as i64, (time - note_time as f64) as i64));
+                        // Audio::play_preloaded(sound);
+
+                        self.next_note(col);
+                    } else if diff < self.hitwindow_100 {
+                        manager.score.hit100(time as u64, note_time as u64);
+                        self.hit_timings.push((time as i64, (time - note_time as f64) as i64));
+                        // Audio::play_preloaded(sound);
+                        //TODO: indicate this was a bad hit
+
+                        self.next_note(col);
+                    } else if diff < self.hitwindow_miss { // too early, miss
+                        manager.score.hit_miss(time as u64, note_time as u64);
+                        self.hit_timings.push((time as i64, (time - note_time as f64) as i64));
+                        // Audio::play_preloaded(sound);
+                        //TODO: play miss sound
+                        //TODO: indicate this was a miss
+                        self.next_note(col);
+                    }
+                }
+                
+                // self.columns[col][self.column_indices[col]].release(time);
             }
         }
     }
+
+    fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
+        let settings = Settings::get();
+        let mut game_key = KeyPress::RightDon;
+        if key == settings.left_kat {
+            game_key = KeyPress::Mania1;
+            // self.hit(, manager);
+        }
+        if key == settings.left_don {
+            game_key = KeyPress::Mania2;
+            // self.hit(KeyPress::Mania2, manager);
+        }
+        if key == settings.right_don {
+            game_key = KeyPress::Mania3;
+            // self.hit(KeyPress::Mania3, manager);
+        }
+        if key == settings.right_kat {
+            game_key = KeyPress::Mania4;
+            // self.hit(KeyPress::Mania4, manager);
+        }
+
+        self.handle_replay_frame(ReplayFrame::Press(game_key), manager);
+    }
+    fn key_up(&mut self, key:piston::Key, manager:&mut IngameManager) {
+        let settings = Settings::get();
+        let mut game_key = KeyPress::RightDon;
+        if key == settings.left_kat {
+            game_key = KeyPress::Mania1;
+        }
+        if key == settings.left_don {
+            game_key = KeyPress::Mania2;
+        }
+        if key == settings.right_don {
+            game_key = KeyPress::Mania3;
+        }
+        if key == settings.right_kat {
+            game_key = KeyPress::Mania4;
+        }
+
+        self.handle_replay_frame(ReplayFrame::Release(game_key), manager);
+    }
+
+    fn reset(&mut self, beatmap:Beatmap) {
+        for col in self.columns.iter_mut() {
+            for note in col.iter_mut() {
+                note.reset();
+            }
+        }
+        
+        self.timing_point_index = 0;
+
+        let od = beatmap.metadata.od as f64;
+        // setup hitwindows
+        self.hitwindow_miss = map_difficulty_range(od, 135.0, 95.0, 70.0);
+        self.hitwindow_100 = map_difficulty_range(od, 120.0, 80.0, 50.0);
+        self.hitwindow_300 = map_difficulty_range(od, 50.0, 35.0, 20.0);
+
+        // setup timing bars
+        //TODO: it would be cool if we didnt actually need timing bar objects, and could just draw them
+        if self.timing_bars.len() == 0 {
+            // load timing bars
+            let parent_tps = beatmap.timing_points.iter().filter(|t|!t.is_inherited()).collect::<Vec<&TimingPoint>>();
+            let mut time = parent_tps[0].time;
+            let mut tp_index = 0;
+            let step = beatmap.beat_length_at(time, false);
+            time %= step; // get the earliest bar line possible
+
+            let bar_width = self.column_count as f64 * COLUMN_WIDTH;
+            let x = (WINDOW_SIZE.x - bar_width) / 2.0;
+
+            loop {
+                // if theres a bpm change, adjust the current time to that of the bpm change
+                let next_bar_time = beatmap.beat_length_at(time, false) * BAR_SPACING; // bar spacing is actually the timing point measure
+
+                // edge case for aspire maps
+                if next_bar_time.is_nan() || next_bar_time == 0.0 {
+                    break;
+                }
+
+                // add timing bar at current time
+                self.timing_bars.push(TimingBar::new(time as u64, bar_width, x));
+
+                if tp_index < parent_tps.len() && parent_tps[tp_index].time <= time + next_bar_time {
+                    time = parent_tps[tp_index].time;
+                    tp_index += 1;
+                    continue;
+                }
+
+                // why isnt this accounting for bpm changes? because the bpm change doesnt allways happen inline with the bar idiot
+                time += next_bar_time;
+                if time >= self.end_time || time.is_nan() {break}
+            }
+
+            println!("created {} timing bars", self.timing_bars.len());
+        }
+    
+    }
+
 
     fn update(&mut self, manager:&mut IngameManager) {
         // get the current time
@@ -288,7 +416,6 @@ impl GameMode for ManiaGame {
             if self.column_indices[col] >= self.columns[col].len() {continue}
             let note = &self.columns[col][self.column_indices[col]];
             if (note.end_time(self.hitwindow_miss) as i64) <= time {
-                
                 // need to set these manually instead of score.hit_miss,
                 // since we dont want to add anything to the hit error list
                 let s = &mut manager.score;
@@ -300,7 +427,7 @@ impl GameMode for ManiaGame {
         }
         
         // TODO: might move tbs to a (time, speed) tuple
-        // for tb in self.timing_bars.iter_mut() {tb.update(time as f64)}
+        for tb in self.timing_bars.iter_mut() {tb.update(time as f64)}
 
         let timing_points = &manager.beatmap.timing_points;
         // check timing point
@@ -364,20 +491,20 @@ impl GameMode for ManiaGame {
             font.clone()
         )));
 
-        // // combo text
-        // let mut combo_text = Text::new(
-        //     Color::WHITE,
-        //     0.0,
-        //     HIT_POSITION - Vector2::new(100.0, 0.0),
-        //     30,
-        //     crate::format(score.combo),
-        //     font.clone()
-        // );
-        // combo_text.center_text(Rectangle::bounds_only(
-        //     Vector2::new(0.0, HIT_POSITION.y - HIT_AREA_RADIUS/2.0),
-        //     Vector2::new(HIT_POSITION.x - NOTE_RADIUS, HIT_AREA_RADIUS)
-        // ));
-        // list.push(Box::new(combo_text));
+        // combo text
+        let mut combo_text = Text::new(
+            Color::WHITE,
+            0.0,
+            Vector2::zero(),
+            30,
+            crate::format(score.combo),
+            font.clone()
+        );
+        combo_text.center_text(Rectangle::bounds_only(
+            Vector2::new(0.0, WINDOW_SIZE.y * (1.0/3.0)),
+            Vector2::new(WINDOW_SIZE.x, 30.0)
+        ));
+        list.push(Box::new(combo_text));
 
 
         // duration bar
@@ -505,108 +632,6 @@ impl GameMode for ManiaGame {
         for tb in self.timing_bars.iter_mut() {list.extend(tb.draw(args))}
     }
 
-
-    fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
-        let settings = Settings::get();
-        let mut game_key = KeyPress::RightDon;
-        if key == settings.left_kat {
-            game_key = KeyPress::Mania1;
-            // self.hit(, manager);
-        }
-        if key == settings.left_don {
-            game_key = KeyPress::Mania2;
-            // self.hit(KeyPress::Mania2, manager);
-        }
-        if key == settings.right_don {
-            game_key = KeyPress::Mania3;
-            // self.hit(KeyPress::Mania3, manager);
-        }
-        if key == settings.right_kat {
-            game_key = KeyPress::Mania4;
-            // self.hit(KeyPress::Mania4, manager);
-        }
-
-        self.handle_replay_frame(ReplayFrame::Press(game_key), manager);
-    }
-    fn key_up(&mut self, key:piston::Key, manager:&mut IngameManager) {
-        let settings = Settings::get();
-        let mut game_key = KeyPress::RightDon;
-        if key == settings.left_kat {
-            game_key = KeyPress::Mania1;
-        }
-        if key == settings.left_don {
-            game_key = KeyPress::Mania2;
-        }
-        if key == settings.right_don {
-            game_key = KeyPress::Mania3;
-        }
-        if key == settings.right_kat {
-            game_key = KeyPress::Mania4;
-        }
-
-        self.handle_replay_frame(ReplayFrame::Release(game_key), manager);
-    }
-
-    fn reset(&mut self, beatmap:Beatmap) {
-        let settings = Settings::get();
-        
-        for col in self.columns.iter_mut() {
-            for note in col.iter_mut() {
-                note.reset();
-            }
-        }
-        
-        self.timing_point_index = 0;
-
-        let od = beatmap.metadata.od as f64;
-        // setup hitwindows
-        self.hitwindow_miss = map_difficulty_range(od, 135.0, 95.0, 70.0);
-        self.hitwindow_100 = map_difficulty_range(od, 120.0, 80.0, 50.0);
-        self.hitwindow_300 = map_difficulty_range(od, 50.0, 35.0, 20.0);
-
-        // setup timing bars
-        //TODO: it would be cool if we didnt actually need timing bar objects, and could just draw them
-        if self.timing_bars.len() == 0 {
-            // load timing bars
-            let parent_tps = beatmap.timing_points.iter().filter(|t|!t.is_inherited()).collect::<Vec<&TimingPoint>>();
-            let mut sv = settings.sv_multiplier as f64;
-            let mut time = parent_tps[0].time;
-            let mut tp_index = 0;
-            let step = beatmap.beat_length_at(time, false);
-            time %= step; // get the earliest bar line possible
-
-            loop {
-                if !settings.static_sv {sv = beatmap.slider_velocity_at(time as u64) / SV_FACTOR}
-
-                // if theres a bpm change, adjust the current time to that of the bpm change
-                let next_bar_time = beatmap.beat_length_at(time, false) * BAR_SPACING; // bar spacing is actually the timing point measure
-
-                // edge case for aspire maps
-                if next_bar_time.is_nan() || next_bar_time == 0.0 {
-                    break;
-                }
-
-                // add timing bar at current time
-                self.timing_bars.push(TimingBar::new(time as u64, sv));
-
-                if tp_index < parent_tps.len() && parent_tps[tp_index].time <= time + next_bar_time {
-                    time = parent_tps[tp_index].time;
-                    tp_index += 1;
-                    continue;
-                }
-
-                // why isnt this accounting for bpm changes? because the bpm change doesnt allways happen inline with the bar idiot
-                time += next_bar_time;
-                if time >= self.end_time || time.is_nan() {break}
-            }
-
-            println!("created {} timing bars", self.timing_bars.len());
-        }
-    
-    }
-
-
-
     fn skip_intro(&mut self, manager: &mut IngameManager) {
         let y_needed = 0.0;
         let mut time = manager.time() as f64;
@@ -642,35 +667,39 @@ impl GameMode for ManiaGame {
 struct TimingBar {
     time: u64,
     speed: f64,
-    pos: Vector2
+    pos: Vector2,
+    size: Vector2
 }
 impl TimingBar {
-    pub fn new(time:u64, speed:f64) -> TimingBar {
+    pub fn new(time:u64, width:f64, x:f64) -> TimingBar {
         TimingBar {
             time, 
-            speed,
-            pos: Vector2::zero(),
+            size: Vector2::new(width, BAR_HEIGHT),
+            speed: 1.0,
+            pos: Vector2::new(x, 0.0),
         }
     }
 
+    pub fn set_sv(&mut self, sv:f64) {
+        self.speed = sv;
+    }
+
     pub fn update(&mut self, time:f64) {
-        // self.pos = HIT_POSITION + Vector2::new(((self.time as f64 - time as f64) * self.speed) - BAR_WIDTH / 2.0, -PLAYFIELD_RADIUS);
+        self.pos.y = (HIT_Y + NOTE_SIZE.y-self.size.y) - (self.time as f64 - time as f64) * self.speed;
+        // self.pos = HIT_POSITION + Vector2::new(( - BAR_WIDTH / 2.0, -PLAYFIELD_RADIUS);
     }
 
     fn draw(&mut self, _args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        if self.pos.x + BAR_WIDTH < 0.0 || self.pos.x - BAR_WIDTH > WINDOW_SIZE.x as f64 {return renderables}
+        if self.pos.y < 0.0 || self.pos.y > WINDOW_SIZE.y {return renderables}
 
-        // const SIZE:Vector2 = Vector2::new(BAR_WIDTH, PLAYFIELD_RADIUS*2.0);
-        // const DEPTH:f64 = f64::MAX-5.0;
-
-        // renderables.push(Box::new(Rectangle::new(
-        //     BAR_COLOR,
-        //     DEPTH,
-        //     self.pos,
-        //     SIZE,
-        //     None
-        // )));
+        renderables.push(Box::new(Rectangle::new(
+            BAR_COLOR,
+            BAR_DEPTH,
+            self.pos,
+            self.size,
+            None
+        )));
 
         renderables
     }

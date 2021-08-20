@@ -4,7 +4,7 @@ use piston::RenderArgs;
 use parking_lot::Mutex;
 use opengl_graphics::GlyphCache;
 
-use taiko_rs_common::types::{KeyPress, PlayMode, Replay, ReplayFrame, Score};
+use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
 
 use crate::gameplay::*;
 use crate::{WINDOW_SIZE, Vector2};

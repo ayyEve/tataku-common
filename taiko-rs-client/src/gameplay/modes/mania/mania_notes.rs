@@ -14,6 +14,8 @@ pub trait ManiaHitObject: HitObject {
     fn was_hit(&self) -> bool {false}
 
     fn y_at(&self, time:f64) -> f64;
+
+    fn set_sv(&mut self, sv:f64);
 }
 
 // note
@@ -27,10 +29,10 @@ pub struct ManiaNote {
     speed: f64
 }
 impl ManiaNote {
-    pub fn new(time:u64, x:f64, speed:f64) -> Self {
+    pub fn new(time:u64, x:f64) -> Self {
         Self {
             time, 
-            speed,
+            speed: 1.0,
 
             hit_time: 0,
             hit: false,
@@ -96,6 +98,10 @@ impl ManiaHitObject for ManiaNote {
     fn y_at(&self, time:f64) -> f64 {
         HIT_Y - (self.time as f64 - time) * self.speed
     }
+
+    fn set_sv(&mut self, sv:f64) {
+        self.speed = sv;
+    }
 }
 
 // slider
@@ -106,7 +112,8 @@ pub struct ManiaHold {
     end_time: u64, // ms
 
     /// when the user started holding
-    hold_start: f64,
+    hold_starts: Vec<f64>,
+    hold_ends: Vec<f64>,
     holding: bool,
 
     speed: f64,
@@ -114,15 +121,16 @@ pub struct ManiaHold {
     end_y: f64
 }
 impl ManiaHold {
-    pub fn new(time:u64, end_time:u64, x:f64, speed:f64) -> Self {
+    pub fn new(time:u64, end_time:u64, x:f64) -> Self {
         Self {
             time, 
             end_time,
-            speed,
+            speed: 1.0,
             holding:false,
 
             pos: Vector2::new(x, 0.0),
-            hold_start: 0.0,
+            hold_starts: Vec::new(),
+            hold_ends: Vec::new(),
             end_y: 0.0,
         }
     }
@@ -130,7 +138,7 @@ impl ManiaHold {
 impl HitObject for ManiaHold {
     fn note_type(&self) -> NoteType {NoteType::Hold}
     fn time(&self) -> u64 {self.time}
-    fn end_time(&self,_:f64) -> u64 {self.end_time}
+    fn end_time(&self,hw_miss:f64) -> u64 {self.end_time + hw_miss as u64}
 
     fn update(&mut self, beatmap_time: i64) {
         // self.pos.x = HIT_POSITION.x + (self.time as f64 - beatmap_time as f64) * self.speed;
@@ -139,13 +147,21 @@ impl HitObject for ManiaHold {
     }
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        // println!("end_y: {}, pos: {}, window height: {}", self.end_y, self.pos.y, args.window_size[1]);
         if self.pos.y < 0.0 || self.end_y > args.window_size[1] as f64 {return renderables}
 
-        if self.holding {
-            let y_at = self.y_at(self.hold_start);
+        // start
+        if self.pos.y < HIT_Y {
+            renderables.push(Box::new(Rectangle::new(
+                Color::YELLOW,
+                -100.1,
+                self.pos,
+                NOTE_SIZE,
+                Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
+            )));
+        }
 
-            // end
+        // end
+        if self.end_y < HIT_Y {
             renderables.push(Box::new(Rectangle::new(
                 Color::YELLOW,
                 -100.1,
@@ -153,44 +169,31 @@ impl HitObject for ManiaHold {
                 NOTE_SIZE,
                 Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
             )));
-            if y_at < self.end_y {
-                return renderables
-            }
+        }
 
-            // middle
+        // draw hold fragments
+        // for i in 0..self.hold_ends.len() {
+        //     let start = self.hold_starts[i];
+        //     let end = self.hold_ends[i];
+        //     let y = HIT_Y - (end - start) * self.speed;
+
+        //     renderables.push(Box::new(Rectangle::new(
+        //         Color::YELLOW,
+        //         -100.0,
+        //         Vector2::new(self.pos.x, y),
+        //         Vector2::new(COLUMN_WIDTH, self.end_y - y),
+        //         Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
+        //     )));
+        // }
+
+        // middle
+        if self.end_y < HIT_Y {
+            let y = if self.holding {HIT_Y} else {self.pos.y};
             renderables.push(Box::new(Rectangle::new(
                 Color::YELLOW,
                 -100.0,
-                Vector2::new(self.pos.x, y_at),
-                Vector2::new(COLUMN_WIDTH, self.end_y - y_at),
-                Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
-            )));
-
-        } else {
-            // start
-            renderables.push(Box::new(Rectangle::new(
-                Color::YELLOW,
-                -100.1,
-                self.pos,
-                NOTE_SIZE,
-                Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
-            )));
-
-            // middle
-            renderables.push(Box::new(Rectangle::new(
-                Color::YELLOW,
-                -100.0,
-                self.pos,
-                Vector2::new(COLUMN_WIDTH, self.end_y - self.pos.y),
-                Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
-            )));
-
-            // end
-            renderables.push(Box::new(Rectangle::new(
-                Color::YELLOW,
-                -100.1,
-                self.pos + Vector2::new(0.0, self.end_y - self.pos.y),
-                NOTE_SIZE,
+                Vector2::new(self.pos.x, y),
+                Vector2::new(COLUMN_WIDTH, self.end_y - y),
                 Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
             )));
         }
@@ -200,30 +203,33 @@ impl HitObject for ManiaHold {
 
     fn reset(&mut self) {
         self.pos.y = 0.0;
-        self.hold_start = 0.0;
+        self.hold_starts.clear();
+        self.hold_ends.clear();
     }
 }
-
 impl ManiaHitObject for ManiaHold {
     fn was_hit(&self) -> bool {
-        self.hold_start > 0.0
+        self.hold_starts.len() > 0  
     }
 
     // key pressed
     fn hit(&mut self, time:f64) {
-        self.hold_start = time;
+        self.hold_starts.push(time);
         self.holding = true;
     }
     fn release(&mut self, time:f64) {
+        self.hold_ends.push(time);
         self.holding = false;
     }
 
     //
-    fn miss(&mut self, time:f64) {
-        
-    }
+    fn miss(&mut self, _time:f64) {}
 
     fn y_at(&self, time:f64) -> f64 {
         HIT_Y - (self.time as f64 - time) * self.speed
+    }
+
+    fn set_sv(&mut self, sv:f64) {
+        self.speed = sv;
     }
 }
