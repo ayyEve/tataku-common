@@ -266,17 +266,14 @@ impl Game {
                     println!("beatmap complete");
                     let score = &lock.score;
                     let replay = &lock.replay;
-                    println!("score + replay unwrapped");
 
                     if !lock.replaying {
                         // save score
                         save_score(&score);
-                        println!("score saved");
                         match save_replay(&replay, &score) {
                             Ok(_)=> println!("replay saved ok"),
                             Err(e) => println!("error saving replay: {}", e),
                         }
-                        println!("replay saved");
                         match save_all_scores() {
                             Ok(_) => println!("Scores saved successfully"),
                             Err(e) => println!("Failed to save scores! {}", e),
@@ -310,7 +307,6 @@ impl Game {
                         }
 
                     }
-
 
                     // used to indicate user stopped watching a replay
                     if lock.replaying && !lock.started {
