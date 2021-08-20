@@ -183,8 +183,7 @@ impl GameMode for ManiaGame {
 
                 // if theres no more notes to hit, return after playing the sound
                 if self.column_indices[col] >= self.columns[col].len() {
-                    // let a = Audio::play_preloaded(sound);
-                    // a.upgrade().unwrap().set_volume(hit_volume);
+                    Audio::play_preloaded(sound);
                     return;
                 }
                 let note = &mut self.columns[col][self.column_indices[col]];
