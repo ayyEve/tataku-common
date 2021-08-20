@@ -39,7 +39,6 @@ impl Beatmap {
         };
 
         let parent_dir = Path::new(&dir).parent().unwrap();
-        let mut tp_parent: Option<Arc<TimingPoint>> = None;
 
         for line_maybe in lines {
             if let Ok(line) = line_maybe {
@@ -123,11 +122,7 @@ impl Beatmap {
                         }
                     }
                     BeatmapSection::TimingPoints => {
-                        let tp = TimingPoint::from_str(&line, tp_parent.clone());
-
-                        if !tp.is_inherited() {
-                            tp_parent = Some(Arc::new(tp.clone()));
-                        }
+                        let tp = TimingPoint::from_str(&line);
 
                         beatmap.timing_points.push(tp);
                     }

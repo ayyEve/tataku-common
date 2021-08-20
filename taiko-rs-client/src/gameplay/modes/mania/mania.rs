@@ -32,7 +32,7 @@ const HIT_TIMING_DURATION:f64 = 1_000.0; // how long should a hit timing line la
 const HIT_TIMING_FADE:f64 = 300.0; // how long to fade out for
 const HIT_TIMING_BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // hit timing bar color
 
-// const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
+const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
 const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
 const COLUMN_COUNT:u8 = 4; //TODO!!
 
@@ -76,6 +76,8 @@ impl ManiaGame {
     }
 
     fn set_sv(&mut self, sv:f64) {
+        let sv = sv / SV_FACTOR;
+
         for col in self.columns.iter_mut() {
             for note in col.iter_mut() {
                 note.set_sv(sv);
@@ -165,6 +167,7 @@ impl GameMode for ManiaGame {
             col.sort_by(|a, b|a.time().cmp(&b.time()));
             s.end_time = s.end_time.max(col.iter().last().unwrap().time() as f64);
         }
+        
         s
     }
 
@@ -389,7 +392,10 @@ impl GameMode for ManiaGame {
 
             println!("created {} timing bars", self.timing_bars.len());
         }
-    
+        
+
+        let sv = beatmap.slider_velocity_at(0);
+        self.set_sv(sv);
     }
 
 
@@ -433,6 +439,9 @@ impl GameMode for ManiaGame {
         // check timing point
         if self.timing_point_index + 1 < timing_points.len() && timing_points[self.timing_point_index + 1].time <= time as f64 {
             self.timing_point_index += 1;
+            // let tp = &timing_points[self.timing_point_index];
+            let sv = manager.beatmap.slider_velocity_at(time as u64);
+            self.set_sv(sv);
         }
     }
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {

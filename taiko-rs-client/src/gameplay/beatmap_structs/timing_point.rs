@@ -1,6 +1,3 @@
-
-use std::sync::Arc;
-
 //TODO! implement time signature, its used for barlines
 
 #[derive(Clone)]
@@ -13,11 +10,10 @@ pub struct TimingPoint {
     pub beat_length: f32,
     /// Volume percentage for hit objects
     pub volume: u32,
-    pub parent: Option<Arc<TimingPoint>>,
     pub kiai: bool
 }
 impl TimingPoint {
-    pub fn from_str(str:&str, parent:Option<Arc<TimingPoint>>) -> TimingPoint {
+    pub fn from_str(str:&str) -> TimingPoint {
         // time,beatLength,meter,sampleSet,sampleIndex,volume,uninherited,effects
         // println!("{}", str.clone());
         let mut split = str.split(',');
@@ -36,7 +32,6 @@ impl TimingPoint {
             time, 
             beat_length, 
             volume, 
-            parent,
             kiai
         }
     }
