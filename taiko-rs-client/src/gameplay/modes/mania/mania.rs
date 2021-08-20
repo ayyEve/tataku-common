@@ -1,10 +1,8 @@
 use std::u8;
 
-use ayyeve_piston_ui::render::*;
 use piston::RenderArgs;
-use taiko_rs_common::types::KeyPress;
-use taiko_rs_common::types::ReplayFrame;
-use taiko_rs_common::types::PlayMode;
+use ayyeve_piston_ui::render::*;
+use taiko_rs_common::types::{KeyPress, ReplayFrame, PlayMode};
 
 // use crate::game::Audio;
 use crate::game::Settings;
@@ -45,8 +43,6 @@ pub struct ManiaGame {
 
     end_time: f64,
     column_count: u8,
-
-    render_queue: Vec<Box<Rectangle>>,
 }
 impl ManiaGame {
     /// get the x_pos for `col`
@@ -97,8 +93,7 @@ impl GameMode for ManiaGame {
             hitwindow_300: 0.0,
             hitwindow_miss: 0.0,
 
-            column_count: COLUMN_COUNT,
-            render_queue: Vec::new()
+            column_count: COLUMN_COUNT
         };
 
         // init defaults for the columsn
@@ -432,10 +427,6 @@ impl GameMode for ManiaGame {
         }
     }
     fn draw(&mut self, args:RenderArgs, _manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
-        for i in self.render_queue.iter() {
-            list.push(i.clone());
-        }
-        self.render_queue.clear();
 
         // draw columns
         for col in 0..self.column_count {
@@ -466,7 +457,6 @@ impl GameMode for ManiaGame {
                     Some(Border::new(Color::RED, 2.0))
                 )));
             }
-
         }
         
         // column background
@@ -526,7 +516,6 @@ impl GameMode for ManiaGame {
             (self.hitwindow_300, [0.1960, 0.7372, 0.9058, 1.0].into()),
         ], (self.hitwindow_miss, [0.8549, 0.6823, 0.2745, 1.0].into()))
     }
-
 }
 
 

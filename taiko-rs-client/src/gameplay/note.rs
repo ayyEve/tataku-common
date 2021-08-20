@@ -1,9 +1,6 @@
 use piston::RenderArgs;
 
-use taiko_rs_common::types::ScoreHit;
 use crate::render::Renderable;
-use super::modes::taiko::HitType;
-
 
 // hitobject trait, implemented by anything that should be hit
 pub trait HitObject: Send {

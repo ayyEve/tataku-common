@@ -485,7 +485,6 @@ impl GameMode for TaikoGame {
         ], (self.hitwindow_miss, [0.8549, 0.6823, 0.2745, 1.0].into()))
     }
 
-
     fn combo_bounds(&self) -> Rectangle {
         Rectangle::bounds_only(
             Vector2::new(0.0, HIT_POSITION.y - HIT_AREA_RADIUS/2.0),
