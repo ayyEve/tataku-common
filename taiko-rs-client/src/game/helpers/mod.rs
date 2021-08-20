@@ -2,6 +2,8 @@ mod benchmark_helper;
 mod fps_display;
 mod beatmap_manager;
 mod volume_control;
+pub mod math;
+pub mod slider;
 
 pub use benchmark_helper::*;
 pub use fps_display::*;
