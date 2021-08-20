@@ -1,27 +1,40 @@
 use std::{sync::{Arc, Weak}, time::Instant};
 
+use ayyeve_piston_ui::render::Border;
 use piston::RenderArgs;
 use parking_lot::Mutex;
 use opengl_graphics::GlyphCache;
 
 use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
 
-use crate::gameplay::*;
+use crate::{gameplay::*, helpers::visibility_bg};
 use crate::{WINDOW_SIZE, Vector2};
 use crate::render::{Renderable, Rectangle, Text, Color};
 use crate::game::{Audio, AudioHandle, Settings, get_font};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
 const OFFSET_DRAW_TIME:i64 = 2_000; // how long should the offset be drawn for?
+const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
+
+
+const HIT_TIMING_BAR_SIZE:Vector2 = Vector2::new(WINDOW_SIZE.x / 3.0, 30.0);
+const HIT_TIMING_BAR_POS:Vector2 = Vector2::new(WINDOW_SIZE.x / 2.0 - HIT_TIMING_BAR_SIZE.x / 2.0, WINDOW_SIZE.y - (DURATION_HEIGHT + 3.0 + HIT_TIMING_BAR_SIZE.y + 5.0));
+const HIT_TIMING_DURATION:f64 = 1_000.0; // how long should a hit timing line last
+const HIT_TIMING_FADE:f64 = 300.0; // how long to fade out for
+const HIT_TIMING_BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // hit timing bar color
 
 
 pub struct IngameManager {
+    pub beatmap: Beatmap,
+    pub gamemode: Arc<Mutex<dyn GameMode>>,
+
     pub score: Score,
     pub replay: Replay,
 
     pub started: bool,
     pub completed: bool,
     pub replaying: bool,
+    pub end_time: f64,
 
     pub song_start: Instant,
     pub song: Weak<AudioHandle>,
@@ -31,11 +44,13 @@ pub struct IngameManager {
     offset: i64,
     offset_changed_time: i64,
 
-    pub beatmap: Beatmap,
-    pub gamemode: Arc<Mutex<dyn GameMode>>,
+    /// (map.time, note.time - hit.time)
+    pub hitbar_timings: Vec<(i64, i64)>,
 
-
+    // draw helpers
     pub font: Arc<Mutex< GlyphCache<'static>>>,
+    combo_text_bounds: Rectangle,
+    timing_bar_things: (Vec<(f64,Color)>, (f64,Color)),
 
 
     /// if in replay mode, what replay frame are we at?
@@ -43,7 +58,9 @@ pub struct IngameManager {
 }
 impl IngameManager {
     pub fn new(beatmap: Beatmap, gamemode: Arc<Mutex<dyn GameMode>>) -> Self {
-        let playmode = gamemode.lock().playmode();
+        let lock = gamemode.clone();
+        let lock = lock.lock();
+        let playmode = lock.playmode();
 
         Self {
             song_start: Instant::now(),
@@ -59,11 +76,17 @@ impl IngameManager {
             replaying: false,
 
             lead_in_time: LEAD_IN_TIME,
+            end_time: lock.end_time(),
 
             offset: 0,
             offset_changed_time: 0,
             replay_frame: 0,
+
+
             font: get_font("main"),
+            combo_text_bounds: lock.combo_bounds(),
+            timing_bar_things: lock.timing_bar_things(),
+            hitbar_timings: Vec::new()
         }
     }
 
@@ -131,15 +154,23 @@ impl IngameManager {
             }
         }
 
-        self.gamemode.lock().reset(self.beatmap.clone());
+        let mut lock = self.gamemode.lock();
+        lock.reset(self.beatmap.clone());
 
         self.completed = false;
         self.started = false;
         self.lead_in_time = LEAD_IN_TIME;
         self.offset_changed_time = 0;
         self.song_start = Instant::now();
-        self.score = Score::new(self.beatmap.hash.clone(), settings.username.clone(), self.gamemode.lock().playmode());
+        self.score = Score::new(self.beatmap.hash.clone(), settings.username.clone(), lock.playmode());
         self.replay_frame = 0;
+
+
+        self.combo_text_bounds = lock.combo_bounds();
+        self.timing_bar_things = lock.timing_bar_things();
+        self.hitbar_timings = Vec::new();
+
+
 
         // only reset the replay if we arent replaying
         if !self.replaying {
@@ -229,6 +260,10 @@ impl IngameManager {
             }
         }
 
+        // update hit timings bar
+        self.hitbar_timings.retain(|(hit_time, _)| {time - hit_time < HIT_TIMING_DURATION as i64});
+
+        // update gamemode
         let m = self.gamemode.clone();
         let mut m = m.lock();
         m.update(self);
@@ -296,13 +331,127 @@ impl IngameManager {
         }
 
 
+        // gamemode things
+
+        // score bg
+        list.push(visibility_bg(
+            Vector2::new(args.window_size[0] - 200.0, 10.0),
+            Vector2::new(180.0, 75.0 - 10.0)
+        ));
+        // score text
+        list.push(Box::new(Text::new(
+            Color::BLACK,
+            0.0,
+            Vector2::new(args.window_size[0] - 200.0, 40.0),
+            30,
+            crate::format(self.score.score),
+            font.clone()
+        )));
+
+        // acc text
+        list.push(Box::new(Text::new(
+            Color::BLACK,
+            0.0,
+            Vector2::new(args.window_size[0] - 200.0, 70.0),
+            30,
+            format!("{:.2}%", self.score.acc()*100.0),
+            font.clone()
+        )));
+
+        // combo text
+        let mut combo_text = Text::new(
+            Color::WHITE,
+            0.0,
+            Vector2::zero(),
+            30,
+            crate::format(self.score.combo),
+            font.clone()
+        );
+        combo_text.center_text(self.combo_text_bounds);
+        list.push(Box::new(combo_text));
+
+
+        // duration bar
+        // duration remaining
+        list.push(Box::new(Rectangle::new(
+            Color::new(0.4, 0.4, 0.4, 0.5),
+            1.0,
+            Vector2::new(0.0, args.window_size[1] - (DURATION_HEIGHT + 3.0)),
+            Vector2::new(args.window_size[0], DURATION_HEIGHT),
+            Some(Border::new(Color::BLACK, 1.8))
+        )));
+        // fill
+        list.push(Box::new(Rectangle::new(
+            [0.4,0.4,0.4,1.0].into(),
+            2.0,
+            Vector2::new(0.0, args.window_size[1] - (DURATION_HEIGHT + 3.0)),
+            Vector2::new(args.window_size[0] * (time as f64/self.end_time), DURATION_HEIGHT),
+            None
+        )));
+
+
+        // draw hit timings bar
+        // draw hit timing colors below the bar
+        let (windows, (miss, miss_color)) = &self.timing_bar_things;
+        
+        //draw miss window first
+        list.push(Box::new(Rectangle::new(
+            *miss_color,
+            17.1,
+            Vector2::new((WINDOW_SIZE.x-HIT_TIMING_BAR_SIZE.x)/2.0, HIT_TIMING_BAR_POS.y),
+            Vector2::new(HIT_TIMING_BAR_SIZE.x, HIT_TIMING_BAR_SIZE.y),
+            None // for now
+        )));
+
+        // draw other windows
+        for (window, color) in windows {
+            let width = window / miss * HIT_TIMING_BAR_SIZE.x;
+            list.push(Box::new(Rectangle::new(
+                *color,
+                17.0,
+                Vector2::new((WINDOW_SIZE.x - width)/2.0, HIT_TIMING_BAR_POS.y),
+                Vector2::new(width, HIT_TIMING_BAR_SIZE.y),
+                None // for now
+            )));
+        }
+       
+
+        // draw hit timings
+        let time = time as f64;
+        for (hit_time, diff) in self.hitbar_timings.as_slice() {
+            let hit_time = hit_time.clone() as f64;
+            let mut diff = diff.clone() as f64;
+            if diff < 0.0 {
+                diff = diff.max(-miss);
+            } else {
+                diff = diff.min(*miss);
+            }
+
+            let pos = diff / miss * (HIT_TIMING_BAR_SIZE.x / 2.0);
+
+            // draw diff line
+            let diff = time - hit_time;
+            let alpha = if diff > HIT_TIMING_DURATION - HIT_TIMING_FADE {
+                1.0 - (diff - (HIT_TIMING_DURATION - HIT_TIMING_FADE)) / HIT_TIMING_FADE
+            } else {1.0};
+
+            let mut c = HIT_TIMING_BAR_COLOR;
+            c.a = alpha as f32;
+            list.push(Box::new(Rectangle::new(
+                c,
+                10.0,
+                Vector2::new(WINDOW_SIZE.x  / 2.0 + pos, HIT_TIMING_BAR_POS.y),
+                Vector2::new(2.0, HIT_TIMING_BAR_SIZE.y),
+                None // for now
+            )));
+        }
+
+        // draw gamemode
         let m = self.gamemode.clone();
         let mut m = m.lock();
         m.draw(args, self, list);
     }
 }
-
-
 
 
 
@@ -327,4 +476,13 @@ pub trait GameMode {
     fn pause(&mut self, _manager:&mut IngameManager) {}
     fn unpause(&mut self, _manager:&mut IngameManager) {}
     fn reset(&mut self, beatmap:Beatmap);
+
+
+    fn end_time(&self) -> f64;
+
+
+    fn combo_bounds(&self) -> Rectangle;
+
+    /// f64 is hitwindow, color is color for that window. last is miss hitwindow
+    fn timing_bar_things(&self) -> (Vec<(f64,Color)>, (f64,Color));
 }

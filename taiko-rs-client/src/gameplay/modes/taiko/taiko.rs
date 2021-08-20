@@ -10,8 +10,8 @@ use crate::game::Settings;
 use crate::gameplay::SliderDef;
 use crate::gameplay::SpinnerDef;
 use crate::gameplay::map_difficulty_range;
-use crate::{WINDOW_SIZE, Vector2, helpers::visibility_bg};
-use crate::gameplay::{GameMode, HitObject, Beatmap, IngameManager, TimingPoint};
+use crate::{WINDOW_SIZE, Vector2};
+use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint};
 
 use super::*;
 
@@ -25,19 +25,7 @@ pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // timing bar color
 const BAR_WIDTH:f64 = 4.0; // how wide is a timing bar
 const BAR_SPACING:f64 = 4.0; // how many beats between timing bars
 
-
-const HIT_TIMING_BAR_SIZE:Vector2 = Vector2::new(WINDOW_SIZE.x / 3.0, 30.0);
-const HIT_TIMING_BAR_POS:Vector2 = Vector2::new(WINDOW_SIZE.x / 2.0 - HIT_TIMING_BAR_SIZE.x / 2.0, WINDOW_SIZE.y - (DURATION_HEIGHT + 3.0 + HIT_TIMING_BAR_SIZE.y + 5.0));
-const HIT_TIMING_DURATION:f64 = 1_000.0; // how long should a hit timing line last
-const HIT_TIMING_FADE:f64 = 300.0; // how long to fade out for
-const HIT_TIMING_BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // hit timing bar color
-
-
-
-// const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
 const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
-const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
-// const OFFSET_DRAW_TIME:i64 = 2_000; // how long should the offset be drawn for?
 
 /// how long should the drum buttons last for?
 const DRUM_LIFETIME_TIME:u64 = 100;
@@ -52,8 +40,6 @@ pub struct TaikoGame {
     timing_point_index: usize,
 
     // hit timing bar stuff
-    /// map time, diff (note - hit) //TODO: figure out how to draw this efficiently
-    hit_timings: Vec<(i64, i64)>,
     hitwindow_300: f64,
     hitwindow_100: f64,
     hitwindow_miss: f64,
@@ -68,6 +54,7 @@ impl TaikoGame {
 
 impl GameMode for TaikoGame {
     fn playmode(&self) -> PlayMode {PlayMode::Taiko}
+    fn end_time(&self) -> f64 {self.end_time}
     fn new(beatmap:&Beatmap) -> Self {
         let mut s = Self {
             notes: Vec::new(),
@@ -77,7 +64,6 @@ impl GameMode for TaikoGame {
             timing_point_index: 0,
             end_time: 0.0,
 
-            hit_timings: Vec::new(),
             hitwindow_100: 0.0,
             hitwindow_300: 0.0,
             hitwindow_miss: 0.0,
@@ -274,7 +260,7 @@ impl GameMode for TaikoGame {
             },
             ScoreHit::Miss => {
                 manager.score.hit_miss(time as u64, note_time as u64);
-                self.hit_timings.push((time as i64, (time - note_time) as i64));
+                manager.hitbar_timings.push((time as i64, (time - note_time) as i64));
                 self.next_note();
                 // Audio::play_preloaded(sound);
 
@@ -283,7 +269,7 @@ impl GameMode for TaikoGame {
             },
             ScoreHit::X100 => {
                 manager.score.hit100(time as u64, note_time as u64);
-                self.hit_timings.push((time as i64, (time - note_time) as i64));
+                manager.hitbar_timings.push((time as i64, (time - note_time) as i64));
 
                 // only play finisher sounds if the note is both a finisher and was hit
                 // could maybe also just change this to HitObject.get_sound() -> &str
@@ -295,7 +281,7 @@ impl GameMode for TaikoGame {
             },
             ScoreHit::X300 => {
                 manager.score.hit300(time as u64, note_time as u64);
-                self.hit_timings.push((time as i64, (time - note_time) as i64));
+                manager.hitbar_timings.push((time as i64, (time - note_time) as i64));
                 
                 if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"};}
                 // Audio::play_preloaded(sound);
@@ -320,9 +306,6 @@ impl GameMode for TaikoGame {
 
         // update notes
         for note in self.notes.iter_mut() {note.update(time)}
-
-        // update hit timings bar
-        self.hit_timings.retain(|(hit_time, _)| {time - hit_time < HIT_TIMING_DURATION as i64});
 
         // if theres no more notes to hit, show score screen
         if self.note_index >= self.notes.len() {
@@ -352,11 +335,6 @@ impl GameMode for TaikoGame {
         }
     }
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
-        // load this here, it a bit more performant
-        let font = manager.font.clone();
-        let time = manager.time();
-        let score = &manager.score;
-
         for i in self.render_queue.iter() {
             list.push(i.clone());
         }
@@ -381,125 +359,6 @@ impl GameMode for TaikoGame {
             HIT_POSITION,
             HIT_AREA_RADIUS + 2.0
         )));
-
-
-        list.push(visibility_bg(
-            Vector2::new(args.window_size[0] - 200.0, 10.0),
-            Vector2::new(180.0, 75.0 - 10.0)
-        ));
-
-        // score text
-        list.push(Box::new(Text::new(
-            Color::BLACK,
-            0.0,
-            Vector2::new(args.window_size[0] - 200.0, 40.0),
-            30,
-            crate::format(score.score),
-            font.clone()
-        )));
-
-        // acc text
-        list.push(Box::new(Text::new(
-            Color::BLACK,
-            0.0,
-            Vector2::new(args.window_size[0] - 200.0, 70.0),
-            30,
-            format!("{:.2}%", score.acc()*100.0),
-            font.clone()
-        )));
-
-        // combo text
-        let mut combo_text = Text::new(
-            Color::WHITE,
-            0.0,
-            HIT_POSITION - Vector2::new(100.0, 0.0),
-            30,
-            crate::format(score.combo),
-            font.clone()
-        );
-        combo_text.center_text(Rectangle::bounds_only(
-            Vector2::new(0.0, HIT_POSITION.y - HIT_AREA_RADIUS/2.0),
-            Vector2::new(HIT_POSITION.x - NOTE_RADIUS, HIT_AREA_RADIUS)
-        ));
-        list.push(Box::new(combo_text));
-
-
-        // duration bar
-        // duration remaining
-        list.push(Box::new(Rectangle::new(
-            Color::new(0.4, 0.4, 0.4, 0.5),
-            1.0,
-            Vector2::new(0.0, args.window_size[1] - (DURATION_HEIGHT + 3.0)),
-            Vector2::new(args.window_size[0], DURATION_HEIGHT),
-            Some(Border::new(Color::BLACK, 1.8))
-        )));
-        // fill
-        list.push(Box::new(Rectangle::new(
-            [0.4,0.4,0.4,1.0].into(),
-            2.0,
-            Vector2::new(0.0, args.window_size[1] - (DURATION_HEIGHT + 3.0)),
-            Vector2::new(args.window_size[0] * (time as f64/self.end_time), DURATION_HEIGHT),
-            None
-        )));
-
-
-        // draw hit timings bar
-        // draw hit timing colors below the bar
-        let width_300 = self.hitwindow_300 / self.hitwindow_miss * HIT_TIMING_BAR_SIZE.x;
-        let width_100 = self.hitwindow_100 / self.hitwindow_miss * HIT_TIMING_BAR_SIZE.x;
-        let width_miss = self.hitwindow_miss / self.hitwindow_miss * HIT_TIMING_BAR_SIZE.x;
-
-        list.push(Box::new(Rectangle::new(
-            [0.1960, 0.7372, 0.9058, 1.0].into(),
-            17.0,
-            Vector2::new(WINDOW_SIZE.x/ 2.0 - width_300/2.0, HIT_TIMING_BAR_POS.y),
-            Vector2::new(width_300, HIT_TIMING_BAR_SIZE.y),
-            None // for now
-        )));
-        list.push(Box::new(Rectangle::new(
-            [0.3411, 0.8901, 0.07450, 1.0].into(),
-            18.0,
-            Vector2::new(WINDOW_SIZE.x / 2.0 - width_100/2.0, HIT_TIMING_BAR_POS.y),
-            Vector2::new(width_100, HIT_TIMING_BAR_SIZE.y),
-            None // for now
-        )));
-        list.push(Box::new(Rectangle::new(
-            [0.8549, 0.6823, 0.2745, 1.0].into(),
-            19.0,
-            Vector2::new(WINDOW_SIZE.x  / 2.0 - width_miss/2.0, HIT_TIMING_BAR_POS.y),
-            Vector2::new(width_miss, HIT_TIMING_BAR_SIZE.y),
-            None // for now
-        )));
-        // draw hit timings
-        let time = time as f64;
-        for (hit_time, diff) in self.hit_timings.as_slice() {
-            let hit_time = hit_time.clone() as f64;
-            let mut diff = diff.clone() as f64;
-            if diff < 0.0 {
-                diff = diff.max(-self.hitwindow_miss);
-            } else {
-                diff = diff.min(self.hitwindow_miss);
-            }
-
-            let pos = diff / self.hitwindow_miss * (HIT_TIMING_BAR_SIZE.x / 2.0);
-
-            // draw diff line
-            let diff = time - hit_time;
-            let alpha = if diff > HIT_TIMING_DURATION - HIT_TIMING_FADE {
-                1.0 - (diff - (HIT_TIMING_DURATION - HIT_TIMING_FADE)) / HIT_TIMING_FADE
-            } else {1.0};
-
-            let mut c = HIT_TIMING_BAR_COLOR;
-            c.a = alpha as f32;
-            list.push(Box::new(Rectangle::new(
-                c,
-                10.0,
-                Vector2::new(WINDOW_SIZE.x  / 2.0 + pos, HIT_TIMING_BAR_POS.y),
-                Vector2::new(2.0, HIT_TIMING_BAR_SIZE.y),
-                None // for now
-            )));
-        }
-
 
         // draw notes
         for note in self.notes.iter_mut() {list.extend(note.draw(args));}
@@ -617,6 +476,22 @@ impl GameMode for TaikoGame {
         manager.song.upgrade().unwrap().set_position(time);
     }
 
+
+
+    fn timing_bar_things(&self) -> (Vec<(f64,Color)>, (f64,Color)) {
+        (vec![
+            (self.hitwindow_100, [0.3411, 0.8901, 0.0745, 1.0].into()),
+            (self.hitwindow_300, [0.1960, 0.7372, 0.9058, 1.0].into()),
+        ], (self.hitwindow_miss, [0.8549, 0.6823, 0.2745, 1.0].into()))
+    }
+
+
+    fn combo_bounds(&self) -> Rectangle {
+        Rectangle::bounds_only(
+            Vector2::new(0.0, HIT_POSITION.y - HIT_AREA_RADIUS/2.0),
+            Vector2::new(HIT_POSITION.x - NOTE_RADIUS, HIT_AREA_RADIUS)
+        )
+    }
 }
 
 

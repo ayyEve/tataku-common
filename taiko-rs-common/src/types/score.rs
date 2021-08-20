@@ -19,7 +19,7 @@ pub struct Score {
 
     /// time diff for actual note hits. if the note wasnt hit, it wont be here
     /// (user_hit_time - correct_time)
-    pub hit_timings: Vec<i32>
+    pub hit_timings: Vec<i32>,
 }
 impl Score {
     pub fn new(hash:String, username:String, playmode:PlayMode) -> Score {
