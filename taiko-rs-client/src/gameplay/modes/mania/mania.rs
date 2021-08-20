@@ -4,7 +4,7 @@ use piston::RenderArgs;
 use ayyeve_piston_ui::render::*;
 use taiko_rs_common::types::{KeyPress, ReplayFrame, PlayMode};
 
-// use crate::game::Audio;
+use crate::game::Audio;
 use crate::game::Settings;
 use crate::{WINDOW_SIZE, Vector2};
 use crate::gameplay::{HoldDef, NoteType};
@@ -178,7 +178,7 @@ impl GameMode for ManiaGame {
                     _ => return
                 };
                 // let hit_type:HitType = key.into();
-                // let mut sound = match hit_type {HitType::Don => "don", HitType::Kat => "kat"};
+                let sound = "kat";
                 // let hit_volume = Settings::get().get_effect_vol() * (manager.beatmap.timing_points[self.timing_point_index].volume as f32 / 100.0);
 
                 // if theres no more notes to hit, return after playing the sound
@@ -198,7 +198,7 @@ impl GameMode for ManiaGame {
 
                     manager.score.hit300(time as u64, note_time as u64);
                     manager.hitbar_timings.push((time as i64, (time - note_time) as i64));
-                    // Audio::play_preloaded(sound);
+                    Audio::play_preloaded(sound);
                     if note.note_type() != NoteType::Hold {
                         self.next_note(col);
                     }
@@ -207,7 +207,7 @@ impl GameMode for ManiaGame {
 
                     manager.score.hit100(time as u64, note_time as u64);
                     manager.hitbar_timings.push((time as i64, (time - note_time) as i64));
-                    // Audio::play_preloaded(sound);
+                    Audio::play_preloaded(sound);
                     //TODO: indicate this was a bad hit
 
                     if note.note_type() != NoteType::Hold {
@@ -221,12 +221,12 @@ impl GameMode for ManiaGame {
                     if note.note_type() != NoteType::Hold {
                         self.next_note(col);
                     }
-                    // Audio::play_preloaded(sound);
+                    Audio::play_preloaded(sound);
                     //TODO: play miss sound
                     //TODO: indicate this was a miss
                 } else { // way too early, ignore
                     // play sound
-                    // Audio::play_preloaded(sound);
+                    Audio::play_preloaded(sound);
                 }
             
             }
