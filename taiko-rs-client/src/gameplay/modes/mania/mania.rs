@@ -4,9 +4,8 @@ use piston::RenderArgs;
 use ayyeve_piston_ui::render::*;
 use taiko_rs_common::types::{KeyPress, ReplayFrame, PlayMode};
 
-use crate::game::Audio;
-use crate::game::Settings;
 use crate::{WINDOW_SIZE, Vector2};
+use crate::game::{Audio, Settings};
 use crate::gameplay::{HoldDef, NoteType};
 use super::{ManiaHold, ManiaNote, ManiaHitObject};
 use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint, map_difficulty_range};
@@ -285,40 +284,34 @@ impl GameMode for ManiaGame {
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
         let settings = Settings::get();
         let mut game_key = KeyPress::RightDon;
-        if key == settings.left_kat {
-            game_key = KeyPress::Mania1;
-            // self.hit(, manager);
+
+        let keys = &settings.mania_settings.keys[(self.column_count-1) as usize];
+        let base_key = KeyPress::Mania1 as u8;
+        for col in 0..self.column_count as usize {
+            let k = keys[col];
+            if k == key {
+                game_key = ((col + base_key as usize) as u8).into();
+                break;
+            }
         }
-        if key == settings.left_don {
-            game_key = KeyPress::Mania2;
-            // self.hit(KeyPress::Mania2, manager);
-        }
-        if key == settings.right_don {
-            game_key = KeyPress::Mania3;
-            // self.hit(KeyPress::Mania3, manager);
-        }
-        if key == settings.right_kat {
-            game_key = KeyPress::Mania4;
-            // self.hit(KeyPress::Mania4, manager);
-        }
+        if game_key == KeyPress::RightDon {return}
 
         self.handle_replay_frame(ReplayFrame::Press(game_key), manager);
     }
     fn key_up(&mut self, key:piston::Key, manager:&mut IngameManager) {
         let settings = Settings::get();
         let mut game_key = KeyPress::RightDon;
-        if key == settings.left_kat {
-            game_key = KeyPress::Mania1;
+
+        let keys = &settings.mania_settings.keys[(self.column_count-1) as usize];
+        let base_key = KeyPress::Mania1 as u8;
+        for col in 0..self.column_count as usize {
+            let k = keys[col];
+            if k == key {
+                game_key = ((col + base_key as usize) as u8).into();
+                break;
+            }
         }
-        if key == settings.left_don {
-            game_key = KeyPress::Mania2;
-        }
-        if key == settings.right_don {
-            game_key = KeyPress::Mania3;
-        }
-        if key == settings.right_kat {
-            game_key = KeyPress::Mania4;
-        }
+        if game_key == KeyPress::RightDon {return}
 
         self.handle_replay_frame(ReplayFrame::Release(game_key), manager);
     }
@@ -437,25 +430,15 @@ impl GameMode for ManiaGame {
                 Vector2::new(COLUMN_WIDTH, WINDOW_SIZE.y),
                 Some(Border::new(Color::GREEN, 1.2))
             )));
-
-            // hit area for this col
+            
+            // hit area/button state for this col
             list.push(Box::new(Rectangle::new(
-                Color::TRANSPARENT_WHITE,
+                if self.column_states[col as usize] {self.get_color(col)} else {Color::TRANSPARENT_WHITE},
                 -100.0,
                 Vector2::new(x, HIT_Y),
                 NOTE_SIZE,
-                Some(Border::new(Color::RED, 2.0))
+                Some(Border::new(Color::RED, NOTE_BORDER_SIZE))
             )));
-            // draw button state for this col
-            if self.column_states[col as usize] {
-                list.push(Box::new(Rectangle::new(
-                    self.get_color(col),
-                    -110.0,
-                    Vector2::new(x, HIT_Y),
-                    NOTE_SIZE,
-                    Some(Border::new(Color::RED, 2.0))
-                )));
-            }
         }
         
         // column background

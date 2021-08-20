@@ -20,19 +20,20 @@ impl SettingsMenu {
         let settings = Settings::get();
         let p = Vector2::new(10.0 + SECTION_XOFFSET, 0.0); // scroll area edits the y
 
+        let taiko_settings = settings.taiko_settings;
         // setup items
         let mut scroll_area = ScrollableArea::new(Vector2::new(10.0, SCROLLABLE_YOFFSET), Vector2::new(WINDOW_SIZE.x - 20.0, WINDOW_SIZE.y - SCROLLABLE_YOFFSET*2.0), true);
         // osu
-        let mut username_input = TextInput::new(p, Vector2::new(600.0, 50.0), "Username", &settings.username);
-        let mut password_input = PasswordInput::new(p, Vector2::new(600.0, 50.0), "Password", &settings.password);
+        let mut username_input = TextInput::new(p, Vector2::new(600.0, 50.0), "Username", &settings.osu_username);
+        let mut password_input = PasswordInput::new(p, Vector2::new(600.0, 50.0), "Password", &settings.osu_password);
         // keys
-        let mut left_kat_btn = KeyButton::new(p, KEYBUTTON_SIZE, settings.left_kat, "Left Kat");
-        let mut left_don_btn = KeyButton::new(p, KEYBUTTON_SIZE, settings.left_don, "Left Don");
-        let mut right_don_btn = KeyButton::new(p, KEYBUTTON_SIZE, settings.right_don, "Right Don");
-        let mut right_kat_btn = KeyButton::new(p, KEYBUTTON_SIZE, settings.right_kat, "Right Kat");
+        let mut left_kat_btn = KeyButton::new(p, KEYBUTTON_SIZE, taiko_settings.left_kat, "Left Kat");
+        let mut left_don_btn = KeyButton::new(p, KEYBUTTON_SIZE, taiko_settings.left_don, "Left Don");
+        let mut right_don_btn = KeyButton::new(p, KEYBUTTON_SIZE, taiko_settings.right_don, "Right Don");
+        let mut right_kat_btn = KeyButton::new(p, KEYBUTTON_SIZE, taiko_settings.right_kat, "Right Kat");
         // sv
-        let mut static_sv = Checkbox::new(p, Vector2::new(200.0, BUTTON_SIZE.y), "No Sv Changes", settings.static_sv);
-        let mut sv_mult = Slider::new(p, Vector2::new(400.0, BUTTON_SIZE.y), "Slider Multiplier", settings.sv_multiplier as f64, Some(0.1..2.0), None);
+        let mut static_sv = Checkbox::new(p, Vector2::new(200.0, BUTTON_SIZE.y), "No Sv Changes", taiko_settings.static_sv);
+        let mut sv_mult = Slider::new(p, Vector2::new(400.0, BUTTON_SIZE.y), "Slider Multiplier", taiko_settings.sv_multiplier as f64, Some(0.1..2.0), None);
         // bg
         let mut bg_dim = Slider::new(p, Vector2::new(400.0, BUTTON_SIZE.y), "Background Dim", settings.background_dim as f64, Some(0.0..1.0), None);
 
@@ -77,32 +78,32 @@ impl SettingsMenu {
 
         //TODO: can we setup a macro for this?
         if let Some(username) = self.scroll_area.get_tagged("username".to_owned()).first().unwrap().get_value().downcast_ref::<String>() {
-            settings.username = username.to_owned();
+            settings.osu_username = username.to_owned();
         }
         if let Some(password) = self.scroll_area.get_tagged("password".to_owned()).first().unwrap().get_value().downcast_ref::<String>() {
-            settings.password = password.to_owned();
+            settings.osu_password = password.to_owned();
         }
 
         if let Some(key) = self.scroll_area.get_tagged("left_kat".to_owned()).first().unwrap().get_value().downcast_ref::<piston::Key>() {
-            settings.left_kat = key.clone();
+            settings.taiko_settings.left_kat = key.clone();
         }
         if let Some(key) = self.scroll_area.get_tagged("left_don".to_owned()).first().unwrap().get_value().downcast_ref::<piston::Key>() {
-            settings.left_don = key.clone();
+            settings.taiko_settings.left_don = key.clone();
         } 
         if let Some(key) = self.scroll_area.get_tagged("right_don".to_owned()).first().unwrap().get_value().downcast_ref::<piston::Key>() {
-            settings.right_don = key.clone();
+            settings.taiko_settings.right_don = key.clone();
         }
         if let Some(key) = self.scroll_area.get_tagged("right_kat".to_owned()).first().unwrap().get_value().downcast_ref::<piston::Key>() {
-            settings.right_kat = key.clone();
+            settings.taiko_settings.right_kat = key.clone();
         }
 
         // sv
         if let Some(val) = self.scroll_area.get_tagged("static_sv".to_owned()).first().unwrap().get_value().downcast_ref::<bool>() {
             // println!("rk => {:?}", key);
-            settings.static_sv = val.clone();
+            settings.taiko_settings.static_sv = val.clone();
         }
         if let Some(val) = self.scroll_area.get_tagged("sv_mult".to_owned()).first().unwrap().get_value().downcast_ref::<f64>() {
-            settings.sv_multiplier = val.clone() as f32;
+            settings.taiko_settings.sv_multiplier = val.clone() as f32;
         }
 
         // bg dim

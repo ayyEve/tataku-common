@@ -368,7 +368,7 @@ impl GameMode for TaikoGame {
 
 
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
-        let settings = Settings::get();
+        let settings = Settings::get().taiko_settings;
 
         if key == settings.left_kat {
             self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftKat), manager);
@@ -386,7 +386,7 @@ impl GameMode for TaikoGame {
     fn key_up(&mut self, _key:piston::Key, _manager:&mut IngameManager) {}
 
     fn reset(&mut self, beatmap:Beatmap) {
-        let settings = Settings::get();
+        let settings = Settings::get().taiko_settings;
         
         for note in self.notes.as_mut_slice() {
             note.reset();

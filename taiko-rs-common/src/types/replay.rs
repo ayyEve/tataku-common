@@ -60,7 +60,7 @@ impl From<u8> for Playstyle {
 }
 
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Copy, PartialEq, Eq)]
 pub enum KeyPress {
     LeftKat = 0,
     LeftDon = 1,
@@ -80,16 +80,29 @@ pub enum KeyPress {
 impl Into<u8> for KeyPress {
     fn into(self) -> u8 {
         self as u8
+
     }
 }
 impl From<u8> for KeyPress {
     fn from(n: u8) -> Self {
         use KeyPress::*;
         match n {
+            // taiko
             0 => LeftKat,
             1 => LeftDon,
             2 => RightDon,
             3 => RightKat,
+
+            // mania
+            4 => Mania1,
+            5 => Mania2,
+            6 => Mania3,
+            7 => Mania4,
+            8 => Mania5,
+            9 => Mania6,
+            10 => Mania7,
+            11 => Mania8,
+            12 => Mania9,
 
             _ => LeftKat // maybe it should panic instead?
         }

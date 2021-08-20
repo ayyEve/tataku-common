@@ -13,13 +13,11 @@ unlimited_fps = []
 taiko-rs-common = {path="../taiko-rs-common"}
 
 # framework stuff
+rusqlite = "0.25"
 lazy_static = "1.4.0"
-futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
+parking_lot = "0.11.1"
 tokio = { version = "1.7.1", features = ["full"] }
-
-# audio
-cpal = "0.13.3"
-symphonia = { version = "0.3.0", default-features = false, features = ["mp3", "ogg", "wav", "pcm"] }
+futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
 
 # piston etc
 piston = "0.53.0"
@@ -28,13 +26,20 @@ pistoncore-glfw_window = "0.71.0"
 piston2d-opengl_graphics = "0.78.0"
 ayyeve-piston-ui = {git = "https://gitlab.ayyeve.xyz/ayyEve/ayyeve-piston-ui"}
 
+# audio
+cpal = "0.13.3"
+symphonia = { version = "0.3.0", default-features = false, features = ["mp3", "ogg", "wav", "pcm"] }
+
 # networking
-reqwest = { version = "0.11.4", features = ["blocking"] }
 tokio-tungstenite = "0.15.0"
+reqwest = { version = "0.11.4", features = ["blocking"] }
+
+# serde
+serde = {version="1.0", features=["derive"]}
+serde_json = "1.0"
 
 # helpers
-parking_lot = "0.11.1"
-clipboard = "0.5.0"
-md5 = "0.7.0"
 zip = "0.5"
+md5 = "0.7.0"
 rand = "0.8.4"
+clipboard = "0.5.0"
