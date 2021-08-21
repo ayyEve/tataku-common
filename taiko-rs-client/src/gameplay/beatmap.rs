@@ -137,7 +137,8 @@ impl Beatmap {
                         let hitsound = split.next().unwrap().parse::<u32>().unwrap_or(0); // 0 = normal, 2 = whistle, 4 = finish, 8 = clap
 
                         if (read_type & 2) > 0 { // slider
-                            let mut curve = split.next().unwrap().split('|');
+                            let curve_raw = split.next().unwrap();
+                            let mut curve = curve_raw.split('|');
                             let slides = split.next().unwrap().parse::<u64>().unwrap();
                             let length = split.next().unwrap().parse::<f64>().unwrap();
                             let edge_sounds = split
@@ -150,6 +151,7 @@ impl Beatmap {
                                 .unwrap_or("0")
                                 .split("|")
                                 .map(|s|s.parse::<u8>().unwrap_or(0)).collect();
+
 
                             let curve_type = match &*curve.next().unwrap() {
                                 "B" => CurveType::Bézier,
@@ -168,6 +170,9 @@ impl Beatmap {
                                 ))
                             }
 
+                            if beatmap.metadata.mode == PlayMode::Catch {
+                                println!("curve: {}, points: {:?}", curve_raw, curve_points);
+                            }
 
                             beatmap.sliders.push(SliderDef {
                                 pos: Vector2::new(x, y),
@@ -277,6 +282,22 @@ impl Beatmap {
     pub fn slider_velocity_at(&self, time:u64) -> f64 {
         let bl = self.beat_length_at(time as f64, true);
         100.0 * (self.metadata.slider_multiplier as f64 * 1.4) * if bl > 0.0 {1000.0 / bl} else {1.0}
+    }
+
+    pub fn control_point_at(&self, time:f64) -> TimingPoint {
+        // panic as this should be dealt with earlier in the code
+        if self.timing_points.len() == 0 {panic!("beatmap has no timing points!")}
+
+        let mut point = self.timing_points[0];
+        for tp in self.timing_points.iter() {
+            if tp.time <= time {point = *tp}
+        }
+
+        point
+    }
+
+    pub fn bpm_multiplier_at(&self, time:f64) -> f64 {
+        self.control_point_at(time).bpm_multiplier()
     }
 }
 

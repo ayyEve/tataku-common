@@ -1,6 +1,6 @@
 //TODO! implement time signature, its used for barlines
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct TimingPoint {
     /// Start time of the timing section, in milliseconds from the beginning of the beatmap's audio. The end of the timing section is the next timing point's time (or never, if this is the last timing point).
     pub time: f64,
@@ -38,5 +38,11 @@ impl TimingPoint {
 
     pub fn is_inherited(&self) -> bool {
         return self.beat_length < 0.0;
+    }
+
+
+    pub fn bpm_multiplier(&self) -> f64 {
+        if self.beat_length > 0.0 {1.0}
+        else {(-self.beat_length as f64).clamp(10.0, 1000.0) / 100.0}
     }
 }

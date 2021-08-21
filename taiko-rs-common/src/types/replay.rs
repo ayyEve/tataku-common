@@ -76,6 +76,10 @@ pub enum KeyPress {
     Mania7 = 10,
     Mania8 = 11,
     Mania9 = 12,
+
+    Left = 30,
+    Right = 31,
+    Dash = 32
 }
 impl Into<u8> for KeyPress {
     fn into(self) -> u8 {

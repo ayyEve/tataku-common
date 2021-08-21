@@ -7,6 +7,7 @@ use super::{Beatmap, GameMode};
 
 pub mod taiko;
 pub mod mania;
+pub mod catch;
 
 use PlayMode::*;
 pub fn select_gamemode_from_playmode(playmode:PlayMode, beatmap:&Beatmap) -> Arc<Mutex<dyn GameMode>> {
@@ -19,7 +20,7 @@ pub fn select_gamemode_from_playmode(playmode:PlayMode, beatmap:&Beatmap) -> Arc
             Arc::new(Mutex::new(taiko::TaikoGame::new(beatmap)))
         }
         Catch => {
-            Arc::new(Mutex::new(taiko::TaikoGame::new(beatmap)))
+            Arc::new(Mutex::new(catch::CatchGame::new(beatmap)))
         }
         Mania => {
             Arc::new(Mutex::new(mania::ManiaGame::new(beatmap)))

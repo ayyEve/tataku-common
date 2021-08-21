@@ -430,7 +430,7 @@ impl GameMode for ManiaGame {
                 Vector2::new(COLUMN_WIDTH, WINDOW_SIZE.y),
                 Some(Border::new(Color::GREEN, 1.2))
             )));
-            
+
             // hit area/button state for this col
             list.push(Box::new(Rectangle::new(
                 if self.column_states[col as usize] {self.get_color(col)} else {Color::TRANSPARENT_WHITE},
@@ -464,7 +464,6 @@ impl GameMode for ManiaGame {
 
         loop {
             let mut found = false;
-
             for col in self.columns.iter_mut() {
                 for note in col.iter_mut() {
                     if note.y_at(time) <= y_needed {found = true; break}
