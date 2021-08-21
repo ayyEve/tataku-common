@@ -5,16 +5,12 @@ use taiko_rs_common::types::ReplayFrame;
 use taiko_rs_common::types::ScoreHit;
 use taiko_rs_common::types::PlayMode;
 
-use crate::gameplay::SliderDef;
-use crate::gameplay::SpinnerDef;
+use crate::game::Audio;
 use crate::{WINDOW_SIZE, Vector2};
-use crate::game::{Audio, Settings};
-// use crate::helpers::slider::get_curve;
-use crate::gameplay::map_difficulty_range;
+use crate::helpers::slider::get_curve;
 use crate::gameplay::{GameMode, Beatmap, IngameManager};
-
+use crate::gameplay::{SliderDef, SpinnerDef, map_difficulty_range};
 use super::*;
-
 
 const FIELD_SIZE:Vector2 = Vector2::new(512.0, 384.0);
 
@@ -78,83 +74,52 @@ impl GameMode for CatchGame {
             )));
         }
         for slider in beatmap.sliders.iter() {
-            let SliderDef {pos, time, slides, length, curve_type, curve_points, ..} = slider.to_owned();
-            // let time = time as u64;
+            let SliderDef {time, slides, length, ..} = slider.to_owned();
+            let time = time as u64;
 
-            let mut curve_points = curve_points.clone();
-            curve_points.insert(0, pos);
-
-            // let curve = get_curve(&slider, &beatmap);
-
-
-            // let end_time = curve.end_time;
-            // for t in curve.score_times.clone() {
-            //     s.notes.push(Box::new(CatchDroplet::new(
-            //         t as u64,
-            //         beatmap.slider_velocity_at(t as u64),
-            //         DROPLET_RADIUS_BASE,
-            //         curve.position_at_time(t).x
-            //         .clamp(10.0, WINDOW_SIZE.x - 10.0)
-            //     )));
-            // }
+            let curve = get_curve(&slider, &beatmap);
 
             let l = (length * 1.4) * slides as f64;
             let v2 = 100.0 * (beatmap.metadata.slider_multiplier as f64 * 1.4);
             let bl = beatmap.beat_length_at(time as f64, true);
             let end_time = time as f64 + (l / v2 * bl) as f64;
+            // let end_time = curve.end_time;
             
-            // convert vars
-            // let v = beatmap.slider_velocity_at(time as u64);
             let bl = beatmap.beat_length_at(time as f64, beatmap.metadata.beatmap_version < 8.0);
             let skip_period = (bl / beatmap.metadata.slider_tick_rate as f64).min((end_time - time as f64) / slides as f64);
 
-            // // let mut i = 0;
+            // // // let mut i = 0;
             let mut j = time as f64;
 
-            // load sounds
-            // let sound_list_raw = if let Some(list) = split.next() {list.split("|")} else {"".split("")};
+            // // load sounds
+            // // let sound_list_raw = if let Some(list) = split.next() {list.split("|")} else {"".split("")};
 
-            // when loading, if unified just have it as sound_types with 1 index
-            // let mut sound_types:Vec<(HitType, bool)> = Vec::new();
+            // // when loading, if unified just have it as sound_types with 1 index
+            // // let mut sound_types:Vec<(HitType, bool)> = Vec::new();
 
-            // for i in sound_list_raw {
-            //     if let Ok(hitsound) = i.parse::<u32>() {
-            //         let hit_type = if (hitsound & (2 | 8)) > 0 {super::HitType::Kat} else {super::HitType::Don};
-            //         let finisher = (hitsound & 4) > 0;
-            //         sound_types.push((hit_type, finisher));
-            //     }
-            // }
+            // // for i in sound_list_raw {
+            // //     if let Ok(hitsound) = i.parse::<u32>() {
+            // //         let hit_type = if (hitsound & (2 | 8)) > 0 {super::HitType::Kat} else {super::HitType::Don};
+            // //         let finisher = (hitsound & 4) > 0;
+            // //         sound_types.push((hit_type, finisher));
+            // //     }
+            // // }
             
-            // let unified_sound_addition = sound_types.len() == 0;
-            // if unified_sound_addition {
-            //     sound_types.push((HitType::Don, false));
-            // }
-            // println!("{:?}", points);
+            // // let unified_sound_addition = sound_types.len() == 0;
+            // // if unified_sound_addition {
+            // //     sound_types.push((HitType::Don, false));
+            // // }
+            // // println!("{:?}", points);
 
 
-            //TODO: could this be turned into a for i in (x..y).step(n) ?
             loop {
                 // let sound_type = sound_types[i];
-                // let x = curve.position_at_time(j as f64).x
-                //     .clamp(0.0, FIELD_SIZE.x);
-
-                let x = FIELD_SIZE.x / 2.0;
-
                 s.notes.push(Box::new(CatchDroplet::new(
                     j as u64,
                     1.0,//beatmap.slider_velocity_at(j as u64),
                     DROPLET_RADIUS_BASE,
-                    x + x_offset
+                    curve.position_at_time(j).x + x_offset
                 )));
-
-                // let note = CatchDroplet::new(
-                //     j as u64,
-                //     1.0,
-                //     DROPLET_RADIUS_BASE,
-                //     x
-                // );
-                // s.notes.push(Box::new(note));
-
 
                 // if !unified_sound_addition {i = (i + 1) % sound_types.len()}
                 j += skip_period;
@@ -169,7 +134,7 @@ impl GameMode for CatchGame {
             // let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
 
             for i in (0..length as i32).step_by(50) {
-                s.notes.push(Box::new(CatchDroplet::new(
+                s.notes.push(Box::new(CatchBanana::new(
                     *time as u64 + i as u64,
                     1.0,
                     5.0,

@@ -184,7 +184,8 @@ impl Beatmap {
                                 hitsound,
                                 hitsamples: Vec::new(),
                                 edge_sounds,
-                                edge_sets
+                                edge_sets,
+                                raw_str: line.clone()
                             });
 
                         } else if (read_type & 8) > 0 { // spinner
@@ -322,7 +323,9 @@ pub struct SliderDef {
     pub edge_sounds: Vec<u8>,
     pub edge_sets: Vec<u8>,
     
-    pub hitsamples: Vec<u8>
+    pub hitsamples: Vec<u8>,
+
+    pub raw_str: String
 }
 
 #[derive(Clone, Debug)]

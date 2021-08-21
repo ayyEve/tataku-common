@@ -120,7 +120,8 @@ impl Curve {
 
 
 pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
-    let points = slider.curve_points.clone();
+    let mut points = slider.curve_points.clone();
+    points.insert(0, slider.pos);
 
     let mut path = Vec::new();
     // let mut linear_spacing = 8;
@@ -145,7 +146,6 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
         }
         CurveType::Bézier => {
             let mut last_index = 0;
-
             let mut i = 0;
             while i < points.len() {
                 if beatmap.metadata.beatmap_version > 8.0 {
@@ -196,7 +196,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
 
                     if multipart_segment || i == points.len() - 1 {
                         let this_length = points[last_index..i + 1].to_vec();
-                        let points = create_bezier(this_length);
+                        let points = create_bezier_old(this_length);
                         
                         for j in 1..points.len() {
                             path.push(Line::new(points[j-1], points[j]));
@@ -213,7 +213,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
 
                     if (i > 0 && points[i] == points[i - 1]) || i == points.len() - 1 {
                         let this_length = points[last_index..i + 1].to_vec();
-                        let points = create_bezier(this_length);
+                        let points = create_bezier_wrong(this_length);
 
                         for j in 1..points.len() {
                             path.push(Line::new(points[j-1], points[j]));
@@ -231,14 +231,12 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
         CurveType::Perfect => {
             // we may have 2 points when building the circle.
             if points.len() < 3 {
-                println!("get curve < 3");
                 let mut slider = slider.clone();
                 slider.curve_type = CurveType::Linear;
                 return get_curve(&slider, beatmap);
             }
             // more than 3 -> ignore them.
             if points.len() > 3 {
-                println!("get curve > 3");
                 let mut slider = slider.clone();
                 slider.curve_type = CurveType::Bézier;
                 return get_curve(&slider, beatmap);
@@ -249,7 +247,6 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
             
             // all 3 points are on a straight line, avoid undefined behaviour:
             if is_straight_line(a,b,c) {
-                println!("get curve < abc");
                 let mut slider = slider.clone();
                 slider.curve_type = CurveType::Linear;
                 return get_curve(&slider, beatmap);
@@ -294,9 +291,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
 
 
     let mut curve = Curve::new(slider.clone(), path, beatmap);
-
     let slider_scoring_point_distance = 100.0 * (beatmap.metadata.slider_multiplier / beatmap.metadata.slider_tick_rate) as f64;
-
     let tick_distance;
     if beatmap.metadata.beatmap_version < 8.0 {
         tick_distance = slider_scoring_point_distance;
@@ -386,12 +381,6 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
             scoring_length_total -= tick_distance - scoring_distance;
             scoring_distance = tick_distance - scoring_distance;
         }
-
-
-        // let angle = (p1.y - p2.y).atan2(p1.x - p2.x);
-        // int endCircleAppearTime = firstRun ? this.StartTime - (allowSnaking ? this.hitObjectManager.PreEmptSliderComplete : this.hitObjectManager.PreEmpt) : reverseStartTime - (int)(currentTime - reverseStartTime);
-
-        // firstRun = false;
     }
 
     
@@ -409,9 +398,4 @@ fn catmull_rom(value1:Vector2, value2:Vector2, value3:Vector2, value4:Vector2, a
     result.y = 0.5 * (2.0 * value2.y + (-value1.y + value3.y) * amount + (2.0 * value1.y - 5.0 * value2.y + 4.0 * value3.y - value4.y) * num +
         (-value1.y + 3.0 * value2.y - 3.0 * value3.y + value4.y) * num2);
     return result;
-}
-
-
-fn thing(curve:&mut Curve, beatmap: &Beatmap) {
-    
 }

@@ -110,12 +110,19 @@ struct BezierApproximator {
 impl BezierApproximator {
     fn new(control_points: Vec<Vector2>) -> Self {
         let count = control_points.len();
+
+        let mut subdivision_buffer1 = Vec::with_capacity(count);
+        subdivision_buffer1.fill(Vector2::zero());
+
+        let mut subdivision_buffer2 = Vec::with_capacity(count * 2 - 1);
+        subdivision_buffer2.fill(Vector2::zero());
+
         Self {
             control_points,
             count,
 
-            subdivision_buffer1: Vec::with_capacity(count),
-            subdivision_buffer2: Vec::with_capacity(count * 2 - 1),
+            subdivision_buffer1,
+            subdivision_buffer2,
         }
     }
 
@@ -138,6 +145,27 @@ impl BezierApproximator {
     /// describing a bezier curve equivalent to a half of the original curve. Effectively this splits
     /// the original curve into 2 curves which result in the original curve when pieced back together.
     fn subdivide(&mut self, control_points: &Vec<Vector2>, l: &mut Vec<Vector2>, r: &mut Vec<Vector2>) {
+
+        for i in 0..self.count {
+            self.subdivision_buffer1[i] 
+                = control_points[i].clone();
+        }
+        
+        for i in 0..self.count {
+            l[i] 
+                = self.subdivision_buffer1[0];
+            r[self.count - i - 1] 
+                = self.subdivision_buffer1[self.count - i-1];
+            
+            for j in 0..self.count - i - 1 {
+                self.subdivision_buffer1[j] = 
+                    (self.subdivision_buffer1[j] 
+                        + self.subdivision_buffer1[j + 1]) / 2.0
+            }
+        }
+    }
+
+    fn _subdivide_old(&mut self, control_points: &Vec<Vector2>, l: &mut Vec<Vector2>, r: &mut Vec<Vector2>) {
         let midpoints = &mut self.subdivision_buffer1;
 
         for i in 0..self.count {
@@ -146,8 +174,7 @@ impl BezierApproximator {
         
         for i in 0..self.count {
             l[i] = midpoints[0];
-
-            r[self.count - i-1] = midpoints[self.count - i-1];
+            r[self.count - i - 1] = midpoints[self.count - i-1];
             
             for j in 0..self.count - i - 1 {
                 midpoints[j] = (midpoints[j] + midpoints[j + 1]) / 2.0
@@ -174,6 +201,9 @@ impl BezierApproximator {
             let p = (l[index - 1] + l[index] * 2.0 + l[index + 1]) * 0.25;
             output.push(p);
         }
+
+        self.subdivision_buffer1 = l;
+        self.subdivision_buffer2 = r;
     }
 
     
@@ -201,7 +231,7 @@ impl BezierApproximator {
         let mut left_child = self.subdivision_buffer2.clone();
         
         while to_flatten.len() > 0 {
-            let mut parent = to_flatten.pop_front().unwrap().to_vec();
+            let mut parent = to_flatten.pop_front().unwrap();
 
             if BezierApproximator::is_flat_enough(&parent) {
                 // If the control points we currently operate on are sufficiently "flat", we use
@@ -210,6 +240,7 @@ impl BezierApproximator {
                 // of points as there are control points.
 
                 // this.Approximate(parent, output);
+                println!("approxmate: {:?}", &parent);
                 self.approximate(&parent, &mut output);
                 // freeBuffers.Push(parent);
                 free_buffers.push_front(parent);
@@ -222,8 +253,12 @@ impl BezierApproximator {
             let mut right_child = if free_buffers.len() > 0 {
                 free_buffers.pop_front().unwrap()
             } else {
-                Vec::with_capacity(self.count)
+                vec![Vector2::zero(); self.count]
+                // let mut v = Vec::with_capacity(self.count);
+                // v.fill();
+                // v
             };
+            println!("not approxmate");
             // this.Subdivide(parent, leftChild, rightChild);
             self.subdivide(&parent, &mut left_child, &mut right_child);
 
