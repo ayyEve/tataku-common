@@ -6,6 +6,7 @@ use taiko_rs_common::types::ScoreHit;
 use taiko_rs_common::types::PlayMode;
 
 use crate::game::Audio;
+use crate::helpers::slider::Curve;
 use crate::{WINDOW_SIZE, Vector2};
 use crate::helpers::slider::get_curve;
 use crate::gameplay::{GameMode, Beatmap, IngameManager};
@@ -13,8 +14,6 @@ use crate::gameplay::{SliderDef, SpinnerDef, map_difficulty_range};
 use super::*;
 
 const FIELD_SIZE:Vector2 = Vector2::new(512.0, 384.0);
-
-
 const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
 
 pub const HIT_Y:f64 = WINDOW_SIZE.y - 100.0;
@@ -39,8 +38,10 @@ pub struct CatchGame {
 
     /// when was the last update
     last_update: f64,
-
     catcher: Catcher,
+
+
+    curves:Vec<Curve>
 }
 impl CatchGame {
     pub fn next_note(&mut self) {self.note_index += 1}
@@ -58,7 +59,9 @@ impl GameMode for CatchGame {
             last_update: 0.0,
 
             hitwindow: 0.0,
-            catcher: Catcher::new(&beatmap)
+            catcher: Catcher::new(&beatmap),
+
+            curves: Vec::new()
         };
 
         let x_offset = X_OFFSET; // (WINDOW_SIZE.x - FIELD_SIZE.x) / 2.0;
@@ -78,6 +81,7 @@ impl GameMode for CatchGame {
             let time = time as u64;
 
             let curve = get_curve(&slider, &beatmap);
+            s.curves.push(curve.clone());
 
             let l = (length * 1.4) * slides as f64;
             let v2 = 100.0 * (beatmap.metadata.slider_multiplier as f64 * 1.4);
@@ -175,7 +179,6 @@ impl GameMode for CatchGame {
                 }
             }
         };
-
     }
 
 
@@ -237,8 +240,6 @@ impl GameMode for CatchGame {
             }
         }
 
-
-
         let timing_points = &manager.beatmap.timing_points;
         // check timing point
         if self.timing_point_index + 1 < timing_points.len() && timing_points[self.timing_point_index + 1].time <= time as f64 {
@@ -260,6 +261,18 @@ impl GameMode for CatchGame {
         );
         list.push(Box::new(playfield));
         self.catcher.draw(list);
+
+        for curve in self.curves.iter() {
+            for line in curve.path.iter() {
+                list.push(Box::new(ayyeve_piston_ui::render::Line::new(
+                    line.p1,
+                    line.p2,
+                    5.0,
+                    -999.0,
+                    Color::GREEN
+                )))
+            }
+        }
 
         // draw notes
         for note in self.notes.iter_mut() {list.extend(note.draw(args))}
@@ -344,8 +357,6 @@ impl GameMode for CatchGame {
         )
     }
 }
-
-
 
 struct Catcher {
     width: f64,

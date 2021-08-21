@@ -31,6 +31,7 @@ fn length(p:Vector2) -> f64 {
     num.sqrt()
 }
 
+#[derive(Clone)]
 pub struct Curve {
     pub slider: SliderDef,
     pub path: Vec<Line>,
