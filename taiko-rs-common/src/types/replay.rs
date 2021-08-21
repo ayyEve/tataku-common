@@ -79,12 +79,15 @@ pub enum KeyPress {
 
     Left = 30,
     Right = 31,
-    Dash = 32
+    Dash = 32,
+
+
+
+    Unknown = 255
 }
 impl Into<u8> for KeyPress {
     fn into(self) -> u8 {
         self as u8
-
     }
 }
 impl From<u8> for KeyPress {
@@ -108,7 +111,13 @@ impl From<u8> for KeyPress {
             11 => Mania8,
             12 => Mania9,
 
-            _ => LeftKat // maybe it should panic instead?
+            30 => Left,
+            31 => Right,
+            32 => Dash,
+
+
+            255 => Unknown,
+            _ => Unknown
         }
     }
 }

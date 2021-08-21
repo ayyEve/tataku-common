@@ -216,7 +216,7 @@ impl GameMode for CatchGame {
                         manager.hitbar_timings.push((time as i64, 2));
                         self.next_note();
                     }
-                    ScoreHit::Other(score, consume) => { // spinner drop
+                    ScoreHit::Other(score, _consume) => { // spinner drop
                         manager.score.score += score as u64;
                         manager.hitbar_timings.push((time as i64, 1));
                         self.next_note();
