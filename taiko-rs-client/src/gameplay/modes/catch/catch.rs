@@ -1,20 +1,15 @@
 use ayyeve_piston_ui::render::*;
 use piston::RenderArgs;
-use taiko_rs_common::types::KeyPress;
-use taiko_rs_common::types::ReplayFrame;
-use taiko_rs_common::types::ScoreHit;
-use taiko_rs_common::types::PlayMode;
 
+use super::*;
 use crate::game::Audio;
-use crate::helpers::slider::Curve;
 use crate::{WINDOW_SIZE, Vector2};
 use crate::helpers::slider::get_curve;
-use crate::gameplay::{GameMode, Beatmap, IngameManager};
-use crate::gameplay::{SliderDef, SpinnerDef, map_difficulty_range};
-use super::*;
+use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
+use crate::gameplay::{SliderDef, SpinnerDef, map_difficulty_range, GameMode, Beatmap, IngameManager};
 
 const FIELD_SIZE:Vector2 = Vector2::new(512.0, 384.0);
-const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
+// const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
 
 pub const HIT_Y:f64 = WINDOW_SIZE.y - 100.0;
 pub const FRUIT_RADIUS_BASE:f64 = 20.0;
@@ -39,9 +34,6 @@ pub struct CatchGame {
     /// when was the last update
     last_update: f64,
     catcher: Catcher,
-
-
-    curves:Vec<Curve>
 }
 impl CatchGame {
     pub fn next_note(&mut self) {self.note_index += 1}
@@ -60,8 +52,6 @@ impl GameMode for CatchGame {
 
             hitwindow: 0.0,
             catcher: Catcher::new(&beatmap),
-
-            curves: Vec::new()
         };
 
         let x_offset = X_OFFSET; // (WINDOW_SIZE.x - FIELD_SIZE.x) / 2.0;
@@ -81,7 +71,6 @@ impl GameMode for CatchGame {
             let time = time as u64;
 
             let curve = get_curve(&slider, &beatmap);
-            s.curves.push(curve.clone());
 
             let l = (length * 1.4) * slides as f64;
             let v2 = 100.0 * (beatmap.metadata.slider_multiplier as f64 * 1.4);
@@ -92,7 +81,6 @@ impl GameMode for CatchGame {
             let bl = beatmap.beat_length_at(time as f64, beatmap.metadata.beatmap_version < 8.0);
             let skip_period = (bl / beatmap.metadata.slider_tick_rate as f64).min((end_time - time as f64) / slides as f64);
 
-            // // // let mut i = 0;
             let mut j = time as f64;
 
             // // load sounds
@@ -116,27 +104,34 @@ impl GameMode for CatchGame {
             // // println!("{:?}", points);
 
 
+            let mut counter = 0;
             loop {
                 // let sound_type = sound_types[i];
-                s.notes.push(Box::new(CatchDroplet::new(
-                    j as u64,
-                    1.0,//beatmap.slider_velocity_at(j as u64),
-                    DROPLET_RADIUS_BASE,
-                    curve.position_at_time(j).x + x_offset
-                )));
+                if counter % 4 == 0 {
+                    s.notes.push(Box::new(CatchFruit::new(
+                        j as u64,
+                        1.0,//beatmap.slider_velocity_at(j as u64),
+                        FRUIT_RADIUS_BASE,
+                        curve.position_at_time(j).x + x_offset
+                    )));
+                } else {
+                    s.notes.push(Box::new(CatchDroplet::new(
+                        j as u64,
+                        1.0,//beatmap.slider_velocity_at(j as u64),
+                        DROPLET_RADIUS_BASE,
+                        curve.position_at_time(j).x + x_offset
+                    )));
+                }
 
                 // if !unified_sound_addition {i = (i + 1) % sound_types.len()}
                 j += skip_period;
+                counter += 1;
                 if !(j < end_time + skip_period / 8.0) {break}
             }
         }
         for spinner in beatmap.spinners.iter() {
             let SpinnerDef {time, end_time, ..} = spinner;
-
             let length = end_time - time;
-            // let diff_map = map_difficulty_range(beatmap.metadata.od as f64, 3.0, 5.0, 7.5);
-            // let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
-
             for i in (0..length as i32).step_by(50) {
                 s.notes.push(Box::new(CatchBanana::new(
                     *time as u64 + i as u64,
@@ -200,21 +195,15 @@ impl GameMode for CatchGame {
         let note_time = self.notes[self.note_index].time() as i64;
         if note_time < time {
             if self.notes[self.note_index].causes_miss() {
-                // need to set these manually instead of score.hit_miss,
-                // since we dont want to add anything to the hit error list
                 let s = &mut manager.score;
                 s.xmiss += 1;
                 s.combo = 0;
             }
             self.next_note();
         } else if ((note_time - time).abs() as f64) < self.hitwindow {
+            let note = self.notes.get_mut(self.note_index).unwrap();
 
-            if self.catcher.catches(&self.notes[self.note_index]) {
-                let s = &mut manager.score;
-                s.xmiss += 1;
-                s.combo = 0;
-            } else {
-                let note = self.notes.get_mut(self.note_index).unwrap();
+            if self.catcher.catches(note) {
                 let note_time = note_time as f64;
                 match note.get_points() {
                     ScoreHit::X300 => {
@@ -236,7 +225,12 @@ impl GameMode for CatchGame {
                 }
 
                 Audio::play_preloaded("don");
-                // a.upgrade().unwrap().set_volume(hit_volume);
+            } else {
+                if note.causes_miss() {
+                    let s = &mut manager.score;
+                    s.xmiss += 1;
+                    s.combo = 0;
+                }
             }
         }
 
@@ -262,17 +256,17 @@ impl GameMode for CatchGame {
         list.push(Box::new(playfield));
         self.catcher.draw(list);
 
-        for curve in self.curves.iter() {
-            for line in curve.path.iter() {
-                list.push(Box::new(ayyeve_piston_ui::render::Line::new(
-                    line.p1,
-                    line.p2,
-                    5.0,
-                    -999.0,
-                    Color::GREEN
-                )))
-            }
-        }
+        // for curve in self.curves.iter() {
+        //     for line in curve.path.iter() {
+        //         list.push(Box::new(ayyeve_piston_ui::render::Line::new(
+        //             line.p1,
+        //             line.p2,
+        //             5.0,
+        //             -999.0,
+        //             Color::GREEN
+        //         )))
+        //     }
+        // }
 
         // draw notes
         for note in self.notes.iter_mut() {list.extend(note.draw(args))}
@@ -424,6 +418,6 @@ impl Catcher {
         let note_x = note.x();
         let note_width = note.radius() * 2.0;
 
-        !(note_x + note_width > self.pos.x && note_x < self.pos.x + self.width)
+        note_x + note_width > self.pos.x && note_x < self.pos.x + self.width
     }
 }
