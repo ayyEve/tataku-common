@@ -11,7 +11,7 @@ const NOTE_BORDER_SIZE:f64 = 2.0;
 
 pub trait CatchHitObject: HitObject {
     /// does this object count as a miss if it is not hit?
-    fn causes_miss(&self) -> bool; //TODO: might change this to return an enum of "no", "yes". "yes_combo_only"
+    fn causes_miss(&self) -> bool;
     fn get_points(&mut self) -> ScoreHit;
     fn speed(&self) -> f64;
     fn radius(&self) -> f64;
@@ -24,6 +24,9 @@ pub trait CatchHitObject: HitObject {
             - (self.radius() + NOTE_BORDER_SIZE / 2.0)
         )
     }
+
+    fn set_dash(&mut self, next: &Box<dyn CatchHitObject>) {}
+    fn reset_dash(&mut self) {}
 }
 
 // normal note
@@ -34,7 +37,10 @@ pub struct CatchFruit {
     hit: bool,
     missed: bool,
     speed: f64,
-    radius: f64
+    radius: f64,
+
+    dash: bool,
+    dash_distance: f64
 }
 impl CatchFruit {
     pub fn new(time:u64, speed:f64, radius:f64, x:f64) -> Self {
@@ -45,6 +51,9 @@ impl CatchFruit {
             hit: false,
             missed: false,
             pos: Vector2::new(x, 0.0),
+
+            dash: true,
+            dash_distance: 0.0
         }
     }
 }
@@ -65,7 +74,7 @@ impl HitObject for CatchFruit {
             self.pos,
             self.radius
         );
-        note.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
+        note.border = Some(Border::new(if self.dash {Color::RED} else {Color::BLACK}, NOTE_BORDER_SIZE));
         renderables.push(Box::new(note));
 
         renderables
@@ -85,6 +94,12 @@ impl CatchHitObject for CatchFruit {
     fn get_points(&mut self) -> ScoreHit {
         self.hit = true;
         ScoreHit::X300
+    }
+
+    fn set_dash(&mut self, next: &Box<dyn CatchHitObject>) {
+        let distance_to = (self.pos.x - next.x()).abs();
+
+        // if distance_to
     }
 }
 
@@ -172,7 +187,7 @@ impl CatchBanana {
     }
 }
 impl HitObject for CatchBanana {
-    fn note_type(&self) -> NoteType {NoteType::Note}
+    fn note_type(&self) -> NoteType {NoteType::Spinner}
     fn time(&self) -> u64 {self.time}
     fn end_time(&self, _:f64) -> u64 {self.time}
     fn update(&mut self, beatmap_time: i64) {

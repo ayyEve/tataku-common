@@ -6,7 +6,7 @@ use crate::game::Audio;
 use crate::{WINDOW_SIZE, Vector2};
 use crate::helpers::slider::get_curve;
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
-use crate::gameplay::{SliderDef, SpinnerDef, map_difficulty_range, GameMode, Beatmap, IngameManager};
+use crate::gameplay::{Beatmap, GameMode, IngameManager, NoteType, SliderDef, SpinnerDef, map_difficulty_range};
 
 const FIELD_SIZE:Vector2 = Vector2::new(512.0, 384.0);
 // const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
@@ -14,6 +14,8 @@ const FIELD_SIZE:Vector2 = Vector2::new(512.0, 384.0);
 pub const HIT_Y:f64 = WINDOW_SIZE.y - 100.0;
 pub const FRUIT_RADIUS_BASE:f64 = 20.0;
 pub const DROPLET_RADIUS_BASE:f64 = 10.0;
+pub const CATCHER_WIDTH_BASE:f64 = 106.75;
+pub const CATCHER_BASE_SPEED:f64 = 1.0;
 
 const X_OFFSET:f64 = (WINDOW_SIZE.x - FIELD_SIZE.x) / 2.0;
 
@@ -140,42 +142,60 @@ impl GameMode for CatchGame {
                     i as f64 % FIELD_SIZE.x + x_offset
                 )))
             }
-
-            // s.notes.push(Box::new(CatchSpinner::new(*time as u64, *end_time as u64, 1.0, hits_required)));
         }
 
         s.notes.sort_by(|a, b|a.time().cmp(&b.time()));
-        s.end_time = s.notes.iter().last().unwrap().time() as f64;
 
+
+
+
+        // // set dashes
+        // // from lazer CatchBeatmapProcessor:214
+        // let half_catcher = s.catcher.width / 2.0;
+        // let mut last_direction = 0;
+        // let mut last_excess = half_catcher;
+
+        // let mut i = 0;
+        // let notes = &mut s.notes;
+        // 'dash_loop: while i < notes.len() - 1 {
+        //     while notes[i].note_type() == NoteType::Spinner {
+        //         i += 1;
+        //         if i >= notes.len() - 1 {
+        //             break 'dash_loop;
+        //         }
+        //     }
+        //     let current = i;
+        //     let mut next = i + 1;
+        //     while notes[next].note_type() == NoteType::Spinner {
+        //         next += 1;
+        //         if next >= notes.len() - 1 {
+        //             break 'dash_loop;
+        //         }
+        //     }
+
+        //     // reset dash values
+        //     notes[current].reset_dash();
+        //     let this_direction = if notes[next].x() > notes[current].x() {-1} else {1};
+        //     let time_to_next = notes[next].time() as f64 - notes[current].time() as f64 - 1000.0 / 60.0 / 4.0;
+        //     let distance_to_next = 
+        //         (notes[next].x() - notes[current].x()) 
+        //         - (if last_direction == this_direction {last_excess} else {half_catcher});
+            
+        //     let distance_to_hyper = time_to_next * CATCHER_BASE_SPEED - distance_to_next;
+
+        //     // if distance_to_hyper < 0.0 {
+        //     //     notes[current].set_dash(&notes[next]);
+        //     // } else {
+        //     //     notes[current].set_hyper_distance()
+        //     // }
+
+        //     i += 1;
+        // };
+
+
+        s.end_time = s.notes.iter().last().unwrap().time() as f64;
         s
     }
-
-    fn handle_replay_frame(&mut self, frame:ReplayFrame, manager:&mut IngameManager) {
-        let time = manager.time() as f64;
-        if !manager.replaying {
-            manager.replay.frames.push((time as i64, frame.clone()));
-        }
-        
-        match frame {
-            ReplayFrame::Press(k) => {
-                match k {
-                    KeyPress::Left => self.catcher.left_held = true,
-                    KeyPress::Right => self.catcher.right_held = true,
-                    KeyPress::Dash => self.catcher.dash_held = true,
-                    _ => {}
-                }
-            }
-            ReplayFrame::Release(k) => {
-                match k {
-                    KeyPress::Left => self.catcher.left_held = false,
-                    KeyPress::Right => self.catcher.right_held = false,
-                    KeyPress::Dash => self.catcher.dash_held = false,
-                    _ => {}
-                }
-            }
-        };
-    }
-
 
     fn update(&mut self, manager:&mut IngameManager) {
         // get the current time
@@ -273,6 +293,31 @@ impl GameMode for CatchGame {
     }
 
 
+    fn handle_replay_frame(&mut self, frame:ReplayFrame, manager:&mut IngameManager) {
+        let time = manager.time() as f64;
+        if !manager.replaying {
+            manager.replay.frames.push((time as i64, frame.clone()));
+        }
+        
+        match frame {
+            ReplayFrame::Press(k) => {
+                match k {
+                    KeyPress::Left => self.catcher.left_held = true,
+                    KeyPress::Right => self.catcher.right_held = true,
+                    KeyPress::Dash => self.catcher.dash_held = true,
+                    _ => {}
+                }
+            }
+            ReplayFrame::Release(k) => {
+                match k {
+                    KeyPress::Left => self.catcher.left_held = false,
+                    KeyPress::Right => self.catcher.right_held = false,
+                    KeyPress::Dash => self.catcher.dash_held = false,
+                    _ => {}
+                }
+            }
+        };
+    }
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
         // let settings = Settings::get().taiko_settings;
 
@@ -343,7 +388,6 @@ impl GameMode for CatchGame {
     fn timing_bar_things(&self) -> (Vec<(f64,Color)>, (f64,Color)) {
         (vec![], (0.0, Color::RED))
     }
-
     fn combo_bounds(&self) -> Rectangle {
         Rectangle::bounds_only(
             Vector2::new(0.0, WINDOW_SIZE.y * (1.0/3.0)),

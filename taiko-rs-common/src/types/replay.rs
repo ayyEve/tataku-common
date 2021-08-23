@@ -77,10 +77,11 @@ pub enum KeyPress {
     Mania8 = 11,
     Mania9 = 12,
 
+    /// doubles as std left
     Left = 30,
+    /// doubles as std right
     Right = 31,
     Dash = 32,
-
 
 
     Unknown = 255
@@ -114,6 +115,7 @@ impl From<u8> for KeyPress {
             30 => Left,
             31 => Right,
             32 => Dash,
+
 
 
             255 => Unknown,
