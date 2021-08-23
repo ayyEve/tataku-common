@@ -1,3 +1,5 @@
+use core::f32;
+
 use ayyeve_piston_ui::render::*;
 use piston::RenderArgs;
 use taiko_rs_common::types::KeyPress;
@@ -23,9 +25,8 @@ pub const PLAYFIELD_RADIUS:f64 = NOTE_RADIUS * 2.0; // actually height, oops
 
 pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // timing bar color
 const BAR_WIDTH:f64 = 4.0; // how wide is a timing bar
-const BAR_SPACING:f64 = 4.0; // how many beats between timing bars
 
-const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
+const SV_FACTOR:f32 = 700.0; // bc sv is bonked, divide it by this amount
 
 /// how long should the drum buttons last for?
 const DRUM_LIFETIME_TIME:u64 = 100;
@@ -40,11 +41,11 @@ pub struct StandardGame {
     timing_point_index: usize,
 
     // hit timing bar stuff
-    hitwindow_300: f64,
-    hitwindow_100: f64,
-    hitwindow_miss: f64,
+    hitwindow_300: f32,
+    hitwindow_100: f32,
+    hitwindow_miss: f32,
 
-    end_time: f64,
+    end_time: f32,
 
     render_queue: Vec<Box<HalfCircle>>,
 }
@@ -54,7 +55,7 @@ impl StandardGame {
 
 impl GameMode for StandardGame {
     fn playmode(&self) -> PlayMode {PlayMode::Standard}
-    fn end_time(&self) -> f64 {self.end_time}
+    fn end_time(&self) -> f32 {self.end_time}
     fn new(beatmap:&Beatmap) -> Self {
         let mut s = Self {
             notes: Vec::new(),
@@ -152,16 +153,16 @@ impl GameMode for StandardGame {
         //     s.notes.push(Box::new(TaikoSpinner::new(*time as u64, *end_time as u64, 1.0, hits_required)));
         // }
 
-        s.notes.sort_by(|a, b|a.time().cmp(&b.time()));
-        s.end_time = s.notes.iter().last().unwrap().time() as f64;
+        s.notes.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
+        s.end_time = s.notes.iter().last().unwrap().time();
 
         s
     }
 
     fn handle_replay_frame(&mut self, frame:ReplayFrame, manager:&mut IngameManager) {
-        let time = manager.time() as f64;
+        let time = manager.time();
         if !manager.replaying {
-            manager.replay.frames.push((time as i64, frame.clone()));
+            manager.replay.frames.push((time, frame.clone()));
         }
         let key = match frame {
             ReplayFrame::Press(k) => k,
@@ -202,7 +203,7 @@ impl GameMode for StandardGame {
         
         let timing_points = &manager.beatmap.timing_points;
         // check timing point
-        if self.timing_point_index + 1 < timing_points.len() && timing_points[self.timing_point_index + 1].time <= time as f64 {
+        if self.timing_point_index + 1 < timing_points.len() && timing_points[self.timing_point_index + 1].time <= time {
             self.timing_point_index += 1;
         }
     }
@@ -265,7 +266,7 @@ impl GameMode for StandardGame {
         self.note_index = 0;
         self.timing_point_index = 0;
 
-        let od = beatmap.metadata.od as f64;
+        let od = beatmap.metadata.od;
         // setup hitwindows
         self.hitwindow_miss = map_difficulty_range(od, 135.0, 95.0, 70.0);
         self.hitwindow_100 = map_difficulty_range(od, 120.0, 80.0, 50.0);
@@ -300,7 +301,7 @@ impl GameMode for StandardGame {
     }
 
 
-    fn timing_bar_things(&self) -> (Vec<(f64,Color)>, (f64,Color)) {
+    fn timing_bar_things(&self) -> (Vec<(f32,Color)>, (f32,Color)) {
         (vec![
             (self.hitwindow_100, [0.3411, 0.8901, 0.0745, 1.0].into()),
             (self.hitwindow_300, [0.1960, 0.7372, 0.9058, 1.0].into()),

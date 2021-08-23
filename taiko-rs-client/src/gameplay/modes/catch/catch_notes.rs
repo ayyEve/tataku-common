@@ -13,16 +13,16 @@ pub trait CatchHitObject: HitObject {
     /// does this object count as a miss if it is not hit?
     fn causes_miss(&self) -> bool;
     fn get_points(&mut self) -> ScoreHit;
-    fn speed(&self) -> f64;
+    fn speed(&self) -> f32;
     fn radius(&self) -> f64;
     fn x(&self) -> f64;
-    fn y_at(&self, time:i64) -> f64 {
+    fn y_at(&self, time:f32) -> f64 {
         HIT_Y 
         - (
-            (self.time() as f64 - time as f64) 
+            (self.time() - time) 
             * self.speed() 
-            - (self.radius() + NOTE_BORDER_SIZE / 2.0)
-        )
+            - (self.radius() + NOTE_BORDER_SIZE / 2.0) as f32
+        ) as f64
     }
 
     fn set_dash(&mut self, next: &Box<dyn CatchHitObject>) {}
@@ -33,17 +33,17 @@ pub trait CatchHitObject: HitObject {
 #[derive(Clone, Copy)]
 pub struct CatchFruit {
     pos: Vector2,
-    time: u64, // ms
+    time: f32, // ms
     hit: bool,
     missed: bool,
-    speed: f64,
+    speed: f32,
     radius: f64,
 
     dash: bool,
-    dash_distance: f64
+    dash_distance: f32
 }
 impl CatchFruit {
-    pub fn new(time:u64, speed:f64, radius:f64, x:f64) -> Self {
+    pub fn new(time:f32, speed:f32, radius:f64, x:f64) -> Self {
         Self {
             time, 
             speed,
@@ -59,9 +59,9 @@ impl CatchFruit {
 }
 impl HitObject for CatchFruit {
     fn note_type(&self) -> NoteType {NoteType::Note}
-    fn time(&self) -> u64 {self.time}
-    fn end_time(&self, _:f64) -> u64 {self.time}
-    fn update(&mut self, beatmap_time: i64) {
+    fn time(&self) -> f32 {self.time}
+    fn end_time(&self, _:f32) -> f32 {self.time}
+    fn update(&mut self, beatmap_time: f32) {
         self.pos.y = self.y_at(beatmap_time);
     }
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
@@ -88,7 +88,7 @@ impl HitObject for CatchFruit {
 }
 impl CatchHitObject for CatchFruit {
     fn x(&self) -> f64 {self.pos.x}
-    fn speed(&self) -> f64 {self.speed}
+    fn speed(&self) -> f32 {self.speed}
     fn radius(&self) -> f64 {self.radius}
     fn causes_miss(&self) -> bool {true}
     fn get_points(&mut self) -> ScoreHit {
@@ -108,14 +108,14 @@ impl CatchHitObject for CatchFruit {
 #[derive(Clone, Copy)]
 pub struct CatchDroplet {
     pos: Vector2,
-    time: u64, // ms
+    time: f32, // ms
     hit: bool,
     missed: bool,
-    speed: f64,
+    speed: f32,
     radius: f64
 }
 impl CatchDroplet {
-    pub fn new(time:u64, speed:f64, radius:f64, x:f64) -> Self {
+    pub fn new(time:f32, speed:f32, radius:f64, x:f64) -> Self {
         Self {
             time, 
             speed,
@@ -128,14 +128,14 @@ impl CatchDroplet {
 }
 impl HitObject for CatchDroplet {
     fn note_type(&self) -> NoteType {NoteType::Note}
-    fn time(&self) -> u64 {self.time}
-    fn end_time(&self, _:f64) -> u64 {self.time}
-    fn update(&mut self, beatmap_time: i64) {
+    fn time(&self) -> f32 {self.time}
+    fn end_time(&self, _:f32) -> f32 {self.time}
+    fn update(&mut self, beatmap_time: f32) {
         self.pos.y = self.y_at(beatmap_time);
     }
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        if self.pos.y + self.radius < 0.0 || self.pos.y - self.radius > args.window_size[1] as f64 || self.hit {return renderables}
+        if self.pos.y + self.radius < 0.0 || self.pos.y - self.radius > args.window_size[1] || self.hit {return renderables}
 
         let mut note = Circle::new(
             Color::BLUE,
@@ -157,7 +157,7 @@ impl HitObject for CatchDroplet {
 }
 impl CatchHitObject for CatchDroplet {
     fn x(&self) -> f64 {self.pos.x}
-    fn speed(&self) -> f64 {self.speed}
+    fn speed(&self) -> f32 {self.speed}
     fn radius(&self) -> f64 {self.radius}
     fn causes_miss(&self) -> bool {true}
     fn get_points(&mut self) -> ScoreHit {
@@ -170,13 +170,13 @@ impl CatchHitObject for CatchDroplet {
 #[derive(Clone, Copy)]
 pub struct CatchBanana {
     pos: Vector2,
-    time: u64, // ms
+    time: f32, // ms
     hit: bool,
-    speed: f64,
+    speed: f32,
     radius: f64
 }
 impl CatchBanana {
-    pub fn new(time:u64, speed:f64, radius:f64, x:f64) -> Self {
+    pub fn new(time:f32, speed:f32, radius:f64, x:f64) -> Self {
         Self {
             time, 
             speed,
@@ -188,9 +188,9 @@ impl CatchBanana {
 }
 impl HitObject for CatchBanana {
     fn note_type(&self) -> NoteType {NoteType::Spinner}
-    fn time(&self) -> u64 {self.time}
-    fn end_time(&self, _:f64) -> u64 {self.time}
-    fn update(&mut self, beatmap_time: i64) {
+    fn time(&self) -> f32 {self.time}
+    fn end_time(&self, _:f32) -> f32 {self.time}
+    fn update(&mut self, beatmap_time: f32) {
         self.pos.y = self.y_at(beatmap_time);
     }
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
@@ -216,7 +216,7 @@ impl HitObject for CatchBanana {
 }
 impl CatchHitObject for CatchBanana {
     fn x(&self) -> f64 {self.pos.x}
-    fn speed(&self) -> f64 {self.speed}
+    fn speed(&self) -> f32 {self.speed}
     fn radius(&self) -> f64 {self.radius}
     fn causes_miss(&self) -> bool {false}
     fn get_points(&mut self) -> ScoreHit {

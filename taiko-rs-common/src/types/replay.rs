@@ -5,7 +5,7 @@ const CURRENT_VERSION:u16 = 1;
 #[derive(Clone, Debug)]
 pub struct Replay {
     /// (time, key)
-    pub frames: Vec<(i64, ReplayFrame)>, 
+    pub frames: Vec<(f32, ReplayFrame)>, 
     pub playstyle: Playstyle
 }
 impl Replay {

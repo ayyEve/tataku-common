@@ -240,8 +240,8 @@ impl Game {
                 }
 
                 // offset adjust
-                if keys_down.contains(&Key::Equals) {lock.increment_offset(5)}
-                if keys_down.contains(&Key::Minus) {lock.increment_offset(-5)}
+                if keys_down.contains(&Key::Equals) {lock.increment_offset(5.0)}
+                if keys_down.contains(&Key::Minus) {lock.increment_offset(-5.0)}
 
                 if mouse_moved {
                     lock.mouse_move(mouse_pos);

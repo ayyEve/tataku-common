@@ -28,13 +28,13 @@ pub struct CatchGame {
     timing_point_index: usize,
 
     // hit timing bar stuff
-    hitwindow: f64,
+    hitwindow: f32,
 
     /// when does the map end
-    end_time: f64,
+    end_time: f32,
 
     /// when was the last update
-    last_update: f64,
+    last_update: f32,
     catcher: Catcher,
 }
 impl CatchGame {
@@ -42,7 +42,7 @@ impl CatchGame {
 }
 impl GameMode for CatchGame {
     fn playmode(&self) -> PlayMode {PlayMode::Catch}
-    fn end_time(&self) -> f64 {self.end_time}
+    fn end_time(&self) -> f32 {self.end_time}
     fn new(beatmap:&Beatmap) -> Self {
         let mut s = Self {
             notes: Vec::new(),
@@ -62,7 +62,7 @@ impl GameMode for CatchGame {
         for note in beatmap.notes.iter() {
             //TODO!
             s.notes.push(Box::new(CatchFruit::new(
-                note.time as u64,
+                note.time,
                 1.0,
                 FRUIT_RADIUS_BASE, 
                 note.pos.x + x_offset
@@ -70,20 +70,19 @@ impl GameMode for CatchGame {
         }
         for slider in beatmap.sliders.iter() {
             let SliderDef {time, slides, length, ..} = slider.to_owned();
-            let time = time as u64;
 
             let curve = get_curve(&slider, &beatmap);
 
-            let l = (length * 1.4) * slides as f64;
-            let v2 = 100.0 * (beatmap.metadata.slider_multiplier as f64 * 1.4);
-            let bl = beatmap.beat_length_at(time as f64, true);
-            let end_time = time as f64 + (l / v2 * bl) as f64;
+            let l = (length * 1.4) * slides as f32;
+            let v2 = 100.0 * (beatmap.metadata.slider_multiplier * 1.4);
+            let bl = beatmap.beat_length_at(time, true);
+            let end_time = time + (l / v2 * bl);
             // let end_time = curve.end_time;
             
-            let bl = beatmap.beat_length_at(time as f64, beatmap.metadata.beatmap_version < 8.0);
-            let skip_period = (bl / beatmap.metadata.slider_tick_rate as f64).min((end_time - time as f64) / slides as f64);
+            let bl = beatmap.beat_length_at(time, beatmap.metadata.beatmap_version < 8.0);
+            let skip_period = (bl / beatmap.metadata.slider_tick_rate).min((end_time - time) / slides as f32);
 
-            let mut j = time as f64;
+            let mut j = time;
 
             // // load sounds
             // // let sound_list_raw = if let Some(list) = split.next() {list.split("|")} else {"".split("")};
@@ -111,14 +110,14 @@ impl GameMode for CatchGame {
                 // let sound_type = sound_types[i];
                 if counter % 4 == 0 {
                     s.notes.push(Box::new(CatchFruit::new(
-                        j as u64,
+                        j,
                         1.0,//beatmap.slider_velocity_at(j as u64),
                         FRUIT_RADIUS_BASE,
                         curve.position_at_time(j).x + x_offset
                     )));
                 } else {
                     s.notes.push(Box::new(CatchDroplet::new(
-                        j as u64,
+                        j,
                         1.0,//beatmap.slider_velocity_at(j as u64),
                         DROPLET_RADIUS_BASE,
                         curve.position_at_time(j).x + x_offset
@@ -136,7 +135,7 @@ impl GameMode for CatchGame {
             let length = end_time - time;
             for i in (0..length as i32).step_by(50) {
                 s.notes.push(Box::new(CatchBanana::new(
-                    *time as u64 + i as u64,
+                    time + i as f32,
                     1.0,
                     5.0,
                     i as f64 % FIELD_SIZE.x + x_offset
@@ -144,7 +143,7 @@ impl GameMode for CatchGame {
             }
         }
 
-        s.notes.sort_by(|a, b|a.time().cmp(&b.time()));
+        s.notes.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
 
 
 
@@ -193,7 +192,7 @@ impl GameMode for CatchGame {
         // };
 
 
-        s.end_time = s.notes.iter().last().unwrap().time() as f64;
+        s.end_time = s.notes.iter().last().unwrap().time();
         s
     }
 
@@ -212,7 +211,7 @@ impl GameMode for CatchGame {
         }
 
         // check if we missed the current note
-        let note_time = self.notes[self.note_index].time() as i64;
+        let note_time = self.notes[self.note_index].time();
         if note_time < time {
             if self.notes[self.note_index].causes_miss() {
                 let s = &mut manager.score;
@@ -220,25 +219,24 @@ impl GameMode for CatchGame {
                 s.combo = 0;
             }
             self.next_note();
-        } else if ((note_time - time).abs() as f64) < self.hitwindow {
+        } else if ((note_time - time).abs()) < self.hitwindow {
             let note = self.notes.get_mut(self.note_index).unwrap();
 
             if self.catcher.catches(note) {
-                let note_time = note_time as f64;
                 match note.get_points() {
                     ScoreHit::X300 => {
-                        manager.score.hit300(time as u64, note_time as u64);
-                        manager.hitbar_timings.push((time as i64, 3));
+                        manager.score.hit300(time, note_time);
+                        manager.hitbar_timings.push((time, 3.0));
                         self.next_note();
                     }
                     ScoreHit::X100 => {
-                        manager.score.hit100(time as u64, note_time as u64);
-                        manager.hitbar_timings.push((time as i64, 2));
+                        manager.score.hit100(time, note_time);
+                        manager.hitbar_timings.push((time, 2.0));
                         self.next_note();
                     }
                     ScoreHit::Other(score, _consume) => { // spinner drop
                         manager.score.score += score as u64;
-                        manager.hitbar_timings.push((time as i64, 1));
+                        manager.hitbar_timings.push((time, 1.0));
                         self.next_note();
                     }
                     _ => {}
@@ -256,11 +254,11 @@ impl GameMode for CatchGame {
 
         let timing_points = &manager.beatmap.timing_points;
         // check timing point
-        if self.timing_point_index + 1 < timing_points.len() && timing_points[self.timing_point_index + 1].time <= time as f64 {
+        if self.timing_point_index + 1 < timing_points.len() && timing_points[self.timing_point_index + 1].time <= time {
             self.timing_point_index += 1;
         }
 
-        self.last_update = time as f64;
+        self.last_update = time;
     }
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
         // draw the playfield
@@ -294,9 +292,9 @@ impl GameMode for CatchGame {
 
 
     fn handle_replay_frame(&mut self, frame:ReplayFrame, manager:&mut IngameManager) {
-        let time = manager.time() as f64;
+        let time = manager.time();
         if !manager.replaying {
-            manager.replay.frames.push((time as i64, frame.clone()));
+            manager.replay.frames.push((time, frame.clone()));
         }
         
         match frame {
@@ -357,7 +355,7 @@ impl GameMode for CatchGame {
         self.note_index = 0;
         self.timing_point_index = 0;
 
-        let od = beatmap.metadata.od as f64;
+        let od = beatmap.metadata.od;
         self.hitwindow = map_difficulty_range(od, 50.0, 35.0, 20.0);
     }
 
@@ -385,7 +383,7 @@ impl GameMode for CatchGame {
         manager.song.upgrade().unwrap().set_position(time);
     }
 
-    fn timing_bar_things(&self) -> (Vec<(f64,Color)>, (f64,Color)) {
+    fn timing_bar_things(&self) -> (Vec<(f32,Color)>, (f32,Color)) {
         (vec![], (0.0, Color::RED))
     }
     fn combo_bounds(&self) -> Rectangle {

@@ -1,7 +1,8 @@
+use core::f32;
+
 use ayyeve_piston_ui::render::Line;
 use piston::RenderArgs;
 
-use taiko_rs_common::types::KeyPress;
 use taiko_rs_common::types::ScoreHit;
 use crate::Vector2;
 use crate::WINDOW_SIZE;
@@ -11,7 +12,7 @@ use crate::gameplay::NoteType;
 use crate::gameplay::SliderDef;
 use crate::helpers::slider::Curve;
 use crate::helpers::slider::get_curve;
-use crate::render::{Circle, Color, HalfCircle, Rectangle, Renderable, Border};
+use crate::render::{Circle, Color, Renderable, Border};
 
 const SPINNER_RADIUS:f64 = 200.0;
 const SPINNER_POSITION:Vector2 = Vector2::new(WINDOW_SIZE.x / 2.0, WINDOW_SIZE.y / 2.0);
@@ -25,8 +26,7 @@ const CIRCLE_RADIUS_BASE: f64 = 30.0;
 pub trait StandardHitObject: HitObject {
     /// does this object count as a miss if it is not hit?
     fn causes_miss(&self) -> bool; //TODO: might change this to return an enum of "no", "yes". "yes_combo_only"
-    fn get_points(&mut self, time:f64, hit_windows:(f64,f64,f64)) -> ScoreHit;
-
+    fn get_points(&mut self, time:f32, hit_windows:(f32,f32,f32)) -> ScoreHit;
 }
 
 
@@ -34,8 +34,8 @@ pub trait StandardHitObject: HitObject {
 #[derive(Clone, Copy)]
 pub struct StandardNote {
     pos: Vector2,
-    time: f64, // ms
-    hit_time: u64,
+    time: f32, // ms
+    hit_time: f32,
     hit: bool,
     missed: bool,
 
@@ -43,7 +43,7 @@ pub struct StandardNote {
     combo_num: u16
 }
 impl StandardNote {
-    pub fn new(def:NoteDef, ar:f64, cs:f64, color:Color, combo_num:u16) -> Self {
+    pub fn new(def:NoteDef, ar:f32, cs:f32, color:Color, combo_num:u16) -> Self {
         Self {
             pos: def.pos,
             time: def.time, 
@@ -51,23 +51,23 @@ impl StandardNote {
             combo_num,
             
             hit: false,
-            hit_time: 0,
+            hit_time: 0.0,
             missed: false,
         }
     }
 }
 impl HitObject for StandardNote {
     fn note_type(&self) -> NoteType {NoteType::Note}
-    fn time(&self) -> u64 {self.time as u64}
-    fn end_time(&self, hw_miss:f64) -> u64 {(self.time + hw_miss) as u64}
-    fn update(&mut self, beatmap_time: i64) {}
+    fn time(&self) -> f32 {self.time}
+    fn end_time(&self, hw_miss:f32) -> f32 {self.time + hw_miss}
+    fn update(&mut self, beatmap_time: f32) {}
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
 
 
         let mut note = Circle::new(
             self.color,
-            self.time as f64,
+            -100.0,
             self.pos,
             CIRCLE_RADIUS_BASE
         );
@@ -81,27 +81,27 @@ impl HitObject for StandardNote {
         self.pos = Vector2::zero();
         self.hit = false;
         self.missed = false;
-        self.hit_time = 0;
+        self.hit_time = 0.0;
     }
 }
 impl StandardHitObject for StandardNote {
     fn causes_miss(&self) -> bool {true}
 
-    fn get_points(&mut self, time:f64, hit_windows:(f64,f64,f64)) -> ScoreHit {
+    fn get_points(&mut self, time:f32, hit_windows:(f32,f32,f32)) -> ScoreHit {
         let (hitwindow_miss, hitwindow_100, hitwindow_300) = hit_windows;
-        let diff = (time - self.time as f64).abs();
+        let diff = (time - self.time).abs();
 
         if diff < hitwindow_300 {
-            self.hit_time = time.max(0.0) as u64;
+            self.hit_time = time.max(0.0);
             self.hit = true;
             ScoreHit::X300
         
         } else if diff < hitwindow_100 {
-            self.hit_time = time.max(0.0) as u64;
+            self.hit_time = time.max(0.0);
             self.hit = true;
             ScoreHit::X100
         } else if diff < hitwindow_miss { // too early, miss
-            self.hit_time = time.max(0.0) as u64;
+            self.hit_time = time.max(0.0);
             self.missed = true;
             ScoreHit::Miss
         } else { // way too early, ignore
@@ -117,12 +117,12 @@ pub struct StandardSlider {
     pos: Vector2,
     hit_dots: Vec<SliderDot>,
 
-    time: f64, // ms
+    time: f32, // ms
     // end_time: u64, // ms
 
     curve: Curve,
 
-    color:Color,
+    color: Color,
     combo_num: u16
 }
 impl StandardSlider {
@@ -140,9 +140,9 @@ impl StandardSlider {
 }
 impl HitObject for StandardSlider {
     fn note_type(&self) -> NoteType {NoteType::Slider}
-    fn time(&self) -> u64 {self.time as u64}
-    fn end_time(&self,_:f64) -> u64 {self.time as u64} //TODO
-    fn update(&mut self, beatmap_time: i64) {
+    fn time(&self) -> f32 {self.time}
+    fn end_time(&self,_:f32) -> f32 {self.time} //TODO
+    fn update(&mut self, beatmap_time: f32) {
         // self.pos.x = HIT_POSITION.x + (self.time as f64 - beatmap_time as f64) * self.speed;
         // self.end_x = HIT_POSITION.x + (self.end_time(0.0) as f64 - beatmap_time as f64) * self.speed;
 
@@ -219,7 +219,7 @@ impl StandardHitObject for StandardSlider {
 
     fn causes_miss(&self) -> bool {false}
 
-    fn get_points(&mut self, time:f64, _:(f64,f64,f64)) -> ScoreHit {
+    fn get_points(&mut self, time:f32, _:(f32,f32,f32)) -> ScoreHit {
 
         // self.hit_dots.push(SliderDot::new(time, self.speed));
         ScoreHit::Other(100, false)
@@ -280,8 +280,8 @@ impl SliderDot {
 pub struct StandardSpinner {
     pos: Vector2, // the note in the bar, not the spinner itself
 
-    time: u64, // ms
-    end_time: u64, // ms
+    time: f32, // ms
+    end_time: f32, // ms
 
     /// current angle of the spinner
     rotation: f64,
@@ -291,7 +291,7 @@ pub struct StandardSpinner {
     rotations_completed: u16
 }
 impl StandardSpinner {
-    pub fn new(time:u64, end_time:u64) -> Self {
+    pub fn new(time:f32, end_time:f32) -> Self {
         Self {
             time, 
             end_time,
@@ -305,10 +305,10 @@ impl StandardSpinner {
 }
 impl HitObject for StandardSpinner {
     fn note_type(&self) -> NoteType {NoteType::Spinner}
-    fn time(&self) -> u64 {self.time}
-    fn end_time(&self,_:f64) -> u64 {self.end_time}
+    fn time(&self) -> f32 {self.time}
+    fn end_time(&self,_:f32) -> f32 {self.end_time}
 
-    fn update(&mut self, beatmap_time: i64) {
+    fn update(&mut self, beatmap_time: f32) {
         // self.pos = HIT_POSITION + Vector2::new((self.time as f64 - beatmap_time as f64) * self.speed, 0.0);
         // if beatmap_time > self.end_time as i64 {self.complete = true}
     }
@@ -350,7 +350,7 @@ impl HitObject for StandardSpinner {
 impl StandardHitObject for StandardSpinner {
     fn causes_miss(&self) -> bool {self.rotations_completed < self.rotations_required} // if the spinner wasnt completed in time, cause a miss
 
-    fn get_points(&mut self, time:f64, _:(f64,f64,f64)) -> ScoreHit {
+    fn get_points(&mut self, time:f32, _:(f32,f32,f32)) -> ScoreHit {
         ScoreHit::Other(100, false)
     }
 }

@@ -13,14 +13,14 @@ use crate::render::{Renderable, Rectangle, Text, Color};
 use crate::game::{Audio, AudioHandle, Settings, get_font};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
-const OFFSET_DRAW_TIME:i64 = 2_000; // how long should the offset be drawn for?
+const OFFSET_DRAW_TIME:f32 = 2_000.0; // how long should the offset be drawn for?
 const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
 
 
 const HIT_TIMING_BAR_SIZE:Vector2 = Vector2::new(WINDOW_SIZE.x / 3.0, 30.0);
 const HIT_TIMING_BAR_POS:Vector2 = Vector2::new(WINDOW_SIZE.x / 2.0 - HIT_TIMING_BAR_SIZE.x / 2.0, WINDOW_SIZE.y - (DURATION_HEIGHT + 3.0 + HIT_TIMING_BAR_SIZE.y + 5.0));
-const HIT_TIMING_DURATION:f64 = 1_000.0; // how long should a hit timing line last
-const HIT_TIMING_FADE:f64 = 300.0; // how long to fade out for
+const HIT_TIMING_DURATION:f32 = 1_000.0; // how long should a hit timing line last
+const HIT_TIMING_FADE:f32 = 300.0; // how long to fade out for
 const HIT_TIMING_BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // hit timing bar color
 
 
@@ -34,23 +34,23 @@ pub struct IngameManager {
     pub started: bool,
     pub completed: bool,
     pub replaying: bool,
-    pub end_time: f64,
+    pub end_time: f32,
 
     pub song_start: Instant,
     pub song: Weak<AudioHandle>,
     pub lead_in_time: f32,
 
     // offset things
-    offset: i64,
-    offset_changed_time: i64,
+    offset: f32,
+    offset_changed_time: f32,
 
     /// (map.time, note.time - hit.time)
-    pub hitbar_timings: Vec<(i64, i64)>,
+    pub hitbar_timings: Vec<(f32, f32)>,
 
     // draw helpers
     pub font: Arc<Mutex< GlyphCache<'static>>>,
     combo_text_bounds: Rectangle,
-    timing_bar_things: (Vec<(f64,Color)>, (f64,Color)),
+    timing_bar_things: (Vec<(f32,Color)>, (f32,Color)),
 
 
     /// if in replay mode, what replay frame are we at?
@@ -78,8 +78,8 @@ impl IngameManager {
             lead_in_time: LEAD_IN_TIME,
             end_time: lock.end_time(),
 
-            offset: 0,
-            offset_changed_time: 0,
+            offset: 0.0,
+            offset_changed_time: 0.0,
             replay_frame: 0,
 
 
@@ -90,7 +90,7 @@ impl IngameManager {
         }
     }
 
-    pub fn time(&mut self) -> i64 {
+    pub fn time(&mut self) -> f32 {
         match self.song.upgrade() {
             Some(_song) => {}
             None => {
@@ -99,10 +99,10 @@ impl IngameManager {
                 self.song.upgrade().unwrap().pause();
             }
         }
-        self.song.upgrade().unwrap().current_time() as i64 - (self.lead_in_time as i64 + self.offset)
+        self.song.upgrade().unwrap().current_time() - (self.lead_in_time + self.offset)
     }
 
-    pub fn increment_offset(&mut self, delta:i64) {
+    pub fn increment_offset(&mut self, delta:f32) {
         self.offset += delta;
         self.offset_changed_time = self.time();
     }
@@ -160,7 +160,7 @@ impl IngameManager {
         self.completed = false;
         self.started = false;
         self.lead_in_time = LEAD_IN_TIME;
-        self.offset_changed_time = 0;
+        self.offset_changed_time = 0.0;
         self.song_start = Instant::now();
         self.score = Score::new(self.beatmap.hash.clone(), settings.username.clone(), lock.playmode());
         self.replay_frame = 0;
@@ -169,7 +169,6 @@ impl IngameManager {
         self.combo_text_bounds = lock.combo_bounds();
         self.timing_bar_things = lock.timing_bar_things();
         self.hitbar_timings = Vec::new();
-
 
 
         // only reset the replay if we arent replaying
@@ -261,7 +260,7 @@ impl IngameManager {
         }
 
         // update hit timings bar
-        self.hitbar_timings.retain(|(hit_time, _)| {time - hit_time < HIT_TIMING_DURATION as i64});
+        self.hitbar_timings.retain(|(hit_time, _)| {time - hit_time < HIT_TIMING_DURATION});
 
         // update gamemode
         let m = self.gamemode.clone();
@@ -317,7 +316,7 @@ impl IngameManager {
         let font = self.font.clone();
 
         // draw offset
-        if self.offset_changed_time > 0 && time - self.offset_changed_time < OFFSET_DRAW_TIME {
+        if self.offset_changed_time > 0.0 && time - self.offset_changed_time < OFFSET_DRAW_TIME {
             let mut offset_text = Text::new(
                 Color::BLACK,
                 -20.0,
@@ -329,7 +328,6 @@ impl IngameManager {
             offset_text.center_text(Rectangle::bounds_only(Vector2::zero(), Vector2::new(WINDOW_SIZE.x , WINDOW_SIZE.y * 2.0/3.0)));
             list.push(Box::new(offset_text));
         }
-
 
         // gamemode things
 
@@ -385,7 +383,7 @@ impl IngameManager {
             [0.4,0.4,0.4,1.0].into(),
             2.0,
             Vector2::new(0.0, args.window_size[1] - (DURATION_HEIGHT + 3.0)),
-            Vector2::new(args.window_size[0] * (time as f64/self.end_time), DURATION_HEIGHT),
+            Vector2::new(args.window_size[0] * (time/self.end_time) as f64, DURATION_HEIGHT),
             None
         )));
 
@@ -405,7 +403,7 @@ impl IngameManager {
 
         // draw other windows
         for (window, color) in windows {
-            let width = window / miss * HIT_TIMING_BAR_SIZE.x;
+            let width = (window / miss) as f64 * HIT_TIMING_BAR_SIZE.x;
             list.push(Box::new(Rectangle::new(
                 *color,
                 17.0,
@@ -417,17 +415,17 @@ impl IngameManager {
        
 
         // draw hit timings
-        let time = time as f64;
+        let time = time;
         for (hit_time, diff) in self.hitbar_timings.as_slice() {
-            let hit_time = hit_time.clone() as f64;
-            let mut diff = diff.clone() as f64;
+            let hit_time = hit_time.clone();
+            let mut diff = diff.clone();
             if diff < 0.0 {
                 diff = diff.max(-miss);
             } else {
                 diff = diff.min(*miss);
             }
 
-            let pos = diff / miss * (HIT_TIMING_BAR_SIZE.x / 2.0);
+            let pos = (diff / miss) as f64 * (HIT_TIMING_BAR_SIZE.x / 2.0);
 
             // draw diff line
             let diff = time - hit_time;
@@ -478,11 +476,11 @@ pub trait GameMode {
     fn reset(&mut self, beatmap:Beatmap);
 
 
-    fn end_time(&self) -> f64;
+    fn end_time(&self) -> f32;
 
 
     fn combo_bounds(&self) -> Rectangle;
 
     /// f64 is hitwindow, color is color for that window. last is miss hitwindow
-    fn timing_bar_things(&self) -> (Vec<(f64,Color)>, (f64,Color));
+    fn timing_bar_things(&self) -> (Vec<(f32,Color)>, (f32,Color));
 }

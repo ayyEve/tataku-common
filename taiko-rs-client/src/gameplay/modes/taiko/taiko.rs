@@ -1,3 +1,5 @@
+use core::f32;
+
 use ayyeve_piston_ui::render::*;
 use piston::RenderArgs;
 use taiko_rs_common::types::KeyPress;
@@ -23,9 +25,9 @@ pub const PLAYFIELD_RADIUS:f64 = NOTE_RADIUS * 2.0; // actually height, oops
 
 pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // timing bar color
 const BAR_WIDTH:f64 = 4.0; // how wide is a timing bar
-const BAR_SPACING:f64 = 4.0; // how many beats between timing bars
+const BAR_SPACING:f32 = 4.0; // how many beats between timing bars
 
-const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
+const SV_FACTOR:f32 = 700.0; // bc sv is bonked, divide it by this amount
 
 /// how long should the drum buttons last for?
 const DRUM_LIFETIME_TIME:u64 = 100;
@@ -40,11 +42,11 @@ pub struct TaikoGame {
     timing_point_index: usize,
 
     // hit timing bar stuff
-    hitwindow_300: f64,
-    hitwindow_100: f64,
-    hitwindow_miss: f64,
+    hitwindow_300: f32,
+    hitwindow_100: f32,
+    hitwindow_miss: f32,
 
-    end_time: f64,
+    end_time: f32,
 
     render_queue: Vec<Box<HalfCircle>>,
 }
@@ -54,7 +56,7 @@ impl TaikoGame {
 
 impl GameMode for TaikoGame {
     fn playmode(&self) -> PlayMode {PlayMode::Taiko}
-    fn end_time(&self) -> f64 {self.end_time}
+    fn end_time(&self) -> f32 {self.end_time}
     fn new(beatmap:&Beatmap) -> Self {
         let mut s = Self {
             notes: Vec::new(),
@@ -77,7 +79,7 @@ impl GameMode for TaikoGame {
             let finisher = (note.hitsound & 4) > 0;
 
             s.notes.push(Box::new(TaikoNote::new(
-                note.time as u64,
+                note.time,
                 hit_type,
                 finisher,
                 1.0
@@ -85,22 +87,22 @@ impl GameMode for TaikoGame {
         }
         for slider in beatmap.sliders.iter() {
             let SliderDef {time, slides, length, ..} = slider.to_owned();
-            let time = time as u64;
+            let time = time;
             let finisher = (slider.hitsound & 4) > 0;
 
-            let l = (length * 1.4) * slides as f64;
-            let v2 = 100.0 * (beatmap.metadata.slider_multiplier as f64 * 1.4);
-            let bl = beatmap.beat_length_at(time as f64, true);
-            let end_time = time + (l / v2 * bl) as u64;
+            let l = (length * 1.4) * slides as f32;
+            let v2 = 100.0 * (beatmap.metadata.slider_multiplier * 1.4);
+            let bl = beatmap.beat_length_at(time, true);
+            let end_time = time + (l / v2 * bl);
             
             // convert vars
-            let v = beatmap.slider_velocity_at(time as u64);
-            let bl = beatmap.beat_length_at(time as f64, beatmap.metadata.beatmap_version < 8.0);
-            let skip_period = (bl / beatmap.metadata.slider_tick_rate as f64).min((end_time - time) as f64 / slides as f64);
+            let v = beatmap.slider_velocity_at(time);
+            let bl = beatmap.beat_length_at(time, beatmap.metadata.beatmap_version < 8.0);
+            let skip_period = (bl / beatmap.metadata.slider_tick_rate).min((end_time - time) / slides as f32);
 
             if skip_period > 0.0 && beatmap.metadata.mode != PlayMode::Taiko && l / v * 1000.0 < 2.0 * bl {
                 let mut i = 0;
-                let mut j = time as f64;
+                let mut j = time;
 
                 // load sounds
                 // let sound_list_raw = if let Some(list) = split.next() {list.split("|")} else {"".split("")};
@@ -126,7 +128,7 @@ impl GameMode for TaikoGame {
                     let sound_type = sound_types[i];
 
                     let note = TaikoNote::new(
-                        j as u64,
+                        j,
                         sound_type.0,
                         sound_type.1,
                         1.0
@@ -136,7 +138,7 @@ impl GameMode for TaikoGame {
                     if !unified_sound_addition {i = (i + 1) % sound_types.len()}
 
                     j += skip_period;
-                    if !(j < end_time as f64 + skip_period / 8.0) {break}
+                    if !(j < end_time + skip_period / 8.0) {break}
                 }
             } else {
                 let slider = TaikoSlider::new(time, end_time, finisher, 1.0);
@@ -147,22 +149,22 @@ impl GameMode for TaikoGame {
             let SpinnerDef {time, end_time, ..} = spinner;
 
             let length = end_time - time;
-            let diff_map = map_difficulty_range(beatmap.metadata.od as f64, 3.0, 5.0, 7.5);
+            let diff_map = map_difficulty_range(beatmap.metadata.od, 3.0, 5.0, 7.5);
             let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
 
-            s.notes.push(Box::new(TaikoSpinner::new(*time as u64, *end_time as u64, 1.0, hits_required)));
+            s.notes.push(Box::new(TaikoSpinner::new(*time, *end_time, 1.0, hits_required)));
         }
 
-        s.notes.sort_by(|a, b|a.time().cmp(&b.time()));
-        s.end_time = s.notes.iter().last().unwrap().time() as f64;
+        s.notes.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
+        s.end_time = s.notes.iter().last().unwrap().time();
 
         s
     }
 
     fn handle_replay_frame(&mut self, frame:ReplayFrame, manager:&mut IngameManager) {
-        let time = manager.time() as f64;
+        let time = manager.time();
         if !manager.replaying {
-            manager.replay.frames.push((time as i64, frame.clone()));
+            manager.replay.frames.push((time, frame.clone()));
         }
         let key = match frame {
             ReplayFrame::Press(k) => k,
@@ -252,15 +254,15 @@ impl GameMode for TaikoGame {
         }
 
         let note = self.notes.get_mut(self.note_index).unwrap();
-        let note_time = note.time() as f64;
+        let note_time = note.time();
         match note.get_points(hit_type, time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300)) {
             ScoreHit::None => {
                 // play sound
                 // Audio::play_preloaded(sound);
             },
             ScoreHit::Miss => {
-                manager.score.hit_miss(time as u64, note_time as u64);
-                manager.hitbar_timings.push((time as i64, (time - note_time) as i64));
+                manager.score.hit_miss(time, note_time);
+                manager.hitbar_timings.push((time, time - note_time));
                 self.next_note();
                 // Audio::play_preloaded(sound);
 
@@ -268,8 +270,8 @@ impl GameMode for TaikoGame {
                 //TODO: indicate this was a miss
             },
             ScoreHit::X100 => {
-                manager.score.hit100(time as u64, note_time as u64);
-                manager.hitbar_timings.push((time as i64, (time - note_time) as i64));
+                manager.score.hit100(time, note_time);
+                manager.hitbar_timings.push((time, time - note_time));
 
                 // only play finisher sounds if the note is both a finisher and was hit
                 // could maybe also just change this to HitObject.get_sound() -> &str
@@ -280,8 +282,8 @@ impl GameMode for TaikoGame {
                 self.next_note();
             },
             ScoreHit::X300 => {
-                manager.score.hit300(time as u64, note_time as u64);
-                manager.hitbar_timings.push((time as i64, (time - note_time) as i64));
+                manager.score.hit300(time, note_time);
+                manager.hitbar_timings.push((time, time - note_time));
                 
                 if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"};}
                 // Audio::play_preloaded(sound);
@@ -314,7 +316,7 @@ impl GameMode for TaikoGame {
         }
 
         // check if we missed the current note
-        if (self.notes[self.note_index].end_time(self.hitwindow_miss) as i64) < time {
+        if self.notes[self.note_index].end_time(self.hitwindow_miss) < time {
             if self.notes[self.note_index].causes_miss() {
                 // need to set these manually instead of score.hit_miss,
                 // since we dont want to add anything to the hit error list
@@ -326,11 +328,11 @@ impl GameMode for TaikoGame {
         }
         
         // TODO: might move tbs to a (time, speed) tuple
-        for tb in self.timing_bars.iter_mut() {tb.update(time as f64)}
+        for tb in self.timing_bars.iter_mut() {tb.update(time)}
 
         let timing_points = &manager.beatmap.timing_points;
         // check timing point
-        if self.timing_point_index + 1 < timing_points.len() && timing_points[self.timing_point_index + 1].time <= time as f64 {
+        if self.timing_point_index + 1 < timing_points.len() && timing_points[self.timing_point_index + 1].time <= time {
             self.timing_point_index += 1;
         }
     }
@@ -393,7 +395,7 @@ impl GameMode for TaikoGame {
 
             // set note svs
             if settings.static_sv {
-                note.set_sv(settings.sv_multiplier as f64);
+                note.set_sv(settings.sv_multiplier);
             } else {
                 let sv = beatmap.slider_velocity_at(note.time()) / SV_FACTOR;
                 note.set_sv(sv);
@@ -403,7 +405,7 @@ impl GameMode for TaikoGame {
         self.note_index = 0;
         self.timing_point_index = 0;
 
-        let od = beatmap.metadata.od as f64;
+        let od = beatmap.metadata.od;
         // setup hitwindows
         self.hitwindow_miss = map_difficulty_range(od, 135.0, 95.0, 70.0);
         self.hitwindow_100 = map_difficulty_range(od, 120.0, 80.0, 50.0);
@@ -414,14 +416,14 @@ impl GameMode for TaikoGame {
         if self.timing_bars.len() == 0 {
             // load timing bars
             let parent_tps = beatmap.timing_points.iter().filter(|t|!t.is_inherited()).collect::<Vec<&TimingPoint>>();
-            let mut sv = settings.sv_multiplier as f64;
+            let mut sv = settings.sv_multiplier;
             let mut time = parent_tps[0].time;
             let mut tp_index = 0;
             let step = beatmap.beat_length_at(time, false);
             time %= step; // get the earliest bar line possible
 
             loop {
-                if !settings.static_sv {sv = beatmap.slider_velocity_at(time as u64) / SV_FACTOR}
+                if !settings.static_sv {sv = beatmap.slider_velocity_at(time) / SV_FACTOR}
 
                 // if theres a bpm change, adjust the current time to that of the bpm change
                 let next_bar_time = beatmap.beat_length_at(time, false) * BAR_SPACING; // bar spacing is actually the timing point measure
@@ -432,7 +434,7 @@ impl GameMode for TaikoGame {
                 }
 
                 // add timing bar at current time
-                self.timing_bars.push(TimingBar::new(time as u64, sv));
+                self.timing_bars.push(TimingBar::new(time, sv));
 
                 if tp_index < parent_tps.len() && parent_tps[tp_index].time <= time + next_bar_time {
                     time = parent_tps[tp_index].time;
@@ -455,17 +457,16 @@ impl GameMode for TaikoGame {
     fn skip_intro(&mut self, manager: &mut IngameManager) {
         if self.note_index > 0 {return}
 
-        let x_needed = WINDOW_SIZE.x;
+        let x_needed = WINDOW_SIZE.x as f32;
         let mut time = manager.time();
 
         loop {
             let mut found = false;
             for note in self.notes.iter() {if note.x_at(time) <= x_needed {found = true; break}}
             if found {break}
-            time += 1;
+            time += 1.0;
         }
 
-        let mut time = time as f32;
         if manager.lead_in_time > 0.0 {
             if time > manager.lead_in_time {
                 time -= manager.lead_in_time - 0.01;
@@ -478,7 +479,7 @@ impl GameMode for TaikoGame {
 
 
 
-    fn timing_bar_things(&self) -> (Vec<(f64,Color)>, (f64,Color)) {
+    fn timing_bar_things(&self) -> (Vec<(f32,Color)>, (f32,Color)) {
         (vec![
             (self.hitwindow_100, [0.3411, 0.8901, 0.0745, 1.0].into()),
             (self.hitwindow_300, [0.1960, 0.7372, 0.9058, 1.0].into()),
@@ -498,12 +499,12 @@ impl GameMode for TaikoGame {
 //TODO: might be able to reduce this to a (time, speed) and just calc pos on draw
 #[derive(Copy, Clone, Debug)]
 struct TimingBar {
-    time: u64,
-    speed: f64,
+    time: f32,
+    speed: f32,
     pos: Vector2
 }
 impl TimingBar {
-    pub fn new(time:u64, speed:f64) -> TimingBar {
+    pub fn new(time:f32, speed:f32) -> TimingBar {
         TimingBar {
             time, 
             speed,
@@ -511,8 +512,8 @@ impl TimingBar {
         }
     }
 
-    pub fn update(&mut self, time:f64) {
-        self.pos = HIT_POSITION + Vector2::new(((self.time as f64 - time as f64) * self.speed) - BAR_WIDTH / 2.0, -PLAYFIELD_RADIUS);
+    pub fn update(&mut self, time:f32) {
+        self.pos = HIT_POSITION + Vector2::new(((self.time - time) * self.speed) as f64 - BAR_WIDTH / 2.0, -PLAYFIELD_RADIUS);
     }
 
     fn draw(&mut self, _args:RenderArgs) -> Vec<Box<dyn Renderable>> {

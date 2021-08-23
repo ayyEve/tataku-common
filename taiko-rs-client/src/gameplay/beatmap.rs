@@ -15,7 +15,6 @@ pub struct Beatmap {
     pub metadata: BeatmapMeta,
 
     pub timing_points: Vec<TimingPoint>,
-    end_time: f64,
 
     pub notes: Vec<NoteDef>,
     pub sliders: Vec<SliderDef>,
@@ -34,8 +33,7 @@ impl Beatmap {
             spinners: Vec::new(),
             holds: Vec::new(),
             timing_points: Vec::new(),
-            metadata: BeatmapMeta::new(),
-            end_time: 0.0,
+            metadata: BeatmapMeta::new()
         };
 
         let parent_dir = Path::new(&dir).parent().unwrap();
@@ -132,7 +130,7 @@ impl Beatmap {
 
                         let x = split.next().unwrap().parse::<f64>().unwrap();
                         let y = split.next().unwrap().parse::<f64>().unwrap();
-                        let time = split.next().unwrap().parse::<f64>().unwrap();
+                        let time = split.next().unwrap().parse::<f32>().unwrap();
                         let read_type = split.next().unwrap().parse::<u64>().unwrap_or(0); // note, slider, spinner, hold
                         let hitsound = split.next().unwrap().parse::<u32>().unwrap_or(0); // 0 = normal, 2 = whistle, 4 = finish, 8 = clap
 
@@ -140,7 +138,7 @@ impl Beatmap {
                             let curve_raw = split.next().unwrap();
                             let mut curve = curve_raw.split('|');
                             let slides = split.next().unwrap().parse::<u64>().unwrap();
-                            let length = split.next().unwrap().parse::<f64>().unwrap();
+                            let length = split.next().unwrap().parse::<f32>().unwrap();
                             let edge_sounds = split
                                 .next()
                                 .unwrap_or("")
@@ -170,10 +168,6 @@ impl Beatmap {
                                 ))
                             }
 
-                            if beatmap.metadata.mode == PlayMode::Catch {
-                                println!("curve: {}, points: {:?}", curve_raw, curve_points);
-                            }
-
                             beatmap.sliders.push(SliderDef {
                                 pos: Vector2::new(x, y),
                                 time,
@@ -191,7 +185,7 @@ impl Beatmap {
                         } else if (read_type & 8) > 0 { // spinner
                             // x,y,time,type,hitSound,...
                             // endTime,hitSample
-                            let end_time = split.next().unwrap().parse::<f64>().unwrap();
+                            let end_time = split.next().unwrap().parse::<f32>().unwrap();
                             // let length = end_time as f64 - time as f64;
 
                             beatmap.spinners.push(SpinnerDef {
@@ -206,7 +200,7 @@ impl Beatmap {
                             // let spinner = Spinner::new(time, end_time, sv, hits_required);
                             // beatmap.notes.lock().push(Box::new(spinner));
                         } else if (read_type & 2u64.pow(7)) > 0 { // mania hold
-                            let end_time = split.next().unwrap().split(":").next().unwrap().parse::<f64>().unwrap();
+                            let end_time = split.next().unwrap().split(":").next().unwrap().parse::<f32>().unwrap();
                             beatmap.holds.push(HoldDef {
                                 pos: Vector2::new(x, y),
                                 time,
@@ -214,43 +208,27 @@ impl Beatmap {
                                 hitsound,
                                 hitsamples: Vec::new()
                             });
-
                         } else { // note
-
                             beatmap.notes.push(NoteDef {
                                 pos: Vector2::new(x, y),
                                 time,
                                 hitsound,
                                 hitsamples: Vec::new()
                             });
-                            // let note = Note::new(time, hit_type, finisher, sv);
-                            // beatmap.notes.lock().push(Box::new(note));
                         }
                     }
 
-                    // dont need to do anything with these for the scope of this game
-                    BeatmapSection::Editor => {},
                     BeatmapSection::Colors => {},
+                    BeatmapSection::Editor => {},
                 }
             }
         }
 
-        // beatmap.notes.sort_by(|a, b| a.time.partial_cmp(&b.time).unwrap());
-        // let start_time = beatmap.notes.first().unwrap().time() as f64;
-        // let end_time = beatmap.notes.last().unwrap().end_time(0.0) as f64;
-
         beatmap.hash = format!("{:x}", md5::compute(body).to_owned());
-        // beatmap.metadata.set_dur((end_time - start_time) as u64);
-        // beatmap.end_time = end_time;
-
-        // this might be an issue later on *maybe*
-        // beatmap.calc_sr();
         Arc::new(Mutex::new(beatmap))
     }
 
-    // pub fn calc_sr(&mut self) {self.metadata.sr = DifficultyCalculator::new(Arc::new(Mutex::new(self.to_owned()))).compute_difficulty()}
-
-    pub fn beat_length_at(&self, time:f64, allow_multiplier:bool) -> f64 {
+    pub fn beat_length_at(&self, time:f32, allow_multiplier:bool) -> f32 {
         if self.timing_points.len() == 0 {return 0.0}
 
         let mut point: Option<TimingPoint> = Some(self.timing_points.as_slice()[0].clone());
@@ -266,26 +244,27 @@ impl Beatmap {
             }
         }
 
-        let mut mult:f64 = 1.0;
+        let mut mult:f32 = 1.0;
         let p = point.unwrap();
 
         if allow_multiplier && inherited_point.is_some() {
             let ip = inherited_point.unwrap();
 
             if p.time < ip.time && ip.beat_length < 0.0 {
-                mult = (-ip.beat_length as f64).clamp(10.0, 1000.0) / 100.0;
+                mult = (-ip.beat_length as f32).clamp(10.0, 1000.0) / 100.0;
             }
         }
 
-        p.beat_length as f64 * mult
+        p.beat_length as f32 * mult
     }
+    
     // something is fucked with this, it returns values wayyyyyyyyyyyyyyyyyyyyyy too high
-    pub fn slider_velocity_at(&self, time:u64) -> f64 {
-        let bl = self.beat_length_at(time as f64, true);
-        100.0 * (self.metadata.slider_multiplier as f64 * 1.4) * if bl > 0.0 {1000.0 / bl} else {1.0}
+    pub fn slider_velocity_at(&self, time:f32) -> f32 {
+        let bl = self.beat_length_at(time, true);
+        100.0 * (self.metadata.slider_multiplier * 1.4) * if bl > 0.0 {1000.0 / bl} else {1.0}
     }
 
-    pub fn control_point_at(&self, time:f64) -> TimingPoint {
+    pub fn control_point_at(&self, time:f32) -> TimingPoint {
         // panic as this should be dealt with earlier in the code
         if self.timing_points.len() == 0 {panic!("beatmap has no timing points!")}
 
@@ -297,7 +276,7 @@ impl Beatmap {
         point
     }
 
-    pub fn bpm_multiplier_at(&self, time:f64) -> f64 {
+    pub fn bpm_multiplier_at(&self, time:f32) -> f32 {
         self.control_point_at(time).bpm_multiplier()
     }
 }
@@ -305,7 +284,7 @@ impl Beatmap {
 #[derive(Clone, Debug)]
 pub struct NoteDef {
     pub pos: Vector2,
-    pub time: f64,
+    pub time: f32,
     pub hitsound: u32,
     pub hitsamples: Vec<u8>
 }
@@ -314,12 +293,12 @@ pub struct NoteDef {
 pub struct SliderDef {
     // x,y,time,type,hitSound,curveType|curvePoints,slides,length,edgeSounds,edgeSets,hitSample
     pub pos: Vector2,
-    pub time: f64,
+    pub time: f32,
     pub hitsound: u32,
     pub curve_type: CurveType,
     pub curve_points: Vec<Vector2>,
     pub slides: u64,
-    pub length: f64,
+    pub length: f32,
     pub edge_sounds: Vec<u8>,
     pub edge_sets: Vec<u8>,
     
@@ -331,9 +310,9 @@ pub struct SliderDef {
 #[derive(Clone, Debug)]
 pub struct SpinnerDef {
     pub pos: Vector2,
-    pub time: f64,
+    pub time: f32,
     pub hitsound: u32,
-    pub end_time: f64,
+    pub end_time: f32,
     
     pub hitsamples: Vec<u8>
 }
@@ -341,9 +320,9 @@ pub struct SpinnerDef {
 #[derive(Clone, Debug)]
 pub struct HoldDef {
     pub pos: Vector2,
-    pub time: f64,
+    pub time: f32,
     pub hitsound: u32,
-    pub end_time: f64,
+    pub end_time: f32,
     
     pub hitsamples: Vec<u8>
 }
@@ -444,7 +423,7 @@ enum BeatmapSection {
 
 
 // stolen from peppy, /shrug
-pub fn map_difficulty_range(diff:f64, min:f64, mid:f64, max:f64) -> f64 {
+pub fn map_difficulty_range(diff:f32, min:f32, mid:f32, max:f32) -> f32 {
     if diff > 5.0 {
         mid + (max - mid) * (diff - 5.0) / 5.0
     } else if diff < 5.0 {

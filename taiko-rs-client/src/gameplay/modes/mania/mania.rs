@@ -19,10 +19,10 @@ pub const HIT_Y:f64 = WINDOW_SIZE.y - 100.0;
 
 pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // timing bar color
 const BAR_HEIGHT:f64 = 4.0; // how tall is a timing bar
-const BAR_SPACING:f64 = 4.0; // how many beats between timing bars
+const BAR_SPACING:f32 = 4.0; // how many beats between timing bars
 const BAR_DEPTH:f64 = -90.0; // how many beats between timing bars
 
-const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
+const SV_FACTOR:f32 = 700.0; // bc sv is bonked, divide it by this amount
 const COLUMN_COUNT:u8 = 4; //TODO!!
 
 pub struct ManiaGame {
@@ -36,11 +36,11 @@ pub struct ManiaGame {
     column_states: Vec<bool>,
 
     // hit timing bar stuff
-    hitwindow_300: f64,
-    hitwindow_100: f64,
-    hitwindow_miss: f64,
+    hitwindow_300: f32,
+    hitwindow_100: f32,
+    hitwindow_miss: f32,
 
-    end_time: f64,
+    end_time: f32,
     column_count: u8,
 }
 impl ManiaGame {
@@ -60,7 +60,7 @@ impl ManiaGame {
         (*self.column_indices.get_mut(col).unwrap()) += 1;
     }
 
-    fn set_sv(&mut self, sv:f64) {
+    fn set_sv(&mut self, sv:f32) {
         let sv = sv / SV_FACTOR;
 
         for col in self.columns.iter_mut() {
@@ -76,7 +76,7 @@ impl ManiaGame {
 
 impl GameMode for ManiaGame {
     fn playmode(&self) -> PlayMode {PlayMode::Mania}
-    fn end_time(&self) -> f64 {self.end_time}
+    fn end_time(&self) -> f32 {self.end_time}
 
     fn new(beatmap:&Beatmap) -> Self {
         let mut s = Self {
@@ -108,20 +108,19 @@ impl GameMode for ManiaGame {
                 let column = (note.pos.x * s.column_count as f64 / 512.0).floor() as u8;
                 let x = s.col_pos(column);
                 s.columns[column as usize].push(Box::new(ManiaNote::new(
-                    note.time as u64,
+                    note.time,
                     x
                 )));
             }
         }
         for hold in beatmap.holds.iter() {
             let HoldDef {pos, time, end_time, ..} = hold.to_owned();
-            let time = time as u64;
 
             let column = (pos.x * s.column_count as f64 / 512.0).floor() as u8;
             let x = s.col_pos(column);
             s.columns[column as usize].push(Box::new(ManiaHold::new(
-                time as u64,
-                end_time as u64,
+                time ,
+                end_time,
                 x
             )));
         }
@@ -149,17 +148,17 @@ impl GameMode for ManiaGame {
         }
 
         for col in s.columns.iter_mut() {
-            col.sort_by(|a, b|a.time().cmp(&b.time()));
-            s.end_time = s.end_time.max(col.iter().last().unwrap().time() as f64);
+            col.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
+            s.end_time = s.end_time.max(col.iter().last().unwrap().time());
         }
         
         s
     }
 
     fn handle_replay_frame(&mut self, frame:ReplayFrame, manager:&mut IngameManager) {
-        let time = manager.time() as f64;
+        let time = manager.time();
         if !manager.replaying {
-            manager.replay.frames.push((time as i64, frame));
+            manager.replay.frames.push((time, frame));
         }
 
         match frame {
@@ -186,7 +185,7 @@ impl GameMode for ManiaGame {
                     return;
                 }
                 let note = &mut self.columns[col][self.column_indices[col]];
-                let note_time = note.time() as f64;
+                let note_time = note.time();
                 *self.column_states.get_mut(col).unwrap() = true;
 
                 let diff = (time - note_time).abs();
@@ -194,17 +193,17 @@ impl GameMode for ManiaGame {
                 if diff < self.hitwindow_300 {
                     note.hit(time);
 
-                    manager.score.hit300(time as u64, note_time as u64);
-                    manager.hitbar_timings.push((time as i64, (time - note_time) as i64));
+                    manager.score.hit300(time, note_time);
+                    manager.hitbar_timings.push((time, time - note_time));
                     Audio::play_preloaded(sound);
                     if note.note_type() != NoteType::Hold {
                         self.next_note(col);
                     }
                 } else if diff < self.hitwindow_100 {
-                    note.hit(time as f64);
+                    note.hit(time);
 
-                    manager.score.hit100(time as u64, note_time as u64);
-                    manager.hitbar_timings.push((time as i64, (time - note_time) as i64));
+                    manager.score.hit100(time, note_time);
+                    manager.hitbar_timings.push((time, time - note_time));
                     Audio::play_preloaded(sound);
                     //TODO: indicate this was a bad hit
 
@@ -214,8 +213,8 @@ impl GameMode for ManiaGame {
                 } else if diff < self.hitwindow_miss { // too early, miss
                     note.miss(time);
 
-                    manager.score.hit_miss(time as u64, note_time as u64);
-                    manager.hitbar_timings.push((time as i64, (time - note_time) as i64));
+                    manager.score.hit_miss(time, note_time);
+                    manager.hitbar_timings.push((time, time - note_time));
                     if note.note_type() != NoteType::Hold {
                         self.next_note(col);
                     }
@@ -245,30 +244,30 @@ impl GameMode for ManiaGame {
                 if self.column_indices[col] >= self.columns[col].len() {return}
 
                 let note = &mut self.columns[col][self.column_indices[col]];
-                if time < note.time() as f64 - self.hitwindow_miss 
-                || time > note.end_time(self.hitwindow_miss) as f64 {return}
+                if time < note.time() - self.hitwindow_miss 
+                || time > note.end_time(self.hitwindow_miss) {return}
                 note.release(time);
 
                 if note.note_type() == NoteType::Hold {
-                    let note_time = note.end_time(0.0) as f64;
-                    let diff = (time - note_time as f64).abs();
+                    let note_time = note.end_time(0.0);
+                    let diff = (time - note_time).abs();
                     // normal note
                     if diff < self.hitwindow_300 {
-                        manager.score.hit300(time as u64, note_time as u64);
-                        manager.hitbar_timings.push((time as i64, (time - note_time) as i64));
+                        manager.score.hit300(time, note_time);
+                        manager.hitbar_timings.push((time, time - note_time));
                         // Audio::play_preloaded(sound);
 
                         self.next_note(col);
                     } else if diff < self.hitwindow_100 {
-                        manager.score.hit100(time as u64, note_time as u64);
-                        manager.hitbar_timings.push((time as i64, (time - note_time) as i64));
+                        manager.score.hit100(time, note_time);
+                        manager.hitbar_timings.push((time, time - note_time));
                         // Audio::play_preloaded(sound);
                         //TODO: indicate this was a bad hit
 
                         self.next_note(col);
                     } else if diff < self.hitwindow_miss { // too early, miss
-                        manager.score.hit_miss(time as u64, note_time as u64);
-                        manager.hitbar_timings.push((time as i64, (time - note_time) as i64));
+                        manager.score.hit_miss(time, note_time);
+                        manager.hitbar_timings.push((time, time - note_time));
                         // Audio::play_preloaded(sound);
                         //TODO: play miss sound
                         //TODO: indicate this was a miss
@@ -325,7 +324,7 @@ impl GameMode for ManiaGame {
         
         self.timing_point_index = 0;
 
-        let od = beatmap.metadata.od as f64;
+        let od = beatmap.metadata.od;
         // setup hitwindows
         self.hitwindow_miss = map_difficulty_range(od, 135.0, 95.0, 70.0);
         self.hitwindow_100 = map_difficulty_range(od, 120.0, 80.0, 50.0);
@@ -354,7 +353,7 @@ impl GameMode for ManiaGame {
                 }
 
                 // add timing bar at current time
-                self.timing_bars.push(TimingBar::new(time as u64, bar_width, x));
+                self.timing_bars.push(TimingBar::new(time, bar_width, x));
 
                 if tp_index < parent_tps.len() && parent_tps[tp_index].time <= time + next_bar_time {
                     time = parent_tps[tp_index].time;
@@ -371,7 +370,7 @@ impl GameMode for ManiaGame {
         }
         
 
-        let sv = beatmap.slider_velocity_at(0);
+        let sv = beatmap.slider_velocity_at(0.0);
         self.set_sv(sv);
     }
 
@@ -386,7 +385,7 @@ impl GameMode for ManiaGame {
         }
 
         // show score screen if map is over
-        if time >= self.end_time as i64 {
+        if time >= self.end_time {
             manager.completed = true;
             return;
         }
@@ -395,7 +394,7 @@ impl GameMode for ManiaGame {
         for col in 0..self.column_count as usize {
             if self.column_indices[col] >= self.columns[col].len() {continue}
             let note = &self.columns[col][self.column_indices[col]];
-            if (note.end_time(self.hitwindow_miss) as i64) <= time {
+            if note.end_time(self.hitwindow_miss) <= time {
                 // need to set these manually instead of score.hit_miss,
                 // since we dont want to add anything to the hit error list
                 let s = &mut manager.score;
@@ -407,14 +406,14 @@ impl GameMode for ManiaGame {
         }
         
         // TODO: might move tbs to a (time, speed) tuple
-        for tb in self.timing_bars.iter_mut() {tb.update(time as f64)}
+        for tb in self.timing_bars.iter_mut() {tb.update(time)}
 
         let timing_points = &manager.beatmap.timing_points;
         // check timing point
-        if self.timing_point_index + 1 < timing_points.len() && timing_points[self.timing_point_index + 1].time <= time as f64 {
+        if self.timing_point_index + 1 < timing_points.len() && timing_points[self.timing_point_index + 1].time <= time {
             self.timing_point_index += 1;
             // let tp = &timing_points[self.timing_point_index];
-            let sv = manager.beatmap.slider_velocity_at(time as u64);
+            let sv = manager.beatmap.slider_velocity_at(time);
             self.set_sv(sv);
         }
     }
@@ -460,7 +459,7 @@ impl GameMode for ManiaGame {
 
     fn skip_intro(&mut self, manager: &mut IngameManager) {
         let y_needed = 0.0;
-        let mut time = manager.time() as f64;
+        let mut time = manager.time();
 
         loop {
             let mut found = false;
@@ -473,7 +472,6 @@ impl GameMode for ManiaGame {
             time += 1.0;
         }
 
-        let mut time = time as f32;
         if manager.lead_in_time > 0.0 {
             if time > manager.lead_in_time {
                 time -= manager.lead_in_time - 0.01;
@@ -491,7 +489,7 @@ impl GameMode for ManiaGame {
         )
     }
 
-    fn timing_bar_things(&self) -> (Vec<(f64,Color)>, (f64,Color)) {
+    fn timing_bar_things(&self) -> (Vec<(f32,Color)>, (f32,Color)) {
         (vec![
             (self.hitwindow_100, [0.3411, 0.8901, 0.0745, 1.0].into()),
             (self.hitwindow_300, [0.1960, 0.7372, 0.9058, 1.0].into()),
@@ -504,13 +502,13 @@ impl GameMode for ManiaGame {
 //TODO: might be able to reduce this to a (time, speed) and just calc pos on draw
 #[derive(Copy, Clone, Debug)]
 struct TimingBar {
-    time: u64,
-    speed: f64,
+    time: f32,
+    speed: f32,
     pos: Vector2,
     size: Vector2
 }
 impl TimingBar {
-    pub fn new(time:u64, width:f64, x:f64) -> TimingBar {
+    pub fn new(time:f32, width:f64, x:f64) -> TimingBar {
         TimingBar {
             time, 
             size: Vector2::new(width, BAR_HEIGHT),
@@ -519,12 +517,12 @@ impl TimingBar {
         }
     }
 
-    pub fn set_sv(&mut self, sv:f64) {
+    pub fn set_sv(&mut self, sv:f32) {
         self.speed = sv;
     }
 
-    pub fn update(&mut self, time:f64) {
-        self.pos.y = (HIT_Y + NOTE_SIZE.y-self.size.y) - (self.time as f64 - time as f64) * self.speed;
+    pub fn update(&mut self, time:f32) {
+        self.pos.y = (HIT_Y + NOTE_SIZE.y-self.size.y) - ((self.time - time) * self.speed) as f64;
         // self.pos = HIT_POSITION + Vector2::new(( - BAR_WIDTH / 2.0, -PLAYFIELD_RADIUS);
     }
 

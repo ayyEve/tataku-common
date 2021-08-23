@@ -19,7 +19,7 @@ pub struct Score {
 
     /// time diff for actual note hits. if the note wasnt hit, it wont be here
     /// (user_hit_time - correct_time)
-    pub hit_timings: Vec<i32>,
+    pub hit_timings: Vec<f32>,
 }
 impl Score {
     pub fn new(hash:String, username:String, playmode:PlayMode) -> Score {
@@ -53,65 +53,65 @@ impl Score {
     }
     pub fn hit_error(&self) -> HitError {
         // from https://gist.github.com/peppy/3a11cb58c856b6af7c1916422f668899
-        let mut total = 0;
-        let mut _total = 0;
-        let mut total_all = 0;
-        let mut count = 0;
-        let mut _count = 0;
+        let mut total = 0.0;
+        let mut _total = 0.0;
+        let mut total_all = 0.0;
+        let mut count = 0.0;
+        let mut _count = 0.0;
 
         for i in self.hit_timings.as_slice() {
             let i = i.clone();
             total_all += i;
 
-            if i > 0 {
+            if i > 0.0 {
                 total += i;
-                count += 1;
+                count += 1.0;
             } else {
                 _total += i;
-                _count += 1;
+                _count += 1.0;
             }
         }
 
-        let mean = total_all as f64 / self.hit_timings.len() as f64;
+        let mean = total_all / self.hit_timings.len() as f32;
         let mut variance = 0.0;
         for i in self.hit_timings.as_slice() {
-            variance += (i.clone() as f64 - mean).powi(2);
+            variance += (i.clone() - mean).powi(2);
         }
 
         HitError {
             mean,
-            early: _total as f64 / _count as f64,
-            late: total as f64 / count as f64,
-            deviance: (variance / self.hit_timings.len() as f64).sqrt()
+            early: _total / _count,
+            late: total / count,
+            deviance: (variance / self.hit_timings.len() as f32).sqrt()
         }
     }
 
-    pub fn hit_miss(&mut self, hit_time:u64, note_time:u64) {
+    pub fn hit_miss(&mut self, hit_time:f32, note_time:f32) {
         self.combo = 0;
         self.xmiss += 1;
 
-        self.hit_timings.push(hit_time as i32 - note_time as i32);
+        self.hit_timings.push(hit_time - note_time);
     }
-    pub fn hit100(&mut self, hit_time:u64, note_time:u64) {
+    pub fn hit100(&mut self, hit_time:f32, note_time:f32) {
         self.combo += 1;
         self.max_combo = self.max_combo.max(self.combo);
         self.x100 += 1;
         self.add_pts(100, true);
         
-        self.hit_timings.push(hit_time as i32 - note_time as i32);
+        self.hit_timings.push(hit_time - note_time);
     }
-    pub fn hit300(&mut self, hit_time:u64, note_time:u64) {
+    pub fn hit300(&mut self, hit_time:f32, note_time:f32) {
         self.combo += 1;
         self.max_combo = self.max_combo.max(self.combo);
         self.x300 += 1;
         self.add_pts(300, true);
 
-        self.hit_timings.push(hit_time as i32 - note_time as i32);
+        self.hit_timings.push(hit_time - note_time);
     }
 
     pub fn add_pts(&mut self, points:u64, affected_by_combo:bool) {
         if affected_by_combo {
-            self.score += (self.combo as f64 * points as f64) as u64;
+            self.score += self.combo as u64 * points;
         } else {
             self.score += points;
         }
@@ -178,8 +178,8 @@ pub enum ScoreHit {
 /// helper struct
 #[derive(Copy, Clone, Debug)]
 pub struct HitError {
-    pub mean: f64,
-    pub early: f64,
-    pub late: f64,
-    pub deviance: f64
+    pub mean: f32,
+    pub early: f32,
+    pub late: f32,
+    pub deviance: f32
 }

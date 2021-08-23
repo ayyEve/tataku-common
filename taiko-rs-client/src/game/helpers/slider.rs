@@ -20,38 +20,38 @@ impl Line {
         }
     }
 
-    pub fn rho(&self) -> f64 {
+    pub fn rho(&self) -> f32 {
         length(self.p2 - self.p1)
     }
 }
 
 
-fn length(p:Vector2) -> f64 {
+fn length(p:Vector2) -> f32 {
     let num = p.x * p.x + p.y*p.y;
-    num.sqrt()
+    num.sqrt() as f32
 }
 
 #[derive(Clone)]
 pub struct Curve {
     pub slider: SliderDef,
     pub path: Vec<Line>,
-    pub end_time: f64,
+    pub end_time: f32,
 
     pub smooth_lines: Vec<Line>,
-    pub cumulative_lengths: Vec<f64>,
+    pub cumulative_lengths: Vec<f32>,
 
-    pub velocity: f64,
-    pub score_times: Vec<f64>
+    pub velocity: f32,
+    pub score_times: Vec<f32>
 }
 impl Curve {
     fn new(slider: SliderDef, path: Vec<Line>, beatmap: &Beatmap) -> Self {
 
-        let l = (slider.length * 1.4) * slider.slides as f64;
-        let v2 = 100.0 * (beatmap.metadata.slider_multiplier as f64 * 1.4);
-        let bl = beatmap.beat_length_at(slider.time as f64, true);
-        let end_time = slider.time + (l / v2 * bl) as f64;
+        let l = (slider.length * 1.4) * slider.slides as f32;
+        let v2 = 100.0 * (beatmap.metadata.slider_multiplier * 1.4);
+        let bl = beatmap.beat_length_at(slider.time, true);
+        let end_time = slider.time + (l / v2 * bl);
 
-        let velocity = beatmap.slider_velocity_at(slider.time as u64);
+        let velocity = beatmap.slider_velocity_at(slider.time);
         Self {
             path,
             slider,
@@ -63,19 +63,19 @@ impl Curve {
         }
     }
 
-    pub fn time_at_length(&self, length:f64) -> f64 {
+    pub fn time_at_length(&self, length:f32) -> f32 {
         self.slider.time + (length / self.velocity) * 1000.0
     }
 
-    pub fn length(&self) -> f64 {
+    pub fn length(&self) -> f32 {
         self.end_time - self.slider.time
     }
 
-    pub fn position_at_time(&self, time:f64) -> Vector2 {
+    pub fn position_at_time(&self, time:f32) -> Vector2 {
         // if (this.sliderCurveSmoothLines == null) this.UpdateCalculations();
         if time < self.slider.time || time > self.end_time {return self.slider.pos}
 
-        let mut pos = (time - self.slider.time) / (self.length() / (self.slider.slides + 1) as f64);
+        let mut pos = (time - self.slider.time) / (self.length() / (self.slider.slides + 1) as f32);
         if pos % 2.0 > 1.0 {
             pos = 1.0 - (pos % 1.0);
         } else {
@@ -86,7 +86,7 @@ impl Curve {
         self.position_at_length(length_required)
     }
 
-    pub fn position_at_length(&self, length:f64) -> Vector2 {
+    pub fn position_at_length(&self, length:f32) -> Vector2 {
         // if (this.sliderCurveSmoothLines == null || this.cumulativeLengths == null) this.UpdateCalculations();
         if self.smooth_lines.len() == 0 || self.cumulative_lengths.len() == 0 {return self.slider.pos}
         
@@ -111,7 +111,8 @@ impl Curve {
         let mut res = self.smooth_lines[i].p1;
         
         if length_next != length_previous {
-            let n = (self.smooth_lines[i].p2 - self.smooth_lines[i].p1) * ((length - length_previous as f64) / (length_next - length_previous as f64));
+            let n = (self.smooth_lines[i].p2 - self.smooth_lines[i].p1) 
+                * ((length - length_previous) / (length_next - length_previous)) as f64;
             res = res + n;
         }
 
@@ -292,7 +293,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
 
 
     let mut curve = Curve::new(slider.clone(), path, beatmap);
-    let slider_scoring_point_distance = 100.0 * (beatmap.metadata.slider_multiplier / beatmap.metadata.slider_tick_rate) as f64;
+    let slider_scoring_point_distance = 100.0 * (beatmap.metadata.slider_multiplier / beatmap.metadata.slider_tick_rate);
     let tick_distance;
     if beatmap.metadata.beatmap_version < 8.0 {
         tick_distance = slider_scoring_point_distance;

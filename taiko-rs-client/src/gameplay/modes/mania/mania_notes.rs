@@ -8,33 +8,33 @@ use super::{NOTE_BORDER_SIZE, NOTE_SIZE, COLUMN_WIDTH, HIT_Y};
 
 
 pub trait ManiaHitObject: HitObject {
-    fn hit(&mut self, time:f64);
-    fn release(&mut self, _time:f64) {}
-    fn miss(&mut self, time:f64);
+    fn hit(&mut self, time:f32);
+    fn release(&mut self, _time:f32) {}
+    fn miss(&mut self, time:f32);
     fn was_hit(&self) -> bool {false}
 
-    fn y_at(&self, time:f64) -> f64;
+    fn y_at(&self, time:f32) -> f64;
 
-    fn set_sv(&mut self, sv:f64);
+    fn set_sv(&mut self, sv:f32);
 }
 
 // note
 #[derive(Clone, Copy)]
 pub struct ManiaNote {
     pos: Vector2,
-    time: u64, // ms
-    hit_time: u64,
+    time: f32, // ms
+    hit_time: f32,
     hit: bool,
     missed: bool,
-    speed: f64
+    speed: f32
 }
 impl ManiaNote {
-    pub fn new(time:u64, x:f64) -> Self {
+    pub fn new(time:f32, x:f64) -> Self {
         Self {
             time, 
             speed: 1.0,
 
-            hit_time: 0,
+            hit_time: 0.0,
             hit: false,
             missed: false,
             pos: Vector2::new(x, 0.0),
@@ -47,16 +47,16 @@ impl ManiaNote {
 }
 impl HitObject for ManiaNote {
     fn note_type(&self) -> NoteType {NoteType::Note}
-    fn time(&self) -> u64 {self.time}
-    fn end_time(&self, hw_miss:f64) -> u64 {self.time + hw_miss as u64}
+    fn time(&self) -> f32 {self.time}
+    fn end_time(&self, hw_miss:f32) -> f32 {self.time + hw_miss}
 
-    fn update(&mut self, beatmap_time: i64) {
+    fn update(&mut self, beatmap_time: f32) {
         // let y = 
         //     if self.hit {-((beatmap_time as f64 - self.hit_time as f64)*20.0).ln()*20.0 + 1.0} 
         //     else if self.missed {GRAVITY_SCALING * 9.81 * ((beatmap_time as f64 - self.hit_time as f64)/1000.0).powi(2)} 
         //     else {0.0};
         
-        self.pos.y = self.y_at(beatmap_time as f64); //HIT_Y - (self.time as f64 - beatmap_time as f64) * self.speed;
+        self.pos.y = self.y_at(beatmap_time); //HIT_Y - (self.time as f64 - beatmap_time as f64) * self.speed;
     }
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
@@ -82,24 +82,24 @@ impl HitObject for ManiaNote {
         self.pos.y = 0.0;
         self.hit = false;
         self.missed = false;
-        self.hit_time = 0;
+        self.hit_time = 0.0;
     }
 }
 impl ManiaHitObject for ManiaNote {
-    fn hit(&mut self, time:f64) {
+    fn hit(&mut self, time:f32) {
         self.hit = true;
-        self.hit_time = time as u64;
+        self.hit_time = time;
     }
-    fn miss(&mut self, time:f64) {
+    fn miss(&mut self, time:f32) {
         self.missed = true;
-        self.hit_time = time as u64;
+        self.hit_time = time;
     }
 
-    fn y_at(&self, time:f64) -> f64 {
-        HIT_Y - (self.time as f64 - time) * self.speed
+    fn y_at(&self, time:f32) -> f64 {
+        HIT_Y - ((self.time - time) * self.speed) as f64
     }
 
-    fn set_sv(&mut self, sv:f64) {
+    fn set_sv(&mut self, sv:f32) {
         self.speed = sv;
     }
 }
@@ -108,20 +108,20 @@ impl ManiaHitObject for ManiaNote {
 #[derive(Clone)]
 pub struct ManiaHold {
     pos: Vector2,
-    time: u64, // ms
-    end_time: u64, // ms
+    time: f32, // ms
+    end_time: f32, // ms
 
     /// when the user started holding
-    hold_starts: Vec<f64>,
-    hold_ends: Vec<f64>,
+    hold_starts: Vec<f32>,
+    hold_ends: Vec<f32>,
     holding: bool,
 
-    speed: f64,
+    speed: f32,
     //TODO: figure out how to pre-calc this
     end_y: f64
 }
 impl ManiaHold {
-    pub fn new(time:u64, end_time:u64, x:f64) -> Self {
+    pub fn new(time:f32, end_time:f32, x:f64) -> Self {
         Self {
             time, 
             end_time,
@@ -137,13 +137,13 @@ impl ManiaHold {
 }
 impl HitObject for ManiaHold {
     fn note_type(&self) -> NoteType {NoteType::Hold}
-    fn time(&self) -> u64 {self.time}
-    fn end_time(&self,hw_miss:f64) -> u64 {self.end_time + hw_miss as u64}
+    fn time(&self) -> f32 {self.time}
+    fn end_time(&self,hw_miss:f32) -> f32 {self.end_time + hw_miss}
 
-    fn update(&mut self, beatmap_time: i64) {
+    fn update(&mut self, beatmap_time: f32) {
         // self.pos.x = HIT_POSITION.x + (self.time as f64 - beatmap_time as f64) * self.speed;
-        self.end_y = HIT_Y - (self.end_time as f64 - beatmap_time as f64) * self.speed;
-        self.pos.y = HIT_Y - (self.time as f64 - beatmap_time as f64) * self.speed;
+        self.end_y = HIT_Y - ((self.end_time - beatmap_time) * self.speed) as f64;
+        self.pos.y = HIT_Y - ((self.time - beatmap_time) * self.speed) as f64;
     }
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
@@ -213,23 +213,23 @@ impl ManiaHitObject for ManiaHold {
     }
 
     // key pressed
-    fn hit(&mut self, time:f64) {
+    fn hit(&mut self, time:f32) {
         self.hold_starts.push(time);
         self.holding = true;
     }
-    fn release(&mut self, time:f64) {
+    fn release(&mut self, time:f32) {
         self.hold_ends.push(time);
         self.holding = false;
     }
 
     //
-    fn miss(&mut self, _time:f64) {}
+    fn miss(&mut self, _time:f32) {}
 
-    fn y_at(&self, time:f64) -> f64 {
-        HIT_Y - (self.time as f64 - time) * self.speed
+    fn y_at(&self, time:f32) -> f64 {
+        HIT_Y - ((self.time - time) * self.speed) as f64
     }
 
-    fn set_sv(&mut self, sv:f64) {
+    fn set_sv(&mut self, sv:f32) {
         self.speed = sv;
     }
 }
