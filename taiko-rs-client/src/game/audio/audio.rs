@@ -1,5 +1,4 @@
 use std::path::Path;
-use std::thread::current;
 use std::time::Instant;
 use std::sync::{Arc, Weak};
 use std::collections::HashMap;
@@ -51,9 +50,7 @@ impl Audio {
     // todo: fix everything so nothing crashes and you can always change the device later etc
     pub fn setup() -> Self {
         let host = cpal::default_host();
-
         let device = host.default_output_device().expect("No default output device available.");
-
         let mut supported_configs = device.supported_output_configs().expect("Error while querying configs.");
 
         let supported_config_range = supported_configs.find(|thing|{
@@ -66,13 +63,13 @@ impl Audio {
         let sample_rate = supported_config.sample_rate().0;
 
         // println!("Sample Rate Stream: {}", sample_rate);
-
         let (controller, mut queue) = AudioQueue::new();
 
         std::thread::spawn(move || {
             let stream = device.build_output_stream(
                 &supported_config.into(),
                 move |data: &mut [f32], info: &cpal::OutputCallbackInfo| {
+                    
                     // react to stream events and read or write stream data here.
                     let instant = Instant::now();
                     let timestamp = info.timestamp();
@@ -87,13 +84,23 @@ impl Audio {
 
                     let mut current_data = CURRENT_DATA.lock();
                     current_data.clear();
-                    current_data.reserve(data.len());
 
                     queue.sync_time(instant);
                     for sample in data.iter_mut() {
-                        *sample = queue.next().unwrap_or(0.0);
-                        current_data.push(*sample);
+                        let (raw, s) = queue.next().unwrap_or((0.0, 0.0));
+                        *sample = s;
+
+                        if raw != 0.0 {
+                            current_data.push(raw);
+                        }
                     }
+
+                    // println!("len: {}", current_data.len());
+                    current_data.resize(8192, 0.0);
+                    // {
+                    //     let mut current_data = CURRENT_DATA.lock();
+                    //     current_data.fill(0.0)
+                    // }
 
                     queue.set_delay(delay + instant.elapsed().as_secs_f32() * 1000.0);
                 },
@@ -147,6 +154,7 @@ impl Audio {
 
         let sound = Self::play(path);
         let upgraded = sound.upgrade().unwrap();
+        upgraded.is_music.store(true, std::sync::atomic::Ordering::SeqCst); 
         upgraded.play();
         upgraded.set_volume(Settings::get().get_music_vol());
         

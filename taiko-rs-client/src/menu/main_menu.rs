@@ -19,7 +19,6 @@ pub struct MainMenu {
     pub settings_button: MenuButton,
     pub exit_button: MenuButton,
 
-
     visualization: MenuVisualization
 }
 impl MainMenu {
@@ -46,6 +45,10 @@ impl MainMenu {
     }
 }
 impl Menu<Game> for MainMenu {
+    fn on_change(&mut self, _into:bool) {
+        self.visualization.reset();
+    }
+
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let pos_offset = Vector2::zero();
@@ -72,7 +75,8 @@ impl Menu<Game> for MainMenu {
         list.extend(self.exit_button.draw(args, pos_offset, depth));
 
         // visualization
-        self.visualization.draw(args, pos_offset, depth, &mut list);
+        let mid = WINDOW_SIZE / 2.0;
+        self.visualization.draw(args, mid, depth + 10.0, &mut list);
 
         list
     }

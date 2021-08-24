@@ -1,10 +1,13 @@
 use std::time::Instant;
 use ayyeve_piston_ui::render::{Renderable, Vector2};
 
+
 pub trait Visualization {
     fn should_lerp(&self) -> bool {true}
+    fn lerp_factor(&self) -> f32 {20.0}
     fn draw(&mut self, args:piston::RenderArgs, pos_offset:Vector2, depth:f64, list:&mut Vec<Box<dyn Renderable>>);
     fn update(&mut self) {}
+    fn reset(&mut self) {}
 
     fn data(&mut self) -> &mut Vec<f32>;
     fn timer(&mut self) -> &mut Instant;
@@ -13,12 +16,14 @@ pub trait Visualization {
         let audio_data = crate::game::audio::CURRENT_DATA.clone();
         let mut audio_data = audio_data.lock().clone();
 
-        let n = 16384; // 8192
-        let count = 720; // 80
-        let audio_data = &mut audio_data[0..n];
+        let n = audio_data.len();
+        let count = 360;
 
+        // if n != audio_data.len() {
+        //     audio_data = audio_data[0..n].to_vec();
+        // }
         let plan = dft::Plan::new(dft::Operation::Forward, n);
-        dft::transform(audio_data, &plan);
+        dft::transform(&mut audio_data, &plan);
 
         let audio_data = audio_data[0..count].to_vec();
         let mut audio_data:Vec<f32> = audio_data
@@ -33,10 +38,12 @@ pub trait Visualization {
 
 
         let should_lerp = self.should_lerp();
+        let factor = self.lerp_factor() * elapsed;
         let data = self.data();
         if should_lerp && data.len() > 0 {
+            data.resize(audio_data.len(), 0.0);
             for i in 0..audio_data.len() {
-                audio_data[i] = lerp(data[i], audio_data[i], 20.0 * elapsed);
+                audio_data[i] = lerp(data[i], audio_data[i], factor);
             }
         }
 

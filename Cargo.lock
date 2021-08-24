@@ -2604,6 +2604,7 @@ dependencies = [
  "cpal",
  "dft",
  "futures-util",
+ "glfw",
  "lazy_static",
  "md5",
  "parking_lot",

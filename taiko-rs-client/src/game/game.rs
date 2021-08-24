@@ -3,6 +3,7 @@ use std::path::Path;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
+use ayyeve_piston_ui::render::Circle;
 use parking_lot::Mutex;
 use tokio::runtime::{Builder, Runtime};
 use glfw_window::GlfwWindow as AppWindow;
@@ -65,11 +66,12 @@ impl Game {
         let mut game_init_benchmark = BenchmarkHelper::new("game::new");
 
         let opengl = OpenGL::V3_2;
-        let window: AppWindow = WindowSettings::new("Taiko", [WINDOW_SIZE.x, WINDOW_SIZE.y])
+        let mut window: AppWindow = WindowSettings::new("Taiko-rs", [WINDOW_SIZE.x, WINDOW_SIZE.y])
             .graphics_api(opengl)
             .resizable(false)
             .build()
             .expect("Error creating window");
+        window.window.set_cursor_mode(glfw::CursorMode::Hidden);
         game_init_benchmark.log("window created", true);
 
         let graphics = GlGraphics::new(opengl);
@@ -558,6 +560,14 @@ impl Game {
         self.fps_display.draw(&mut self.render_queue);
         self.update_display.draw(&mut self.render_queue);
         self.input_update_display.draw(&mut self.render_queue);
+
+        // draw cursor
+        self.render_queue.push(Box::new(Circle::new(
+            Color::new(0.8, 0.0, 0.6, 1.0),
+            -f64::MAX,
+            self.input_manager.mouse_pos,
+            5.0
+        )));
 
 
         // sort the queue here (so it only needs to be sorted once per frame, instead of every time a shape is added)
