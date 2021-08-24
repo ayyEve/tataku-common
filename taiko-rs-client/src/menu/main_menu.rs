@@ -1,13 +1,11 @@
 use std::sync::Arc;
+use std::time::Instant;
 
 use ayyeve_piston_ui::menu::KeyModifiers;
-use ayyeve_piston_ui::menu::menu_elements::Graph;
 use parking_lot::Mutex;
 use piston::{MouseButton, RenderArgs};
 
-
-use rustfft::{FftPlanner, num_complex::Complex};
-
+use crate::visualization::{MenuVisualization, Visualization};
 use crate::{WINDOW_SIZE, Vector2, render::*};
 use crate::game::{Audio, Game, GameState, get_font};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
@@ -20,7 +18,10 @@ pub struct MainMenu {
     pub play_button: MenuButton,
     pub direct_button: MenuButton,
     pub settings_button: MenuButton,
-    pub exit_button: MenuButton
+    pub exit_button: MenuButton,
+
+
+    visualization: MenuVisualization
 }
 impl MainMenu {
     pub fn new() -> MainMenu {
@@ -40,6 +41,8 @@ impl MainMenu {
             direct_button,
             settings_button,
             exit_button,
+
+            visualization: MenuVisualization::new()
         }
     }
 }
@@ -48,8 +51,6 @@ impl Menu<Game> for MainMenu {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let pos_offset = Vector2::zero();
         let depth = 0.0;
-
-
 
         // draw welcome text
         let mut welcome_text = Text::new(
@@ -71,28 +72,9 @@ impl Menu<Game> for MainMenu {
         list.extend(self.settings_button.draw(args, pos_offset, depth));
         list.extend(self.exit_button.draw(args, pos_offset, depth));
 
-
-        {
-            let audio_data = crate::game::audio::CURRENT_DATA.clone();
-            let audio_data = audio_data.lock().clone();
-            let len = audio_data.len() - audio_data.len() % 1234;
-            let audio_data = &audio_data[0..len];
-            let mut audio_data:Vec<Complex<f32>> = audio_data.iter().map(|a| Complex::new(*a, 0.0)).collect();
-
-            let mut planner = FftPlanner::<f32>::new();
-            let fft = planner.plan_fft_forward(len / 2);
-            fft.process(&mut audio_data);
-
-            // println!("audio_data: {:?}", audio_data);
-            let mut graph = Graph::new(
-                Vector2::zero(), 
-                Vector2::new(500.0, 500.0),
-                audio_data.iter().map(|a|a.re).collect(),
-                0.0, 1.0
-            );
-            list.extend(graph.draw(args, pos_offset, depth));
-        }
-
+        // visualization
+        self.visualization.draw(args, &mut list);
+        
         list
     }
 
@@ -132,3 +114,4 @@ impl Menu<Game> for MainMenu {
         self.exit_button.check_hover(pos);
     }
 }
+
