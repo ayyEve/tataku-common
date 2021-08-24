@@ -4,14 +4,13 @@ use std::time::Instant;
 use ayyeve_piston_ui::render::{Color, Line, Vector2, Renderable};
 
 use super::Visualization;
-use crate::WINDOW_SIZE;
 
 const CUTOFF:f64 = 1.0;
-const COLORS:[Color; 3] = [
-    Color::RED,
-    Color::BLUE,
-    Color::GREEN,
-];
+// const COLORS:[Color; 3] = [
+//     Color::RED,
+//     Color::BLUE,
+//     Color::GREEN,
+// ];
 
 
 pub struct MenuVisualization {
@@ -25,7 +24,6 @@ impl MenuVisualization {
             timer: Instant::now()
         }
     }
-
 }
 
 impl Visualization for MenuVisualization {
@@ -83,5 +81,3 @@ impl Visualization for MenuVisualization {
         self.timer = Instant::now();
     }
 }
-
-
