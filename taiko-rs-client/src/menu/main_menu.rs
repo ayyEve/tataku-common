@@ -4,6 +4,7 @@ use ayyeve_piston_ui::menu::KeyModifiers;
 use parking_lot::Mutex;
 use piston::{MouseButton, RenderArgs};
 
+use crate::visualization::{MenuVisualization, Visualization};
 use crate::{WINDOW_SIZE, Vector2, render::*};
 use crate::game::{Game, GameState, get_font};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
@@ -16,7 +17,9 @@ pub struct MainMenu {
     pub play_button: MenuButton,
     pub direct_button: MenuButton,
     pub settings_button: MenuButton,
-    pub exit_button: MenuButton
+    pub exit_button: MenuButton,
+
+    visualization: MenuVisualization
 }
 impl MainMenu {
     pub fn new() -> MainMenu {
@@ -36,16 +39,20 @@ impl MainMenu {
             direct_button,
             settings_button,
             exit_button,
+
+            visualization: MenuVisualization::new()
         }
     }
 }
 impl Menu<Game> for MainMenu {
+    fn on_change(&mut self, _into:bool) {
+        self.visualization.reset();
+    }
+
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let pos_offset = Vector2::zero();
         let depth = 0.0;
-
-
 
         // draw welcome text
         let mut welcome_text = Text::new(
@@ -66,6 +73,10 @@ impl Menu<Game> for MainMenu {
         list.extend(self.direct_button.draw(args, pos_offset, depth));
         list.extend(self.settings_button.draw(args, pos_offset, depth));
         list.extend(self.exit_button.draw(args, pos_offset, depth));
+
+        // visualization
+        let mid = WINDOW_SIZE / 2.0;
+        self.visualization.draw(args, mid, depth + 10.0, &mut list);
 
         list
     }
@@ -106,3 +117,4 @@ impl Menu<Game> for MainMenu {
         self.exit_button.check_hover(pos);
     }
 }
+

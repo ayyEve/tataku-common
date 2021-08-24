@@ -62,7 +62,7 @@ impl AudioQueue {
 }
 
 impl Iterator for AudioQueue {
-    type Item = f32;
+    type Item = (f32, f32);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.controller.has_pending.load(Ordering::SeqCst) {
@@ -79,12 +79,15 @@ impl Iterator for AudioQueue {
         let mut to_drop = Vec::new();
 
         let mut sum = 0.0;
-
+        let mut raw_sum = 0.0;
         let delay = if self.delay_changed.load(Ordering::SeqCst) { Some(self.delay) } else { None };
 
         for (i, sound) in self.current_queue.iter_mut().enumerate() {
-            if let Some(val) = sound.next() {
+            if let Some((raw, val)) = sound.next() {
                 sum += val;
+                if sound.handle.is_music.load(Ordering::SeqCst) {
+                    raw_sum += raw;
+                }
 
                 if let Some(delay) = delay {
                     sound.set_delay(delay);
@@ -101,6 +104,6 @@ impl Iterator for AudioQueue {
             self.current_queue.remove(i);
         }
 
-        Some(sum)
+        Some((raw_sum, sum))
     }
 }

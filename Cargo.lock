@@ -574,6 +574,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "dft"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86c83c6ce4ad5d596757571b99ae40694bbfd85453a9ca4862b13cc4cc290407"
+dependencies = [
+ "num-complex",
+ "num-traits 0.1.43",
+]
+
+[[package]]
 name = "digest"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1007,7 +1017,7 @@ dependencies = [
  "jpeg-decoder",
  "num-iter",
  "num-rational",
- "num-traits",
+ "num-traits 0.2.14",
  "png",
  "scoped_threadpool",
  "tiff",
@@ -1393,6 +1403,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-complex"
+version = "0.1.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b288631d7878aaf59442cffd36910ea604ecd7745c36054328595114001c9656"
+dependencies = [
+ "num-traits 0.2.14",
+]
+
+[[package]]
 name = "num-derive"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1410,7 +1429,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2cc698a63b549a70bc047073d2949cce27cd1c7b0a4a862d08a8031bc2801db"
 dependencies = [
  "autocfg",
- "num-traits",
+ "num-traits 0.2.14",
 ]
 
 [[package]]
@@ -1421,7 +1440,7 @@ checksum = "b2021c8337a54d21aca0d59a92577a029af9431cb59b909b03252b9c164fad59"
 dependencies = [
  "autocfg",
  "num-integer",
- "num-traits",
+ "num-traits 0.2.14",
 ]
 
 [[package]]
@@ -1432,7 +1451,16 @@ checksum = "12ac428b1cb17fce6f731001d307d351ec70a6d202fc2e60f7d4c5e42d8f4f07"
 dependencies = [
  "autocfg",
  "num-integer",
- "num-traits",
+ "num-traits 0.2.14",
+]
+
+[[package]]
+name = "num-traits"
+version = "0.1.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92e5113e9fd4cc14ded8e499429f396a20f98c772a47cc8622a736e1ec843c31"
+dependencies = [
+ "num-traits 0.2.14",
 ]
 
 [[package]]
@@ -1515,7 +1543,7 @@ dependencies = [
  "ndk",
  "ndk-glue",
  "num-derive",
- "num-traits",
+ "num-traits 0.2.14",
  "oboe-sys",
 ]
 
@@ -2574,7 +2602,9 @@ dependencies = [
  "ayyeve-piston-ui",
  "clipboard",
  "cpal",
+ "dft",
  "futures-util",
+ "glfw",
  "lazy_static",
  "md5",
  "parking_lot",

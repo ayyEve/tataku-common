@@ -7,13 +7,14 @@ use std::io::{self, BufRead, BufReader, Lines};
 use game::{Game, helpers::BenchmarkHelper};
 pub use ayyeve_piston_ui::render;
 pub use ayyeve_piston_ui::render::Vector2;
+pub use game::helpers;
 
 // include files
 mod game;
 mod gameplay;
 mod menu;
 mod databases;
-pub use game::helpers;
+mod visualization;
 
 // constants
 const WINDOW_SIZE:Vector2 = Vector2::new(1000.0, 600.0);

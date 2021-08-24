@@ -16,6 +16,8 @@ pub struct AudioHandle {
     pub(super) delay: Mutex<f32>,
     pub(super) time: Mutex<f32>,
     pub(super) last_time: Mutex<Instant>,
+
+    pub(super) is_music: AtomicBool,
 }
 
 impl AudioHandle {
@@ -33,6 +35,8 @@ impl AudioHandle {
             delay: Mutex::new(0.0),
             time: Mutex::new(0.0),
             last_time: Mutex::new(Instant::now()),
+
+            is_music: AtomicBool::new(false)
         }
     }
 
