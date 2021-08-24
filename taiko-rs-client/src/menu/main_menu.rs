@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::time::Instant;
 
 use ayyeve_piston_ui::menu::KeyModifiers;
 use parking_lot::Mutex;
@@ -7,7 +6,7 @@ use piston::{MouseButton, RenderArgs};
 
 use crate::visualization::{MenuVisualization, Visualization};
 use crate::{WINDOW_SIZE, Vector2, render::*};
-use crate::game::{Audio, Game, GameState, get_font};
+use crate::game::{Game, GameState, get_font};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
 
 const BUTTON_SIZE: Vector2 = Vector2::new(100.0, 50.0);
@@ -73,8 +72,8 @@ impl Menu<Game> for MainMenu {
         list.extend(self.exit_button.draw(args, pos_offset, depth));
 
         // visualization
-        self.visualization.draw(args, &mut list);
-        
+        self.visualization.draw(args, pos_offset, depth, &mut list);
+
         list
     }
 
