@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::thread::current;
 use std::time::Instant;
 use std::sync::{Arc, Weak};
 use std::collections::HashMap;
@@ -38,6 +39,8 @@ lazy_static::lazy_static!(
 
         sounds
     };
+
+    pub static ref CURRENT_DATA: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::new()));
 );
 
 pub struct Audio {
@@ -72,7 +75,6 @@ impl Audio {
                 move |data: &mut [f32], info: &cpal::OutputCallbackInfo| {
                     // react to stream events and read or write stream data here.
                     let instant = Instant::now();
-
                     let timestamp = info.timestamp();
 
                     let delay = match timestamp.playback.duration_since(&timestamp.callback) {
@@ -83,9 +85,14 @@ impl Audio {
                         }
                     };
 
+                    let mut current_data = CURRENT_DATA.lock();
+                    current_data.clear();
+                    current_data.reserve(data.len());
+
                     queue.sync_time(instant);
                     for sample in data.iter_mut() {
                         *sample = queue.next().unwrap_or(0.0);
+                        current_data.push(*sample);
                     }
 
                     queue.set_delay(delay + instant.elapsed().as_secs_f32() * 1000.0);

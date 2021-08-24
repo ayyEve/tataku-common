@@ -1,4 +1,4 @@
-mod audio;
+pub mod audio;
 mod game;
 mod settings;
 mod input_manager;

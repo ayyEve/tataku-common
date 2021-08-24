@@ -1,11 +1,15 @@
 use std::sync::Arc;
 
 use ayyeve_piston_ui::menu::KeyModifiers;
+use ayyeve_piston_ui::menu::menu_elements::Graph;
 use parking_lot::Mutex;
 use piston::{MouseButton, RenderArgs};
 
+
+use rustfft::{FftPlanner, num_complex::Complex};
+
 use crate::{WINDOW_SIZE, Vector2, render::*};
-use crate::game::{Game, GameState, get_font};
+use crate::game::{Audio, Game, GameState, get_font};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
 
 const BUTTON_SIZE: Vector2 = Vector2::new(100.0, 50.0);
@@ -66,6 +70,28 @@ impl Menu<Game> for MainMenu {
         list.extend(self.direct_button.draw(args, pos_offset, depth));
         list.extend(self.settings_button.draw(args, pos_offset, depth));
         list.extend(self.exit_button.draw(args, pos_offset, depth));
+
+
+        {
+            let audio_data = crate::game::audio::CURRENT_DATA.clone();
+            let audio_data = audio_data.lock().clone();
+            let len = audio_data.len() - audio_data.len() % 1234;
+            let audio_data = &audio_data[0..len];
+            let mut audio_data:Vec<Complex<f32>> = audio_data.iter().map(|a| Complex::new(*a, 0.0)).collect();
+
+            let mut planner = FftPlanner::<f32>::new();
+            let fft = planner.plan_fft_forward(len / 2);
+            fft.process(&mut audio_data);
+
+            // println!("audio_data: {:?}", audio_data);
+            let mut graph = Graph::new(
+                Vector2::zero(), 
+                Vector2::new(500.0, 500.0),
+                audio_data.iter().map(|a|a.re).collect(),
+                0.0, 1.0
+            );
+            list.extend(graph.draw(args, pos_offset, depth));
+        }
 
         list
     }
