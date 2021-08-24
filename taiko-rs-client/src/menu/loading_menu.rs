@@ -2,7 +2,6 @@ use std::{fs::read_dir, sync::Arc, time::Duration};
 
 use tokio::time::sleep;
 use parking_lot::Mutex;
-use rand::prelude::*;
 
 use crate::game::Audio;
 use crate::render::{Color, Rectangle, Text};
@@ -112,20 +111,12 @@ impl Menu<Game> for LoadingMenu {
             game.queue_state_change(crate::game::GameState::InMenu(menu));
 
             // select a map to load bg and intro audio from (TODO! add our own?)
-            let manager = self.beatmap_manager.lock();
-            if manager.beatmaps.len() > 0 {
-                let ind = rand::thread_rng().gen_range(0..manager.beatmaps.len());
-                let map = manager.beatmaps[ind].clone();
-                // play song
-                let audio_filename = map.lock().metadata.audio_filename.clone();
-                Audio::play_song(audio_filename, false); // restart doesnt matter as this should be the first song to play
+            let mut manager = self.beatmap_manager.lock();
 
-                // set bg
-                game.set_background_beatmap(map);
-                
-                //TODO! somehow select the map in beatmap select?
-                // might be best to have a current_beatmap value in beatmap_manager
+            if let Some(map) = manager.random_beatmap() {
+                manager.set_current_beatmap(game, map);
             }
+            
         }
     }
 

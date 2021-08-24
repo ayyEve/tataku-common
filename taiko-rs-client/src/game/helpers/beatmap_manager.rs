@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fs::read_dir, path::Path, sync::Arc};
 use parking_lot::Mutex;
-use crate::{DOWNLOADS_DIR, gameplay::Beatmap};
+use rand::Rng;
+use crate::{DOWNLOADS_DIR, game::{Audio, Game}, gameplay::Beatmap};
 
 // ugh
 type ArcMutexBeatmap = Arc<Mutex<Beatmap>>;
@@ -96,6 +97,29 @@ impl BeatmapManager {
         match self.beatmaps_by_hash.get(&hash) {
             Some(b) => Some(b.clone()),
             None => None
+        }
+    }
+
+
+    pub fn set_current_beatmap(&mut self, game:&mut Game, beatmap: ArcMutexBeatmap) {
+
+        // play song
+        let audio_filename = beatmap.lock().metadata.audio_filename.clone();
+        Audio::play_song(audio_filename, false); // restart doesnt matter as this should be the first song to play
+
+        // set bg
+        game.set_background_beatmap(beatmap);
+            
+        //TODO! somehow select the map in beatmap select?
+        // might be best to have a current_beatmap value in beatmap_manager
+    }
+    pub fn random_beatmap(&self) -> Option<ArcMutexBeatmap> {
+        if self.beatmaps.len() > 0 {
+            let ind = rand::thread_rng().gen_range(0..self.beatmaps.len());
+            let map = self.beatmaps[ind].clone();
+            Some(map.clone())
+        } else {
+            None
         }
     }
 }

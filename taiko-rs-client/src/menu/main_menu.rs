@@ -6,7 +6,7 @@ use piston::{MouseButton, RenderArgs};
 
 use crate::visualization::{MenuVisualization, Visualization};
 use crate::{WINDOW_SIZE, Vector2, render::*};
-use crate::game::{Game, GameState, get_font};
+use crate::game::{Audio, Game, GameState, get_font};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
 
 const BUTTON_SIZE: Vector2 = Vector2::new(100.0, 50.0);
@@ -47,6 +47,19 @@ impl MainMenu {
 impl Menu<Game> for MainMenu {
     fn on_change(&mut self, _into:bool) {
         self.visualization.reset();
+    }
+
+    fn update(&mut self, g:&mut Game) {
+        if let None = Audio::get_song() {
+            println!("song done");
+            let manager = g.beatmap_manager.clone();
+            let map = manager.lock().random_beatmap();
+
+            // it should?
+            if let Some(map) = map {
+                manager.lock().set_current_beatmap(g, map);
+            }
+        }
     }
 
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
@@ -117,4 +130,3 @@ impl Menu<Game> for MainMenu {
         self.exit_button.check_hover(pos);
     }
 }
-
