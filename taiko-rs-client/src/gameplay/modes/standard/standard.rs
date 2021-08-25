@@ -41,8 +41,8 @@ impl GameMode for StandardGame {
         };
 
         // let ar = beatmap.metadata.
-        let ar = 7.0;
-        let cs = 5.0;
+        let ar = beatmap.metadata.ar;
+        let cs = beatmap.metadata.cs;
 
         // add notes
         for note in beatmap.notes.iter() {
