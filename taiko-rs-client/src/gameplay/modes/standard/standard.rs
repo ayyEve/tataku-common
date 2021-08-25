@@ -2,37 +2,16 @@ use core::f32;
 
 use ayyeve_piston_ui::render::*;
 use piston::RenderArgs;
-use taiko_rs_common::types::KeyPress;
-use taiko_rs_common::types::ReplayFrame;
-use taiko_rs_common::types::ScoreHit;
-use taiko_rs_common::types::PlayMode;
+use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
 
-use crate::game::Audio;
-use crate::game::Settings;
 use crate::gameplay::NoteType;
-use crate::gameplay::SliderDef;
-use crate::gameplay::SpinnerDef;
 use crate::gameplay::map_difficulty_range;
 use crate::gameplay::modes::FIELD_SIZE;
 use crate::helpers::slider::get_curve;
-use crate::{WINDOW_SIZE, Vector2};
-use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint};
+use crate::{WINDOW_SIZE, Vector2, game::Settings};
+use crate::gameplay::{GameMode, Beatmap, IngameManager};
 
 use super::*;
-
-
-pub const NOTE_RADIUS:f64 = 32.0;
-pub const HIT_AREA_RADIUS:f64 = NOTE_RADIUS * 1.3;
-pub const HIT_POSITION:Vector2 = Vector2::new(180.0, 200.0);
-pub const PLAYFIELD_RADIUS:f64 = NOTE_RADIUS * 2.0; // actually height, oops
-
-pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // timing bar color
-const BAR_WIDTH:f64 = 4.0; // how wide is a timing bar
-
-const SV_FACTOR:f32 = 700.0; // bc sv is bonked, divide it by this amount
-
-/// how long should the drum buttons last for?
-const DRUM_LIFETIME_TIME:u64 = 100;
 
 
 pub struct StandardGame {
@@ -41,15 +20,13 @@ pub struct StandardGame {
     
     /// where to start checking notes from
     note_index: usize,
-    timing_point_index: usize,
 
     // hit timing bar stuff
     hitwindow_300: f32,
     hitwindow_100: f32,
     hitwindow_miss: f32,
 
-    end_time: f32,
-    render_queue: Vec<Box<HalfCircle>>,
+    end_time: f32
 }
 impl StandardGame {
     pub fn next_note(&mut self) {self.note_index += 1}
@@ -63,14 +40,11 @@ impl GameMode for StandardGame {
             notes: Vec::new(),
             note_index: 0,
 
-            timing_point_index: 0,
             end_time: 0.0,
 
             hitwindow_100: 0.0,
             hitwindow_300: 0.0,
             hitwindow_miss: 0.0,
-
-            render_queue: Vec::new()
         };
 
         // let ar = beatmap.metadata.
@@ -92,6 +66,8 @@ impl GameMode for StandardGame {
             s.notes.push(Box::new(StandardSlider::new(
                 slider.clone(),
                 curve,
+                ar,
+                cs,
                 Color::BLUE,
                 1
             )))
@@ -113,38 +89,35 @@ impl GameMode for StandardGame {
         if self.notes.len() < self.note_index {return}
 
         match frame {
-            ReplayFrame::Press(k) => {
-
-                match k {
-                    KeyPress::Left | KeyPress::Right => {
-                        if self.notes[self.note_index].note_type() == NoteType::Note {
-                            let pts = self.notes[self.note_index].get_points(time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300));
-                            let note_time = self.notes[self.note_index].time();
-                            match pts {
-                                ScoreHit::Miss => {
-                                    println!("note miss (hit)");
-                                    manager.score.hit_miss(time, note_time);
-                                },
-                                ScoreHit::X100 => manager.score.hit100(time, note_time),
-                                ScoreHit::X300 => manager.score.hit300(time, note_time),
-                                ScoreHit::Other(_, _) => {}
-                                ScoreHit::None => {},
-                            }
-                            self.next_note();
-                        } else {
-                            self.notes[self.note_index].press(time);
-                        }
+            ReplayFrame::Press(KeyPress::Left)
+            | ReplayFrame::Press(KeyPress::Right) => {
+                if self.notes[self.note_index].note_type() == NoteType::Note {
+                    let pts = self.notes[self.note_index].get_points(time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300));
+                    let note_time = self.notes[self.note_index].time();
+                    match pts {
+                        ScoreHit::Miss => {
+                            println!("note miss (timing)");
+                            manager.score.hit_miss(time, note_time);
+                        },
+                        ScoreHit::X100 => manager.score.hit100(time, note_time),
+                        ScoreHit::X300 => manager.score.hit300(time, note_time),
+                        ScoreHit::Other(_, _) => {}
+                        ScoreHit::None => {},
                     }
-                    _ => {}
+                    self.next_note();
+                } else {
+                    self.notes[self.note_index].press(time);
                 }
-
-            }
-            ReplayFrame::Release(k) => {
+            }            
+            ReplayFrame::Release(KeyPress::Left) 
+            | ReplayFrame::Release(KeyPress::Right) => {
                 self.notes[self.note_index].release(time);
+                
             }
             ReplayFrame::MousePos(x, y) => {
                 self.notes[self.note_index].mouse_move(Vector2::new(x as f64, y as f64));
             }
+            _ => {}
         }
     }
 
@@ -183,11 +156,6 @@ impl GameMode for StandardGame {
             self.next_note();
         }
         
-        let timing_points = &manager.beatmap.timing_points;
-        // check timing point
-        if self.timing_point_index + 1 < timing_points.len() && timing_points[self.timing_point_index + 1].time <= time {
-            self.timing_point_index += 1;
-        }
     }
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
 
@@ -199,7 +167,7 @@ impl GameMode for StandardGame {
             FIELD_SIZE,
             // Vector2::new(0.0, HIT_POSITION.y - (PLAYFIELD_RADIUS + 2.0)),
             // Vector2::new(args.window_size[0], (PLAYFIELD_RADIUS+2.0) * 2.0),
-            if manager.beatmap.timing_points[self.timing_point_index].kiai {
+            if manager.current_timing_point().kiai {
                 Some(Border::new(Color::YELLOW, 2.0))
             } else {None}
         );
@@ -207,9 +175,7 @@ impl GameMode for StandardGame {
 
 
         // draw notes
-        self.notes.reverse();
         for note in self.notes.iter_mut() {note.draw(args, list)}
-        self.notes.reverse();
     }
 
 
@@ -236,14 +202,12 @@ impl GameMode for StandardGame {
     }
 
     fn reset(&mut self, beatmap:Beatmap) {
-        // let settings = Settings::get().taiko_settings;
+        self.note_index = 0;
         
         for note in self.notes.as_mut_slice() {
             note.reset();
         }
         
-        self.note_index = 0;
-        self.timing_point_index = 0;
 
         let od = beatmap.metadata.od;
         // setup hitwindows
@@ -256,25 +220,10 @@ impl GameMode for StandardGame {
 
 
     fn skip_intro(&mut self, manager: &mut IngameManager) {
-        if self.note_index > 0 {return}
+        if self.note_index > 0 || self.notes.len() == 0 {return}
 
-        let x_needed = WINDOW_SIZE.x;
-        let mut time = manager.time();
-
-        // loop {
-        //     let mut found = false;
-        //     for note in self.notes.iter() {if note.x_at(time) <= x_needed {found = true; break}}
-        //     if found {break}
-        //     time += 1;
-        // }
-
-        let mut time = time as f32;
-        if manager.lead_in_time > 0.0 {
-            if time > manager.lead_in_time {
-                time -= manager.lead_in_time - 0.01;
-                manager.lead_in_time = 0.01;
-            }
-        }
+        let time = self.notes[0].time() - self.notes[0].get_preempt();
+        if time < manager.time() {return}
 
         manager.song.upgrade().unwrap().set_position(time);
     }

@@ -34,7 +34,6 @@ impl BeatmapManager {
         }
     }
 
-
     // download checking
     pub fn get_new_maps(&mut self) -> Vec<ArcMutexBeatmap> {
         std::mem::take(&mut self.new_maps)

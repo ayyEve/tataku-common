@@ -75,7 +75,7 @@ impl BeatmapSelectMenu {
     pub fn refresh_maps(&mut self) {
         self.pending_refresh = false;
         self.beatmap_scroll.clear();
-        //TODO: see if we can add new maps non-destructively
+        //TODO: see if we can add new maps non-destructively    
 
         let sets = self.beatmap_manager.lock().all_by_sets();
         let mut full_list = Vec::new();
@@ -107,7 +107,6 @@ impl BeatmapSelectMenu {
 }
 impl Menu<Game> for BeatmapSelectMenu {
     fn update(&mut self, game:&mut Game) {
-
         let maps = self.beatmap_manager.lock().get_new_maps();
         if maps.len() > 0 {
             self.refresh_maps();
@@ -193,11 +192,13 @@ impl Menu<Game> for BeatmapSelectMenu {
     }
 
     fn on_change(&mut self, into:bool) {
-        if into {
-            self.beatmap_scroll.refresh_layout();
-            if let Some(map_hash) = &self.selected_beatmap.clone() {
-                self.load_scores(map_hash.clone());
-            }
+        if !into {return}
+
+        // load maps
+        self.refresh_maps();
+        self.beatmap_scroll.refresh_layout();
+        if let Some(map_hash) = &self.selected_beatmap.clone() {
+            self.load_scores(map_hash.clone());
         }
     }
 

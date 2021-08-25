@@ -99,11 +99,10 @@ impl Curve {
             let end = self.smooth_lines.len();
             return self.smooth_lines[end - 1].p2;
         }
-        let i;
-        match self.cumulative_lengths.binary_search_by(|f| f.partial_cmp(&length).unwrap()) {
-            Ok(n) => i = n,
-            Err(n) => i = n.min(self.cumulative_lengths.len() - 1),
-        }
+        let i = match self.cumulative_lengths.binary_search_by(|f| f.partial_cmp(&length).unwrap()) {
+            Ok(n) => n,
+            Err(n) => n.min(self.cumulative_lengths.len() - 1),
+        };
 
         let length_next = self.cumulative_lengths[i];
         let length_previous = if i == 0 {0.0} else {self.cumulative_lengths[i - 1]};

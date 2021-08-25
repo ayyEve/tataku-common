@@ -36,9 +36,11 @@ pub struct IngameManager {
     pub replaying: bool,
     pub end_time: f32,
 
-    pub song_start: Instant,
-    pub song: Weak<AudioHandle>,
     pub lead_in_time: f32,
+    pub lead_in_timer: Instant,
+
+    pub timing_point_index: usize,
+    pub song: Weak<AudioHandle>,
 
     // offset things
     offset: f32,
@@ -63,7 +65,7 @@ impl IngameManager {
         let playmode = lock.playmode();
 
         Self {
-            song_start: Instant::now(),
+            lead_in_timer: Instant::now(),
             score: Score::new(beatmap.hash.clone(), Settings::get().username.clone(), playmode),
 
             replay: Replay::new(),
@@ -81,13 +83,17 @@ impl IngameManager {
             offset: 0.0,
             offset_changed_time: 0.0,
             replay_frame: 0,
-
+            timing_point_index: 0,
 
             font: get_font("main"),
             combo_text_bounds: lock.combo_bounds(),
             timing_bar_things: lock.timing_bar_things(),
             hitbar_timings: Vec::new()
         }
+    }
+
+    pub fn current_timing_point(&self) -> TimingPoint {
+        self.beatmap.timing_points[self.timing_point_index]
     }
 
     pub fn time(&mut self) -> f32 {
@@ -122,8 +128,8 @@ impl IngameManager {
                     self.song.upgrade().unwrap().pause();
                 }
             }
+            self.lead_in_timer = Instant::now();
             self.lead_in_time = LEAD_IN_TIME;
-            self.song_start = Instant::now();
             // volume is set when the song is actually started (when lead_in_time is <= 0)
             self.started = true;
             return;
@@ -161,10 +167,10 @@ impl IngameManager {
         self.started = false;
         self.lead_in_time = LEAD_IN_TIME;
         self.offset_changed_time = 0.0;
-        self.song_start = Instant::now();
+        self.lead_in_timer = Instant::now();
         self.score = Score::new(self.beatmap.hash.clone(), settings.username.clone(), lock.playmode());
         self.replay_frame = 0;
-
+        self.timing_point_index = 0;
 
         self.combo_text_bounds = lock.combo_bounds();
         self.timing_bar_things = lock.timing_bar_things();
@@ -181,8 +187,8 @@ impl IngameManager {
     pub fn update(&mut self) {
         // check lead-in time
         if self.lead_in_time > 0.0 {
-            let elapsed = self.song_start.elapsed().as_micros() as f32 / 1000.0;
-            self.song_start = Instant::now();
+            let elapsed = self.lead_in_timer.elapsed().as_micros() as f32 / 1000.0;
+            self.lead_in_timer = Instant::now();
             self.lead_in_time -= elapsed;
 
             if self.lead_in_time <= 0.0 {
@@ -194,6 +200,13 @@ impl IngameManager {
             }
         }
         let time = self.time();
+
+
+        // check timing point
+        let timing_points = &self.beatmap.timing_points;
+        if self.timing_point_index + 1 < timing_points.len() && timing_points[self.timing_point_index + 1].time <= time {
+            self.timing_point_index += 1;
+        }
 
         if self.replaying {
             let m = self.gamemode.clone();
@@ -309,7 +322,6 @@ impl IngameManager {
         let mut m = m.lock();
         m.mouse_up(btn, self);
     }
-
 
     pub fn draw(&mut self, args: RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         let time = self.time();
