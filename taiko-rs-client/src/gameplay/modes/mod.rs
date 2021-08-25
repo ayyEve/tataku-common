@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use ayyeve_piston_ui::render::Vector2;
 use parking_lot::Mutex;
 use taiko_rs_common::types::PlayMode;
 
@@ -9,6 +10,10 @@ pub mod taiko;
 pub mod mania;
 pub mod catch;
 pub mod standard;
+
+
+const FIELD_SIZE:Vector2 = Vector2::new(512.0, 384.0);
+
 
 use PlayMode::*;
 pub fn select_gamemode_from_playmode(mut playmode: PlayMode, beatmap: &Beatmap) -> Arc<Mutex<dyn GameMode>> {

@@ -12,7 +12,7 @@ pub trait HitObject: Send {
     fn end_time(&self, hitwindow_miss:f32) -> f32;
 
     fn update(&mut self, beatmap_time: f32);
-    fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>>;
+    fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>);
 
     /// set this object back to defaults
     fn reset(&mut self);

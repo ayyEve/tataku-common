@@ -363,7 +363,7 @@ impl GameMode for TaikoGame {
         )));
 
         // draw notes
-        for note in self.notes.iter_mut() {list.extend(note.draw(args));}
+        for note in self.notes.iter_mut() {note.draw(args, list)}
         // draw timing lines
         for tb in self.timing_bars.iter_mut() {list.extend(tb.draw(args))}
     }

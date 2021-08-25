@@ -451,7 +451,7 @@ impl GameMode for ManiaGame {
 
         // draw notes
         for col in self.columns.iter_mut() {
-            for note in col.iter_mut() {list.extend(note.draw(args))}
+            for note in col.iter_mut() {note.draw(args, list)}
         }
         // draw timing lines
         for tb in self.timing_bars.iter_mut() {list.extend(tb.draw(args))}

@@ -87,10 +87,8 @@ impl HitObject for TaikoNote {
         
         self.pos = HIT_POSITION + Vector2::new(((self.time - beatmap_time) * self.speed) as f64, y as f64);
     }
-    fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
-        let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-
-        if self.pos.x + NOTE_RADIUS < 0.0 || self.pos.x - NOTE_RADIUS > args.window_size[0] as f64 {return renderables}
+    fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
+        if self.pos.x + NOTE_RADIUS < 0.0 || self.pos.x - NOTE_RADIUS > args.window_size[0] as f64 {return}
 
         let mut note = Circle::new(
             self.get_color(),
@@ -99,9 +97,7 @@ impl HitObject for TaikoNote {
             if self.finisher {NOTE_RADIUS*1.6666} else {NOTE_RADIUS}
         );
         note.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
-        renderables.push(Box::new(note));
-
-        renderables
+        list.push(Box::new(note));
     }
 
     fn reset(&mut self) {
@@ -204,12 +200,11 @@ impl HitObject for TaikoSlider {
             dot.update(beatmap_time);
         }
     }
-    fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
-        let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        if self.end_x + NOTE_RADIUS < 0.0 || self.pos.x - NOTE_RADIUS > args.window_size[0] as f64 {return renderables}
+    fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
+        if self.end_x + NOTE_RADIUS < 0.0 || self.pos.x - NOTE_RADIUS > args.window_size[0] as f64 {return}
 
         // middle
-        renderables.push(Box::new(Rectangle::new(
+        list.push(Box::new(Rectangle::new(
             Color::YELLOW,
             self.time as f64 + 1.0,
             self.pos,
@@ -228,7 +223,7 @@ impl HitObject for TaikoSlider {
             color: Color::BLACK.into(),
             radius: NOTE_BORDER_SIZE
         });
-        renderables.push(Box::new(start_c));
+        list.push(Box::new(start_c));
         
         // end circle
         let mut end_c = Circle::new(
@@ -241,15 +236,13 @@ impl HitObject for TaikoSlider {
             color: Color::BLACK.into(),
             radius: NOTE_BORDER_SIZE
         });
-        renderables.push(Box::new(end_c));
+        list.push(Box::new(end_c));
 
         // draw hit dots
         for dot in self.hit_dots.as_slice() {
             if dot.done {continue}
-            renderables.extend(dot.draw());
+            list.extend(dot.draw());
         }
-        
-        renderables
     }
 
     fn reset(&mut self) {
@@ -360,11 +353,9 @@ impl HitObject for TaikoSpinner {
         self.pos = HIT_POSITION + Vector2::new(((self.time - beatmap_time) * self.speed) as f64, 0.0);
         if beatmap_time > self.end_time {self.complete = true}
     }
-    fn draw(&mut self, _args:RenderArgs) -> Vec<Box<dyn Renderable>> {
-        let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-
+    fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         // if done, dont draw anything
-        if self.complete {return renderables}
+        if self.complete {return}
 
         // if its time to start hitting the spinner
         if self.pos.x <= HIT_POSITION.x {
@@ -376,7 +367,7 @@ impl HitObject for TaikoSpinner {
                 SPINNER_RADIUS
             );
             bg.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
-            renderables.push(Box::new(bg));
+            list.push(Box::new(bg));
 
             // draw another circle on top which increases in radius as the counter gets closer to the reqired
             let mut fg = Circle::new(
@@ -386,7 +377,7 @@ impl HitObject for TaikoSpinner {
                 SPINNER_RADIUS * (self.hit_count as f64 / self.hits_required as f64)
             );
             fg.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
-            renderables.push(Box::new(fg));
+            list.push(Box::new(fg));
             
             //TODO: draw a counter
 
@@ -398,7 +389,7 @@ impl HitObject for TaikoSpinner {
                 NOTE_RADIUS,
                 false
             );
-            renderables.push(Box::new(h1));
+            list.push(Box::new(h1));
 
             let h2 = HalfCircle::new(
                 Color::RED,
@@ -407,10 +398,8 @@ impl HitObject for TaikoSpinner {
                 NOTE_RADIUS,
                 true
             );
-            renderables.push(Box::new(h2));
+            list.push(Box::new(h2));
         }
-        
-        renderables
     }
 
     fn reset(&mut self) {

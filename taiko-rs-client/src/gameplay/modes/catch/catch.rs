@@ -3,12 +3,12 @@ use piston::RenderArgs;
 
 use super::*;
 use crate::game::Audio;
+use crate::gameplay::modes::FIELD_SIZE;
 use crate::{WINDOW_SIZE, Vector2};
 use crate::helpers::slider::get_curve;
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
-use crate::gameplay::{Beatmap, GameMode, IngameManager, NoteType, SliderDef, SpinnerDef, map_difficulty_range};
+use crate::gameplay::{Beatmap, GameMode, IngameManager, SliderDef, SpinnerDef, map_difficulty_range};
 
-const FIELD_SIZE:Vector2 = Vector2::new(512.0, 384.0);
 // const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
 
 pub const HIT_Y:f64 = WINDOW_SIZE.y - 100.0;
@@ -287,7 +287,7 @@ impl GameMode for CatchGame {
         // }
 
         // draw notes
-        for note in self.notes.iter_mut() {list.extend(note.draw(args))}
+        for note in self.notes.iter_mut() {note.draw(args, list)}
     }
 
 

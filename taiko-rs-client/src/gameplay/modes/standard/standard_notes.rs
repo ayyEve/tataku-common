@@ -10,8 +10,8 @@ use crate::gameplay::HitObject;
 use crate::gameplay::NoteDef;
 use crate::gameplay::NoteType;
 use crate::gameplay::SliderDef;
+use crate::gameplay::modes::FIELD_SIZE;
 use crate::helpers::slider::Curve;
-use crate::helpers::slider::get_curve;
 use crate::render::{Circle, Color, Renderable, Border};
 
 const SPINNER_RADIUS:f64 = 200.0;
@@ -19,8 +19,10 @@ const SPINNER_POSITION:Vector2 = Vector2::new(WINDOW_SIZE.x / 2.0, WINDOW_SIZE.y
 const SLIDER_DOT_RADIUS:f64 = 8.0;
 const NOTE_BORDER_SIZE:f64 = 2.0;
 
-
 const CIRCLE_RADIUS_BASE: f64 = 30.0;
+
+
+const POS_OFFSET:Vector2 = Vector2::new((WINDOW_SIZE.x - FIELD_SIZE.x) / 2.0, (WINDOW_SIZE.y - FIELD_SIZE.y) / 2.0);
 
 
 pub trait StandardHitObject: HitObject {
@@ -61,10 +63,7 @@ impl HitObject for StandardNote {
     fn time(&self) -> f32 {self.time}
     fn end_time(&self, hw_miss:f32) -> f32 {self.time + hw_miss}
     fn update(&mut self, beatmap_time: f32) {}
-    fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
-        let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-
-
+    fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         let mut note = Circle::new(
             self.color,
             -100.0,
@@ -72,9 +71,7 @@ impl HitObject for StandardNote {
             CIRCLE_RADIUS_BASE
         );
         note.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
-        renderables.push(Box::new(note));
-
-        renderables
+        list.push(Box::new(note));
     }
 
     fn reset(&mut self) {
@@ -152,14 +149,12 @@ impl HitObject for StandardSlider {
         //     dot.update(beatmap_time as f64);
         // }
     }
-    fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
-        let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-
+    fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         // middle
 
         for i in 0..self.curve.path.len() {
             let line = self.curve.path[i];
-            renderables.push(Box::new(Line::new(
+            list.push(Box::new(Line::new(
                 line.p1,
                 line.p2,
                 CIRCLE_RADIUS_BASE,
@@ -207,8 +202,6 @@ impl HitObject for StandardSlider {
         //     if dot.done {continue}
         //     renderables.extend(dot.draw());
         // }
-        
-        renderables
     }
 
     fn reset(&mut self) {
@@ -312,9 +305,7 @@ impl HitObject for StandardSpinner {
         // self.pos = HIT_POSITION + Vector2::new((self.time as f64 - beatmap_time as f64) * self.speed, 0.0);
         // if beatmap_time > self.end_time as i64 {self.complete = true}
     }
-    fn draw(&mut self, _args:RenderArgs) -> Vec<Box<dyn Renderable>> {
-        let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-
+    fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         // if its time to start hitting the spinner
         // bg circle
         let mut bg = Circle::new(
@@ -324,7 +315,7 @@ impl HitObject for StandardSpinner {
             SPINNER_RADIUS
         );
         bg.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
-        renderables.push(Box::new(bg));
+        list.push(Box::new(bg));
 
         // draw another circle on top which increases in radius as the counter gets closer to the reqired
         let mut fg = Circle::new(
@@ -334,12 +325,10 @@ impl HitObject for StandardSpinner {
             SPINNER_RADIUS * (self.rotations_completed as f64 / self.rotations_required as f64)
         );
         fg.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
-        renderables.push(Box::new(fg));
+        list.push(Box::new(fg));
             
 
         //TODO: draw a counter
-        
-        renderables
     }
 
     fn reset(&mut self) {

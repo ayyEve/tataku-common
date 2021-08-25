@@ -64,9 +64,8 @@ impl HitObject for CatchFruit {
     fn update(&mut self, beatmap_time: f32) {
         self.pos.y = self.y_at(beatmap_time);
     }
-    fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
-        let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        if self.pos.y + self.radius < 0.0 || self.pos.y - self.radius > args.window_size[1] as f64 || self.hit {return renderables}
+    fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
+        if self.pos.y + self.radius < 0.0 || self.pos.y - self.radius > args.window_size[1] as f64 || self.hit {return}
 
         let mut note = Circle::new(
             Color::BLUE,
@@ -75,9 +74,7 @@ impl HitObject for CatchFruit {
             self.radius
         );
         note.border = Some(Border::new(if self.dash {Color::RED} else {Color::BLACK}, NOTE_BORDER_SIZE));
-        renderables.push(Box::new(note));
-
-        renderables
+        list.push(Box::new(note));
     }
 
     fn reset(&mut self) {
@@ -133,9 +130,8 @@ impl HitObject for CatchDroplet {
     fn update(&mut self, beatmap_time: f32) {
         self.pos.y = self.y_at(beatmap_time);
     }
-    fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
-        let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        if self.pos.y + self.radius < 0.0 || self.pos.y - self.radius > args.window_size[1] || self.hit {return renderables}
+    fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>){
+        if self.pos.y + self.radius < 0.0 || self.pos.y - self.radius > args.window_size[1] || self.hit {return}
 
         let mut note = Circle::new(
             Color::BLUE,
@@ -144,9 +140,7 @@ impl HitObject for CatchDroplet {
             self.radius
         );
         note.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
-        renderables.push(Box::new(note));
-
-        renderables
+        list.push(Box::new(note));
     }
 
     fn reset(&mut self) {
@@ -193,9 +187,9 @@ impl HitObject for CatchBanana {
     fn update(&mut self, beatmap_time: f32) {
         self.pos.y = self.y_at(beatmap_time);
     }
-    fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
+    fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        if self.pos.y + self.radius < 0.0 || self.pos.y - self.radius > args.window_size[1] as f64 || self.hit {return renderables}
+        if self.pos.y + self.radius < 0.0 || self.pos.y - self.radius > args.window_size[1] as f64 || self.hit {return}
 
         let mut note = Circle::new(
             Color::YELLOW,
@@ -204,9 +198,7 @@ impl HitObject for CatchBanana {
             self.radius
         );
         note.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
-        renderables.push(Box::new(note));
-
-        renderables
+        list.push(Box::new(note));
     }
 
     fn reset(&mut self) {

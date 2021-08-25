@@ -58,13 +58,10 @@ impl HitObject for ManiaNote {
         
         self.pos.y = self.y_at(beatmap_time); //HIT_Y - (self.time as f64 - beatmap_time as f64) * self.speed;
     }
-    fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
-        let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        if self.pos.y + NOTE_SIZE.y < 0.0 || self.pos.y > args.window_size[1] as f64 {return renderables}
+    fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
+        if self.pos.y + NOTE_SIZE.y < 0.0 || self.pos.y > args.window_size[1] as f64 {return}
 
-        if self.hit {
-            return renderables;
-        }
+        if self.hit {return}
 
         let note = Rectangle::new(
             self.get_color(),
@@ -73,9 +70,7 @@ impl HitObject for ManiaNote {
             NOTE_SIZE,
             Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
         );
-        renderables.push(Box::new(note));
-
-        renderables
+        list.push(Box::new(note));
     }
 
     fn reset(&mut self) {
@@ -145,13 +140,12 @@ impl HitObject for ManiaHold {
         self.end_y = HIT_Y - ((self.end_time - beatmap_time) * self.speed) as f64;
         self.pos.y = HIT_Y - ((self.time - beatmap_time) * self.speed) as f64;
     }
-    fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
-        let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        if self.pos.y < 0.0 || self.end_y > args.window_size[1] as f64 {return renderables}
+    fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
+        if self.pos.y < 0.0 || self.end_y > args.window_size[1] as f64 {return}
 
         // start
         if self.pos.y < HIT_Y {
-            renderables.push(Box::new(Rectangle::new(
+            list.push(Box::new(Rectangle::new(
                 Color::YELLOW,
                 -100.1,
                 self.pos,
@@ -162,7 +156,7 @@ impl HitObject for ManiaHold {
 
         // end
         if self.end_y < HIT_Y {
-            renderables.push(Box::new(Rectangle::new(
+            list.push(Box::new(Rectangle::new(
                 Color::YELLOW,
                 -100.1,
                 Vector2::new(self.pos.x, self.end_y),
@@ -177,7 +171,7 @@ impl HitObject for ManiaHold {
         //     let end = self.hold_ends[i];
         //     let y = HIT_Y - (end - start) * self.speed;
 
-        //     renderables.push(Box::new(Rectangle::new(
+        //     list.push(Box::new(Rectangle::new(
         //         Color::YELLOW,
         //         -100.0,
         //         Vector2::new(self.pos.x, y),
@@ -189,7 +183,7 @@ impl HitObject for ManiaHold {
         // middle
         if self.end_y < HIT_Y {
             let y = if self.holding {HIT_Y} else {self.pos.y};
-            renderables.push(Box::new(Rectangle::new(
+            list.push(Box::new(Rectangle::new(
                 Color::YELLOW,
                 -100.0,
                 Vector2::new(self.pos.x, y),
@@ -197,8 +191,6 @@ impl HitObject for ManiaHold {
                 Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
             )));
         }
-        
-        renderables
     }
 
     fn reset(&mut self) {

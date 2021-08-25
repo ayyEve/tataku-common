@@ -179,7 +179,7 @@ impl GameMode for StandardGame {
         )));
 
         // draw notes
-        for note in self.notes.iter_mut() {list.extend(note.draw(args))}
+        for note in self.notes.iter_mut() {note.draw(args, list)}
     }
 
 
