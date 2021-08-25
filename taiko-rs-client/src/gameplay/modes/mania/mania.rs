@@ -6,9 +6,8 @@ use taiko_rs_common::types::{KeyPress, ReplayFrame, PlayMode};
 
 use crate::{WINDOW_SIZE, Vector2};
 use crate::game::{Audio, Settings};
-use crate::gameplay::{HoldDef, NoteType};
 use super::{ManiaHold, ManiaNote, ManiaHitObject};
-use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint, map_difficulty_range};
+use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint, map_difficulty, defs::*};
 
 
 pub const COLUMN_WIDTH: f64 = 100.0;
@@ -328,9 +327,9 @@ impl GameMode for ManiaGame {
 
         let od = beatmap.metadata.od;
         // setup hitwindows
-        self.hitwindow_miss = map_difficulty_range(od, 135.0, 95.0, 70.0);
-        self.hitwindow_100 = map_difficulty_range(od, 120.0, 80.0, 50.0);
-        self.hitwindow_300 = map_difficulty_range(od, 50.0, 35.0, 20.0);
+        self.hitwindow_miss = map_difficulty(od, 135.0, 95.0, 70.0);
+        self.hitwindow_100 = map_difficulty(od, 120.0, 80.0, 50.0);
+        self.hitwindow_300 = map_difficulty(od, 50.0, 35.0, 20.0);
 
         // setup timing bars
         //TODO: it would be cool if we didnt actually need timing bar objects, and could just draw them

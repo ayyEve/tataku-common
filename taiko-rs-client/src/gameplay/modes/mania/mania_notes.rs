@@ -1,7 +1,7 @@
 use piston::RenderArgs;
 
 use crate::Vector2;
-use crate::gameplay::{HitObject, NoteType};
+use crate::gameplay::{HitObject, defs::NoteType};
 use crate::render::{Color, Rectangle, Renderable, Border};
 
 use super::{NOTE_BORDER_SIZE, NOTE_SIZE, COLUMN_WIDTH, HIT_Y};

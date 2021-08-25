@@ -1,18 +1,11 @@
-use core::f32;
-
 use ayyeve_piston_ui::render::*;
 use piston::RenderArgs;
-use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
-
-use crate::gameplay::NoteType;
-use crate::gameplay::map_difficulty_range;
-use crate::gameplay::modes::FIELD_SIZE;
-use crate::helpers::slider::get_curve;
-use crate::{WINDOW_SIZE, Vector2, game::Settings};
-use crate::gameplay::{GameMode, Beatmap, IngameManager};
 
 use super::*;
-
+use crate::helpers::slider::get_curve;
+use crate::{WINDOW_SIZE, Vector2, game::Settings};
+use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
+use crate::gameplay::{GameMode, Beatmap, IngameManager, map_difficulty, modes::FIELD_SIZE, defs::NoteType};
 
 pub struct StandardGame {
     // lists
@@ -211,9 +204,9 @@ impl GameMode for StandardGame {
 
         let od = beatmap.metadata.od;
         // setup hitwindows
-        self.hitwindow_miss = map_difficulty_range(od, 135.0, 95.0, 70.0);
-        self.hitwindow_100 = map_difficulty_range(od, 120.0, 80.0, 50.0);
-        self.hitwindow_300 = map_difficulty_range(od, 50.0, 35.0, 20.0);
+        self.hitwindow_miss = map_difficulty(od, 135.0, 95.0, 70.0);
+        self.hitwindow_100 = map_difficulty(od, 120.0, 80.0, 50.0);
+        self.hitwindow_300 = map_difficulty(od, 50.0, 35.0, 20.0);
 
     }
 

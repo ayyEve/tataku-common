@@ -1,6 +1,6 @@
 use piston::RenderArgs;
-
 use crate::render::Renderable;
+use super::hitobject_defs::NoteType;
 
 // hitobject trait, implemented by anything that should be hit
 pub trait HitObject: Send {
@@ -16,14 +16,4 @@ pub trait HitObject: Send {
 
     /// set this object back to defaults
     fn reset(&mut self);
-}
-
-/// only used for diff calc
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum NoteType {
-    Note,
-    Slider,
-    Spinner,
-    /// mania only
-    Hold
 }

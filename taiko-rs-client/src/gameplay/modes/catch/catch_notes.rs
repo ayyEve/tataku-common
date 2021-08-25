@@ -1,11 +1,10 @@
 use piston::RenderArgs;
 
-use taiko_rs_common::types::ScoreHit;
-use crate::Vector2;
-use crate::gameplay::HitObject;
-use crate::gameplay::NoteType;
-use crate::render::{Circle, Color, Renderable, Border};
 use super::HIT_Y;
+use crate::Vector2;
+use taiko_rs_common::types::ScoreHit;
+use crate::gameplay::{HitObject, defs::NoteType};
+use crate::render::{Circle, Color, Renderable, Border};
 
 const NOTE_BORDER_SIZE:f64 = 2.0;
 

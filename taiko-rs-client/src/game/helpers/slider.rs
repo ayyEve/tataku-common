@@ -1,6 +1,6 @@
-use ayyeve_piston_ui::render::Vector2;
-use crate::gameplay::{Beatmap, CurveType, SliderDef};
 use super::math::*;
+use ayyeve_piston_ui::render::Vector2;
+use crate::gameplay::{Beatmap, defs::{CurveType, SliderDef}};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Line {

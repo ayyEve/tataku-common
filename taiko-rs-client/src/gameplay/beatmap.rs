@@ -2,7 +2,7 @@ use std::{path::Path, sync::Arc};
 
 use parking_lot::Mutex;
 use taiko_rs_common::types::PlayMode;
-use crate::{Vector2, render::Color, gameplay::beatmap_structs::*};
+use crate::{Vector2, render::Color, gameplay::{beatmap_structs::*, defs::*}};
 
 /// timing bar color
 pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0);
@@ -13,7 +13,6 @@ pub struct Beatmap {
     
     // meta info
     pub metadata: BeatmapMeta,
-
     pub timing_points: Vec<TimingPoint>,
 
     pub notes: Vec<NoteDef>,
@@ -281,62 +280,6 @@ impl Beatmap {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct NoteDef {
-    pub pos: Vector2,
-    pub time: f32,
-    pub hitsound: u32,
-    pub hitsamples: Vec<u8>
-}
-
-#[derive(Clone, Debug)]
-pub struct SliderDef {
-    // x,y,time,type,hitSound,curveType|curvePoints,slides,length,edgeSounds,edgeSets,hitSample
-    pub pos: Vector2,
-    pub time: f32,
-    pub hitsound: u32,
-    pub curve_type: CurveType,
-    pub curve_points: Vec<Vector2>,
-    pub slides: u64,
-    pub length: f32,
-    pub edge_sounds: Vec<u8>,
-    pub edge_sets: Vec<u8>,
-    
-    pub hitsamples: Vec<u8>,
-
-    pub raw_str: String
-}
-
-#[derive(Clone, Debug)]
-pub struct SpinnerDef {
-    pub pos: Vector2,
-    pub time: f32,
-    pub hitsound: u32,
-    pub end_time: f32,
-    
-    pub hitsamples: Vec<u8>
-}
-
-#[derive(Clone, Debug)]
-pub struct HoldDef {
-    pub pos: Vector2,
-    pub time: f32,
-    pub hitsound: u32,
-    pub end_time: f32,
-    
-    pub hitsamples: Vec<u8>
-}
-
-
-
-#[derive(Clone, Copy, Debug)]
-pub enum CurveType {
-    Bézier,
-    Catmull,
-    Linear,
-    Perfect
-}
-
 // contains beatmap info unrelated to notes and timing points, etc
 #[derive(Clone, Debug)]
 pub struct BeatmapMeta {
@@ -423,7 +366,7 @@ enum BeatmapSection {
 
 
 // stolen from peppy, /shrug
-pub fn map_difficulty_range(diff:f32, min:f32, mid:f32, max:f32) -> f32 {
+pub fn map_difficulty(diff:f32, min:f32, mid:f32, max:f32) -> f32 {
     if diff > 5.0 {
         mid + (max - mid) * (diff - 5.0) / 5.0
     } else if diff < 5.0 {

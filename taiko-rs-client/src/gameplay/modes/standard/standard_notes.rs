@@ -1,17 +1,11 @@
-use core::f32;
-
 use ayyeve_piston_ui::render::Line;
 use piston::RenderArgs;
 
-use taiko_rs_common::types::ScoreHit;
 use crate::{WINDOW_SIZE, Vector2};
-use crate::gameplay::{HitObject, map_difficulty_range};
-use crate::gameplay::NoteDef;
-use crate::gameplay::NoteType;
-use crate::gameplay::SliderDef;
-use crate::gameplay::modes::FIELD_SIZE;
 use crate::helpers::slider::Curve;
+use taiko_rs_common::types::ScoreHit;
 use crate::render::{Circle, Color, Renderable, Border};
+use crate::gameplay::{HitObject, map_difficulty, modes::FIELD_SIZE, defs::*};
 
 const SPINNER_RADIUS:f64 = 200.0;
 const SPINNER_POSITION:Vector2 = Vector2::new(WINDOW_SIZE.x / 2.0, WINDOW_SIZE.y / 2.0);
@@ -64,7 +58,7 @@ pub struct StandardNote {
 impl StandardNote {
     pub fn new(def:NoteDef, ar:f32, cs:f32, color:Color, combo_num:u16) -> Self {
         let cs_scale = (1.0 - 0.7 * (cs - 5.0) / 5.0) / 2.0;
-        let time_preempt = map_difficulty_range(ar, 1800.0, 1200.0, PREEMPT_MIN);
+        let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
 
         Self {
             pos: POS_OFFSET + def.pos,
@@ -197,7 +191,7 @@ pub struct StandardSlider {
 impl StandardSlider {
     pub fn new(def:SliderDef, curve:Curve, ar:f32, cs:f32, color:Color, combo_num: u16) -> Self {
         let cs_scale = (1.0 - 0.7 * (cs - 5.0) / 5.0) / 2.0;
-        let time_preempt = map_difficulty_range(ar, 1800.0, 1200.0, PREEMPT_MIN);
+        let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
         let end_pos = POS_OFFSET + curve.position_at_length(curve.length());
 
         Self {

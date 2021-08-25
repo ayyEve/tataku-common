@@ -7,13 +7,9 @@ use taiko_rs_common::types::ReplayFrame;
 use taiko_rs_common::types::ScoreHit;
 use taiko_rs_common::types::PlayMode;
 
-use crate::game::Audio;
-use crate::game::Settings;
-use crate::gameplay::SliderDef;
-use crate::gameplay::SpinnerDef;
-use crate::gameplay::map_difficulty_range;
 use crate::{WINDOW_SIZE, Vector2};
-use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint};
+use crate::game::{Audio, Settings};
+use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint, map_difficulty, defs::*};
 
 use super::*;
 
@@ -149,7 +145,7 @@ impl GameMode for TaikoGame {
             let SpinnerDef {time, end_time, ..} = spinner;
 
             let length = end_time - time;
-            let diff_map = map_difficulty_range(beatmap.metadata.od, 3.0, 5.0, 7.5);
+            let diff_map = map_difficulty(beatmap.metadata.od, 3.0, 5.0, 7.5);
             let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
 
             s.notes.push(Box::new(TaikoSpinner::new(*time, *end_time, 1.0, hits_required)));
@@ -408,9 +404,9 @@ impl GameMode for TaikoGame {
 
         let od = beatmap.metadata.od;
         // setup hitwindows
-        self.hitwindow_miss = map_difficulty_range(od, 135.0, 95.0, 70.0);
-        self.hitwindow_100 = map_difficulty_range(od, 120.0, 80.0, 50.0);
-        self.hitwindow_300 = map_difficulty_range(od, 50.0, 35.0, 20.0);
+        self.hitwindow_miss = map_difficulty(od, 135.0, 95.0, 70.0);
+        self.hitwindow_100 = map_difficulty(od, 120.0, 80.0, 50.0);
+        self.hitwindow_300 = map_difficulty(od, 50.0, 35.0, 20.0);
 
         // setup timing bars
         //TODO: it would be cool if we didnt actually need timing bar objects, and could just draw them

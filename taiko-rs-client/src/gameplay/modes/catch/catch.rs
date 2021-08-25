@@ -3,11 +3,10 @@ use piston::RenderArgs;
 
 use super::*;
 use crate::game::Audio;
-use crate::gameplay::modes::FIELD_SIZE;
 use crate::{WINDOW_SIZE, Vector2};
 use crate::helpers::slider::get_curve;
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
-use crate::gameplay::{Beatmap, GameMode, IngameManager, SliderDef, SpinnerDef, map_difficulty_range};
+use crate::gameplay::{Beatmap, GameMode, IngameManager, map_difficulty, defs::*, modes::FIELD_SIZE};
 
 // const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
 
@@ -358,7 +357,7 @@ impl GameMode for CatchGame {
         self.timing_point_index = 0;
 
         let od = beatmap.metadata.od;
-        self.hitwindow = map_difficulty_range(od, 50.0, 35.0, 20.0);
+        self.hitwindow = map_difficulty(od, 50.0, 35.0, 20.0);
     }
 
     fn skip_intro(&mut self, manager: &mut IngameManager) {

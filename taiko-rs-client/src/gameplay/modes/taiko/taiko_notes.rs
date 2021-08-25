@@ -2,13 +2,10 @@ use core::f32;
 
 use piston::RenderArgs;
 
-use taiko_rs_common::types::KeyPress;
-use taiko_rs_common::types::ScoreHit;
 use crate::Vector2;
-use crate::gameplay::BAR_COLOR;
-use crate::gameplay::HitObject;
-use crate::gameplay::NoteType;
 use super::{HIT_POSITION, NOTE_RADIUS};
+use taiko_rs_common::types::{KeyPress, ScoreHit};
+use crate::gameplay::{BAR_COLOR, HitObject, defs::NoteType};
 use crate::render::{Circle, Color, HalfCircle, Rectangle, Renderable, Border};
 
 const SLIDER_DOT_RADIUS:f64 = 8.0;
