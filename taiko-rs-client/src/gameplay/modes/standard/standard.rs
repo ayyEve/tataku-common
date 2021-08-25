@@ -9,9 +9,11 @@ use taiko_rs_common::types::PlayMode;
 
 use crate::game::Audio;
 use crate::game::Settings;
+use crate::gameplay::NoteType;
 use crate::gameplay::SliderDef;
 use crate::gameplay::SpinnerDef;
 use crate::gameplay::map_difficulty_range;
+use crate::gameplay::modes::FIELD_SIZE;
 use crate::helpers::slider::get_curve;
 use crate::{WINDOW_SIZE, Vector2};
 use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint};
@@ -47,7 +49,6 @@ pub struct StandardGame {
     hitwindow_miss: f32,
 
     end_time: f32,
-
     render_queue: Vec<Box<HalfCircle>>,
 }
 impl StandardGame {
@@ -109,11 +110,42 @@ impl GameMode for StandardGame {
         if !manager.replaying {
             manager.replay.frames.push((time, frame.clone()));
         }
-        // let key = match frame {
-        //     ReplayFrame::Press(k) => k,
-        //     ReplayFrame::Release(k) => k
-        // };
+        if self.notes.len() < self.note_index {return}
 
+        match frame {
+            ReplayFrame::Press(k) => {
+
+                match k {
+                    KeyPress::Left | KeyPress::Right => {
+                        if self.notes[self.note_index].note_type() == NoteType::Note {
+                            let pts = self.notes[self.note_index].get_points(time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300));
+                            let note_time = self.notes[self.note_index].time();
+                            match pts {
+                                ScoreHit::Miss => {
+                                    println!("note miss (hit)");
+                                    manager.score.hit_miss(time, note_time);
+                                },
+                                ScoreHit::X100 => manager.score.hit100(time, note_time),
+                                ScoreHit::X300 => manager.score.hit300(time, note_time),
+                                ScoreHit::Other(_, _) => {}
+                                ScoreHit::None => {},
+                            }
+                            self.next_note();
+                        } else {
+                            self.notes[self.note_index].press(time);
+                        }
+                    }
+                    _ => {}
+                }
+
+            }
+            ReplayFrame::Release(k) => {
+                self.notes[self.note_index].release(time);
+            }
+            ReplayFrame::MousePos(x, y) => {
+                self.notes[self.note_index].mouse_move(Vector2::new(x as f64, y as f64));
+            }
+        }
     }
 
 
@@ -134,17 +166,22 @@ impl GameMode for StandardGame {
         // we need to check all notes up until a certain criteria 
         // TODO! figure out this criteria
 
-        // // check if we missed the current note
-        // if (self.notes[self.note_index].end_time(self.hitwindow_miss) as i64) < time {
-        //     if self.notes[self.note_index].causes_miss() {
-        //         // need to set these manually instead of score.hit_miss,
-        //         // since we dont want to add anything to the hit error list
-        //         let s = &mut manager.score;
-        //         s.xmiss += 1;
-        //         s.combo = 0;
-        //     }
-        //     self.next_note();
-        // }
+        // check if we missed the current note
+        if self.notes[self.note_index].end_time(self.hitwindow_miss) < time {
+
+            if self.notes[self.note_index].note_type() == NoteType::Note {
+                // need to set these manually instead of score.hit_miss,
+                // since we dont want to add anything to the hit error list
+                let s = &mut manager.score;
+                s.xmiss += 1;
+                s.combo = 0;
+                println!("note miss (time)");
+            } else {
+                // check slider points
+
+            }
+            self.next_note();
+        }
         
         let timing_points = &manager.beatmap.timing_points;
         // check timing point
@@ -153,56 +190,53 @@ impl GameMode for StandardGame {
         }
     }
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
-        for i in self.render_queue.iter() {
-            list.push(i.clone());
-        }
-        self.render_queue.clear();
 
         // draw the playfield
         let playfield = Rectangle::new(
             [0.2, 0.2, 0.2, 1.0].into(),
             f64::MAX-4.0,
-            Vector2::new(0.0, HIT_POSITION.y - (PLAYFIELD_RADIUS + 2.0)),
-            Vector2::new(args.window_size[0], (PLAYFIELD_RADIUS+2.0) * 2.0),
+            POS_OFFSET,
+            FIELD_SIZE,
+            // Vector2::new(0.0, HIT_POSITION.y - (PLAYFIELD_RADIUS + 2.0)),
+            // Vector2::new(args.window_size[0], (PLAYFIELD_RADIUS+2.0) * 2.0),
             if manager.beatmap.timing_points[self.timing_point_index].kiai {
                 Some(Border::new(Color::YELLOW, 2.0))
             } else {None}
         );
         list.push(Box::new(playfield));
 
-        // draw the hit area
-        list.push(Box::new(Circle::new(
-            Color::BLACK,
-            f64::MAX,
-            HIT_POSITION,
-            HIT_AREA_RADIUS + 2.0
-        )));
 
         // draw notes
+        self.notes.reverse();
         for note in self.notes.iter_mut() {note.draw(args, list)}
+        self.notes.reverse();
     }
 
 
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
         let settings = Settings::get().taiko_settings;
-
         if key == settings.left_kat {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftKat), manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), manager);
         }
         if key == settings.left_don {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftDon), manager);
-        }
-        if key == settings.right_don {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::RightDon), manager);
-        }
-        if key == settings.right_kat {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::RightKat), manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::Right), manager);
         }
     }
-    fn key_up(&mut self, _key:piston::Key, _manager:&mut IngameManager) {}
+    fn key_up(&mut self, key:piston::Key, manager:&mut IngameManager) {
+        let settings = Settings::get().taiko_settings;
+        if key == settings.left_kat {
+            self.handle_replay_frame(ReplayFrame::Release(KeyPress::Left), manager);
+        }
+        if key == settings.left_don {
+            self.handle_replay_frame(ReplayFrame::Release(KeyPress::Right), manager);
+        }
+    }
+    fn mouse_move(&mut self, pos:Vector2, manager:&mut IngameManager) {
+        self.handle_replay_frame(ReplayFrame::MousePos(pos.x as f32, pos.y as f32), manager);
+    }
 
     fn reset(&mut self, beatmap:Beatmap) {
-        let settings = Settings::get().taiko_settings;
+        // let settings = Settings::get().taiko_settings;
         
         for note in self.notes.as_mut_slice() {
             note.reset();

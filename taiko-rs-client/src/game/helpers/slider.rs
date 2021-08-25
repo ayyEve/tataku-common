@@ -75,7 +75,7 @@ impl Curve {
         // if (this.sliderCurveSmoothLines == null) this.UpdateCalculations();
         if time < self.slider.time || time > self.end_time {return self.slider.pos}
 
-        let mut pos = (time - self.slider.time) / (self.length() / (self.slider.slides + 1) as f32);
+        let mut pos = (time - self.slider.time) / (self.length() / self.slider.slides  as f32);
         if pos % 2.0 > 1.0 {
             pos = 1.0 - (pos % 1.0);
         } else {
@@ -326,7 +326,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
     // self.
     // let position2 = curve.path[path_count - 1].p2;
 
-    for i in 0..curve.slider.slides as usize + 1 {
+    for i in 0..curve.slider.slides as usize {
         let mut distance_to_end = total;
         let mut skip_tick = false;
         // let reverse_start_time = current_time as i32;

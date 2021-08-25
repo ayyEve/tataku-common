@@ -277,6 +277,8 @@ impl GameMode for ManiaGame {
                 
                 // self.columns[col][self.column_indices[col]].release(time);
             }
+        
+            _ => {}
         }
     }
 

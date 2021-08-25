@@ -168,7 +168,8 @@ impl GameMode for TaikoGame {
         }
         let key = match frame {
             ReplayFrame::Press(k) => k,
-            ReplayFrame::Release(k) => k
+            ReplayFrame::Release(k) => k,
+            _ => return,
         };
 
         // draw drum

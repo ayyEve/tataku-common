@@ -132,7 +132,8 @@ impl Serializable for KeyPress {
 #[derive(Clone, Copy, Debug)]
 pub enum ReplayFrame {
     Press(KeyPress),
-    Release(KeyPress)
+    Release(KeyPress),
+    MousePos(f32, f32)
 }
 impl Serializable for ReplayFrame {
     fn read(sr:&mut SerializationReader) -> Self {
@@ -140,6 +141,7 @@ impl Serializable for ReplayFrame {
         match sr.read_u8() {
             0 => Press(sr.read()),
             1 => Release(sr.read()),
+            2 => MousePos(sr.read(), sr.read()),
             _ => panic!("error reading replay frame type")
         }
     }
@@ -154,6 +156,11 @@ impl Serializable for ReplayFrame {
             Release(k) => {
                 sw.write_u8(1);
                 sw.write(*k);
+            }
+            MousePos(x,y) => {
+                sw.write_u8(2);
+                sw.write(*x);
+                sw.write(*y);
             }
         }
     }

@@ -314,6 +314,8 @@ impl GameMode for CatchGame {
                     _ => {}
                 }
             }
+            
+            _ => {}
         };
     }
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {

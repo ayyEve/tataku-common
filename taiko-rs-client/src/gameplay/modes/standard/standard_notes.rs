@@ -19,16 +19,21 @@ const SPINNER_POSITION:Vector2 = Vector2::new(WINDOW_SIZE.x / 2.0, WINDOW_SIZE.y
 const SLIDER_DOT_RADIUS:f64 = 8.0;
 const NOTE_BORDER_SIZE:f64 = 2.0;
 
-const CIRCLE_RADIUS_BASE: f64 = 30.0;
+const CIRCLE_RADIUS_BASE: f64 = 40.0;
+const CIRCLE_TIMING_TIME: f32 = 1000.0;
 
 
-const POS_OFFSET:Vector2 = Vector2::new((WINDOW_SIZE.x - FIELD_SIZE.x) / 2.0, (WINDOW_SIZE.y - FIELD_SIZE.y) / 2.0);
+pub const POS_OFFSET:Vector2 = Vector2::new((WINDOW_SIZE.x - FIELD_SIZE.x) / 2.0, (WINDOW_SIZE.y - FIELD_SIZE.y) / 2.0);
 
 
 pub trait StandardHitObject: HitObject {
     /// does this object count as a miss if it is not hit?
     fn causes_miss(&self) -> bool; //TODO: might change this to return an enum of "no", "yes". "yes_combo_only"
     fn get_points(&mut self, time:f32, hit_windows:(f32,f32,f32)) -> ScoreHit;
+
+    fn press(&mut self, time:f32);
+    fn release(&mut self, time:f32) {}
+    fn mouse_move(&mut self, pos:Vector2);
 }
 
 
@@ -42,12 +47,16 @@ pub struct StandardNote {
     missed: bool,
 
     color: Color, 
-    combo_num: u16
+    combo_num: u16,
+
+    map_time: f32,
+    mouse_pos: Vector2,
+    radius: f64
 }
 impl StandardNote {
     pub fn new(def:NoteDef, ar:f32, cs:f32, color:Color, combo_num:u16) -> Self {
         Self {
-            pos: def.pos,
+            pos: POS_OFFSET + def.pos,
             time: def.time, 
             color,
             combo_num,
@@ -55,6 +64,11 @@ impl StandardNote {
             hit: false,
             hit_time: 0.0,
             missed: false,
+
+            map_time: 0.0,
+            mouse_pos: Vector2::zero(),
+
+            radius: CIRCLE_RADIUS_BASE
         }
     }
 }
@@ -62,20 +76,27 @@ impl HitObject for StandardNote {
     fn note_type(&self) -> NoteType {NoteType::Note}
     fn time(&self) -> f32 {self.time}
     fn end_time(&self, hw_miss:f32) -> f32 {self.time + hw_miss}
-    fn update(&mut self, beatmap_time: f32) {}
-    fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
+    fn update(&mut self, beatmap_time: f32) {
+        self.map_time = beatmap_time;
+    }
+    fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
+        if self.time - self.map_time > CIRCLE_TIMING_TIME || self.time - self.map_time < 0.0 {return}
+
+        // timing circle
+        list.push(Box::new(timing_circle(self.pos, self.radius, self.time - self.map_time)));
+
+        // note
         let mut note = Circle::new(
             self.color,
             -100.0,
             self.pos,
-            CIRCLE_RADIUS_BASE
+            self.radius
         );
         note.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
         list.push(Box::new(note));
     }
 
     fn reset(&mut self) {
-        self.pos = Vector2::zero();
         self.hit = false;
         self.missed = false;
         self.hit_time = 0.0;
@@ -87,12 +108,18 @@ impl StandardHitObject for StandardNote {
     fn get_points(&mut self, time:f32, hit_windows:(f32,f32,f32)) -> ScoreHit {
         let (hitwindow_miss, hitwindow_100, hitwindow_300) = hit_windows;
         let diff = (time - self.time).abs();
+        
+        // make sure the cursor is in the radius
+        let distance = ((self.pos.x - self.mouse_pos.x).powi(2) + (self.pos.y - self.mouse_pos.y).powi(2)).sqrt();
+        println!("distance: {}, r: {}", distance, self.radius);
+        if distance > self.radius {
+            return ScoreHit::Miss
+        }
 
         if diff < hitwindow_300 {
             self.hit_time = time.max(0.0);
             self.hit = true;
             ScoreHit::X300
-        
         } else if diff < hitwindow_100 {
             self.hit_time = time.max(0.0);
             self.hit = true;
@@ -105,22 +132,48 @@ impl StandardHitObject for StandardNote {
             ScoreHit::None
         }
     }
+
+    fn press(&mut self, time:f32) {
+        self.hit_time = time;
+    }
+    
+    fn mouse_move(&mut self, pos:Vector2) {
+        self.mouse_pos = pos;
+    }
 }
+
 
 
 // slider
 #[derive(Clone)]
 pub struct StandardSlider {
+    /// start pos
     pos: Vector2,
+
+    /// hit dots. if the slider isnt being held for these
     hit_dots: Vec<SliderDot>,
 
-    time: f32, // ms
-    // end_time: u64, // ms
+    /// start time
+    time: f32,
 
+    /// curve that defines the slider
     curve: Curve,
 
+    /// combo color
     color: Color,
-    combo_num: u16
+    /// combo number
+    combo_num: u16,
+    /// note size
+    radius: f64,
+
+    /// hold start
+    hold_time: f32, 
+    /// hold end
+    release_time: f32,
+    /// stored mouse pos
+    mouse_pos: Vector2,
+
+    map_time: f32,
 }
 impl StandardSlider {
     pub fn new(def:SliderDef, curve:Curve, color:Color, combo_num: u16) -> Self {
@@ -128,74 +181,81 @@ impl StandardSlider {
             curve,
             color,
             combo_num,
+            radius: CIRCLE_RADIUS_BASE,
 
             time: def.time, 
-            pos: def.pos,
-            hit_dots: Vec::new()
+            pos: POS_OFFSET + def.pos,
+            hit_dots: Vec::new(),
+            map_time: 0.0,
+
+            hold_time: 0.0,
+            release_time: 0.0,
+            mouse_pos: Vector2::zero()
         }
     }
 }
 impl HitObject for StandardSlider {
     fn note_type(&self) -> NoteType {NoteType::Slider}
     fn time(&self) -> f32 {self.time}
-    fn end_time(&self,_:f32) -> f32 {self.time} //TODO
+    fn end_time(&self,_:f32) -> f32 {self.curve.end_time} //TODO
     fn update(&mut self, beatmap_time: f32) {
-        // self.pos.x = HIT_POSITION.x + (self.time as f64 - beatmap_time as f64) * self.speed;
-        // self.end_x = HIT_POSITION.x + (self.end_time(0.0) as f64 - beatmap_time as f64) * self.speed;
-
-        // // draw hit dots
-        // for dot in self.hit_dots.as_mut_slice() {
-        //     if dot.done {continue;}
-        //     dot.update(beatmap_time as f64);
-        // }
+        self.map_time = beatmap_time;
     }
-    fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
-        // middle
+    fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
+        if self.time - self.map_time > CIRCLE_TIMING_TIME || self.curve.end_time < self.map_time {return}
 
+        if self.time - self.map_time > 0.0 {
+            // timing circle
+            list.push(Box::new(timing_circle(self.pos, self.radius, self.time - self.map_time)));
+        } else {
+            let pos = POS_OFFSET + self.curve.position_at_time(self.map_time);
+            let distance = ((pos.x - self.mouse_pos.x).powi(2) + (pos.y - self.mouse_pos.y).powi(2)).sqrt();
+            // slider ball
+            let mut c = Circle::new(
+                self.color,
+                -101.0,
+                pos,
+                self.radius
+            );
+            c.border = Some(Border::new(
+                if self.hold_time > self.release_time && distance <= self.radius {
+                    Color::RED
+                } else {
+                    println!("slider distance: {}", distance);
+                    Color::WHITE
+                },
+                2.0
+            ));
+            list.push(Box::new(c));
+        }
+
+        // curves
         for i in 0..self.curve.path.len() {
             let line = self.curve.path[i];
             list.push(Box::new(Line::new(
-                line.p1,
-                line.p2,
-                CIRCLE_RADIUS_BASE,
+                POS_OFFSET + line.p1,
+                POS_OFFSET + line.p2,
+                self.radius,
                 -100.0,
                 self.color
             )))
         }
+        // end
 
-        // renderables.push(Box::new(Rectangle::new(
-        //     Color::YELLOW,
-        //     self.time as f64 + 1.0,
-        //     self.pos,
-        //     Vector2::new(self.end_x - self.pos.x , self.radius * 2.0),
-        //     Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
-        // )));
-
-        // // start circle
-        // let mut start_c = Circle::new(
-        //     Color::YELLOW,
-        //     self.time as f64,
-        //     self.pos + Vector2::new(0.0, self.radius),
-        //     self.radius
-        // );
-        // start_c.border = Some(Border {
-        //     color: Color::BLACK.into(),
-        //     radius: NOTE_BORDER_SIZE
-        // });
-        // renderables.push(Box::new(start_c));
-        
-        // // end circle
-        // let mut end_c = Circle::new(
-        //     Color::YELLOW,
-        //     self.time as f64,
-        //     Vector2::new(self.end_x, self.pos.y + self.radius),
-        //     self.radius
-        // );
-        // end_c.border = Some(Border {
-        //     color: Color::BLACK.into(),
-        //     radius: NOTE_BORDER_SIZE
-        // });
-        // renderables.push(Box::new(end_c));
+        // start and end circles
+        for pos in [self.pos, POS_OFFSET + self.curve.position_at_time(self.curve.end_time-1.0)] {
+            let mut c = Circle::new(
+                Color::YELLOW,
+                -100.5,
+                pos,
+                self.radius
+            );
+            c.border = Some(Border {
+                color: Color::BLACK.into(),
+                radius: NOTE_BORDER_SIZE
+            });
+            list.push(Box::new(c));
+        }
 
         // draw hit dots
         // for dot in self.hit_dots.as_slice() {
@@ -206,19 +266,31 @@ impl HitObject for StandardSlider {
 
     fn reset(&mut self) {
         self.hit_dots.clear();
+        self.hold_time = 0.0;
+        self.release_time = 0.0;
     }
 }
 impl StandardHitObject for StandardSlider {
-
     fn causes_miss(&self) -> bool {false}
 
-    fn get_points(&mut self, time:f32, _:(f32,f32,f32)) -> ScoreHit {
+    fn get_points(&mut self, _time:f32, _:(f32,f32,f32)) -> ScoreHit {
 
         // self.hit_dots.push(SliderDot::new(time, self.speed));
         ScoreHit::Other(100, false)
     }
 
+
+    fn press(&mut self, time:f32) {
+        self.hold_time = time;
+    }
+    fn release(&mut self, time:f32) {
+        self.release_time = time;
+    }
+    fn mouse_move(&mut self, pos:Vector2) {
+        self.mouse_pos = pos;
+    }
 }
+
 /// helper struct for drawing hit slider points
 #[derive(Clone, Copy)]
 struct SliderDot {
@@ -268,11 +340,14 @@ impl SliderDot {
     }
 }
 
+
+
+
+
+
 // spinner
 #[derive(Clone, Copy)]
 pub struct StandardSpinner {
-    pos: Vector2, // the note in the bar, not the spinner itself
-
     time: f32, // ms
     end_time: f32, // ms
 
@@ -281,7 +356,10 @@ pub struct StandardSpinner {
     /// how many rotations is needed to pass this spinner
     rotations_required: u16,
     /// how many rotations have been completed?
-    rotations_completed: u16
+    rotations_completed: u16,
+
+    /// should we count mouse movements?
+    holding: bool
 }
 impl StandardSpinner {
     pub fn new(time:f32, end_time:f32) -> Self {
@@ -289,10 +367,10 @@ impl StandardSpinner {
             time, 
             end_time,
 
+            holding: false,
             rotation: 0.0,
             rotations_required: 0,
-            rotations_completed: 0,
-            pos: SPINNER_POSITION,
+            rotations_completed: 0
         }
     }
 }
@@ -339,7 +417,32 @@ impl HitObject for StandardSpinner {
 impl StandardHitObject for StandardSpinner {
     fn causes_miss(&self) -> bool {self.rotations_completed < self.rotations_required} // if the spinner wasnt completed in time, cause a miss
 
-    fn get_points(&mut self, time:f32, _:(f32,f32,f32)) -> ScoreHit {
+    fn get_points(&mut self, _time:f32, _:(f32,f32,f32)) -> ScoreHit {
         ScoreHit::Other(100, false)
     }
+
+    fn press(&mut self, time:f32) {
+        if time >= self.time && time <= self.end_time {
+            self.holding = true;
+        }
+    }
+    fn release(&mut self, _time:f32) {
+        self.holding = false;
+    }
+    fn mouse_move(&mut self, pos:Vector2) {
+        
+    }
+}
+
+
+
+fn timing_circle(pos:Vector2, radius:f64, time_diff: f32) -> Circle {
+    let mut c = Circle::new(
+        Color::TRANSPARENT_WHITE,
+        -110.0,
+        pos,
+        radius + (time_diff as f64 / CIRCLE_TIMING_TIME as f64) * 20.0
+    );
+    c.border = Some(Border::new(Color::WHITE, NOTE_BORDER_SIZE));
+    c
 }
