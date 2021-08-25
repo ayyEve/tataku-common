@@ -137,7 +137,8 @@ impl Menu<Game> for MainMenu {
     }
 
 
-    fn on_key_press(&mut self, key:piston::Key, game:&mut Game, _mods:KeyModifiers) {
+    fn on_key_press(&mut self, key:piston::Key, game:&mut Game, mods:KeyModifiers) {
+        if mods.alt {return}
         use piston::Key::*;
         match key {
             Left => {
