@@ -139,7 +139,11 @@ impl Audio {
                 match audio.upgrade().clone() {
                     Some(audio2) => { // exists and is playing
                         if string_path == c_path { // same file as what we want to play
-                            if restart {println!("[audio] // play_song - same song, restarting"); audio2.set_position(0.0)}
+                            if restart {
+                                println!("[audio] // play_song - same song, restarting"); 
+                                audio2.set_position(0.0);
+                            }
+                            println!("[audio] // same song, exiting");
                             return audio;
                         } else { // different audio
                             println!("[audio] // play_song - stopping old song");

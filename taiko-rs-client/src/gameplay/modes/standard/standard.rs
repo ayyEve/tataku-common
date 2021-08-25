@@ -12,6 +12,7 @@ use crate::game::Settings;
 use crate::gameplay::SliderDef;
 use crate::gameplay::SpinnerDef;
 use crate::gameplay::map_difficulty_range;
+use crate::helpers::slider::get_curve;
 use crate::{WINDOW_SIZE, Vector2};
 use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint};
 
@@ -71,86 +72,30 @@ impl GameMode for StandardGame {
             render_queue: Vec::new()
         };
 
-        // // add notes
-        // for note in beatmap.notes.iter() {
-        //     let hit_type = if (note.hitsound & (2 | 8)) > 0 {super::HitType::Kat} else {super::HitType::Don};
-        //     let finisher = (note.hitsound & 4) > 0;
+        // let ar = beatmap.metadata.
+        let ar = 7.0;
+        let cs = 5.0;
 
-        //     s.notes.push(Box::new(TaikoNote::new(
-        //         note.time as u64,
-        //         hit_type,
-        //         finisher,
-        //         1.0
-        //     )));
-        // }
-        // for slider in beatmap.sliders.iter() {
-        //     let SliderDef {time, slides, length, ..} = slider.to_owned();
-        //     let time = time as u64;
-        //     let finisher = (slider.hitsound & 4) > 0;
-
-        //     let l = (length * 1.4) * slides as f64;
-        //     let v2 = 100.0 * (beatmap.metadata.slider_multiplier as f64 * 1.4);
-        //     let bl = beatmap.beat_length_at(time as f64, true);
-        //     let end_time = time + (l / v2 * bl) as u64;
-            
-        //     // convert vars
-        //     let v = beatmap.slider_velocity_at(time as u64);
-        //     let bl = beatmap.beat_length_at(time as f64, beatmap.metadata.beatmap_version < 8.0);
-        //     let skip_period = (bl / beatmap.metadata.slider_tick_rate as f64).min((end_time - time) as f64 / slides as f64);
-
-        //     if skip_period > 0.0 && beatmap.metadata.mode != PlayMode::Taiko && l / v * 1000.0 < 2.0 * bl {
-        //         let mut i = 0;
-        //         let mut j = time as f64;
-
-        //         // load sounds
-        //         // let sound_list_raw = if let Some(list) = split.next() {list.split("|")} else {"".split("")};
-
-        //         // when loading, if unified just have it as sound_types with 1 index
-        //         let mut sound_types:Vec<(HitType, bool)> = Vec::new();
-
-        //         // for i in sound_list_raw {
-        //         //     if let Ok(hitsound) = i.parse::<u32>() {
-        //         //         let hit_type = if (hitsound & (2 | 8)) > 0 {super::HitType::Kat} else {super::HitType::Don};
-        //         //         let finisher = (hitsound & 4) > 0;
-        //         //         sound_types.push((hit_type, finisher));
-        //         //     }
-        //         // }
-                
-        //         let unified_sound_addition = sound_types.len() == 0;
-        //         if unified_sound_addition {
-        //             sound_types.push((HitType::Don, false));
-        //         }
-
-        //         //TODO: could this be turned into a for i in (x..y).step(n) ?
-        //         loop {
-        //             let sound_type = sound_types[i];
-
-        //             let note = TaikoNote::new(
-        //                 j as u64,
-        //                 sound_type.0,
-        //                 sound_type.1,
-        //                 1.0
-        //             );
-        //             s.notes.push(Box::new(note));
-
-        //             if !unified_sound_addition {i = (i + 1) % sound_types.len()}
-
-        //             j += skip_period;
-        //             if !(j < end_time as f64 + skip_period / 8.0) {break}
-        //         }
-        //     } else {
-        //         let slider = TaikoSlider::new(time, end_time, finisher, 1.0);
-        //         s.notes.push(Box::new(slider));
-        //     }
-        // }
+        // add notes
+        for note in beatmap.notes.iter() {
+            s.notes.push(Box::new(StandardNote::new(
+                note.clone(),
+                ar,
+                cs,
+                Color::BLUE,
+                1
+            )));
+        }
+        for slider in beatmap.sliders.iter() {
+            let curve = get_curve(slider, beatmap);
+            s.notes.push(Box::new(StandardSlider::new(
+                slider.clone(),
+                curve,
+                Color::BLUE,
+                1
+            )))
+        }
         // for spinner in beatmap.spinners.iter() {
-        //     let SpinnerDef {time, end_time, ..} = spinner;
-
-        //     let length = end_time - time;
-        //     let diff_map = map_difficulty_range(beatmap.metadata.od as f64, 3.0, 5.0, 7.5);
-        //     let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
-
-        //     s.notes.push(Box::new(TaikoSpinner::new(*time as u64, *end_time as u64, 1.0, hits_required)));
         // }
 
         s.notes.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
@@ -164,10 +109,10 @@ impl GameMode for StandardGame {
         if !manager.replaying {
             manager.replay.frames.push((time, frame.clone()));
         }
-        let key = match frame {
-            ReplayFrame::Press(k) => k,
-            ReplayFrame::Release(k) => k
-        };
+        // let key = match frame {
+        //     ReplayFrame::Press(k) => k,
+        //     ReplayFrame::Release(k) => k
+        // };
 
     }
 

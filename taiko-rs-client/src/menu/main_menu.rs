@@ -129,4 +129,33 @@ impl Menu<Game> for MainMenu {
         self.settings_button.check_hover(pos);
         self.exit_button.check_hover(pos);
     }
+
+
+    fn on_key_press(&mut self, key:piston::Key, game:&mut Game, _mods:KeyModifiers) {
+        use piston::Key::*;
+        match key {
+            Left => {
+                let manager = game.beatmap_manager.clone();
+                let mut manager = manager.lock();
+
+                if let Some(map) = manager.previous_beatmap().clone() {
+                    manager.set_current_beatmap(game, map);
+                } else {
+                    println!("no prev")
+                }
+            }
+            Right => {
+                let manager = game.beatmap_manager.clone();
+                let mut manager = manager.lock();
+
+                if let Some(map) = manager.next_beatmap().clone() {
+                    manager.set_current_beatmap(game, map);
+                } else {
+                    println!("no next")
+                }
+            }
+
+            _ => {}
+        }
+    }
 }

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::fs::read_dir;
 use std::collections::HashMap;
+// use std::time::Instant;
 
 use ayyeve_piston_ui::render::*;
 use parking_lot::Mutex;
@@ -40,12 +41,19 @@ pub struct BeatmapSelectMenu {
     leaderboard_scroll: ScrollableArea,
     back_button: MenuButton,
     pending_refresh: bool,
+
+    // drag: Option<DragData>,
+    // mouse_down: bool
 }
 impl BeatmapSelectMenu {
     pub fn new(beatmap_manager:Arc<Mutex<BeatmapManager>>) -> BeatmapSelectMenu {
         BeatmapSelectMenu {
             beatmap_manager,
-            mode: PlayMode::Taiko,
+            mode: PlayMode::Standard,
+
+            // mouse_down: false,
+            // drag: None,
+
             selected: None,
             selected_beatmap: None,
             pending_refresh: false,
@@ -94,6 +102,10 @@ impl BeatmapSelectMenu {
             self.leaderboard_scroll.add_item(Box::new(LeaderboardItem::new(s.to_owned())));
         }
     }
+
+    // pub fn mouse_release(&mut self, game:&mut Game) {
+
+    // }
 }
 impl Menu<Game> for BeatmapSelectMenu {
     fn update(&mut self, game:&mut Game) {
@@ -116,7 +128,8 @@ impl Menu<Game> for BeatmapSelectMenu {
             if self.pending_refresh {
 
                 let mut folders = Vec::new();
-                read_dir(SONGS_DIR).unwrap()
+                read_dir(SONGS_DIR)
+                    .unwrap()
                     .for_each(|f| {
                         let f = f.unwrap().path();
                         folders.push(f.to_str().unwrap().to_owned());
@@ -127,6 +140,30 @@ impl Menu<Game> for BeatmapSelectMenu {
 
             self.refresh_maps();
         }
+    
+    
+        // if self.mouse_down {
+
+        // } else {
+        //     if self.drag.is_some() {
+        //         let data = self.drag.as_ref().unwrap();
+
+        //     }
+        // }
+
+        // if game.input_manager.mouse_buttons.contains(&MouseButton::Left) && game.input_manager.mouse_moved {
+        //     if self.drag.is_none() {
+        //         self.drag = Some(DragData {
+        //             start_pos: game.input_manager.mouse_pos.y,
+        //             current_pos: game.input_manager.mouse_pos.y,
+        //             start_time: Instant::now()
+        //         });
+        //     }
+
+        //     if let Some(data) = self.drag.as_mut() {
+        //         data.current_pos = game.input_manager.mouse_pos.y
+        //     }
+        // }
     }
 
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
@@ -419,7 +456,6 @@ impl ScrollableItem for BeatmapsetItem {
     }
 
     fn on_click(&mut self, pos:Vector2, _button:MouseButton, _mods:KeyModifiers) -> bool {
-
         if self.selected && self.hover {
             // find the clicked item
             // we only care about y pos, because we know we were clicked
@@ -438,7 +474,10 @@ impl ScrollableItem for BeatmapsetItem {
         // not yet selected
         if !self.selected && self.hover {
             // start song
-            Audio::play_song(&self.meta.audio_filename, false).upgrade().unwrap().set_position(self.meta.audio_preview);
+            Audio::play_song(&self.meta.audio_filename, false)
+                .upgrade()
+                .unwrap()
+                .set_position(self.meta.audio_preview);
         }
 
         self.selected = self.hover;
@@ -523,5 +562,12 @@ impl ScrollableItem for LeaderboardItem {
         items
     }
 
-    fn on_click(&mut self, _pos:Vector2, _button:MouseButton, _mods:KeyModifiers) -> bool {self.hover}
+    // fn on_click(&mut self, _pos:Vector2, _button:MouseButton, _mods:KeyModifiers) -> bool {self.hover}
 }
+
+
+// struct DragData {
+//     start_pos: f64,
+//     current_pos: f64,
+//     start_time: Instant
+// }
