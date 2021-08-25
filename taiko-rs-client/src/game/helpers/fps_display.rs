@@ -1,6 +1,8 @@
 use std::time::Instant;
 use ayyeve_piston_ui::render::Renderable;
-use crate::{Vector2, helpers::visibility_bg, render::{Color, Text}};
+use crate::{Vector2, WINDOW_SIZE, helpers::visibility_bg, render::{Color, Text}};
+
+const SIZE:Vector2 = Vector2::new(120.0, 20.0);
 
 /// fps display helper, cleans up some of the code in game
 pub struct FpsDisplay {
@@ -19,7 +21,7 @@ impl FpsDisplay {
             last: 0.0,
             timer: Instant::now(),
             name: name.to_owned(),
-            pos: Vector2::new(0.0, 10.0 + 20.0 * count as f64)
+            pos: Vector2::new(WINDOW_SIZE.x - SIZE.x, WINDOW_SIZE.y - SIZE.y * (count+1) as f64)
         }
     }
 
@@ -37,13 +39,13 @@ impl FpsDisplay {
         list.push(Box::new(Text::new(
             Color::BLACK,
             -99_999_999.99, // should be on top of everything
-            self.pos + Vector2::new(0.0, 20.0),
+            self.pos + Vector2::new(0.0, 15.0),
             12,
             format!("{:.2}{}", self.last, self.name),
             font.clone()
         )));
 
-        let mut r = visibility_bg(self.pos, Vector2::new(120.0, 20.0));
+        let mut r = visibility_bg(self.pos, SIZE);
         r.depth = -99_999_999.98;
         list.push(r);
     }
