@@ -60,6 +60,12 @@ impl Menu<Game> for MainMenu {
                 manager.lock().set_current_beatmap(g, map);
             }
         }
+
+        let maps = g.beatmap_manager.lock().get_new_maps();
+        if maps.len() > 0 {
+            let manager = g.beatmap_manager.clone();
+            manager.lock().set_current_beatmap(g, maps.iter().last().unwrap().clone());
+        }
     }
 
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {

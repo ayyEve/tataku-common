@@ -1,7 +1,7 @@
-use std::{collections::HashMap, fs::read_dir, path::Path, sync::Arc};
+use std::{collections::HashMap, fs::{DirEntry, read_dir}, path::Path, sync::Arc, time::Duration};
 use parking_lot::Mutex;
 use rand::Rng;
-use crate::{DOWNLOADS_DIR, game::{Audio, Game}, gameplay::Beatmap};
+use crate::{DOWNLOADS_DIR, SONGS_DIR, game::{Audio, Game}, gameplay::Beatmap};
 
 // ugh
 type ArcMutexBeatmap = Arc<Mutex<Beatmap>>;
@@ -16,7 +16,9 @@ pub struct BeatmapManager {
     /// previously played maps
     played: Vec<String>,
     /// current index of previously played maps
-    play_index: usize
+    play_index: usize,
+
+    new_maps: Vec<ArcMutexBeatmap>
 }
 impl BeatmapManager {
     pub fn new() -> Self {
@@ -27,37 +29,48 @@ impl BeatmapManager {
             dirty: false,
 
             played: Vec::new(),
-            play_index: 0
+            play_index: 0,
+            new_maps: Vec::new(),
         }
     }
 
-    pub fn check_dirty(&mut self) -> bool {
-        if self.dirty {
-            self.dirty = false;
-            true
-        } else {
-            false
-        }
-    }
 
-    // TODO: finish implementing this
-    #[allow(dead_code)]
-    pub async fn check_downloads(_self:Arc<Mutex<Self>>) {
-        let mut files = Vec::new();
-        for file in read_dir(DOWNLOADS_DIR).unwrap() {
-            if let Ok(file) = file {
-                files.push(file)
+    // download checking
+    pub fn get_new_maps(&mut self) -> Vec<ArcMutexBeatmap> {
+        std::mem::take(&mut self.new_maps)
+    }
+    fn check_downloads(_self:Arc<Mutex<Self>>, runtime:&tokio::runtime::Runtime) {
+        if read_dir(DOWNLOADS_DIR).unwrap().count() > 0 {
+            extract_all(runtime);
+
+            let mut folders = Vec::new();
+            read_dir(SONGS_DIR)
+                .unwrap()
+                .for_each(|f| {
+                    let f = f.unwrap().path();
+                    folders.push(f.to_str().unwrap().to_owned());
+                });
+
+            for f in folders {_self.lock().check_folder(f)}
+        }
+
+    }
+    pub fn download_check_loop(_self:Arc<Mutex<Self>>, game:&Game) {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let beatmap_manager = _self.clone();
+        game.threading.spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_millis(1_000)).await;
+                BeatmapManager::check_downloads(beatmap_manager.clone(), &runtime);
             }
-        }
-        
-        if files.len() == 0 {return}
-
-        _self.lock().dirty = true;
+        });
     }
 
     // adders
     pub fn check_folder(&mut self, dir:String) {
-
         if !Path::new(&dir).is_dir() {return}
         let dir_files = read_dir(dir).unwrap();
 
@@ -71,7 +84,11 @@ impl BeatmapManager {
                 //     // println!("skipping {}, not a taiko map or convert", map.lock().metadata.version_string());
                 //     // continue;
                 // }
-                self.add_beatmap(map);
+                if self.get_by_hash(map.lock().hash.clone()).is_some() {
+                    continue;
+                }
+                self.add_beatmap(map.clone());
+                self.new_maps.push(map.clone());
             }
         }
     }
@@ -87,30 +104,7 @@ impl BeatmapManager {
         self.dirty = true;
     }
 
-    // getters
-    pub fn all_by_sets(&self) -> Vec<Vec<ArcMutexBeatmap>> { // list of sets as (list of beatmaps in the set)
-        let mut set_map = HashMap::new();
-
-        for beatmap in self.beatmaps.iter() {
-            let m = beatmap.lock().metadata.clone();
-            let key = format!("{}-{}[{}]",m.artist,m.title,m.creator); // good enough for now
-            if !set_map.contains_key(&key) {set_map.insert(key.clone(), Vec::new());}
-            set_map.get_mut(&key).unwrap().push(beatmap.clone());
-        }
-
-        let mut sets = Vec::new();
-        set_map.values().for_each(|e|sets.push(e.to_owned()));
-        sets
-    }
-
-    pub fn get_by_hash(&self, hash:String) -> Option<ArcMutexBeatmap> {
-        match self.beatmaps_by_hash.get(&hash) {
-            Some(b) => Some(b.clone()),
-            None => None
-        }
-    }
-
-
+    // setters
     pub fn set_current_beatmap(&mut self, game:&mut Game, beatmap: ArcMutexBeatmap) {
         if let Some(map) = self.current_beatmap.clone() {
             self.played.push(map.lock().hash.clone());
@@ -127,7 +121,29 @@ impl BeatmapManager {
         // might be best to have a current_beatmap value in beatmap_manager
     }
     
-    
+
+    // getters
+    pub fn all_by_sets(&self) -> Vec<Vec<ArcMutexBeatmap>> { // list of sets as (list of beatmaps in the set)
+        let mut set_map = HashMap::new();
+
+        for beatmap in self.beatmaps.iter() {
+            let m = beatmap.lock().metadata.clone();
+            let key = format!("{}-{}[{}]",m.artist,m.title,m.creator); // good enough for now
+            if !set_map.contains_key(&key) {set_map.insert(key.clone(), Vec::new());}
+            set_map.get_mut(&key).unwrap().push(beatmap.clone());
+        }
+
+        let mut sets = Vec::new();
+        set_map.values().for_each(|e|sets.push(e.to_owned()));
+        sets
+    }
+    pub fn get_by_hash(&self, hash:String) -> Option<ArcMutexBeatmap> {
+        match self.beatmaps_by_hash.get(&hash) {
+            Some(b) => Some(b.clone()),
+            None => None
+        }
+    }
+
     pub fn random_beatmap(&self) -> Option<ArcMutexBeatmap> {
         if self.beatmaps.len() > 0 {
             let ind = rand::thread_rng().gen_range(0..self.beatmaps.len());
@@ -164,4 +180,100 @@ impl BeatmapManager {
         }
     }
 
+}
+
+
+
+pub fn extract_all(runtime:&tokio::runtime::Runtime) {
+
+    // check for new maps
+    if let Ok(files) = std::fs::read_dir(crate::DOWNLOADS_DIR) {
+        let completed = Arc::new(Mutex::new(0));
+
+        let files:Vec<std::io::Result<DirEntry>> = files.collect();
+        let len = files.len();
+        println!("[extract] files: {:?}", files);
+
+        for file in files {
+            println!("[extract] looping file {:?}", file);
+            let completed = completed.clone();
+
+            match file {
+                Ok(filename) => {
+                    println!("[extract] file ok");
+                    runtime.spawn(async move {
+                        println!("[extract] reading file {:?}", filename);
+
+                        let mut error_counter = 0;
+                        // unzip file into ./Songs
+                        while let Err(e) = std::fs::File::open(filename.path().to_str().unwrap()) {
+                            println!("[extract] error opening osz file: {}", e);
+                            error_counter += 1;
+
+                            // if we've waited 5 seconds and its still broken
+                            if error_counter > 5 {
+                                println!("[extract] 5 errors opening osz file: {}", e);
+                                return;
+                            }
+
+                            tokio::time::sleep(Duration::from_millis(1000)).await;
+                        }
+
+                        let file = std::fs::File::open(filename.path().to_str().unwrap()).unwrap();
+                        let mut archive = zip::ZipArchive::new(file).unwrap();
+                        
+                        for i in 0..archive.len() {
+                            let mut file = archive.by_index(i).unwrap();
+                            let mut outpath = match file.enclosed_name() {
+                                Some(path) => path,
+                                None => continue,
+                            };
+
+                            let x = outpath.to_str().unwrap();
+                            let y = format!("{}/{}/", SONGS_DIR, filename.file_name().to_str().unwrap().trim_end_matches(".osz"));
+                            let z = &(y + x);
+                            outpath = Path::new(z);
+
+                            if (&*file.name()).ends_with('/') {
+                                println!("[extract] File {} extracted to \"{}\"", i, outpath.display());
+                                std::fs::create_dir_all(&outpath).unwrap();
+                            } else {
+                                println!("[extract] File {} extracted to \"{}\" ({} bytes)", i, outpath.display(), file.size());
+                                if let Some(p) = outpath.parent() {
+                                    if !p.exists() {std::fs::create_dir_all(&p).unwrap()}
+                                }
+                                let mut outfile = std::fs::File::create(&outpath).unwrap();
+                                std::io::copy(&mut file, &mut outfile).unwrap();
+                            }
+
+                            // Get and Set permissions
+                            // #[cfg(unix)] {
+                            //     use std::os::unix::fs::PermissionsExt;
+                            //     if let Some(mode) = file.unix_mode() {
+                            //         fs::set_permissions(&outpath, fs::Permissions::from_mode(mode)).unwrap();
+                            //     }
+                            // }
+                        }
+                    
+                        match std::fs::remove_file(filename.path().to_str().unwrap()) {
+                            Ok(_) => {},
+                            Err(e) => println!("[extract] error deleting file: {}", e),
+                        }
+                        
+                        println!("[extract] done");
+                        *completed.lock() += 1;
+                    });
+                }
+                Err(e) => {
+                    println!("error with file: {}", e);
+                }
+            }
+        }
+    
+        
+        while *completed.lock() < len {
+            println!("waiting for downloads {} of {}", *completed.lock(), len);
+            std::thread::sleep(Duration::from_millis(500));
+        }
+    }
 }

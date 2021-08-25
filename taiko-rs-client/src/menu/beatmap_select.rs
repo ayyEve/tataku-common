@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::fs::read_dir;
 use std::collections::HashMap;
 // use std::time::Instant;
 
@@ -10,10 +9,10 @@ use piston::{Key, MouseButton, RenderArgs};
 use taiko_rs_common::types::Score;
 use taiko_rs_common::types::PlayMode;
 
+use crate::{WINDOW_SIZE, Vector2, databases::get_scores};
 use crate::gameplay::modes::select_gamemode_from_playmode;
 use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
-use crate::{SONGS_DIR, WINDOW_SIZE, DOWNLOADS_DIR, Vector2, databases::get_scores};
 use crate::game::{Game, GameState, KeyModifiers, get_font, Audio, helpers::BeatmapManager};
 
 // constants
@@ -29,7 +28,6 @@ const LEADERBOARD_POS: Vector2 = Vector2::new(10.0, LEADERBOARD_PADDING);
 const LEADERBOARD_ITEM_SIZE: Vector2 = Vector2::new(200.0, 50.0);
 
 pub struct BeatmapSelectMenu {
-
     mode: PlayMode,
     /// tag of the selected set
     selected: Option<String>,
@@ -110,35 +108,10 @@ impl BeatmapSelectMenu {
 impl Menu<Game> for BeatmapSelectMenu {
     fn update(&mut self, game:&mut Game) {
 
-        //TODO: move this to beatmap_manager
-        let count = std::fs::read_dir(DOWNLOADS_DIR).unwrap().count();
-        if !self.pending_refresh && count > 0 {
-            println!("downloads folder dirty");
-            self.pending_refresh = true;
-            game.extract_all();
-        }
-
-        // wait for main to finish extracting everything from downloads
-        if (self.pending_refresh || self.beatmap_manager.lock().check_dirty()) && count == 0 {
-            println!("refresh_maps()");
-
-            // we detected maps in downloads, the beatmap manager may not have added the map yet
-
-            //TODO: i hate this, finish implementing BeatmapManager.check_downloads!
-            if self.pending_refresh {
-
-                let mut folders = Vec::new();
-                read_dir(SONGS_DIR)
-                    .unwrap()
-                    .for_each(|f| {
-                        let f = f.unwrap().path();
-                        folders.push(f.to_str().unwrap().to_owned());
-                    });
-
-                for f in folders {self.beatmap_manager.lock().check_folder(f)}
-            }
-
+        let maps = self.beatmap_manager.lock().get_new_maps();
+        if maps.len() > 0 {
             self.refresh_maps();
+            self.beatmap_manager.lock().set_current_beatmap(game, maps.iter().last().unwrap().clone());
         }
     
     

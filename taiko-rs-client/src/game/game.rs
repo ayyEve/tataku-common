@@ -1,18 +1,17 @@
 use std::sync::Arc;
-use std::path::Path;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use ayyeve_piston_ui::render::Circle;
 use parking_lot::Mutex;
+use ayyeve_piston_ui::render::Circle;
 use tokio::runtime::{Builder, Runtime};
 use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
 
 // use crate::gameplay::Beatmap;
+use crate::{WINDOW_SIZE, Vector2, menu::*};
 use crate::gameplay::{Beatmap, IngameManager};
-use crate::{WINDOW_SIZE, SONGS_DIR, Vector2, menu::*};
 use crate::render::{Color, Image, Rectangle, Renderable};
 use taiko_rs_common::types::{SpectatorFrames, UserAction};
 use crate::databases::{save_all_scores, save_replay, save_score};
@@ -130,12 +129,18 @@ impl Game {
 
     pub fn init(&mut self) {
         let clone = self.online_manager.clone();
+
+        // online loop
         self.threading.spawn(async move {
             loop {
                 OnlineManager::start(clone.clone()).await;
                 tokio::time::sleep(Duration::from_millis(1_000)).await;
             }
         });
+
+        // beatmap manager loop
+        BeatmapManager::download_check_loop(self.beatmap_manager.clone(), self);
+        
         
         let mut loading_menu = LoadingMenu::new(self.beatmap_manager.clone());
         loading_menu.load(self);
@@ -612,68 +617,67 @@ impl Game {
         }
     }
 
-    /// extract all zips from the downloads folder into the songs folder. not a static function as it uses threading
-    pub fn extract_all(&self) {
-        let runtime = &self.threading;
+    // /// extract all zips from the downloads folder into the songs folder. not a static function as it uses threading
+    // pub fn extract_all(&self) {
+    //     let runtime = &self.threading;
 
-        // check for new maps
-        if let Ok(files) = std::fs::read_dir(crate::DOWNLOADS_DIR) {
-            for file in files {
-                if let Ok(filename) = file {
-                    runtime.spawn(async move {
+    //     // check for new maps
+    //     if let Ok(files) = std::fs::read_dir(crate::DOWNLOADS_DIR) {
+    //         for file in files {
+    //             if let Ok(filename) = file {
+    //                 runtime.spawn(async move {
+    //                     // unzip file into ./Songs
 
-                        // unzip file into ./Songs
+    //                     while let Err(_) = std::fs::File::open(filename.path().to_str().unwrap()) {
+    //                         tokio::time::sleep(Duration::from_millis(1000)).await;
+    //                     }
 
-                        while let Err(_) = std::fs::File::open(filename.path().to_str().unwrap()) {
-                            tokio::time::sleep(Duration::from_millis(1000)).await;
-                        }
-
-                        let file = std::fs::File::open(filename.path().to_str().unwrap()).unwrap();
-                        let mut archive = zip::ZipArchive::new(file).unwrap();
+    //                     let file = std::fs::File::open(filename.path().to_str().unwrap()).unwrap();
+    //                     let mut archive = zip::ZipArchive::new(file).unwrap();
                         
-                        for i in 0..archive.len() {
-                            let mut file = archive.by_index(i).unwrap();
-                            let mut outpath = match file.enclosed_name() {
-                                Some(path) => path,
-                                None => continue,
-                            };
+    //                     for i in 0..archive.len() {
+    //                         let mut file = archive.by_index(i).unwrap();
+    //                         let mut outpath = match file.enclosed_name() {
+    //                             Some(path) => path,
+    //                             None => continue,
+    //                         };
 
-                            let x = outpath.to_str().unwrap();
-                            let y = format!("{}/{}/", SONGS_DIR, filename.file_name().to_str().unwrap().trim_end_matches(".osz"));
-                            let z = &(y + x);
-                            outpath = Path::new(z);
+    //                         let x = outpath.to_str().unwrap();
+    //                         let y = format!("{}/{}/", SONGS_DIR, filename.file_name().to_str().unwrap().trim_end_matches(".osz"));
+    //                         let z = &(y + x);
+    //                         outpath = Path::new(z);
 
-                            if (&*file.name()).ends_with('/') {
-                                println!("File {} extracted to \"{}\"", i, outpath.display());
-                                std::fs::create_dir_all(&outpath).unwrap();
-                            } else {
-                                println!("File {} extracted to \"{}\" ({} bytes)", i, outpath.display(), file.size());
-                                if let Some(p) = outpath.parent() {
-                                    if !p.exists() {std::fs::create_dir_all(&p).unwrap()}
-                                }
-                                let mut outfile = std::fs::File::create(&outpath).unwrap();
-                                std::io::copy(&mut file, &mut outfile).unwrap();
-                            }
+    //                         if (&*file.name()).ends_with('/') {
+    //                             println!("File {} extracted to \"{}\"", i, outpath.display());
+    //                             std::fs::create_dir_all(&outpath).unwrap();
+    //                         } else {
+    //                             println!("File {} extracted to \"{}\" ({} bytes)", i, outpath.display(), file.size());
+    //                             if let Some(p) = outpath.parent() {
+    //                                 if !p.exists() {std::fs::create_dir_all(&p).unwrap()}
+    //                             }
+    //                             let mut outfile = std::fs::File::create(&outpath).unwrap();
+    //                             std::io::copy(&mut file, &mut outfile).unwrap();
+    //                         }
 
-                            // Get and Set permissions
-                            // #[cfg(unix)] {
-                            //     use std::os::unix::fs::PermissionsExt;
-
-                            //     if let Some(mode) = file.unix_mode() {
-                            //         fs::set_permissions(&outpath, fs::Permissions::from_mode(mode)).unwrap();
-                            //     }
-                            // }
-                        }
+    //                         // Get and Set permissions
+    //                         // #[cfg(unix)] {
+    //                         //     use std::os::unix::fs::PermissionsExt;
+    //                         //     if let Some(mode) = file.unix_mode() {
+    //                         //         fs::set_permissions(&outpath, fs::Permissions::from_mode(mode)).unwrap();
+    //                         //     }
+    //                         // }
+    //                     }
                     
-                        match std::fs::remove_file(filename.path().to_str().unwrap()) {
-                            Ok(_) => {},
-                            Err(e) => println!("error deleting file: {}", e),
-                        }
-                    });
-                }
-            }
-        }
-    }
+    //                     match std::fs::remove_file(filename.path().to_str().unwrap()) {
+    //                         Ok(_) => {},
+    //                         Err(e) => println!("error deleting file: {}", e),
+    //                     }
+    //                 });
+    //             }
+    //         }
+    //     }
+    
+    // }
 
 }
 
