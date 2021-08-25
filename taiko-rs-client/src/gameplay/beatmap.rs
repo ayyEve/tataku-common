@@ -101,7 +101,9 @@ impl Beatmap {
                         let val = split.next().unwrap().trim().parse::<f32>().unwrap();
 
                         if key == "HPDrainRate" {beatmap.metadata.hp = val}
+                        if key == "CircleSize" {beatmap.metadata.cs = val}
                         if key == "OverallDifficulty" {beatmap.metadata.od = val}
+                        if key == "ApproachRate" {beatmap.metadata.ar = val}
                         if key == "SliderMultiplier" {beatmap.metadata.slider_multiplier = val}
                         if key == "SliderTickRate" {beatmap.metadata.slider_tick_rate = val}
                     }
@@ -301,7 +303,10 @@ pub struct BeatmapMeta {
 
     pub hp: f32,
     pub od: f32,
+    pub cs: f32,
+    pub ar: f32,
     pub sr: f64,
+
     pub slider_multiplier: f32,
     pub slider_tick_rate: f32,
 }
@@ -323,6 +328,8 @@ impl BeatmapMeta {
             audio_preview: 0.0,
             hp: 0.0,
             od: 0.0,
+            ar: 0.0,
+            cs: 0.0,
             sr: 0.0,
             slider_multiplier: 1.4,
             slider_tick_rate: 1.0,

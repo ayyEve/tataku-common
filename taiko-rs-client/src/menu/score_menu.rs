@@ -1,13 +1,11 @@
 use std::sync::Arc;
-
-use piston::{MouseButton, RenderArgs};
 use parking_lot::Mutex;
+use piston::{MouseButton, RenderArgs};
 
-use crate::gameplay::modes::select_gamemode_from_playmode;
-use crate::gameplay::{Beatmap, IngameManager};
 use taiko_rs_common::types::{Score, HitError};
 use crate::menu::{Menu, MenuButton, ScrollableItem, Graph};
 use crate::game::{Game, GameState, KeyModifiers, get_font};
+use crate::gameplay::{Beatmap, IngameManager, modes::gamemode_from_playmode};
 use crate::{WINDOW_SIZE, databases, format, Vector2, render::*, helpers::visibility_bg};
 
 const GRAPH_SIZE:Vector2 = Vector2::new(400.0, 200.0);
@@ -150,7 +148,7 @@ impl Menu<Game> for ScoreMenu {
                     // game.menus.get("beatmap").unwrap().lock().on_change(false);
                     // game.queue_mode_change(GameMode::Replaying(self.beatmap.clone(), replay.clone(), 0));
                     let beatmap = self.beatmap.clone();
-                    let gamemode = select_gamemode_from_playmode(self.score.playmode, &beatmap);
+                    let gamemode = gamemode_from_playmode(self.score.playmode, &beatmap);
 
                     let mut manager = IngameManager::new(beatmap, gamemode);
                     manager.replaying = true;
