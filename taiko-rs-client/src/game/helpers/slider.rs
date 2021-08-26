@@ -123,9 +123,7 @@ impl Curve {
 pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
     let mut points = slider.curve_points.clone();
     points.insert(0, slider.pos);
-
     let mut path = Vec::new();
-    // let mut linear_spacing = 8;
 
     match slider.curve_type {
         CurveType::Catmull => {
@@ -151,9 +149,10 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
             while i < points.len() {
                 if beatmap.metadata.beatmap_version > 8.0 {
                     let multipart_segment = (i as i32) < points.len() as i32 - 2 && points[i] == points[i + 1];
+                    // println!("i: {}, p.len(): {}", i, points.len());
 
                     if multipart_segment || i == points.len() - 1 {
-                        let this_length = points[last_index..i + 1].to_vec();
+                        let this_length = points[last_index..i+1].to_vec();
                         if this_length.len() == 2 {
                             //we can use linear algorithm for this segment
                             let l = Line::new(this_length[0], this_length[1]);
@@ -181,16 +180,16 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
                                 }
                             }
                         }
+                        // let len = path.len();
+                        // if len > 1 {
+                        //     path[len - 1].force_end = true;
+                        // }
+
+                        //Need to skip one point since we consuned an extra.
+                        if multipart_segment {i += 1}
+                        last_index = i;
                     }
                     
-                    let len = path.len();
-                    if len > 1 {
-                        path[len - 1].force_end = true;
-                    }
-
-                    //Need to skip one point since we consuned an extra.
-                    if multipart_segment {i += 1}
-                    last_index = i;
 
                 } else if beatmap.metadata.beatmap_version > 6.0 {
                     let multipart_segment = (i as i32) < points.len() as i32 - 2 && points[i] == points[i + 1];
@@ -211,7 +210,6 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
                 } else {
                     //This algorithm is broken for multipart sliders (http://osu.sifterapp.com/projects/4151/issues/145).
                     //Newer maps always use the one in the else clause.
-
                     if (i > 0 && points[i] == points[i - 1]) || i == points.len() - 1 {
                         let this_length = points[last_index..i + 1].to_vec();
                         let points = create_bezier_wrong(this_length);

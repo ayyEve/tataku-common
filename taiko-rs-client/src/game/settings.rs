@@ -26,8 +26,11 @@ pub struct Settings {
     pub osu_username: String,
     pub osu_password: String,
 
-    pub mania_settings: ManiaSettings,
+    
+    pub standard_settings: StandardSettings,
     pub taiko_settings: TaikoSettings,
+    pub catch_settings: CatchSettings,
+    pub mania_settings: ManiaSettings,
 
     // window settings
     pub unlimited_fps: bool,
@@ -88,7 +91,9 @@ impl Default for Settings {
             osu_password: String::new(),
 
             // mode settings
+            standard_settings: StandardSettings{..Default::default()},
             taiko_settings: TaikoSettings {..Default::default()},
+            catch_settings: CatchSettings {..Default::default()},
             mania_settings: ManiaSettings {..Default::default()},
 
             // window settings
@@ -168,70 +173,39 @@ impl Default for ManiaSettings {
 
 
 
-// impl Serializable for Settings {
-//     fn read(sr:&mut SerializationReader) -> Self {
-//         let version:u32 = sr.read();
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct StandardSettings {
+    // keys
+    pub left_key: Key,
+    pub right_key: Key,
+}
+impl Default for StandardSettings {
+    fn default() -> Self {
+        Self {
+            // keys
+            left_key: Key::S,
+            right_key: Key::D,
+        }
+    }
+}
 
-//         let mut s = Settings {
-//             master_vol: sr.read(),
-//             effect_vol: sr.read(),
-//             music_vol: sr.read(),
-//             username: sr.read(),
-//             password: sr.read(),
 
-//             left_kat: sr.read_u32().into(),
-//             left_don: sr.read_u32().into(),
-//             right_don: sr.read_u32().into(),
-//             right_kat: sr.read_u32().into(),
-
-//             ..Default::default()
-//         };
-
-//         if version > 1 { // 2 and above
-//             s.static_sv = sr.read();
-//             s.sv_multiplier = sr.read();
-//         }
-//         if version > 2 { // 3 and above
-//             s.unlimited_fps = sr.read();
-//             s.fps_target = sr.read();
-//             s.update_target = sr.read();
-//             s.window_size = Vector2::new(
-//                 sr.read(),
-//                 sr.read()
-//             );
-//             s.background_dim = sr.read();
-//         }
-
-//         s
-//     }
-
-//     fn write(&self, sw:&mut SerializationWriter) {
-//         sw.write(SETTINGS_VERSION);
-//         // volume
-//         sw.write(self.master_vol);
-//         sw.write(self.effect_vol);
-//         sw.write(self.music_vol);
-        
-//         // osu
-//         sw.write(self.username.clone());
-//         sw.write(self.password.clone());
-
-//         // keys
-//         sw.write(self.left_kat as u32);
-//         sw.write(self.left_don as u32);
-//         sw.write(self.right_don as u32);
-//         sw.write(self.right_kat as u32);
-        
-//         // v2 and above
-//         sw.write(self.static_sv);
-//         sw.write(self.sv_multiplier);
-
-//         // v3 and above
-//         sw.write(self.unlimited_fps);
-//         sw.write(self.fps_target);
-//         sw.write(self.update_target);
-//         sw.write(self.window_size.x);
-//         sw.write(self.window_size.y);
-//         sw.write(self.background_dim);
-//     }
-// }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CatchSettings {
+    // keys
+    pub left_key: Key,
+    pub right_key: Key,
+    pub dash_key: Key,
+}
+impl Default for CatchSettings {
+    fn default() -> Self {
+        Self {
+            // keys
+            left_key: Key::Left,
+            right_key: Key::Right,
+            dash_key: Key::LShift,
+        }
+    }
+}

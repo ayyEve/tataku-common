@@ -22,6 +22,20 @@ pub struct Beatmap {
 }
 impl Beatmap {
     pub fn load(dir:String) -> Arc<Mutex<Beatmap>> {
+        /// helper enum
+        #[derive(Debug)]
+        enum BeatmapSection {
+            Version,
+            General,
+            Editor,
+            Metadata,
+            Difficulty,
+            Events,
+            TimingPoints,
+            Colors,
+            HitObjects,
+        }
+
         let lines = crate::read_lines(dir.clone()).expect("Beatmap file not found");
         let mut body = String::new();
         let mut current_area = BeatmapSection::Version;
@@ -311,7 +325,7 @@ pub struct BeatmapMeta {
     pub slider_tick_rate: f32,
 }
 impl BeatmapMeta {
-    fn new() -> BeatmapMeta {
+    pub fn new() -> BeatmapMeta {
         let unknown = "Unknown".to_owned();
 
         BeatmapMeta {
@@ -356,20 +370,6 @@ impl BeatmapMeta {
     }
 }
 
-
-/// helper enum
-#[derive(Debug)]
-enum BeatmapSection {
-    Version,
-    General,
-    Editor,
-    Metadata,
-    Difficulty,
-    Events,
-    TimingPoints,
-    Colors,
-    HitObjects,
-}
 
 
 // stolen from peppy, /shrug

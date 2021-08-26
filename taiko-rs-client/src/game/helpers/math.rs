@@ -111,11 +111,15 @@ impl BezierApproximator {
     fn new(control_points: Vec<Vector2>) -> Self {
         let count = control_points.len();
 
-        let mut subdivision_buffer1 = Vec::with_capacity(count);
-        subdivision_buffer1.fill(Vector2::zero());
+        let mut subdivision_buffer1 = Vec::new();
+        for i in 0..count {
+            subdivision_buffer1.push(Vector2::zero());
+        }
 
-        let mut subdivision_buffer2 = Vec::with_capacity(count * 2 - 1);
-        subdivision_buffer2.fill(Vector2::zero());
+        let mut subdivision_buffer2 = Vec::new();
+        for i in 0..count * 2 - 1 {
+            subdivision_buffer2.push(Vector2::zero());
+        }
 
         Self {
             control_points,
@@ -132,7 +136,7 @@ impl BezierApproximator {
     /// checks (as the name suggests) whether our approximation is _locally_ "flat". More curvy parts
     /// need to have a denser approximation to be more "flat".
     fn is_flat_enough(control_points: &Vec<Vector2>) -> bool {
-        for i in 1..control_points.len() {
+        for i in 1..control_points.len()-1 {
             if length_squared(control_points[i-1] - control_points[i] * 2.0 + control_points[i+1]) > BEZIER_TOLERANCE_SQ {
                 return false;
             }
@@ -145,36 +149,15 @@ impl BezierApproximator {
     /// describing a bezier curve equivalent to a half of the original curve. Effectively this splits
     /// the original curve into 2 curves which result in the original curve when pieced back together.
     fn subdivide(&mut self, control_points: &Vec<Vector2>, l: &mut Vec<Vector2>, r: &mut Vec<Vector2>) {
-
-        for i in 0..self.count {
-            self.subdivision_buffer1[i] 
-                = control_points[i].clone();
-        }
-        
-        for i in 0..self.count {
-            l[i] 
-                = self.subdivision_buffer1[0];
-            r[self.count - i - 1] 
-                = self.subdivision_buffer1[self.count - i-1];
-            
-            for j in 0..self.count - i - 1 {
-                self.subdivision_buffer1[j] = 
-                    (self.subdivision_buffer1[j] 
-                        + self.subdivision_buffer1[j + 1]) / 2.0
-            }
-        }
-    }
-
-    fn _subdivide_old(&mut self, control_points: &Vec<Vector2>, l: &mut Vec<Vector2>, r: &mut Vec<Vector2>) {
         let midpoints = &mut self.subdivision_buffer1;
 
         for i in 0..self.count {
-            midpoints[i] = control_points[i].clone();
+            midpoints[i] = control_points[i];
         }
         
         for i in 0..self.count {
             l[i] = midpoints[0];
-            r[self.count - i - 1] = midpoints[self.count - i-1];
+            r[self.count - i - 1] = midpoints[self.count - i - 1];
             
             for j in 0..self.count - i - 1 {
                 midpoints[j] = (midpoints[j] + midpoints[j + 1]) / 2.0
@@ -182,28 +165,27 @@ impl BezierApproximator {
         }
     }
 
-    
     /// This uses <a href="https://en.wikipedia.org/wiki/De_Casteljau%27s_algorithm">De Casteljau's algorithm</a> to obtain
-    /// an optimal
-    /// piecewise-linear approximation of the bezier curve with the same amount of points as there are control points.
+    /// an optimal piecewise-linear approximation of the bezier curve with the same amount of points as there are control points.
     fn approximate(&mut self, control_points: &Vec<Vector2>, output: &mut Vec<Vector2>) {
-        let mut l = self.subdivision_buffer1.clone();
-        let mut r = self.subdivision_buffer2.clone();
+        let mut l = self.subdivision_buffer2.clone();
+        let mut r = self.subdivision_buffer1.clone();
 
         self.subdivide(&control_points, &mut l, &mut r);
-        for i in 0..self.count {
+
+        for i in 0..self.count - 1 {
             l[self.count + i] = r[i + 1];
         }
 
-        output.push(control_points[0].clone());
-        for i in 0..self.count - 1 {
+        output.push(control_points[0]);
+        for i in 1..self.count - 1 {
             let index = i * 2;
             let p = (l[index - 1] + l[index] * 2.0 + l[index + 1]) * 0.25;
             output.push(p);
         }
 
-        self.subdivision_buffer1 = l;
-        self.subdivision_buffer2 = r;
+        self.subdivision_buffer2 = l;
+        self.subdivision_buffer1 = r;
     }
 
     
@@ -240,47 +222,32 @@ impl BezierApproximator {
                 // of points as there are control points.
 
                 // this.Approximate(parent, output);
-                println!("approxmate: {:?}", &parent);
                 self.approximate(&parent, &mut output);
-                // freeBuffers.Push(parent);
                 free_buffers.push_front(parent);
                 continue;
             }
 
             // If we do not yet have a sufficiently "flat" (in other words, detailed) approximation we keep
             // subdividing the curve we are currently operating on.
-            // Vector2[] rightChild = freeBuffers.Count > 0 ? freeBuffers.Pop() : new Vector2[this.count];
             let mut right_child = if free_buffers.len() > 0 {
                 free_buffers.pop_front().unwrap()
             } else {
                 vec![Vector2::zero(); self.count]
-                // let mut v = Vec::with_capacity(self.count);
-                // v.fill();
-                // v
             };
-            println!("not approxmate");
-            // this.Subdivide(parent, leftChild, rightChild);
             self.subdivide(&parent, &mut left_child, &mut right_child);
 
             // We re-use the buffer of the parent for one of the children, so that we save one allocation per iteration.
-            // for (int i = 0; i < this.count; ++i) parent[i] = leftChild[i];
             for i in 0..self.count {
                 parent[i] = left_child[i]
             }
 
-            // toFlatten.Push(rightChild);
-            // toFlatten.Push(parent);
             to_flatten.push_front(right_child.clone());
             to_flatten.push_front(parent);
         }
 
-
-        // output.Add(this.controlPoints[this.count - 1]);
         output.push(self.control_points[self.count - 1]);
         output
     }
-
-
 }
 
 pub(crate) fn create_bezier(input: Vec<Vector2>) -> Vec<Vector2> {
@@ -290,7 +257,8 @@ pub(crate) fn create_bezier(input: Vec<Vector2>) -> Vec<Vector2> {
 
 pub(crate) fn create_bezier_old(input: Vec<Vector2>) -> Vec<Vector2> {
     let count = input.len();
-    let mut working = Vec::with_capacity(count);
+    let mut working = Vec::new();
+    for i in 0..count {working.push(Vector2::zero())}
     let mut output = Vec::new();
 
     let points = SLIDER_DETAIL_LEVEL * count as u32;
@@ -298,8 +266,7 @@ pub(crate) fn create_bezier_old(input: Vec<Vector2>) -> Vec<Vector2> {
         for i in 0..count {working[i] = input[i]}
         for level in 0..count {
             for i in 0..count - level - 1 {
-                // Vector2.Lerp(ref working[i], ref working[i + 1], (float)iteration / points, out working[i]);
-                working[i] = lerp(working[i], working[i+1], (iteration / points) as f64);
+                working[i] = lerp(working[i], working[i+1], iteration as f64 / points as f64);
             }
         }
         output.push(working[0]);
@@ -309,20 +276,24 @@ pub(crate) fn create_bezier_old(input: Vec<Vector2>) -> Vec<Vector2> {
 
 pub(crate) fn create_bezier_wrong(input: Vec<Vector2>) -> Vec<Vector2> {
     let count = input.len();
-    let mut working = Vec::with_capacity(count);
+
+    let mut working = Vec::new();
+    for i in 0..count {working.push(Vector2::zero())}
     let mut output = Vec::new();
 
     let points = SLIDER_DETAIL_LEVEL * count as u32;
+
     for iteration in 0..points {
         for i in 0..count {working[i] = input[i]}
+
         for level in 0..count {
             for i in 0..count - level - 1 {
-                // Vector2.Lerp(ref working[i], ref working[i + 1], (float)iteration / points, out working[i]);
-                working[i] = lerp(working[i], working[i+1], (iteration / points) as f64);
+                working[i] = lerp(working[i], working[i+1], iteration as f64 / points as f64);
             }
         }
         output.push(working[0]);
     }
+
     output
 }
 
