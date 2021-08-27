@@ -183,10 +183,7 @@ impl GameMode for StandardGame {
     }
 
 
-    fn update(&mut self, manager:&mut IngameManager) {
-        // get the current time
-        let time = manager.time();
-
+    fn update(&mut self, manager:&mut IngameManager, time:f32) {
         // update notes
         for note in self.notes.iter_mut() {note.update(time)}
         

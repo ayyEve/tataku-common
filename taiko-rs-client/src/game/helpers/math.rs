@@ -1,102 +1,12 @@
 use std::collections::VecDeque;
-
 use ayyeve_piston_ui::render::Vector2;
 
 // this is essentially osu's math helper
 
 pub const SLIDER_DETAIL_LEVEL:u32 = 50;
 
-
-pub const E:f64 = 2.71828175;
-pub const LOG2E:f64 = 1.442695;
-pub const LOG10E:f64 = 0.4342945;
 pub const PI:f64 = 3.14159274;
 pub const TWO_PI:f64 = 6.28318548;
-pub const PI_OVER_2:f64 = 1.57079637;
-pub const PI_OVER_4:f64 = 0.7853982;
-
-// const factorial_lookup:[f64;33] = [
-//     1.0,
-//     1.0,
-//     2.0,
-//     6.0,
-//     24.0,
-//     120.0,
-//     720.0,
-//     5040.0,
-//     40320.0,
-//     362880.0,
-//     3628800.0,
-//     39916800.0,
-//     479001600.0,
-//     6227020800.0,
-//     87178291200.0,
-//     1307674368000.0,
-//     20922789888000.0,
-//     355687428096000.0,
-//     6402373705728000.0,
-//     121645100408832000.0,
-//     2432902008176640000.0,
-//     51090942171709440000.0,
-//     1124000727777607680000.0,
-//     25852016738884976640000.0,
-//     620448401733239439360000.0,
-//     15511210043330985984000000.0,
-//     403291461126605635584000000.0,
-//     10888869450418352160768000000.0,
-//     304888344611713860501504000000.0,
-//     8841761993739701954543616000000.0,
-//     265252859812191058636308480000000.0,
-//     8222838654177922817725562880000000.0,
-//     263130836933693530167218012160000000.0
-// ];
-
-// fn factorial(n:u32) -> f64 {
-//     factorial_lookup[n as usize]
-// }
-
-// /// Evaluates the <a href="https://en.wikipedia.org/wiki/Binomial_coefficient">binomial coefficient</a> indexed by n and k.
-// fn ni(n:u32, k:u32) -> f64 {
-//     let a1 = factorial(n);
-//     let a2 = factorial(k);
-//     let a3 = factorial(n - k);
-//     a1 / (a2 * a3)
-// }
-
-// /// Evaluates the i'th <a href="https://en.wikipedia.org/wiki/Bernstein_polynomial">bernstein polynomial</a> of degree
-// /// n at position t.
-// fn bernstein(n:u32, i:u32, t:f64) -> f64 {
-//     let ti = if t == 0.0 && i == 0 {1.0} else {t.powi(i as i32)};
-//     let tni = if n == i && t == 1.0 {1.0} else {(1.0 - t).powi(n as i32 - i as i32 )};
-//     ni(n, i) * ti * tni
-// }
-
-// /// Creates a piecewise-linear approximation of a bezier curve, using bernstein polynomials to evaluate the curve at
-// /// specific positions.
-// fn create_bezier_bernstein(control_points:Vec<Vector2>) -> Vec<Vector2> {
-//     let mut output = Vec::new();
-
-//     let amount_output_points = SLIDER_DETAIL_LEVEL as usize * control_points.len();
-
-//     let step = 1.0 / (amount_output_points - 1) as f64;
-//     for i in 0..amount_output_points {
-//         let t = step * i as f64;
-
-//         let mut x = 0.0;
-//         let mut y = 0.0;
-
-//         for j in 0..control_points.len() {
-//             let basis = bernstein(control_points.len() as u32 - 1, j as u32, t);
-//             x += basis * control_points[j].x;
-//             y += basis * control_points[j].y;
-//         }
-
-//         output.push(Vector2::new(x, y));
-//     }
-
-//     output
-// }
-
 
 const BEZIER_TOLERANCE:f64 = 0.5;
 const BEZIER_TOLERANCE_SQ:f64 = BEZIER_TOLERANCE * BEZIER_TOLERANCE;
@@ -112,12 +22,12 @@ impl BezierApproximator {
         let count = control_points.len();
 
         let mut subdivision_buffer1 = Vec::new();
-        for i in 0..count {
+        for _ in 0..count {
             subdivision_buffer1.push(Vector2::zero());
         }
 
         let mut subdivision_buffer2 = Vec::new();
-        for i in 0..count * 2 - 1 {
+        for _ in 0..count * 2 - 1 {
             subdivision_buffer2.push(Vector2::zero());
         }
 
@@ -258,7 +168,7 @@ pub(crate) fn create_bezier(input: Vec<Vector2>) -> Vec<Vector2> {
 pub(crate) fn create_bezier_old(input: Vec<Vector2>) -> Vec<Vector2> {
     let count = input.len();
     let mut working = Vec::new();
-    for i in 0..count {working.push(Vector2::zero())}
+    for _ in 0..count {working.push(Vector2::zero())}
     let mut output = Vec::new();
 
     let points = SLIDER_DETAIL_LEVEL * count as u32;
@@ -278,7 +188,7 @@ pub(crate) fn create_bezier_wrong(input: Vec<Vector2>) -> Vec<Vector2> {
     let count = input.len();
 
     let mut working = Vec::new();
-    for i in 0..count {working.push(Vector2::zero())}
+    for _ in 0..count {working.push(Vector2::zero())}
     let mut output = Vec::new();
 
     let points = SLIDER_DETAIL_LEVEL * count as u32;

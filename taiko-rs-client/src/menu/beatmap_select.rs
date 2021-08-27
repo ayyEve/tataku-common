@@ -28,12 +28,6 @@ const LEADERBOARD_ITEM_SIZE: Vector2 = Vector2::new(200.0, 50.0);
 
 pub struct BeatmapSelectMenu {
     mode: PlayMode,
-    /// tag of the selected set
-    // selected: Option<String>,
-    // selected_beatmap: Option<String>, // hash of selected map, needed for score refresh
-
-    /// hash of the last clicked map
-    // last_clicked: String, // empty by default
     
     current_scores: HashMap<String, Arc<Mutex<Score>>>,
     beatmap_scroll: ScrollableArea,
@@ -52,10 +46,6 @@ impl BeatmapSelectMenu {
             // mouse_down: false,
             // drag: None,
 
-            // selected: None,
-            // selected_beatmap: None,
-
-            // last_clicked: String::new(),
             pending_refresh: false,
             current_scores: HashMap::new(),
             back_button: MenuButton::back_button(WINDOW_SIZE),
@@ -65,14 +55,6 @@ impl BeatmapSelectMenu {
             leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(LEADERBOARD_ITEM_SIZE.x, WINDOW_SIZE.y - (LEADERBOARD_PADDING + INFO_BAR_HEIGHT)), true),
         }
     }
-
-    /// returns the selected item
-    // pub fn get_selected(&self) -> Option<Arc<Mutex<Beatmap>>> {
-    //     match &self.selected {
-    //         Some(hash) => BEATMAP_MANAGER.lock().get_by_hash(hash.split('\n').last().unwrap().to_owned().clone()),
-    //         None => {None}
-    //     }
-    // }
 
     pub fn refresh_maps(&mut self) {
         self.pending_refresh = false;

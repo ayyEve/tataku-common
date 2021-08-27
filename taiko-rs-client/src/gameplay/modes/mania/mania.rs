@@ -376,10 +376,7 @@ impl GameMode for ManiaGame {
     }
 
 
-    fn update(&mut self, manager:&mut IngameManager) {
-        // get the current time
-        let time = manager.time();
-
+    fn update(&mut self, manager:&mut IngameManager, time: f32) {
         // update notes
         for col in self.columns.iter_mut() {
             for note in col.iter_mut() {note.update(time)}

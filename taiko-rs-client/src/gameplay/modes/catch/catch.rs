@@ -195,9 +195,7 @@ impl GameMode for CatchGame {
         s
     }
 
-    fn update(&mut self, manager:&mut IngameManager) {
-        // get the current time
-        let time = manager.time();
+    fn update(&mut self, manager:&mut IngameManager, time: f32) {
         self.catcher.update(time as f64);
 
         // update notes

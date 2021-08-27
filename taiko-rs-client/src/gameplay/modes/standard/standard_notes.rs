@@ -397,7 +397,7 @@ impl StandardHitObject for StandardSlider {
 
         // at this point, assume we want to return points
         // get the points
-        let diff = (time - self.time).abs();
+        let diff = (time - judgement_time).abs();
 
         if diff < h300 {
             ScoreHit::X300

@@ -184,6 +184,7 @@ impl IngameManager {
 
 
     pub fn update(&mut self) {
+
         // check lead-in time
         if self.lead_in_time > 0.0 {
             let elapsed = self.lead_in_timer.elapsed().as_micros() as f32 / 1000.0;
@@ -199,7 +200,6 @@ impl IngameManager {
             }
         }
         let time = self.time();
-
 
         // check timing point
         let timing_points = &self.beatmap.timing_points;
@@ -218,55 +218,6 @@ impl IngameManager {
                 let (frame_time, frame) = self.replay.frames[self.replay_frame as usize];
                 if frame_time > time {break}
                 m.handle_replay_frame(frame, self);
-
-                // this should be handled by the gamemode
-                // match pressed {
-                //     KeyPress::LeftKat => {
-                //         let mut hit = HalfCircle::new(
-                //             Color::BLUE,
-                //             HIT_POSITION,
-                //             1.0,
-                //             HIT_AREA_RADIUS,
-                //             true
-                //         );
-                //         hit.set_lifetime(DRUM_LIFETIME_TIME);
-                //         self.render_queue.push(Box::new(hit));
-                //     },
-                //     KeyPress::LeftDon => {
-                //         let mut hit = HalfCircle::new(
-                //             Color::RED,
-                //             HIT_POSITION,
-                //             1.0,
-                //             HIT_AREA_RADIUS,
-                //             true
-                //         );
-                //         hit.set_lifetime(DRUM_LIFETIME_TIME);
-                //         self.render_queue.push(Box::new(hit));
-                //     },
-                //     KeyPress::RightDon => {
-                //         let mut hit = HalfCircle::new(
-                //             Color::RED,
-                //             HIT_POSITION,
-                //             1.0,
-                //             HIT_AREA_RADIUS,
-                //             false
-                //         );
-                //         hit.set_lifetime(DRUM_LIFETIME_TIME);
-                //         self.render_queue.push(Box::new(hit));
-                //     },
-                //     KeyPress::RightKat => {
-                //         let mut hit = HalfCircle::new(
-                //             Color::BLUE,
-                //             HIT_POSITION,
-                //             1.0,
-                //             HIT_AREA_RADIUS,
-                //             false
-                //         );
-                //         hit.set_lifetime(DRUM_LIFETIME_TIME);
-                //         self.render_queue.push(Box::new(hit));
-                //     },
-                // }
-
                 self.replay_frame += 1;
             }
         }
@@ -277,7 +228,7 @@ impl IngameManager {
         // update gamemode
         let m = self.gamemode.clone();
         let mut m = m.lock();
-        m.update(self);
+        m.update(self, time);
     }
 
 
@@ -412,7 +363,7 @@ impl IngameManager {
             None // for now
         )));
 
-        // draw other windows
+        // draw other hit windows
         for (window, color) in windows {
             let width = (window / miss) as f64 * HIT_TIMING_BAR_SIZE.x;
             list.push(Box::new(Rectangle::new(
@@ -471,7 +422,7 @@ pub trait GameMode {
 
     fn handle_replay_frame(&mut self, frame:ReplayFrame, manager:&mut IngameManager);
 
-    fn update(&mut self, manager:&mut IngameManager);
+    fn update(&mut self, manager:&mut IngameManager, time: f32);
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list: &mut Vec<Box<dyn Renderable>>);
 
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager);

@@ -299,9 +299,7 @@ impl GameMode for TaikoGame {
     }
 
 
-    fn update(&mut self, manager:&mut IngameManager) {
-        // get the current time
-        let time = manager.time();
+    fn update(&mut self, manager:&mut IngameManager, time: f32) {
 
         // update notes
         for note in self.notes.iter_mut() {note.update(time)}
@@ -334,6 +332,7 @@ impl GameMode for TaikoGame {
         }
     }
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
+        list.reserve(self.render_queue.len());
         for i in self.render_queue.iter() {
             list.push(i.clone());
         }
@@ -362,7 +361,7 @@ impl GameMode for TaikoGame {
         // draw notes
         for note in self.notes.iter_mut() {note.draw(args, list)}
         // draw timing lines
-        for tb in self.timing_bars.iter_mut() {list.extend(tb.draw(args))}
+        for tb in self.timing_bars.iter_mut() {tb.draw(args, list)}
     }
 
 
@@ -513,21 +512,18 @@ impl TimingBar {
         self.pos = HIT_POSITION + Vector2::new(((self.time - time) * self.speed) as f64 - BAR_WIDTH / 2.0, -PLAYFIELD_RADIUS);
     }
 
-    fn draw(&mut self, _args:RenderArgs) -> Vec<Box<dyn Renderable>> {
-        let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        if self.pos.x + BAR_WIDTH < 0.0 || self.pos.x - BAR_WIDTH > WINDOW_SIZE.x as f64 {return renderables}
+    fn draw(&mut self, _args:RenderArgs, list:&mut Vec<Box<dyn Renderable>>){
+        if self.pos.x + BAR_WIDTH < 0.0 || self.pos.x - BAR_WIDTH > WINDOW_SIZE.x as f64 {return}
 
         const SIZE:Vector2 = Vector2::new(BAR_WIDTH, PLAYFIELD_RADIUS*2.0);
         const DEPTH:f64 = f64::MAX-5.0;
 
-        renderables.push(Box::new(Rectangle::new(
+        list.push(Box::new(Rectangle::new(
             BAR_COLOR,
             DEPTH,
             self.pos,
             SIZE,
             None
         )));
-
-        renderables
     }
 }

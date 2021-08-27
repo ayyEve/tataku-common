@@ -158,7 +158,6 @@ impl Game {
         self.menus.insert("settings", settings_menu.clone());
         menu_init_benchmark.log("settings menu created", true);
 
-
         self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(loading_menu))));
     }
     pub fn game_loop(mut self) {
@@ -186,6 +185,7 @@ impl Game {
     }
 
     fn update(&mut self, _delta:f64) {
+        // let timer = Instant::now();
         self.update_display.increment();
         let current_state = self.current_state.clone();
         let elapsed = self.game_start.elapsed().as_millis() as u64;
@@ -475,9 +475,16 @@ impl Game {
                 }
             }
         }
+    
+        
+
+        // if timer.elapsed().as_secs_f32() * 1000.0 > 1.0 {
+        //     println!("update took a while: {}", timer.elapsed().as_secs_f32() * 1000.0);
+        // }
     }
 
     fn render(&mut self, args: RenderArgs) {
+        // let timer = Instant::now();
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
         let settings = Settings::get();
         let elapsed = self.game_start.elapsed().as_millis() as u64;
@@ -533,7 +540,6 @@ impl Game {
 
         // users list
         if self.show_user_list {
-
             //TODO: move the set_pos code to update or smth
             let mut counter = 0;
             
@@ -582,7 +588,6 @@ impl Game {
         let queue = self.render_queue.as_mut_slice();
         self.graphics.draw(args.viewport(), |c, g| {
             graphics::clear(GFX_CLEAR_COLOR.into(), g);
-
             for i in queue.as_mut() {
                 if i.get_spawn_time() == 0 {i.set_spawn_time(elapsed);}
                 i.draw(g, c);
@@ -591,6 +596,11 @@ impl Game {
         
         self.clear_render_queue(false);
         self.fps_display.increment();
+
+
+        // if timer.elapsed().as_secs_f32() * 1000.0 > 1.0 {
+        //     println!("render took a while: {}", timer.elapsed().as_secs_f32() * 1000.0);
+        // }
     }
 
     pub fn clear_render_queue(&mut self, remove_all:bool) {

@@ -4,6 +4,7 @@ use rand::Rng;
 use parking_lot::Mutex;
 use crate::{DOWNLOADS_DIR, SONGS_DIR, game::{Audio, Game}, gameplay::{Beatmap, BeatmapMeta}, get_file_hash};
 
+const DOWNLOAD_CHECK_INTERVAL:u64 = 10_000;
 
 lazy_static::lazy_static! {
     pub static ref BEATMAP_MANAGER: Arc<Mutex<BeatmapManager>> = Arc::new(Mutex::new(BeatmapManager::new()));
@@ -65,7 +66,7 @@ impl BeatmapManager {
             .unwrap();
         game.threading.spawn(async move {
             loop {
-                tokio::time::sleep(Duration::from_millis(1_000)).await;
+                tokio::time::sleep(Duration::from_millis(DOWNLOAD_CHECK_INTERVAL)).await;
                 BeatmapManager::check_downloads(&runtime);
             }
         });
