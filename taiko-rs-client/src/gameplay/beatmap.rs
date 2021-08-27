@@ -146,8 +146,22 @@ impl Beatmap {
                         let x = split.next().unwrap().parse::<f64>().unwrap();
                         let y = split.next().unwrap().parse::<f64>().unwrap();
                         let time = split.next().unwrap().parse::<f32>().unwrap();
-                        let read_type = split.next().unwrap().parse::<u64>().unwrap_or(0); // note, slider, spinner, hold
+                        let read_type = split.next().unwrap().parse::<u64>().unwrap_or(0); // see below
                         let hitsound = split.next().unwrap().parse::<u32>().unwrap_or(0); // 0 = normal, 2 = whistle, 4 = finish, 8 = clap
+
+                        // read type:
+                        // abcdefgh
+                        // a = note
+                        // b = slider
+                        // c = new combo
+                        // d, e, f = combo color skip count
+                        // g = spinner
+                        // h = mania hold
+                        let new_combo = (read_type & 4) > 0;
+                        let color_skip = 
+                              if (read_type & 2u64.pow(4)) > 0 {1} else {0} 
+                            + if (read_type & 2u64.pow(5)) > 0 {2} else {0} 
+                            + if (read_type & 2u64.pow(6)) > 0 {4} else {0};
 
                         if (read_type & 2) > 0 { // slider
                             let curve_raw = split.next().unwrap();
@@ -194,7 +208,8 @@ impl Beatmap {
                                 hitsamples: Vec::new(),
                                 edge_sounds,
                                 edge_sets,
-                                raw_str: line.clone()
+                                new_combo,
+                                color_skip
                             });
 
                         } else if (read_type & 8) > 0 { // spinner
@@ -208,7 +223,9 @@ impl Beatmap {
                                 time,
                                 end_time,
                                 hitsound,
-                                hitsamples: Vec::new()
+                                hitsamples: Vec::new(),
+                                new_combo,
+                                color_skip
                             });
                             // let diff_map = map_difficulty_range(beatmap.metadata.od as f64, 3.0, 5.0, 7.5);
                             // let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
@@ -228,7 +245,9 @@ impl Beatmap {
                                 pos: Vector2::new(x, y),
                                 time,
                                 hitsound,
-                                hitsamples: Vec::new()
+                                hitsamples: Vec::new(),
+                                new_combo,
+                                color_skip
                             });
                         }
                     }
@@ -239,6 +258,8 @@ impl Beatmap {
             }
         }
 
+        beatmap.metadata.do_checks();
+        // make sure we have the ar set
         beatmap.hash = format!("{:x}", md5::compute(body).to_owned());
         Arc::new(Mutex::new(beatmap))
     }
@@ -329,7 +350,7 @@ impl BeatmapMeta {
         let unknown = "Unknown".to_owned();
 
         BeatmapMeta {
-            mode: PlayMode::Taiko,
+            mode: PlayMode::Standard,
             beatmap_version: 0.0,
             artist: unknown.clone(),
             title: unknown.clone(),
@@ -340,10 +361,10 @@ impl BeatmapMeta {
             audio_filename: String::new(),
             image_filename: String::new(),
             audio_preview: 0.0,
-            hp: 0.0,
-            od: 0.0,
-            ar: 0.0,
-            cs: 0.0,
+            hp: -1.0,
+            od: -1.0,
+            ar: -1.0,
+            cs: -1.0,
             sr: 0.0,
             slider_multiplier: 1.4,
             slider_tick_rate: 1.0,
@@ -353,6 +374,10 @@ impl BeatmapMeta {
             secs: 0,
         }
     }
+    pub fn do_checks(&mut self) {
+        if self.ar < 0.0 {self.ar = self.od}
+    }
+
     pub fn set_dur(&mut self, duration:u64) {
         self.duration = duration;
         self.mins = (self.duration as f32 / 60000.0).floor() as u8;

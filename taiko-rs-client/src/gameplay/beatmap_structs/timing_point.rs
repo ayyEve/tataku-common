@@ -22,9 +22,16 @@ impl TimingPoint {
         let _meter = split.next(); //.unwrap().parse::<u32>().unwrap();
         let _sample_set = split.next(); //.unwrap().parse::<u32>().unwrap();
         let _sample_index = split.next(); //.unwrap().parse::<u32>().unwrap();
-        let volume = split.next().unwrap().parse::<u32>().unwrap_or(50);
+
+        let volume = match split.next() {
+            Some(str) => str.parse::<u32>().unwrap_or(50),
+            None => 50
+        };
         let _uninherited = split.next();
-        let effects = split.next().unwrap().parse::<u32>().unwrap();
+        let effects = match split.next() {
+            Some(str) => str.parse::<u32>().unwrap(),
+            None => 0
+        };
 
         let kiai = (effects & 1) == 1;
 

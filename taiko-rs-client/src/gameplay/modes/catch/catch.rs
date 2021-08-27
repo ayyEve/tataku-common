@@ -2,8 +2,8 @@ use ayyeve_piston_ui::render::*;
 use piston::RenderArgs;
 
 use super::*;
-use crate::game::Audio;
 use crate::{WINDOW_SIZE, Vector2};
+use crate::game::{Audio, Settings};
 use crate::helpers::slider::get_curve;
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
 use crate::gameplay::{Beatmap, GameMode, IngameManager, map_difficulty, defs::*, modes::FIELD_SIZE};
@@ -318,31 +318,31 @@ impl GameMode for CatchGame {
         };
     }
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
-        // let settings = Settings::get().taiko_settings;
+        let settings = Settings::get().catch_settings;
 
         if !manager.replaying {
-            if key == piston::Key::Left {
+            if key == settings.left_key {
                 self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), manager);
             }
-            if key == piston::Key::Right {
+            if key == settings.right_key {
                 self.handle_replay_frame(ReplayFrame::Press(KeyPress::Right), manager);
             }
-            if key == piston::Key::LShift { 
+            if key == settings.dash_key { 
                 self.handle_replay_frame(ReplayFrame::Press(KeyPress::Dash), manager);
             }
         }
     }
     fn key_up(&mut self, key:piston::Key, manager:&mut IngameManager) {
-        // let settings = Settings::get().taiko_settings;
+        let settings = Settings::get().catch_settings;
 
         if !manager.replaying {
-            if key == piston::Key::Left {
+            if key == settings.left_key {
                 self.handle_replay_frame(ReplayFrame::Release(KeyPress::Left), manager);
             }
-            if key == piston::Key::Right {
+            if key == settings.right_key {
                 self.handle_replay_frame(ReplayFrame::Release(KeyPress::Right), manager);
             }
-            if key == piston::Key::LShift { 
+            if key == settings.dash_key { 
                 self.handle_replay_frame(ReplayFrame::Release(KeyPress::Dash), manager);
             }
         }

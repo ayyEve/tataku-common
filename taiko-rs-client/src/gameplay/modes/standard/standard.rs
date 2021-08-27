@@ -1,6 +1,5 @@
 use ayyeve_piston_ui::render::*;
-use glfw::ffi::ALPHA_BITS;
-use piston::RenderArgs;
+use piston::{MouseButton, RenderArgs};
 
 use super::*;
 use crate::helpers::slider::get_curve;
@@ -51,33 +50,70 @@ impl GameMode for StandardGame {
         let ar = beatmap.metadata.ar;
         let cs = beatmap.metadata.cs;
 
-        // add notes
+        // join notes and sliders into a single array
+        // needed because of combo counts
+        let mut all_items = Vec::new();
         for note in beatmap.notes.iter() {
-            s.notes.push(Box::new(StandardNote::new(
-                note.clone(),
-                ar,
-                cs,
-                Color::BLUE,
-                1
-            )));
+            all_items.push((Some(note), None, None))
         }
         for slider in beatmap.sliders.iter() {
-            let curve = get_curve(slider, beatmap);
-            s.notes.push(Box::new(StandardSlider::new(
-                slider.clone(),
-                curve,
-                ar,
-                cs,
-                Color::BLUE,
-                1
-            )))
+            all_items.push((None, Some(slider), None))
         }
-        // for spinner in beatmap.spinners.iter() {
-        // }
+        for spinner in beatmap.spinners.iter() {
+            all_items.push((None, None, Some(spinner)))
+        }
+        // sort
+        all_items.sort_by(|a, b| {
+            let a_time = match a {
+                (Some(note), None, None) => note.time,
+                (None, Some(slider), None) => slider.time,
+                (None, None, Some(spinner)) => spinner.time,
+                _ => 0.0
+            };
+            let b_time = match b {
+                (Some(note), None, None) => note.time,
+                (None, Some(slider), None) => slider.time,
+                (None, None, Some(spinner)) => spinner.time,
+                _ => 0.0
+            };
 
-        s.notes.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
-        s.end_time = s.notes.iter().last().unwrap().time();
+            a_time.partial_cmp(&b_time).unwrap()
+        });
 
+
+        // add notes
+        let mut combo_num = 0;
+        for (note, slider, spinner) in all_items {
+            combo_num += 1;
+            if let Some(note) = note {
+                if note.new_combo {combo_num = 1}
+                s.notes.push(Box::new(StandardNote::new(
+                    note.clone(),
+                    ar,
+                    cs,
+                    Color::BLUE,
+                    combo_num
+                )));
+            }
+            if let Some(slider) = slider {
+                if slider.new_combo {combo_num = 1}
+                let curve = get_curve(slider, beatmap);
+                s.notes.push(Box::new(StandardSlider::new(
+                    slider.clone(),
+                    curve,
+                    ar,
+                    cs,
+                    Color::BLUE,
+                    1
+                )))
+            }
+            if let Some(spinner) = spinner {
+                if spinner.new_combo {combo_num = 1}
+            }
+        }
+
+        // s.notes.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
+        s.end_time = s.notes[s.notes.len() - 1].end_time(100.0);
         s
     }
 
@@ -260,6 +296,23 @@ impl GameMode for StandardGame {
         self.handle_replay_frame(ReplayFrame::MousePos(pos.x as f32, pos.y as f32), manager);
     }
 
+    fn mouse_down(&mut self, btn:piston::MouseButton, manager:&mut IngameManager) {
+        if btn == MouseButton::Left {
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), manager);
+        }
+        if btn == MouseButton::Right {
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::Right), manager);
+        }
+    }
+    fn mouse_up(&mut self, btn:piston::MouseButton, manager:&mut IngameManager) {
+        if btn == MouseButton::Left {
+            self.handle_replay_frame(ReplayFrame::Release(KeyPress::Left), manager);
+        }
+        if btn == MouseButton::Right {
+            self.handle_replay_frame(ReplayFrame::Release(KeyPress::Right), manager);
+        }
+    }
+
     fn reset(&mut self, beatmap:Beatmap) {
         self.note_index = 0;
         
@@ -295,7 +348,7 @@ impl GameMode for StandardGame {
     }
 
     fn combo_bounds(&self) -> Rectangle {
-        let size = Vector2::new(0.0, 30.0);
+        let size = Vector2::new(100.0, 30.0);
         Rectangle::bounds_only(
             Vector2::new(0.0, WINDOW_SIZE.y - size.y),
             size

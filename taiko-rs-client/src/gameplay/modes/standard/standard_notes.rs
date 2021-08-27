@@ -1,4 +1,6 @@
-use ayyeve_piston_ui::render::Line;
+use ayyeve_piston_ui::render::fonts::get_font;
+use ayyeve_piston_ui::render::{Line, Rectangle, Text};
+use graphics::CharacterCache;
 use piston::RenderArgs;
 
 use crate::{WINDOW_SIZE, Vector2};
@@ -35,7 +37,7 @@ pub trait StandardHitObject: HitObject {
 
 
 // note
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct StandardNote {
     pos: Vector2,
     time: f32, // ms
@@ -53,17 +55,36 @@ pub struct StandardNote {
     map_time: f32,
     mouse_pos: Vector2,
     radius: f64,
-    time_preempt: f32
+    time_preempt: f32,
+
+    
+    combo_text: Box<Text>,
 }
 impl StandardNote {
     pub fn new(def:NoteDef, ar:f32, cs:f32, color:Color, combo_num:u16) -> Self {
         let cs_scale = (1.0 - 0.7 * (cs - 5.0) / 5.0) / 2.0;
         let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
+        let base_depth = get_depth(def.time);
+        let pos = POS_OFFSET + def.pos;
+        let radius = CIRCLE_RADIUS_BASE * cs_scale as f64;
+
+        let mut combo_text =  Box::new(Text::new(
+            Color::BLACK,
+            base_depth - 0.0000001,
+            pos,
+            (radius) as u32,
+            format!("{}", combo_num),
+            get_font("main")
+        ));
+        center_combo_text(&mut combo_text, Rectangle::bounds_only(
+            pos - Vector2::one() * radius / 2.0,
+            Vector2::one() * radius,
+        ));
 
         Self {
-            pos: POS_OFFSET + def.pos,
+            pos,
             time: def.time, 
-            base_depth: get_depth(def.time),
+            base_depth,
             color,
             combo_num,
             
@@ -74,7 +95,9 @@ impl StandardNote {
             mouse_pos: Vector2::zero(),
 
             time_preempt,
-            radius: CIRCLE_RADIUS_BASE * cs_scale as f64
+            radius,
+            
+            combo_text
         }
     }
 }
@@ -85,10 +108,12 @@ impl HitObject for StandardNote {
     fn update(&mut self, beatmap_time: f32) {self.map_time = beatmap_time}
 
     fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
-        if self.time - self.map_time > self.time_preempt || self.time - self.map_time < 0.0 {return}
+        if self.time - self.map_time > self.time_preempt || self.time - self.map_time < 0.0 || self.hit {return}
 
         // timing circle
         list.push(timing_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth));
+        // combo number
+        list.push(self.combo_text.clone());
 
         // note
         let mut note = Circle::new(
@@ -182,23 +207,42 @@ pub struct StandardSlider {
     base_depth: f64,
 
     /// 
-    time_preempt:f32
+    time_preempt:f32,
+
+    combo_text: Box<Text>
 }
 impl StandardSlider {
     pub fn new(def:SliderDef, curve:Curve, ar:f32, cs:f32, color:Color, combo_num: u16) -> Self {
         let cs_scale = (1.0 - 0.7 * (cs - 5.0) / 5.0) / 2.0;
         let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
-        let end_pos = POS_OFFSET + curve.position_at_length(curve.length());
+        let end_pos = POS_OFFSET + curve.position_at_time(curve.end_time);
+
+        let base_depth = get_depth(def.time);
+        let pos = POS_OFFSET + def.pos;
+        let radius = CIRCLE_RADIUS_BASE * cs_scale as f64;
+
+        let mut combo_text =  Box::new(Text::new(
+            Color::BLACK,
+            base_depth - 0.0000001,
+            pos,
+            (radius) as u32,
+            format!("{}", combo_num),
+            get_font("main")
+        ));
+        center_combo_text(&mut combo_text, Rectangle::bounds_only(
+            pos - Vector2::one() * radius / 2.0,
+            Vector2::one() * radius,
+        ));
 
         Self {
             curve,
             color,
             combo_num,
             time_preempt,
-            base_depth: get_depth(def.time),
-            radius: CIRCLE_RADIUS_BASE * cs_scale as f64,
+            base_depth,
+            radius,
 
-            pos: POS_OFFSET + def.pos,
+            pos,
             end_pos,
             time: def.time, 
             hit_dots: Vec::new(),
@@ -208,7 +252,9 @@ impl StandardSlider {
             end_checked: false,
             hold_time: 0.0,
             release_time: 0.0,
-            mouse_pos: Vector2::zero()
+            mouse_pos: Vector2::zero(),
+
+            combo_text
         }
     }
 }
@@ -224,6 +270,8 @@ impl HitObject for StandardSlider {
         if self.time - self.map_time > 0.0 {
             // timing circle
             list.push(timing_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth));
+            // combo number
+            list.push(self.combo_text.clone());
         } else {
             // slider ball
             let pos = POS_OFFSET + self.curve.position_at_time(self.map_time);
@@ -512,4 +560,18 @@ fn timing_circle(pos:Vector2, radius:f64, time_diff: f32, time_preempt:f32, dept
     );
     c.border = Some(Border::new(Color::WHITE, NOTE_BORDER_SIZE));
     Box::new(c)
+}
+
+fn center_combo_text(text:&mut Box<Text>, rect:Rectangle) {
+    let mut text_size = Vector2::zero();
+    let mut font = text.font.lock();
+
+    for _ch in text.text.chars() {
+        let character = font.character(text.font_size, _ch).unwrap();
+        text_size.x += character.advance_width();
+        text_size.y = text_size.y.max(character.offset[1]); //character.advance_height();
+    }
+
+    text.pos = rect.pos + (rect.size - text_size)/2.0
+         + Vector2::new(0.0, text_size.y);
 }
