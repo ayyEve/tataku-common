@@ -618,24 +618,24 @@ impl Game {
 
     /// shortcut for setting the game's background texture to a beatmap's image
     pub fn set_background_beatmap(&mut self, beatmap:&BeatmapMeta) {
-        let mut helper = BenchmarkHelper::new("loaad image");
+        // let mut helper = BenchmarkHelper::new("loaad image");
 
         let settings = opengl_graphics::TextureSettings::new();
-        helper.log("settings made", true);
+        // helper.log("settings made", true);
 
         let buf = std::fs::read(&beatmap.image_filename).unwrap();
-        helper.log("file read", true);
+        // helper.log("file read", true);
 
         let img = image::load_from_memory(&buf).unwrap();
-        helper.log("image created", true);
+        // helper.log("image created", true);
         let img = img.into_rgba8();
-        helper.log("format converted", true);
+        // helper.log("format converted", true);
         
         let tex = opengl_graphics::Texture::from_image(&img, &settings);
-        helper.log("texture made", true);
+        // helper.log("texture made", true);
 
         self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, WINDOW_SIZE));
-        helper.log("background set", true);
+        // helper.log("background set", true);
 
         // match opengl_graphics::Texture::from_path(beatmap.image_filename.clone(), &settings) {
         //     Ok(tex) => self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, WINDOW_SIZE)),

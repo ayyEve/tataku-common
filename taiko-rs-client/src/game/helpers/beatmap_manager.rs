@@ -111,7 +111,6 @@ impl BeatmapManager {
                         println!("error inserting metadata: {}", e);
                     }
                 }
-
             }
         }
     }
@@ -187,22 +186,15 @@ impl BeatmapManager {
 
     pub fn next_beatmap(&mut self) -> Option<BeatmapMeta> {
         self.play_index += 1;
-
         if self.play_index < self.played.len() {
             let hash = self.played[self.play_index].clone();
             self.get_by_hash(&hash).clone()
         } else {
-            let map = self.random_beatmap();
-            if let Some(map) = map.clone() {
-                self.played.push(map.beatmap_hash.clone());
-            }
-            map
+            self.random_beatmap()
         }
     }
     pub fn previous_beatmap(&mut self) -> Option<BeatmapMeta> {
-        if self.play_index == 0 {
-            return None
-        }
+        if self.play_index == 0 {return None}
         self.play_index -= 1;
         
         match self.played.get(self.play_index) {
