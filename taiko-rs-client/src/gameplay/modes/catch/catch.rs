@@ -348,7 +348,7 @@ impl GameMode for CatchGame {
         }
     }
 
-    fn reset(&mut self, beatmap:Beatmap) {
+    fn reset(&mut self, beatmap:&Beatmap) {
         for note in self.notes.as_mut_slice() {
             note.reset();
         }

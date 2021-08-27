@@ -2605,6 +2605,7 @@ dependencies = [
  "dft",
  "futures-util",
  "glfw",
+ "image",
  "lazy_static",
  "md5",
  "parking_lot",

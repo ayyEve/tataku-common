@@ -21,6 +21,7 @@ futures-util = { version = "0.3", default-features = false, features = ["async-a
 
 # piston etc
 glfw = "0.41"
+image = "0.23"
 piston = "0.53.0"
 piston2d-graphics = "0.40.0"
 pistoncore-glfw_window = "0.71.0"

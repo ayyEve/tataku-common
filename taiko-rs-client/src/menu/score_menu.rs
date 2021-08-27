@@ -2,10 +2,11 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 use piston::{MouseButton, RenderArgs};
 
+use crate::gameplay::BeatmapMeta;
 use taiko_rs_common::types::{Score, HitError};
+use crate::gameplay::modes::manager_from_playmode;
 use crate::menu::{Menu, MenuButton, ScrollableItem, Graph};
 use crate::game::{Game, GameState, KeyModifiers, get_font};
-use crate::gameplay::{Beatmap, IngameManager, modes::gamemode_from_playmode};
 use crate::{WINDOW_SIZE, databases, format, Vector2, render::*, helpers::visibility_bg};
 
 const GRAPH_SIZE:Vector2 = Vector2::new(400.0, 200.0);
@@ -13,7 +14,7 @@ const GRAPH_PADDING:Vector2 = Vector2::new(10.0,10.0);
 
 pub struct ScoreMenu {
     score: Score,
-    beatmap: Beatmap,
+    beatmap: BeatmapMeta,
     back_button: MenuButton,
     replay_button: MenuButton,
     graph: Graph,
@@ -22,7 +23,7 @@ pub struct ScoreMenu {
     hit_error: HitError
 }
 impl ScoreMenu {
-    pub fn new(score:&Score, beatmap: Beatmap) -> ScoreMenu {
+    pub fn new(score:&Score, beatmap: BeatmapMeta) -> ScoreMenu {
         let hit_error = score.hit_error();
         let back_button = MenuButton::back_button(WINDOW_SIZE);
 
@@ -147,10 +148,7 @@ impl Menu<Game> for ScoreMenu {
                 Ok(replay) => {
                     // game.menus.get("beatmap").unwrap().lock().on_change(false);
                     // game.queue_mode_change(GameMode::Replaying(self.beatmap.clone(), replay.clone(), 0));
-                    let beatmap = self.beatmap.clone();
-                    let gamemode = gamemode_from_playmode(self.score.playmode, &beatmap);
-
-                    let mut manager = IngameManager::new(beatmap, gamemode);
+                    let mut manager = manager_from_playmode(self.score.playmode, &self.beatmap);
                     manager.replaying = true;
                     manager.replay = replay.clone();
                     game.queue_state_change(GameState::Ingame(Arc::new(Mutex::new(manager))));

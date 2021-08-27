@@ -2,6 +2,7 @@ use ayyeve_piston_ui::render::*;
 use piston::{MouseButton, RenderArgs};
 
 use super::*;
+use crate::gameplay::BeatmapMeta;
 use crate::helpers::slider::get_curve;
 use crate::{WINDOW_SIZE, Vector2, game::Settings};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
@@ -21,7 +22,6 @@ pub struct StandardGame {
     hitwindow_300: f32,
     hitwindow_100: f32,
     hitwindow_miss: f32,
-
     end_time: f32,
 
     draw_points: Vec<(f32, Vector2, ScoreHit)>
@@ -97,7 +97,7 @@ impl GameMode for StandardGame {
             }
             if let Some(slider) = slider {
                 if slider.new_combo {combo_num = 1}
-                let curve = get_curve(slider, beatmap);
+                let curve = get_curve(slider, &beatmap);
                 s.notes.push(Box::new(StandardSlider::new(
                     slider.clone(),
                     curve,
@@ -313,14 +313,13 @@ impl GameMode for StandardGame {
         }
     }
 
-    fn reset(&mut self, beatmap:Beatmap) {
+    fn reset(&mut self, beatmap:&Beatmap) {
         self.note_index = 0;
         
         for note in self.notes.as_mut_slice() {
             note.reset();
         }
         
-
         let od = beatmap.metadata.od;
         // setup hitwindows
         self.hitwindow_miss = map_difficulty(od, 135.0, 95.0, 70.0);

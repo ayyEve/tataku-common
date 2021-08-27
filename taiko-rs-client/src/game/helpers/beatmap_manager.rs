@@ -2,32 +2,35 @@ use std::{collections::HashMap, fs::{DirEntry, read_dir}, path::Path, sync::Arc,
 
 use rand::Rng;
 use parking_lot::Mutex;
-use crate::{DOWNLOADS_DIR, SONGS_DIR, game::{Audio, Game}, gameplay::Beatmap};
+use crate::{DOWNLOADS_DIR, SONGS_DIR, game::{Audio, Game}, gameplay::{Beatmap, BeatmapMeta}, get_file_hash};
 
-// ugh
-type ArcMutexBeatmap = Arc<Mutex<Beatmap>>;
+
+lazy_static::lazy_static! {
+    pub static ref BEATMAP_MANAGER: Arc<Mutex<BeatmapManager>> = Arc::new(Mutex::new(BeatmapManager::new()));
+}
 
 pub struct BeatmapManager {
-    pub current_beatmap: Option<ArcMutexBeatmap>,
-    pub beatmaps: Vec<ArcMutexBeatmap>,
-    pub beatmaps_by_hash: HashMap<String, ArcMutexBeatmap>,
+    pub initialized: bool,
 
-    pub dirty: bool, // might be useful later
+    pub current_beatmap: Option<BeatmapMeta>,
+    pub beatmaps: Vec<BeatmapMeta>,
+    pub beatmaps_by_hash: HashMap<String, BeatmapMeta>,
 
     /// previously played maps
     played: Vec<String>,
     /// current index of previously played maps
     play_index: usize,
 
-    new_maps: Vec<ArcMutexBeatmap>
+    new_maps: Vec<BeatmapMeta>
 }
 impl BeatmapManager {
     pub fn new() -> Self {
         Self {
+            initialized: false,
+
             current_beatmap: None,
             beatmaps: Vec::new(),
             beatmaps_by_hash: HashMap::new(),
-            dirty: false,
 
             played: Vec::new(),
             play_index: 0,
@@ -36,10 +39,10 @@ impl BeatmapManager {
     }
 
     // download checking
-    pub fn get_new_maps(&mut self) -> Vec<ArcMutexBeatmap> {
+    pub fn get_new_maps(&mut self) -> Vec<BeatmapMeta> {
         std::mem::take(&mut self.new_maps)
     }
-    fn check_downloads(_self:Arc<Mutex<Self>>, runtime:&tokio::runtime::Runtime) {
+    fn check_downloads(runtime:&tokio::runtime::Runtime) {
         if read_dir(DOWNLOADS_DIR).unwrap().count() > 0 {
             extract_all(runtime);
 
@@ -51,20 +54,19 @@ impl BeatmapManager {
                     folders.push(f.to_str().unwrap().to_owned());
                 });
 
-            for f in folders {_self.lock().check_folder(f)}
+            for f in folders {BEATMAP_MANAGER.lock().check_folder(f)}
         }
 
     }
-    pub fn download_check_loop(_self:Arc<Mutex<Self>>, game:&Game) {
+    pub fn download_check_loop(game:&Game) {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .unwrap();
-        let beatmap_manager = _self.clone();
         game.threading.spawn(async move {
             loop {
                 tokio::time::sleep(Duration::from_millis(1_000)).await;
-                BeatmapManager::check_downloads(beatmap_manager.clone(), &runtime);
+                BeatmapManager::check_downloads(&runtime);
             }
         });
     }
@@ -79,40 +81,48 @@ impl BeatmapManager {
             let file = file.to_str().unwrap();
 
             if file.ends_with(".osu") {
-                let map = Beatmap::load(file.to_owned());
-                // if map.lock().metadata.mode as u8 > 1 {
-                //     // println!("skipping {}, not a taiko map or convert", map.lock().metadata.version_string());
-                //     // continue;
-                // }
-                if self.get_by_hash(map.lock().hash.clone()).is_some() {
-                    continue;
+                match get_file_hash(file) {
+                    Ok(hash) => if self.get_by_hash(&hash).is_some() {continue},
+                    Err(e) => {
+                        println!("error getting hash for file {}: {}", file, e);
+                        continue;
+                    }
                 }
-                self.add_beatmap(map.clone());
-                self.new_maps.push(map.clone());
+
+                let map = Beatmap::load(file.to_owned()).metadata;
+                self.add_beatmap(&map);
             }
         }
     }
 
-    pub fn add_beatmap(&mut self, beatmap:ArcMutexBeatmap) {
+    pub fn add_beatmap(&mut self, beatmap:&BeatmapMeta) {
         // check if we already have this map
-        let new_hash = beatmap.lock().hash.clone();
+        let new_hash = beatmap.beatmap_hash.clone();
         if self.beatmaps_by_hash.contains_key(&new_hash) {return println!("map already added")}
 
         // dont have it, add it
+        if self.initialized {self.new_maps.push(beatmap.clone())}
         self.beatmaps_by_hash.insert(new_hash, beatmap.clone());
         self.beatmaps.push(beatmap.clone());
-        self.dirty = true;
     }
 
     // setters
-    pub fn set_current_beatmap(&mut self, game:&mut Game, beatmap: ArcMutexBeatmap) {
+    pub fn set_current_beatmap(&mut self, game:&mut Game, beatmap:&BeatmapMeta, do_async:bool, use_preview_time:bool) {
+        self.current_beatmap = Some(beatmap.clone());
         if let Some(map) = self.current_beatmap.clone() {
-            self.played.push(map.lock().hash.clone());
+            self.played.push(map.beatmap_hash.clone());
         }
 
         // play song
-        let audio_filename = beatmap.lock().metadata.audio_filename.clone();
-        Audio::play_song(audio_filename, false); // restart doesnt matter as this should be the first song to play
+        let audio_filename = beatmap.audio_filename.clone();
+        let time = if use_preview_time {beatmap.audio_preview} else {0.0};
+        if do_async {
+            game.threading.spawn(async move {
+                Audio::play_song(audio_filename, false, time);
+            });
+        } else {
+            Audio::play_song(audio_filename, false, time);
+        }
 
         // set bg
         game.set_background_beatmap(beatmap);
@@ -123,12 +133,12 @@ impl BeatmapManager {
     
 
     // getters
-    pub fn all_by_sets(&self) -> Vec<Vec<ArcMutexBeatmap>> { // list of sets as (list of beatmaps in the set)
+    pub fn all_by_sets(&self) -> Vec<Vec<BeatmapMeta>> { // list of sets as (list of beatmaps in the set)
         let mut set_map = HashMap::new();
 
         for beatmap in self.beatmaps.iter() {
-            let m = beatmap.lock().metadata.clone();
-            let key = format!("{}-{}[{}]",m.artist,m.title,m.creator); // good enough for now
+            let m = beatmap.clone();
+            let key = format!("{}-{}[{}]", m.artist, m.title, m.creator); // good enough for now
             if !set_map.contains_key(&key) {set_map.insert(key.clone(), Vec::new());}
             set_map.get_mut(&key).unwrap().push(beatmap.clone());
         }
@@ -137,14 +147,14 @@ impl BeatmapManager {
         set_map.values().for_each(|e|sets.push(e.to_owned()));
         sets
     }
-    pub fn get_by_hash(&self, hash:String) -> Option<ArcMutexBeatmap> {
-        match self.beatmaps_by_hash.get(&hash) {
+    pub fn get_by_hash(&self, hash:&String) -> Option<BeatmapMeta> {
+        match self.beatmaps_by_hash.get(hash) {
             Some(b) => Some(b.clone()),
             None => None
         }
     }
 
-    pub fn random_beatmap(&self) -> Option<ArcMutexBeatmap> {
+    pub fn random_beatmap(&self) -> Option<BeatmapMeta> {
         if self.beatmaps.len() > 0 {
             let ind = rand::thread_rng().gen_range(0..self.beatmaps.len());
             let map = self.beatmaps[ind].clone();
@@ -154,28 +164,28 @@ impl BeatmapManager {
         }
     }
 
-    pub fn next_beatmap(&mut self) -> Option<ArcMutexBeatmap> {
+    pub fn next_beatmap(&mut self) -> Option<BeatmapMeta> {
         self.play_index += 1;
 
         if self.play_index < self.played.len() {
             let hash = self.played[self.play_index].clone();
-            self.get_by_hash(hash).clone()
+            self.get_by_hash(&hash).clone()
         } else {
             let map = self.random_beatmap();
             if let Some(map) = map.clone() {
-                self.played.push(map.lock().hash.clone());
+                self.played.push(map.beatmap_hash.clone());
             }
             map
         }
     }
-    pub fn previous_beatmap(&mut self) -> Option<ArcMutexBeatmap> {
+    pub fn previous_beatmap(&mut self) -> Option<BeatmapMeta> {
         if self.play_index == 0 {
             return None
         }
         self.play_index -= 1;
         
         match self.played.get(self.play_index) {
-            Some(hash) => self.get_by_hash(hash.clone()).clone(),
+            Some(hash) => self.get_by_hash(&hash).clone(),
             None => None
         }
     }

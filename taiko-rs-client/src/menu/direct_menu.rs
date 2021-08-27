@@ -110,7 +110,7 @@ impl OsuDirectMenu {
 
             // restore previous audio
             if let Some((path, pos)) = old_audio.clone() {
-                Audio::play_song(path, false).upgrade().unwrap().set_position(pos);
+                Audio::play_song(path, false, pos);
             }
         }
 

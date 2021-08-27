@@ -4,8 +4,8 @@ use std::sync::{Arc, Weak};
 use std::collections::HashMap;
 
 use cpal::SampleFormat;
-use cpal::traits::{HostTrait, DeviceTrait, StreamTrait};
 use parking_lot::Mutex;
+use cpal::traits::{HostTrait, DeviceTrait, StreamTrait};
 
 use super::AudioHandle;
 use super::sound::Sound;
@@ -40,6 +40,8 @@ lazy_static::lazy_static!(
     };
 
     pub static ref CURRENT_DATA: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::new()));
+
+    static ref PLAY_PENDING: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
 );
 
 pub struct Audio {
@@ -121,7 +123,7 @@ impl Audio {
     }
 
 
-    fn play_sound(sound: Sound) -> Weak<AudioHandle> {
+    pub fn play_sound(sound: Sound) -> Weak<AudioHandle> {
         let instance = AudioInstance::new(sound, AUDIO.sample_rate, 1.0);
         let handle = Arc::downgrade(&instance.handle);
         AUDIO.queue.add(instance);
@@ -129,10 +131,22 @@ impl Audio {
     }
 
 
-    pub fn play_song(path: impl AsRef<str>, restart:bool) -> Weak<AudioHandle> {
+    pub fn play_song(path: impl AsRef<str>, restart:bool, position: f32) -> Weak<AudioHandle> {
+        println!("[audio] // play_song - playing song");
         // check if we;re already playing, if restarting is allowed
         let string_path = path.as_ref().to_owned();
-        println!("playing song");
+
+        // set the pending song to us
+        *PLAY_PENDING.lock() = string_path.clone();
+
+        // load the audio data (this is what takes a million years)
+        let sound = Sound::load(path.as_ref());
+
+        // if the pending song is no longer us, return a fake pointer
+        if *PLAY_PENDING.lock() != string_path {
+            println!("[audio] // play_song - pending song changed");
+            return Weak::new()
+        }
 
         match CURRENT_SONG.lock().clone() {
             Some((c_path, audio)) => { // audio set
@@ -141,9 +155,9 @@ impl Audio {
                         if string_path == c_path { // same file as what we want to play
                             if restart {
                                 println!("[audio] // play_song - same song, restarting"); 
-                                audio2.set_position(0.0);
+                                audio2.set_position(position);
                             }
-                            println!("[audio] // same song, exiting");
+                            println!("[audio] // play_song - same song, exiting");
                             return audio;
                         } else { // different audio
                             println!("[audio] // play_song - stopping old song");
@@ -156,13 +170,15 @@ impl Audio {
             None => println!("[audio] // play_song - no audio"), // no audio set
         }
 
-        let sound = Self::play(path);
+        let sound = Self::play_sound(sound);
+        *CURRENT_SONG.lock() = Some((string_path, sound.clone()));
+        
         let upgraded = sound.upgrade().unwrap();
         upgraded.is_music.store(true, std::sync::atomic::Ordering::SeqCst); 
         upgraded.play();
         upgraded.set_volume(Settings::get().get_music_vol());
-        
-        *CURRENT_SONG.lock() = Some((string_path, sound.clone()));
+        upgraded.set_position(position);
+
         sound
     }
     pub fn play_song_raw(key: impl AsRef<str>, bytes: Vec<u8>) -> Weak<AudioHandle> {
@@ -198,7 +214,7 @@ impl Audio {
         CURRENT_SONG.lock().clone()
     }
 
-    pub fn play(path: impl AsRef<str>) -> Weak<AudioHandle> {
+    pub fn _play(path: impl AsRef<str>) -> Weak<AudioHandle> {
         Audio::play_sound(Sound::load(path.as_ref()))
     }
 

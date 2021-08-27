@@ -54,7 +54,6 @@ pub struct IngameManager {
     combo_text_bounds: Rectangle,
     timing_bar_things: (Vec<(f32,Color)>, (f32,Color)),
 
-
     /// if in replay mode, what replay frame are we at?
     replay_frame: u64
 }
@@ -101,7 +100,7 @@ impl IngameManager {
             Some(_song) => {}
             None => {
                 println!("song doesnt exist at Beatmap.time()!!");
-                self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true);
+                self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
                 self.song.upgrade().unwrap().pause();
             }
         }
@@ -124,7 +123,7 @@ impl IngameManager {
                     song.set_position(0.0);
                 }
                 None => {
-                    self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true);
+                    self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
                     self.song.upgrade().unwrap().pause();
                 }
             }
@@ -154,14 +153,14 @@ impl IngameManager {
                 song.pause();
             }
             None => {
-                self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true);
+                self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
                 let s = self.song.upgrade().unwrap();
                 s.pause();
             }
         }
 
         let mut lock = self.gamemode.lock();
-        lock.reset(self.beatmap.clone());
+        lock.reset(&self.beatmap);
 
         self.completed = false;
         self.started = false;
@@ -485,7 +484,7 @@ pub trait GameMode {
     fn skip_intro(&mut self, manager: &mut IngameManager);
     fn pause(&mut self, _manager:&mut IngameManager) {}
     fn unpause(&mut self, _manager:&mut IngameManager) {}
-    fn reset(&mut self, beatmap:Beatmap);
+    fn reset(&mut self, beatmap:&Beatmap);
 
 
     fn end_time(&self) -> f32;

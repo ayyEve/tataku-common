@@ -90,3 +90,10 @@ fn format<T>(num:T) -> String where T:Display{
     new_new.extend(new_str.chars().rev());
     new_new.trim_start_matches(",").to_owned()
 }
+
+
+fn get_file_hash<P:AsRef<Path>>(file_path:P) -> std::io::Result<String> {
+    let body = std::fs::read(file_path)?;
+
+    Ok(format!("{:x}", md5::compute(body).to_owned()))
+}

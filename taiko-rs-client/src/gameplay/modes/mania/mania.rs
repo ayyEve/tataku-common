@@ -316,7 +316,7 @@ impl GameMode for ManiaGame {
         self.handle_replay_frame(ReplayFrame::Release(game_key), manager);
     }
 
-    fn reset(&mut self, beatmap:Beatmap) {
+    fn reset(&mut self, beatmap:&Beatmap) {
         for col in self.columns.iter_mut() {
             for note in col.iter_mut() {
                 note.reset();

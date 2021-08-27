@@ -384,7 +384,7 @@ impl GameMode for TaikoGame {
     }
     fn key_up(&mut self, _key:piston::Key, _manager:&mut IngameManager) {}
 
-    fn reset(&mut self, beatmap:Beatmap) {
+    fn reset(&mut self, beatmap:&Beatmap) {
         let settings = Settings::get().taiko_settings;
         
         for note in self.notes.as_mut_slice() {

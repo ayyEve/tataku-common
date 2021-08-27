@@ -12,12 +12,12 @@ lazy_static::lazy_static! {
 }
 
 
-pub fn get_scores(hash:String) -> Arc<Mutex<Vec<Score>>> {
+pub fn get_scores(hash:&String) -> Arc<Mutex<Vec<Score>>> {
     let mut lock = SCORES_CACHE.lock();
-    if !lock.contains_key(&hash) {
+    if !lock.contains_key(hash) {
         lock.insert(hash.clone(), Arc::new(Mutex::new(Vec::new())));
     }
-    lock.get(&hash).unwrap().clone()
+    lock.get(hash).unwrap().clone()
 }
 
 pub fn save_score(s:&Score) {

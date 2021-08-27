@@ -1,6 +1,5 @@
-use std::{path::Path, sync::Arc};
+use std::{path::Path};
 
-use parking_lot::Mutex;
 use taiko_rs_common::types::PlayMode;
 use crate::{Vector2, render::Color, gameplay::{beatmap_structs::*, defs::*}};
 
@@ -21,7 +20,10 @@ pub struct Beatmap {
     pub holds: Vec<HoldDef>,
 }
 impl Beatmap {
-    pub fn load(dir:String) -> Arc<Mutex<Beatmap>> {
+    pub fn load(file_path:String) -> Beatmap {
+        let parent_dir = Path::new(&file_path).parent().unwrap();
+        let hash = crate::get_file_hash(file_path.clone()).unwrap();
+
         /// helper enum
         #[derive(Debug)]
         enum BeatmapSection {
@@ -36,25 +38,20 @@ impl Beatmap {
             HitObjects,
         }
 
-        let lines = crate::read_lines(dir.clone()).expect("Beatmap file not found");
-        let mut body = String::new();
+        let lines = crate::read_lines(file_path.clone()).expect("Beatmap file not found");
         let mut current_area = BeatmapSection::Version;
         let mut beatmap = Beatmap {
-            hash: String::new(),
+            metadata: BeatmapMeta::new(file_path.clone(), hash.clone()),
+            hash,
             notes: Vec::new(),
             sliders: Vec::new(),
             spinners: Vec::new(),
             holds: Vec::new(),
             timing_points: Vec::new(),
-            metadata: BeatmapMeta::new()
         };
-
-        let parent_dir = Path::new(&dir).parent().unwrap();
 
         for line_maybe in lines {
             if let Ok(line) = line_maybe {
-                body += &format!("{}\n", line);
-
                 // ignore empty lines
                 if line.len() < 2 {continue}
 
@@ -258,10 +255,18 @@ impl Beatmap {
             }
         }
 
-        beatmap.metadata.do_checks();
         // make sure we have the ar set
-        beatmap.hash = format!("{:x}", md5::compute(body).to_owned());
-        Arc::new(Mutex::new(beatmap))
+        beatmap.metadata.do_checks();
+
+        beatmap
+    }
+
+    pub fn from_metadata(metadata: &BeatmapMeta) -> Beatmap {
+        // load the betmap
+        let mut b = Beatmap::load(metadata.file_path.clone());
+        // overwrite the loaded meta with the old meta, this maintains calculations etc
+        b.metadata = metadata.clone();
+        b
     }
 
     pub fn beat_length_at(&self, time:f32, allow_multiplier:bool) -> f32 {
@@ -320,8 +325,11 @@ impl Beatmap {
 // contains beatmap info unrelated to notes and timing points, etc
 #[derive(Clone, Debug)]
 pub struct BeatmapMeta {
-    pub mode: PlayMode,
+    pub file_path: String,
+    pub beatmap_hash: String,
+
     pub beatmap_version: f32,
+    pub mode: PlayMode,
     pub artist: String,
     pub title: String,
     pub artist_unicode: String,
@@ -332,26 +340,30 @@ pub struct BeatmapMeta {
     pub image_filename: String,
     pub audio_preview: f32,
 
-    pub duration: u64, // time in ms from first note to last note
+    pub duration: f32, // time in ms from first note to last note
+    /// song duration mins, used for display
     mins: u8,
+    /// song duration seconds, used for display
     secs: u8,
 
     pub hp: f32,
     pub od: f32,
     pub cs: f32,
     pub ar: f32,
-    pub sr: f64,
+    // pub sr: f64,
 
     pub slider_multiplier: f32,
-    pub slider_tick_rate: f32,
+    pub slider_tick_rate: f32
 }
 impl BeatmapMeta {
-    pub fn new() -> BeatmapMeta {
+    pub fn new(file_path:String, beatmap_hash:String) -> BeatmapMeta {
         let unknown = "Unknown".to_owned();
 
         BeatmapMeta {
-            mode: PlayMode::Standard,
+            file_path,
+            beatmap_hash,
             beatmap_version: 0.0,
+            mode: PlayMode::Standard,
             artist: unknown.clone(),
             title: unknown.clone(),
             artist_unicode: unknown.clone(),
@@ -365,11 +377,10 @@ impl BeatmapMeta {
             od: -1.0,
             ar: -1.0,
             cs: -1.0,
-            sr: 0.0,
             slider_multiplier: 1.4,
             slider_tick_rate: 1.0,
 
-            duration: 0,
+            duration: 0.0,
             mins: 0,
             secs: 0,
         }
@@ -378,10 +389,10 @@ impl BeatmapMeta {
         if self.ar < 0.0 {self.ar = self.od}
     }
 
-    pub fn set_dur(&mut self, duration:u64) {
+    pub fn set_dur(&mut self, duration: f32) {
         self.duration = duration;
-        self.mins = (self.duration as f32 / 60000.0).floor() as u8;
-        self.secs = ((self.duration as f32 / 1000.0) % (self.mins as f32 * 60.0)).floor() as u8;
+        self.mins = (self.duration / 60000.0).floor() as u8;
+        self.secs = ((self.duration / 1000.0) % (self.mins as f32 * 60.0)).floor() as u8;
     }
 
     /// get the title string with the version
@@ -391,7 +402,8 @@ impl BeatmapMeta {
 
     /// get the difficulty string (od, hp, sr)
     pub fn diff_string(&self) -> String {
-        format!("od: {:.2} hp: {:.2}, {:.2}*, {}:{}", self.od, self.hp, self.sr, self.mins, self.secs)
+        // format!("od: {:.2} hp: {:.2}, {:.2}*, {}:{}", self.od, self.hp, self.sr, self.mins, self.secs)
+        format!("od: {:.2} hp: {:.2}, {}:{}", self.od, self.hp, self.mins, self.secs)
     }
 }
 

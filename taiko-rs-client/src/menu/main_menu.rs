@@ -5,7 +5,7 @@ use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::KeyModifiers;
 
 use crate::{WINDOW_SIZE, Vector2, render::*};
-use crate::game::{Audio, Game, GameState, get_font};
+use crate::game::{Audio, Game, GameState, get_font, helpers::BEATMAP_MANAGER};
 use crate::visualization::{MenuVisualization, Visualization};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
 
@@ -52,19 +52,17 @@ impl Menu<Game> for MainMenu {
     fn update(&mut self, g:&mut Game) {
         if let None = Audio::get_song() {
             println!("song done");
-            let manager = g.beatmap_manager.clone();
-            let map = manager.lock().random_beatmap();
+            let map = BEATMAP_MANAGER.lock().random_beatmap();
 
             // it should?
             if let Some(map) = map {
-                manager.lock().set_current_beatmap(g, map);
+                BEATMAP_MANAGER.lock().set_current_beatmap(g, &map, false, false);
             }
         }
 
-        let maps = g.beatmap_manager.lock().get_new_maps();
+        let maps = BEATMAP_MANAGER.lock().get_new_maps();
         if maps.len() > 0 {
-            let manager = g.beatmap_manager.clone();
-            manager.lock().set_current_beatmap(g, maps.iter().last().unwrap().clone());
+            BEATMAP_MANAGER.lock().set_current_beatmap(g, &maps[maps.len() - 1], true, false);
         }
     }
 
@@ -212,21 +210,19 @@ impl Menu<Game> for MainMenu {
         use piston::Key::*;
         match key {
             Left => {
-                let manager = game.beatmap_manager.clone();
-                let mut manager = manager.lock();
+                let mut manager = BEATMAP_MANAGER.lock();
 
-                if let Some(map) = manager.previous_beatmap().clone() {
-                    manager.set_current_beatmap(game, map);
+                if let Some(map) = manager.previous_beatmap() {
+                    manager.set_current_beatmap(game, &map, false, false);
                 } else {
                     println!("no prev")
                 }
             }
             Right => {
-                let manager = game.beatmap_manager.clone();
-                let mut manager = manager.lock();
+                let mut manager = BEATMAP_MANAGER.lock();
 
-                if let Some(map) = manager.next_beatmap().clone() {
-                    manager.set_current_beatmap(game, map);
+                if let Some(map) = manager.next_beatmap() {
+                    manager.set_current_beatmap(game, &map, false, false);
                 } else {
                     println!("no next")
                 }

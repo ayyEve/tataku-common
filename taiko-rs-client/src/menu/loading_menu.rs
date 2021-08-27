@@ -3,27 +3,23 @@ use std::{fs::read_dir, sync::Arc, time::Duration};
 use tokio::time::sleep;
 use parking_lot::Mutex;
 
-use crate::game::Audio;
 use crate::render::{Color, Rectangle, Text};
 use crate::{SONGS_DIR, WINDOW_SIZE, Vector2, menu::Menu};
-use crate::game::{Game, helpers::BeatmapManager};
+use crate::game::{Game, Audio, helpers::BEATMAP_MANAGER};
 use taiko_rs_common::{types::Score, serialization::Serializable};
 
 /// helper for when starting the game. will load beatmaps, settings, etc from storage
 /// all while providing the user with its progress (relatively anyways)
 pub struct LoadingMenu {
     pub complete: bool,
-    status: Arc<Mutex<LoadingStatus>>,
-
-    beatmap_manager:Arc<Mutex<BeatmapManager>>
+    status: Arc<Mutex<LoadingStatus>>
 }
 
 impl LoadingMenu {
-    pub fn new(beatmap_manager: Arc<Mutex<BeatmapManager>>) -> Self {
+    pub fn new() -> Self {
         Self {
             complete: false,
-            beatmap_manager: beatmap_manager.clone(),
-            status: Arc::new(Mutex::new(LoadingStatus::new(beatmap_manager)))
+            status: Arc::new(Mutex::new(LoadingStatus::new()))
         }
     }
     pub fn load(&mut self, game:&Game) {
@@ -69,9 +65,11 @@ impl LoadingMenu {
         status.lock().loading_count = folders.len();
 
         for f in folders {
-            status.lock().beatmap_manager.lock().check_folder(f);
+            BEATMAP_MANAGER.lock().check_folder(f);
             status.lock().loading_done += 1;
         }
+
+        BEATMAP_MANAGER.lock().initialized = true;
     }
 
     async fn load_scores(status: Arc<Mutex<LoadingStatus>>) {
@@ -111,10 +109,10 @@ impl Menu<Game> for LoadingMenu {
             game.queue_state_change(crate::game::GameState::InMenu(menu));
 
             // select a map to load bg and intro audio from (TODO! add our own?)
-            let mut manager = self.beatmap_manager.lock();
+            let mut manager = BEATMAP_MANAGER.lock();
 
             if let Some(map) = manager.random_beatmap() {
-                manager.set_current_beatmap(game, map);
+                manager.set_current_beatmap(game, &map, false, false);
             }
             
         }
@@ -204,15 +202,13 @@ impl Menu<Game> for LoadingMenu {
 struct LoadingStatus {
     stage: LoadingStage,
     error: Option<String>,
-    beatmap_manager: Arc<Mutex<BeatmapManager>>,
 
     loading_count: usize, // items in the list
     loading_done: usize // items done loading in the list
 }
 impl LoadingStatus {
-    pub fn new(beatmap_manager: Arc<Mutex<BeatmapManager>>) -> Self {
+    pub fn new() -> Self {
         Self {
-            beatmap_manager,
             error: None,
             loading_count: 0,
             loading_done: 0,
