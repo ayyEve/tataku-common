@@ -33,7 +33,10 @@ pub struct BeatmapSelectMenu {
     beatmap_scroll: ScrollableArea,
     leaderboard_scroll: ScrollableArea,
     back_button: MenuButton,
-    pending_refresh: bool,
+    // pending_refresh: bool,
+
+    /// is changing, update loop detected that it was changing
+    map_changing: (bool, bool, u32) 
 
     // drag: Option<DragData>,
     // mouse_down: bool
@@ -46,7 +49,8 @@ impl BeatmapSelectMenu {
             // mouse_down: false,
             // drag: None,
 
-            pending_refresh: false,
+            // pending_refresh: false,
+            map_changing: (false, false, 0),
             current_scores: HashMap::new(),
             back_button: MenuButton::back_button(WINDOW_SIZE),
 
@@ -57,7 +61,6 @@ impl BeatmapSelectMenu {
     }
 
     pub fn refresh_maps(&mut self) {
-        self.pending_refresh = false;
         self.beatmap_scroll.clear();
 
         // used to select the current map in the list
@@ -75,6 +78,8 @@ impl BeatmapSelectMenu {
         // sort by artist
         full_list.sort_by(|a, b| a.beatmaps[0].artist.to_lowercase().cmp(&b.beatmaps[0].artist.to_lowercase()));
         for i in full_list {self.beatmap_scroll.add_item(i)}
+
+        self.beatmap_scroll.scroll_to_selection();
     }
 
     pub fn load_scores(&mut self) {
@@ -113,7 +118,39 @@ impl Menu<Game> for BeatmapSelectMenu {
             BEATMAP_MANAGER.lock().set_current_beatmap(game, &maps[maps.len() - 1], false, true);
         }
     
-    
+        self.map_changing.2 += 1;
+        match self.map_changing {
+            // we know its changing but havent detected the previous song stop yet
+            (true, false, n) => {
+                // give it up to 1s before assuming its already loaded
+                if Audio::get_song().is_none() || n > 1000 {
+                    // println!("song loading");
+                    self.map_changing = (true, true, 0);
+                }
+            }
+            // we know its changing, and the previous song has ended
+            (true, true, _) => {
+                if Audio::get_song().is_some() {
+                    // println!("song loaded");
+                    self.map_changing = (false, false, 0);
+                }
+            }
+
+            // the song hasnt ended and we arent changing
+            (false, false, _) | (false, true, _) => {
+                if Audio::get_song().is_none() {
+                    // println!("song done");
+                    self.map_changing = (true, false, 0);
+                    game.threading.spawn(async move {
+                        let lock = BEATMAP_MANAGER.lock();
+                        let map = lock.current_beatmap.as_ref().unwrap();
+                        Audio::play_song(map.audio_filename.clone(), true, map.audio_preview);
+                    });
+                }
+            }
+        }
+
+
         // if self.mouse_down {
 
         // } else {
@@ -237,13 +274,14 @@ impl Menu<Game> for BeatmapSelectMenu {
             }
 
             // set the current map to the clicked
+            self.map_changing = (true, false, 0);
             let clicked = lock.get_by_hash(&clicked_hash).unwrap();
             lock.set_current_beatmap(game, &clicked, true, true);
             drop(lock);
 
             self.beatmap_scroll.refresh_layout();
             self.load_scores();
-        } 
+        }
         
         // else {
         //     //TODO: hmm
@@ -283,9 +321,7 @@ struct BeatmapsetItem {
     pos: Vector2,
     hover: bool,
     selected: bool,
-    // tag: String,
-
-    // pending_play: bool,
+    
     beatmaps: Vec<BeatmapMeta>,
     selected_index: usize,
     mouse_pos: Vector2
@@ -301,8 +337,6 @@ impl BeatmapsetItem {
         //     a.partial_cmp(&b).unwrap()
         // });
 
-        // let first = beatmaps.first().unwrap();
-        // let tag = first.version_string();
         const X:f64 = WINDOW_SIZE.x - (BEATMAPSET_ITEM_SIZE.x + BEATMAPSET_PAD_RIGHT + LEADERBOARD_POS.x + LEADERBOARD_ITEM_SIZE.x);
 
         BeatmapsetItem {
