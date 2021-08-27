@@ -147,7 +147,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
             let mut last_index = 0;
             let mut i = 0;
             while i < points.len() {
-                if beatmap.metadata.beatmap_version > 8.0 {
+                if beatmap.metadata.beatmap_version > 8 {
                     let multipart_segment = (i as i32) < points.len() as i32 - 2 && points[i] == points[i + 1];
                     // println!("i: {}, p.len(): {}", i, points.len());
 
@@ -166,7 +166,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
                                 path.push(line);
                             }
                         } else {
-                            if beatmap.metadata.beatmap_version < 10.0 {
+                            if beatmap.metadata.beatmap_version < 10 {
                                 //use the WRONG bezier algorithm. sliders will be 1/50 too short!
                                 let points = create_bezier_wrong(this_length);
                                 for j in 1..points.len() {
@@ -191,7 +191,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
                     }
                     
 
-                } else if beatmap.metadata.beatmap_version > 6.0 {
+                } else if beatmap.metadata.beatmap_version > 6 {
                     let multipart_segment = (i as i32) < points.len() as i32 - 2 && points[i] == points[i + 1];
 
                     if multipart_segment || i == points.len() - 1 {
@@ -292,7 +292,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
     let mut curve = Curve::new(slider.clone(), path, beatmap);
     let slider_scoring_point_distance = 100.0 * (beatmap.metadata.slider_multiplier / beatmap.metadata.slider_tick_rate);
     let tick_distance;
-    if beatmap.metadata.beatmap_version < 8.0 {
+    if beatmap.metadata.beatmap_version < 8 {
         tick_distance = slider_scoring_point_distance;
     } else {
         tick_distance = slider_scoring_point_distance / beatmap.bpm_multiplier_at(curve.slider.time);

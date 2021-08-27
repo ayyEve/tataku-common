@@ -3,6 +3,7 @@ use std::{fs::read_dir, sync::Arc, time::Duration};
 use tokio::time::sleep;
 use parking_lot::Mutex;
 
+use crate::gameplay::BeatmapMeta;
 use crate::render::{Color, Rectangle, Text};
 use crate::{SONGS_DIR, WINDOW_SIZE, Vector2, menu::Menu};
 use crate::game::{Game, Audio, helpers::BEATMAP_MANAGER};
@@ -28,6 +29,9 @@ impl LoadingMenu {
         game.threading.spawn(async move {
             let status = status.clone();
 
+            // load database
+            Self::load_database(status.clone()).await;
+
             // preload audio 
             Self::load_audio(status.clone()).await;
 
@@ -42,6 +46,11 @@ impl LoadingMenu {
     }
 
     // loaders
+    async fn load_database(status: Arc<Mutex<LoadingStatus>>) {
+        status.lock().stage = LoadingStage::Database;
+        let _ = crate::databases::DATABASE.lock();
+    }
+
     async fn load_audio(status: Arc<Mutex<LoadingStatus>>) {
         status.lock().stage = LoadingStage::Audio;
         // get a value from the hash, will do the lazy_static stuff and populate
@@ -62,14 +71,75 @@ impl LoadingMenu {
                 let f = f.unwrap().path();
                 folders.push(f.to_str().unwrap().to_owned());
             });
-        status.lock().loading_count = folders.len();
+
+
+        {
+            let mut db = crate::databases::DATABASE.lock();
+            let t = db.transaction().unwrap();
+            let mut s = t.prepare("SELECT * FROM beatmaps").unwrap();
+
+            let rows = s.query_map([], |r| {
+                let duration: f32 = r.get("duration")?;
+                let mut meta = BeatmapMeta {
+                    file_path: r.get("beatmap_path")?,
+                    beatmap_hash: r.get("beatmap_hash")?,
+                    beatmap_version: r.get("beatmap_version")?,
+                    mode: r.get::<&str, u8>("playmode")?.into(),
+                    artist: r.get("artist")?,
+                    title: r.get("title")?,
+                    artist_unicode: r.get("artist_unicode")?,
+                    title_unicode: r.get("title_unicode")?,
+                    creator: r.get("creator")?,
+                    version: r.get("version")?,
+                    audio_filename: r.get("audio_filename")?,
+                    image_filename: r.get("image_filename")?,
+                    audio_preview: r.get("audio_preview")?,
+                    hp: r.get("hp")?,
+                    od: r.get("od")?,
+                    ar: r.get("ar")?,
+                    cs: r.get("cs")?,
+                    slider_multiplier: r.get("slider_multiplier")?,
+                    slider_tick_rate: r.get("slider_tick_rate")?,
+        
+                    duration: 0.0,
+                    mins: 0,
+                    secs: 0,
+                };
+                meta.set_dur(duration);
+
+                println!("row: {}", meta.file_path);
+
+                Ok(meta)
+            })
+                .unwrap()
+                .filter_map(|m|m.ok())
+                .collect::<Vec<BeatmapMeta>>();
+
+            
+            status.lock().loading_count = rows.len();
+            // load from db
+            let mut lock = BEATMAP_MANAGER.lock();
+            for meta in rows {
+                // verify the map exists
+                if !std::path::Path::new(&meta.file_path).exists() {
+                    println!("beatmap exists in db but not in songs folder: {}", meta.file_path);
+                    continue
+                }
+
+                status.lock().loading_done += 1;
+                lock.add_beatmap(&meta);
+            }
+        }
+        
+        // look through the songs folder to make sure everything is already added
+        BEATMAP_MANAGER.lock().initialized = true; // these are new maps
+        status.lock().loading_count += folders.len();
 
         for f in folders {
             BEATMAP_MANAGER.lock().check_folder(f);
             status.lock().loading_done += 1;
         }
 
-        BEATMAP_MANAGER.lock().initialized = true;
     }
 
     async fn load_scores(status: Arc<Mutex<LoadingStatus>>) {
@@ -158,6 +228,16 @@ impl Menu<Game> for LoadingMenu {
                         font
                     )
                 },
+                LoadingStage::Database => {
+                    text = Text::new(
+                        Color::BLACK,
+                        -100.0,
+                        Vector2::zero(),
+                        32,
+                        format!("Loading Database"),
+                        font
+                    )
+                },
                 LoadingStage::Audio => {
                     text = Text::new(
                         Color::BLACK,
@@ -220,6 +300,7 @@ impl LoadingStatus {
 #[derive(Clone, Copy, Debug)]
 enum LoadingStage {
     None,
+    Database,
     Beatmaps,
     Scores,
     Audio,

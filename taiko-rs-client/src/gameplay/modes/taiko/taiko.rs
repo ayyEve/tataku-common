@@ -93,7 +93,7 @@ impl GameMode for TaikoGame {
             
             // convert vars
             let v = beatmap.slider_velocity_at(time);
-            let bl = beatmap.beat_length_at(time, beatmap.metadata.beatmap_version < 8.0);
+            let bl = beatmap.beat_length_at(time, beatmap.metadata.beatmap_version < 8);
             let skip_period = (bl / beatmap.metadata.slider_tick_rate).min((end_time - time) / slides as f32);
 
             if skip_period > 0.0 && beatmap.metadata.mode != PlayMode::Taiko && l / v * 1000.0 < 2.0 * bl {

@@ -78,7 +78,7 @@ impl GameMode for CatchGame {
             let end_time = time + (l / v2 * bl);
             // let end_time = curve.end_time;
             
-            let bl = beatmap.beat_length_at(time, beatmap.metadata.beatmap_version < 8.0);
+            let bl = beatmap.beat_length_at(time, beatmap.metadata.beatmap_version < 8);
             let skip_period = (bl / beatmap.metadata.slider_tick_rate).min((end_time - time) / slides as f32);
 
             let mut j = time;

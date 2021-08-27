@@ -82,8 +82,16 @@ impl BeatmapManager {
             let file = file.to_str().unwrap();
 
             if file.ends_with(".osu") {
+
+                // check file paths first
+                for i in self.beatmaps.iter() {
+                    if i.file_path == file {
+                        continue;
+                    }
+                }
+
                 match get_file_hash(file) {
-                    Ok(hash) => if self.get_by_hash(&hash).is_some() {continue},
+                    Ok(hash) => if self.beatmaps_by_hash.contains_key(&hash) {continue},
                     Err(e) => {
                         println!("error getting hash for file {}: {}", file, e);
                         continue;
@@ -92,6 +100,18 @@ impl BeatmapManager {
 
                 let map = Beatmap::load(file.to_owned()).metadata;
                 self.add_beatmap(&map);
+
+
+                // if it got here, it shouldnt be in the database
+                // so we should add it
+                {
+                    let lock = crate::databases::DATABASE.lock();
+                    let res = lock.prepare(&insert_metadata(&map)).unwrap().execute([]);
+                    if let Err(e) = res {
+                        println!("error inserting metadata: {}", e);
+                    }
+                }
+
             }
         }
     }
@@ -191,6 +211,53 @@ impl BeatmapManager {
         }
     }
 
+}
+
+
+fn insert_metadata(map: &BeatmapMeta) -> String {
+    format!("INSERT INTO beatmaps (
+        beatmap_path, beatmap_hash,
+
+        playmode, beatmap_version,
+        artist, artist_unicode,
+        title, title_unicode,
+        creator, version,
+
+        audio_filename, image_filename,
+        audio_preview, duration,
+        
+        hp, od, cs, ar,
+        
+        slider_multiplier, slider_tick_rate
+    ) VALUES (
+        \"{}\", \"{}\",
+
+        {}, {}, 
+        \"{}\", \"{}\",
+        \"{}\", \"{}\",
+        \"{}\", \"{}\",
+
+        \"{}\", \"{}\",
+        {}, {},
+
+        {}, {}, {}, {},
+
+        {}, {}
+    )",
+    map.file_path, map.beatmap_hash, 
+
+    map.mode as u8, map.beatmap_version,
+    map.artist, map.artist_unicode,
+    map.title, map.title_unicode,
+    map.creator, map.version,
+    
+    map.audio_filename, map.image_filename,
+    map.audio_preview, map.duration,
+
+    map.hp, map.od, map.cs, map.ar,
+
+    map.slider_multiplier, map.slider_tick_rate
+    )
 }
 
 

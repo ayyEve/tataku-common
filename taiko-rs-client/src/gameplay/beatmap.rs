@@ -77,7 +77,7 @@ impl Beatmap {
                 // not a change in area, check line
                 match current_area {
                     BeatmapSection::Version => {
-                        match line.split("v").last().unwrap().trim().parse::<f32>() {
+                        match line.split("v").last().unwrap().trim().parse::<u8>() {
                             Ok(v) => beatmap.metadata.beatmap_version = v,
                             Err(e) => println!("error parsing beatmap version: {}", e),
                         }
@@ -328,7 +328,7 @@ pub struct BeatmapMeta {
     pub file_path: String,
     pub beatmap_hash: String,
 
-    pub beatmap_version: f32,
+    pub beatmap_version: u8,
     pub mode: PlayMode,
     pub artist: String,
     pub title: String,
@@ -342,9 +342,9 @@ pub struct BeatmapMeta {
 
     pub duration: f32, // time in ms from first note to last note
     /// song duration mins, used for display
-    mins: u8,
+    pub mins: u8,
     /// song duration seconds, used for display
-    secs: u8,
+    pub secs: u8,
 
     pub hp: f32,
     pub od: f32,
@@ -362,7 +362,7 @@ impl BeatmapMeta {
         BeatmapMeta {
             file_path,
             beatmap_hash,
-            beatmap_version: 0.0,
+            beatmap_version: 0,
             mode: PlayMode::Standard,
             artist: unknown.clone(),
             title: unknown.clone(),
