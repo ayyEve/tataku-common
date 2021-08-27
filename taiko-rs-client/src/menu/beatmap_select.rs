@@ -1,18 +1,14 @@
 use std::sync::Arc;
 use std::collections::HashMap;
-// use std::time::Instant;
 
-use ayyeve_piston_ui::render::*;
 use parking_lot::Mutex;
+use ayyeve_piston_ui::render::*;
 use piston::{Key, MouseButton, RenderArgs};
 
-use taiko_rs_common::types::Score;
-use taiko_rs_common::types::PlayMode;
-
+use taiko_rs_common::types::{Score, PlayMode};
 use crate::{WINDOW_SIZE, Vector2, databases::get_scores};
-use crate::gameplay::modes::select_gamemode_from_playmode;
-use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
+use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager, modes::gamemode_from_playmode};
 use crate::game::{Game, GameState, KeyModifiers, get_font, Audio, helpers::BeatmapManager};
 
 // constants
@@ -238,7 +234,7 @@ impl Menu<Game> for BeatmapSelectMenu {
                 let map = clicked.lock();
 
                 let playmode = if map.metadata.mode == PlayMode::Standard {self.mode} else {map.metadata.mode};
-                let gamemode = select_gamemode_from_playmode(playmode, &map.clone());
+                let gamemode = gamemode_from_playmode(playmode, &map.clone());
                 let manager = IngameManager::new(map.clone(), gamemode);
                 game.queue_state_change(GameState::Ingame(Arc::new(Mutex::new(manager))));
                 return;

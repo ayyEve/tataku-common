@@ -566,12 +566,16 @@ impl Game {
         self.update_display.draw(&mut self.render_queue);
         self.input_update_display.draw(&mut self.render_queue);
 
+
         // draw cursor
+        let mouse_pressed = self.input_manager.mouse_buttons.len() > 0 
+            || self.input_manager.key_down(settings.standard_settings.left_key)
+            || self.input_manager.key_down(settings.standard_settings.right_key);
         self.render_queue.push(Box::new(Circle::new(
             Color::new(0.8, 0.0, 0.6, 1.0),
             -f64::MAX,
             self.input_manager.mouse_pos,
-            5.0
+            if mouse_pressed {10.0} else {5.0}
         )));
 
 

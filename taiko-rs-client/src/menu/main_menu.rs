@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use ayyeve_piston_ui::menu::KeyModifiers;
 use parking_lot::Mutex;
 use piston::{MouseButton, RenderArgs};
+use ayyeve_piston_ui::menu::KeyModifiers;
 
-use crate::visualization::{MenuVisualization, Visualization};
 use crate::{WINDOW_SIZE, Vector2, render::*};
 use crate::game::{Audio, Game, GameState, get_font};
+use crate::visualization::{MenuVisualization, Visualization};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
 
 const BUTTON_SIZE: Vector2 = Vector2::new(100.0, 50.0);
@@ -96,6 +96,76 @@ impl Menu<Game> for MainMenu {
         // visualization
         let mid = WINDOW_SIZE / 2.0;
         self.visualization.draw(args, mid, depth + 10.0, &mut list);
+
+
+        // slider drawing testing
+        
+        // use crate::gameplay::Beatmap;
+        // {
+        //     let mut map = Beatmap {
+        //         hash: "".to_owned(),
+        //         metadata: crate::gameplay::BeatmapMeta::new(),
+        //         timing_points: vec![
+        //             crate::gameplay::TimingPoint {
+        //                 time: 0.0,
+        //                 beat_length: 100.0,
+        //                 volume: 0,
+        //                 kiai: true
+        //             }
+        //         ],
+        //         notes: Vec::new(),
+        //         sliders: Vec::new(),
+        //         spinners: Vec::new(),
+        //         holds: Vec::new(),
+        //     };
+        //     map.metadata.beatmap_version = 9.0;
+
+        //     const N:f64 = 50.0;
+
+        //     let slider = crate::gameplay::hitobject_defs::SliderDef {
+        //         pos: Vector2::new(168.0, 208.0),
+        //         time: 0.0,
+        //         hitsound: 0,
+        //         curve_type: crate::gameplay::hitobject_defs::CurveType::Bézier,
+        //         curve_points: vec![
+        //             Vector2::new(240.0, 248.0),
+        //             Vector2::new(320.0, 192.0),
+        //             Vector2::new(296.0, 104.0),
+        //         ],
+        //         slides: 1,
+        //         length: 0.0,
+        //         edge_sets: vec![],
+        //         edge_sounds: vec![],
+        //         hitsamples: vec![],
+        //         raw_str: "".to_owned()
+        //     };
+
+        //     let curve = crate::helpers::slider::get_curve(&slider, &map);
+
+        //     let pos_offset = WINDOW_SIZE / 2.0;
+
+        //     for i in 0..curve.path.len() {
+        //         let color = [
+        //             Color::GREEN,
+        //             Color::RED
+        //         ][i % 2];
+        //         let depth = -1000.0;
+        //         let radius = 20.0;
+    
+        //         let line = curve.path[i];
+        //         list.push(Box::new(Line::new(
+        //             pos_offset + line.p1,
+        //             pos_offset + line.p2,
+        //             radius,
+        //             depth,
+        //             color
+        //         )));
+        //     }
+
+        // }
+
+
+
 
         list
     }

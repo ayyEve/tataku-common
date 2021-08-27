@@ -5,7 +5,9 @@ pub struct NoteDef {
     pub pos: Vector2,
     pub time: f32,
     pub hitsound: u32,
-    pub hitsamples: Vec<u8>
+    pub hitsamples: Vec<u8>,
+    pub new_combo: bool,
+    pub color_skip: u8,
 }
 
 
@@ -21,10 +23,10 @@ pub struct SliderDef {
     pub length: f32,
     pub edge_sounds: Vec<u8>,
     pub edge_sets: Vec<u8>,
+    pub new_combo: bool,
+    pub color_skip: u8,
     
     pub hitsamples: Vec<u8>,
-
-    pub raw_str: String
 }
 
 
@@ -34,6 +36,8 @@ pub struct SpinnerDef {
     pub time: f32,
     pub hitsound: u32,
     pub end_time: f32,
+    pub new_combo: bool,
+    pub color_skip: u8,
     
     pub hitsamples: Vec<u8>
 }

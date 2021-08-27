@@ -1,4 +1,6 @@
-use ayyeve_piston_ui::render::Line;
+use ayyeve_piston_ui::render::fonts::get_font;
+use ayyeve_piston_ui::render::{Line, Rectangle, Text};
+use graphics::CharacterCache;
 use piston::RenderArgs;
 
 use crate::{WINDOW_SIZE, Vector2};
@@ -30,15 +32,15 @@ pub trait StandardHitObject: HitObject {
     fn mouse_move(&mut self, pos:Vector2);
 
     fn get_preempt(&self) -> f32;
+    fn point_draw_pos(&self) -> Vector2;
 }
 
 
 // note
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct StandardNote {
     pos: Vector2,
     time: f32, // ms
-    hit_time: f32,
     hit: bool,
     missed: bool,
 
@@ -53,29 +55,49 @@ pub struct StandardNote {
     map_time: f32,
     mouse_pos: Vector2,
     radius: f64,
-    time_preempt: f32
+    time_preempt: f32,
+
+    
+    combo_text: Box<Text>,
 }
 impl StandardNote {
     pub fn new(def:NoteDef, ar:f32, cs:f32, color:Color, combo_num:u16) -> Self {
         let cs_scale = (1.0 - 0.7 * (cs - 5.0) / 5.0) / 2.0;
         let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
+        let base_depth = get_depth(def.time);
+        let pos = POS_OFFSET + def.pos;
+        let radius = CIRCLE_RADIUS_BASE * cs_scale as f64;
+
+        let mut combo_text =  Box::new(Text::new(
+            Color::BLACK,
+            base_depth - 0.0000001,
+            pos,
+            (radius) as u32,
+            format!("{}", combo_num),
+            get_font("main")
+        ));
+        center_combo_text(&mut combo_text, Rectangle::bounds_only(
+            pos - Vector2::one() * radius / 2.0,
+            Vector2::one() * radius,
+        ));
 
         Self {
-            pos: POS_OFFSET + def.pos,
+            pos,
             time: def.time, 
-            base_depth: get_depth(def.time),
+            base_depth,
             color,
             combo_num,
             
             hit: false,
-            hit_time: 0.0,
             missed: false,
 
             map_time: 0.0,
             mouse_pos: Vector2::zero(),
 
             time_preempt,
-            radius: CIRCLE_RADIUS_BASE * cs_scale as f64
+            radius,
+            
+            combo_text
         }
     }
 }
@@ -86,10 +108,12 @@ impl HitObject for StandardNote {
     fn update(&mut self, beatmap_time: f32) {self.map_time = beatmap_time}
 
     fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
-        if self.time - self.map_time > self.time_preempt || self.time - self.map_time < 0.0 {return}
+        if self.time - self.map_time > self.time_preempt || self.time - self.map_time < 0.0 || self.hit {return}
 
         // timing circle
         list.push(timing_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth));
+        // combo number
+        list.push(self.combo_text.clone());
 
         // note
         let mut note = Circle::new(
@@ -105,10 +129,10 @@ impl HitObject for StandardNote {
     fn reset(&mut self) {
         self.hit = false;
         self.missed = false;
-        self.hit_time = 0.0;
     }
 }
 impl StandardHitObject for StandardNote {
+    fn point_draw_pos(&self) -> Vector2 {self.pos}
     fn causes_miss(&self) -> bool {true}
     fn mouse_move(&mut self, pos:Vector2) {self.mouse_pos = pos}
     fn get_preempt(&self) -> f32 {self.time_preempt}
@@ -119,25 +143,15 @@ impl StandardHitObject for StandardNote {
         
         // make sure the cursor is in the radius
         let distance = ((self.pos.x - self.mouse_pos.x).powi(2) + (self.pos.y - self.mouse_pos.y).powi(2)).sqrt();
+        if distance > self.radius {return ScoreHit::None}
 
         if diff < hitwindow_300 {
-            self.hit_time = time.max(0.0);
             self.hit = true;
-            if distance > self.radius {
-                ScoreHit::Miss
-            } else {
-                ScoreHit::X300
-            }
+            ScoreHit::X300
         } else if diff < hitwindow_100 {
-            self.hit_time = time.max(0.0);
             self.hit = true;
-            if distance > self.radius {
-                ScoreHit::Miss
-            } else {
-                ScoreHit::X100
-            }
+            ScoreHit::X100
         } else if diff < hitwindow_miss { // too early, miss
-            self.hit_time = time.max(0.0);
             self.missed = true;
             ScoreHit::Miss
         } else { // way too early, ignore
@@ -172,6 +186,13 @@ pub struct StandardSlider {
     /// note size
     radius: f64,
 
+
+    
+    /// was the start checked?
+    start_checked: bool,
+    /// was the release checked?
+    end_checked: bool,
+
     /// hold start
     hold_time: f32, 
     /// hold end
@@ -185,32 +206,55 @@ pub struct StandardSlider {
     /// note depth
     base_depth: f64,
 
-    ///
-    time_preempt:f32
+    /// 
+    time_preempt:f32,
+
+    combo_text: Box<Text>
 }
 impl StandardSlider {
     pub fn new(def:SliderDef, curve:Curve, ar:f32, cs:f32, color:Color, combo_num: u16) -> Self {
         let cs_scale = (1.0 - 0.7 * (cs - 5.0) / 5.0) / 2.0;
         let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
-        let end_pos = POS_OFFSET + curve.position_at_length(curve.length());
+        let end_pos = POS_OFFSET + curve.position_at_time(curve.end_time);
+
+        let base_depth = get_depth(def.time);
+        let pos = POS_OFFSET + def.pos;
+        let radius = CIRCLE_RADIUS_BASE * cs_scale as f64;
+
+        let mut combo_text =  Box::new(Text::new(
+            Color::BLACK,
+            base_depth - 0.0000001,
+            pos,
+            (radius) as u32,
+            format!("{}", combo_num),
+            get_font("main")
+        ));
+        center_combo_text(&mut combo_text, Rectangle::bounds_only(
+            pos - Vector2::one() * radius / 2.0,
+            Vector2::one() * radius,
+        ));
 
         Self {
             curve,
             color,
             combo_num,
             time_preempt,
-            base_depth: get_depth(def.time),
-            radius: CIRCLE_RADIUS_BASE * cs_scale as f64,
+            base_depth,
+            radius,
 
-            pos: POS_OFFSET + def.pos,
+            pos,
             end_pos,
             time: def.time, 
             hit_dots: Vec::new(),
             map_time: 0.0,
 
+            start_checked: false,
+            end_checked: false,
             hold_time: 0.0,
             release_time: 0.0,
-            mouse_pos: Vector2::zero()
+            mouse_pos: Vector2::zero(),
+
+            combo_text
         }
     }
 }
@@ -226,19 +270,21 @@ impl HitObject for StandardSlider {
         if self.time - self.map_time > 0.0 {
             // timing circle
             list.push(timing_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth));
+            // combo number
+            list.push(self.combo_text.clone());
         } else {
             // slider ball
             let pos = POS_OFFSET + self.curve.position_at_time(self.map_time);
             let distance = ((pos.x - self.mouse_pos.x).powi(2) + (pos.y - self.mouse_pos.y).powi(2)).sqrt();
             let mut c = Circle::new(
                 self.color,
-                self.base_depth - 1.0,
+                self.base_depth - 0.0000001,
                 pos,
                 self.radius
             );
             c.border = Some(Border::new(
                 if self.hold_time > self.release_time && distance <= self.radius {
-                    Color::RED
+                    Color::GREEN
                 } else {
                     Color::WHITE
                 },
@@ -273,7 +319,7 @@ impl HitObject for StandardSlider {
         for pos in [self.pos, self.end_pos] {
             let mut c = Circle::new(
                 Color::YELLOW,
-                self.base_depth - 0.5, // should be above curves but below slider ball
+                self.base_depth - 0.00000005, // should be above curves but below slider ball
                 pos,
                 self.radius
             );
@@ -299,15 +345,72 @@ impl HitObject for StandardSlider {
 }
 impl StandardHitObject for StandardSlider {
     fn causes_miss(&self) -> bool {false}
+    fn point_draw_pos(&self) -> Vector2 {self.pos}
     fn get_preempt(&self) -> f32 {self.time_preempt}
     fn press(&mut self, time:f32) {self.hold_time = time}
     fn release(&mut self, time:f32) {self.release_time = time}
     fn mouse_move(&mut self, pos:Vector2) {self.mouse_pos = pos}
 
-    fn get_points(&mut self, _time:f32, _:(f32,f32,f32)) -> ScoreHit {
+    // called on hit and release
+    fn get_points(&mut self, time:f32, (h_miss, h100, h300):(f32,f32,f32)) -> ScoreHit {
+
+        // make sure the cursor is in the radius
+        let distance = ((self.pos.x - self.mouse_pos.x).powi(2) + (self.pos.y - self.mouse_pos.y).powi(2)).sqrt();
+
+        // outside the radius, but we dont want it to consume the object
+        if distance > self.radius {return ScoreHit::None}
+
+
+        let judgement_time: f32;
+
+        // check press
+        if time > self.time - h_miss && time < self.time + h_miss {
+            // within starting time frame
+
+            // if already hit, return None
+            if self.start_checked {return ScoreHit::None}
+            
+            // start wasnt hit yet, set it to true
+            self.start_checked = true;
+            
+            // set the judgement time to our start time
+            judgement_time = self.time;
+        } else 
+
+        // check release
+        if time > self.curve.end_time - h_miss && time < self.curve.end_time + h_miss {
+            // within ending time frame
+
+            // if already hit, return None
+            if self.end_checked {return ScoreHit::None}
+            
+            // start wasnt hit yet, set it to true
+            self.end_checked = true;
+            
+            // set the judgement time to our end time
+            judgement_time = self.curve.end_time;
+        } 
+        // not in either time frame, exit
+        else {
+            return ScoreHit::None;
+        }
+
+        // at this point, assume we want to return points
+        // get the points
+        let diff = (time - self.time).abs();
+
+        if diff < h300 {
+            ScoreHit::X300
+        } else if diff < h100 {
+            ScoreHit::X100
+        // } else if diff < h_miss {
+        //     ScoreHit::Miss
+        } else {
+            ScoreHit::Miss
+        }
 
         // self.hit_dots.push(SliderDot::new(time, self.speed));
-        ScoreHit::Other(100, false)
+        // ScoreHit::Other(100, false)
     }
 }
 
@@ -326,9 +429,7 @@ impl SliderDot {
             done: false
         }
     }
-    pub fn update(&mut self, _beatmap_time:f64) {
-
-    }
+    pub fn update(&mut self, _beatmap_time:f64) {}
     pub fn draw(&self, list:&mut Vec<Box<dyn Renderable>>) {
 
         let mut c = Circle::new(
@@ -388,9 +489,9 @@ impl StandardSpinner {
     }
 }
 impl HitObject for StandardSpinner {
-    fn note_type(&self) -> NoteType {NoteType::Spinner}
     fn time(&self) -> f32 {self.time}
     fn end_time(&self,_:f32) -> f32 {self.end_time}
+    fn note_type(&self) -> NoteType {NoteType::Spinner}
 
     fn update(&mut self, _beatmap_time: f32) {}
     fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
@@ -426,6 +527,7 @@ impl HitObject for StandardSpinner {
 }
 impl StandardHitObject for StandardSpinner {
     fn get_preempt(&self) -> f32 {0.0}
+    fn point_draw_pos(&self) -> Vector2 {SPINNER_POSITION}
     fn causes_miss(&self) -> bool {self.rotations_completed < self.rotations_required} // if the spinner wasnt completed in time, cause a miss
 
     fn get_points(&mut self, _time:f32, _:(f32,f32,f32)) -> ScoreHit {
@@ -458,4 +560,18 @@ fn timing_circle(pos:Vector2, radius:f64, time_diff: f32, time_preempt:f32, dept
     );
     c.border = Some(Border::new(Color::WHITE, NOTE_BORDER_SIZE));
     Box::new(c)
+}
+
+fn center_combo_text(text:&mut Box<Text>, rect:Rectangle) {
+    let mut text_size = Vector2::zero();
+    let mut font = text.font.lock();
+
+    for _ch in text.text.chars() {
+        let character = font.character(text.font_size, _ch).unwrap();
+        text_size.x += character.advance_width();
+        text_size.y = text_size.y.max(character.offset[1]); //character.advance_height();
+    }
+
+    text.pos = rect.pos + (rect.size - text_size)/2.0
+         + Vector2::new(0.0, text_size.y);
 }

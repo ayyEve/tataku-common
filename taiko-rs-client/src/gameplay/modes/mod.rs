@@ -16,7 +16,7 @@ const FIELD_SIZE:Vector2 = Vector2::new(512.0, 384.0);
 
 
 use PlayMode::*;
-pub fn select_gamemode_from_playmode(mut playmode: PlayMode, beatmap: &Beatmap) -> Arc<Mutex<dyn GameMode>> {
+pub fn gamemode_from_playmode(mut playmode: PlayMode, beatmap: &Beatmap) -> Arc<Mutex<dyn GameMode>> {
     // println!("playmode: {:?}", playmode);
     if beatmap.metadata.mode != Standard {
         playmode = beatmap.metadata.mode;
