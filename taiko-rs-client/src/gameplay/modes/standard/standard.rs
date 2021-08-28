@@ -2,7 +2,6 @@ use ayyeve_piston_ui::render::*;
 use piston::{MouseButton, RenderArgs};
 
 use super::*;
-use crate::gameplay::BeatmapMeta;
 use crate::helpers::slider::get_curve;
 use crate::{WINDOW_SIZE, Vector2, game::Settings};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
@@ -139,12 +138,17 @@ impl GameMode for StandardGame {
                     ScoreHit::Other(_, _) => {}
                     ScoreHit::None => {},
                 }
-                self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts));
 
                 // dont do the next note for sliders and spinners
                 if self.notes[self.note_index].note_type() == NoteType::Note {
-                    self.next_note();
+                    // check miss
+                    match pts {
+                        ScoreHit::None => {},
+                        _ => self.next_note(),
+                    }
                 }
+
+                self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts));
                 
                 // self.notes[self.note_index].press(time);
                 for note in self.notes.iter_mut() {
