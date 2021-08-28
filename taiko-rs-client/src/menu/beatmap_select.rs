@@ -269,6 +269,7 @@ impl Menu<Game> for BeatmapSelectMenu {
             if let Some(current) = &lock.current_beatmap {
                 if current.beatmap_hash == clicked_hash {
                     self.play_map(game, current);
+                    // self.map_changing = (true, false, 0);
                     return;
                 }
             }

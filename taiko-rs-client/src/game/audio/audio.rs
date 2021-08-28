@@ -136,15 +136,26 @@ impl Audio {
         // check if we;re already playing, if restarting is allowed
         let string_path = path.as_ref().to_owned();
 
+        if let Some((c_path, audio)) = CURRENT_SONG.lock().clone() {
+            if c_path != string_path {
+                if let Some(audio) = audio.upgrade() {
+                    println!("[audio] // play_song - pre-stopping old song");
+                    audio.stop();
+                }
+            }
+        }
+        
+        let id = format!("{}", uuid::Uuid::new_v4());
+
         // set the pending song to us
-        *PLAY_PENDING.lock() = string_path.clone();
+        *PLAY_PENDING.lock() = id.clone();
 
         // load the audio data (this is what takes a million years)
         let sound = Sound::load(path.as_ref());
 
         // if the pending song is no longer us, return a fake pointer
-        if *PLAY_PENDING.lock() != string_path {
-            println!("[audio] // play_song - pending song changed");
+        if *PLAY_PENDING.lock() != id {
+            println!("[audio] // play_song - pending song changed, leaving");
             return Weak::new()
         }
 

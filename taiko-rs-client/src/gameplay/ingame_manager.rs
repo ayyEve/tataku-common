@@ -153,9 +153,10 @@ impl IngameManager {
                 song.pause();
             }
             None => {
-                self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
-                let s = self.song.upgrade().unwrap();
-                s.pause();
+                while let None = self.song.upgrade() {
+                    self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
+                }
+                self.song.upgrade().unwrap().pause();
             }
         }
 
