@@ -180,6 +180,11 @@ impl Game {
             if let Some(args) = e.update_args() {self.update(args.dt*1000.0)}
             if let Some(args) = e.render_args() {self.render(args)}
             if let Some(Button::Keyboard(_)) = e.press_args() {self.input_update_display.increment()}
+
+
+            if let Event::Input(Input::FileDrag(d), _) = e {
+                println!("got files: {:?}", d);
+            }
             // e.resize(|args| println!("Resized '{}, {}'", args.window_size[0], args.window_size[1]));
         }
     }

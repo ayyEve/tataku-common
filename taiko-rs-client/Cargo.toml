@@ -13,14 +13,14 @@ unlimited_fps = []
 taiko-rs-common = {path="../taiko-rs-common"}
 
 # framework stuff
-rusqlite = "0.25"
+rusqlite = {version="0.25", features=["bundled"]}
 lazy_static = "1.4.0"
 parking_lot = "0.11.1"
 tokio = { version = "1.7.1", features = ["full"] }
 futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
 
 # piston etc
-glfw = "0.41"
+glfw = {version = "0.41", features=["image"]}
 image = "0.23"
 piston = "0.53.0"
 piston2d-graphics = "0.40.0"
