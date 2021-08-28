@@ -164,7 +164,7 @@ impl fmt::Display for Score {
 }
 
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum ScoreHit {
     None,
     Miss,

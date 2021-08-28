@@ -121,7 +121,7 @@ impl GameMode for StandardGame {
         if !manager.replaying {
             manager.replay.frames.push((time, frame.clone()));
         }
-        if self.notes.len() < self.note_index {return}
+        if self.note_index >= self.notes.len() {return}
 
         match frame {
             ReplayFrame::Press(KeyPress::Left)
@@ -139,6 +139,8 @@ impl GameMode for StandardGame {
                     ScoreHit::None => {},
                 }
 
+                self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts.clone()));
+
                 // dont do the next note for sliders and spinners
                 if self.notes[self.note_index].note_type() == NoteType::Note {
                     // check miss
@@ -148,7 +150,6 @@ impl GameMode for StandardGame {
                     }
                 }
 
-                self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts));
                 
                 // self.notes[self.note_index].press(time);
                 for note in self.notes.iter_mut() {
