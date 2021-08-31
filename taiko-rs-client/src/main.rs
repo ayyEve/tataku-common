@@ -11,8 +11,9 @@ pub use game::helpers;
 
 // include files
 mod game;
-mod gameplay;
 mod menu;
+mod errors;
+mod gameplay;
 mod databases;
 mod visualization;
 

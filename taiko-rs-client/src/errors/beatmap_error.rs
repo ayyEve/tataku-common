@@ -1,3 +1,5 @@
 
 
-pub enum BeatmapError {}
+pub enum BeatmapError {
+    
+}
