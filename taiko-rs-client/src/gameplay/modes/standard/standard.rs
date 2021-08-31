@@ -82,33 +82,54 @@ impl GameMode for StandardGame {
 
         // add notes
         let mut combo_num = 0;
+        let mut combo_change = 0;
+        let combo_colors = [
+            Color::new(0.8, 0.0, 0.0, 1.0),
+            Color::new(0.8, 0.8, 0.0, 1.0),
+            Color::new(0.0, 0.8, 0.8, 1.0),
+            Color::new(0.0, 0.0, 0.8, 1.0)
+        ];
+
         for (note, slider, spinner) in all_items {
+            // check for new combo
+            if let Some(note) = note {if note.new_combo {combo_num = 0}}
+            if let Some(slider) = slider {if slider.new_combo {combo_num = 0}}
+            if let Some(spinner) = spinner {if spinner.new_combo {combo_num = 0}}
+            // if new combo, increment new combo counter
+            if combo_num == 0 {combo_change += 1}
+            // get color
+            let color = combo_colors[(combo_change - 1) % combo_colors.len()];
+            // update combo number
             combo_num += 1;
+
+
             if let Some(note) = note {
-                if note.new_combo {combo_num = 1}
                 s.notes.push(Box::new(StandardNote::new(
                     note.clone(),
                     ar,
                     cs,
-                    Color::BLUE,
-                    combo_num
+                    color,
+                    combo_num as u16
                 )));
             }
             if let Some(slider) = slider {
-                if slider.new_combo {combo_num = 1}
                 let curve = get_curve(slider, &beatmap);
                 s.notes.push(Box::new(StandardSlider::new(
                     slider.clone(),
                     curve,
                     ar,
                     cs,
-                    Color::BLUE,
-                    1
+                    color,
+                    combo_num as u16
                 )))
             }
             if let Some(spinner) = spinner {
-                if spinner.new_combo {combo_num = 1}
+                s.notes.push(Box::new(StandardSpinner::new(
+                    spinner.time,
+                    spinner.end_time
+                )))
             }
+
         }
 
         // s.notes.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
@@ -181,7 +202,10 @@ impl GameMode for StandardGame {
                 }
             }
             ReplayFrame::MousePos(x, y) => {
-                self.notes[self.note_index].mouse_move(Vector2::new(x as f64, y as f64));
+                for note in self.notes.iter_mut() {
+                    note.mouse_move(Vector2::new(x as f64, y as f64));
+                }
+                // self.notes[self.note_index]
             }
             _ => {}
         }

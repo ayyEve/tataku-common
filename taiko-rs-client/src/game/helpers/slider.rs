@@ -45,11 +45,10 @@ pub struct Curve {
 }
 impl Curve {
     fn new(slider: SliderDef, path: Vec<Line>, beatmap: &Beatmap) -> Self {
-
         let l = (slider.length * 1.4) * slider.slides as f32;
-        let v2 = 100.0 * (beatmap.metadata.slider_multiplier * 1.4);
+        let v2 = 100.0 * beatmap.metadata.slider_multiplier * 1.4;
         let bl = beatmap.beat_length_at(slider.time, true);
-        let end_time = slider.time + (l / v2 * bl);
+        let end_time = slider.time + (l / v2 * bl) - 1.0;
 
         let velocity = beatmap.slider_velocity_at(slider.time);
         Self {
@@ -75,7 +74,7 @@ impl Curve {
         // if (this.sliderCurveSmoothLines == null) this.UpdateCalculations();
         if time < self.slider.time || time > self.end_time {return self.slider.pos}
 
-        let mut pos = (time - self.slider.time) / (self.length() / self.slider.slides  as f32);
+        let mut pos = (time - self.slider.time) / (self.length() / self.slider.slides as f32);
         if pos % 2.0 > 1.0 {
             pos = 1.0 - (pos % 1.0);
         } else {

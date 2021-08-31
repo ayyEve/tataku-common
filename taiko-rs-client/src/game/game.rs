@@ -15,8 +15,8 @@ use crate::render::{Color, Image, Rectangle, Renderable};
 use taiko_rs_common::types::{SpectatorFrames, UserAction};
 use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
 use crate::databases::{save_all_scores, save_replay, save_score};
-use crate::helpers::{FpsDisplay, BenchmarkHelper, BeatmapManager, VolumeControl};
-use crate::game::{InputManager, Settings, audio::Audio, online::{USER_ITEM_SIZE, OnlineManager}};
+use crate::helpers::{FpsDisplay, BenchmarkHelper, VolumeControl};
+use crate::game::{Settings, audio::Audio, online::{USER_ITEM_SIZE, OnlineManager}, managers::{InputManager, BeatmapManager}};
 
 /// background color
 const GFX_CLEAR_COLOR:Color = Color::WHITE;

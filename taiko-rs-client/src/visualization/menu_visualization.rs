@@ -1,7 +1,8 @@
 
 use std::time::Instant;
 
-use ayyeve_piston_ui::render::{Color, Line, Vector2, Renderable};
+use ayyeve_piston_ui::render::{Color, Image, Line, Renderable, Vector2};
+use opengl_graphics::{Texture, TextureSettings};
 
 use super::Visualization;
 
@@ -11,17 +12,21 @@ const CUTOFF:f64 = 1.0;
 //     Color::BLUE,
 //     Color::GREEN,
 // ];
+const INNER_RADIUS:f64 = 100.0;
 
 
 pub struct MenuVisualization {
     data: Vec<f32>,
-    timer: Instant
+    timer: Instant,
+
+    cookie: Image
 }
 impl MenuVisualization {
     pub fn new() -> Self {
         Self {
             data: Vec::new(),
-            timer: Instant::now()
+            timer: Instant::now(),
+            cookie: Image::new(Vector2::zero(), 0.0, Texture::empty(&TextureSettings::new()).unwrap(), Vector2::new(INNER_RADIUS, INNER_RADIUS))
         }
     }
 }
@@ -43,22 +48,21 @@ impl Visualization for MenuVisualization {
         // );
         // list.extend(graph.draw(args, Vector2::new(0.0, 0.0), depth));
 
-        let inner_radius = 100.0;
 
         let a = 360.0 / self.data.len() as f64;
-        let n = (2.0 * std::f64::consts::PI * inner_radius) / self.data.len() as f64/2.0;
+        let n = (2.0 * std::f64::consts::PI * INNER_RADIUS) / self.data.len() as f64/2.0;
 
         for i in 0..self.data.len() {
             let theta = (a * i as f64).to_radians();
             let cos = theta.cos();
             let sin = theta.sin();
             let p1 = pos + Vector2::new(
-                cos * inner_radius,
-                sin * inner_radius
+                cos * INNER_RADIUS,
+                sin * INNER_RADIUS
             );
 
             const MULT:f64 = 1.0; // 5.0
-            let l = inner_radius + self.data[i].abs() as f64 * MULT;
+            let l = INNER_RADIUS + self.data[i].abs() as f64 * MULT;
             if l < CUTOFF {continue}
             let p2 = pos + Vector2::new(
                 cos * l,

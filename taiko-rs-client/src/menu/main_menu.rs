@@ -5,9 +5,9 @@ use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::KeyModifiers;
 
 use crate::{WINDOW_SIZE, Vector2, render::*};
-use crate::game::{Audio, Game, GameState, get_font, helpers::BEATMAP_MANAGER};
 use crate::visualization::{MenuVisualization, Visualization};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
+use crate::game::{Audio, Game, GameState, get_font, managers::BEATMAP_MANAGER};
 
 const BUTTON_SIZE: Vector2 = Vector2::new(100.0, 50.0);
 const Y_MARGIN: f64 = 20.0;
