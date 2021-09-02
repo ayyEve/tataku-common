@@ -17,6 +17,12 @@ mod gameplay;
 mod databases;
 mod visualization;
 
+// re-exports to make imports nicer
+mod sync {
+    pub use std::sync::{Arc, Weak};
+    pub use parking_lot::Mutex;
+}
+
 // constants
 const WINDOW_SIZE:Vector2 = Vector2::new(1000.0, 600.0);
 
@@ -61,13 +67,13 @@ fn check_folder(dir:&str, create:bool) {
 }
 
 /// read a file to the end
-fn read_lines<P>(filename: P) -> io::Result<Lines<BufReader<File>>> where P: AsRef<Path> {
+fn read_lines<P: AsRef<Path>>(filename: P) -> io::Result<Lines<BufReader<File>>> {
     let file = File::open(filename)?;
     Ok(BufReader::new(file).lines())
 }
 
 /// format a number into a locale string ie 1000000 -> 1,000,000
-fn format<T>(num:T) -> String where T:Display{
+fn format<T:Display>(num:T) -> String {
     let str = format!("{}", num);
     let mut split = str.split(".");
     let num = split.next().unwrap();
@@ -95,6 +101,5 @@ fn format<T>(num:T) -> String where T:Display{
 
 fn get_file_hash<P:AsRef<Path>>(file_path:P) -> std::io::Result<String> {
     let body = std::fs::read(file_path)?;
-
     Ok(format!("{:x}", md5::compute(body).to_owned()))
 }

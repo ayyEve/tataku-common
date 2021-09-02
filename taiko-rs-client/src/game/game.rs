@@ -16,7 +16,7 @@ use taiko_rs_common::types::{SpectatorFrames, UserAction};
 use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
 use crate::databases::{save_all_scores, save_replay, save_score};
 use crate::helpers::{FpsDisplay, BenchmarkHelper, VolumeControl};
-use crate::game::{Settings, audio::Audio, online::{USER_ITEM_SIZE, OnlineManager}, managers::{InputManager, BeatmapManager}};
+use crate::game::{Settings, audio::Audio, online::{USER_ITEM_SIZE, OnlineManager}, managers::{InputManager, BeatmapManager, NOTIFICATION_MANAGER}};
 
 /// background color
 const GFX_CLEAR_COLOR:Color = Color::WHITE;
@@ -69,6 +69,18 @@ impl Game {
             .expect("Error creating window");
         window.window.set_cursor_mode(glfw::CursorMode::Hidden);
         game_init_benchmark.log("window created", true);
+
+        // {
+        //     match image::open("../icon.png") {
+        //         Ok(img) => {
+
+        //         }
+        //         Err(e) => {
+        //             game_init_benchmark.log(&format!("error setting window icon: {}", e), true);
+        //         }
+        //     }
+        // }
+        
 
         let graphics = GlGraphics::new(opengl);
         game_init_benchmark.log("graphics created", true);
@@ -212,6 +224,13 @@ impl Game {
         //     self.register_timings = self.input_manager.get_register_delay();
         //     println!("register times: min:{}, max: {}, avg:{}", self.register_timings.0,self.register_timings.1,self.register_timings.2);
         // }
+
+        if mouse_down.len() > 0 {
+            // check notifs
+            if NOTIFICATION_MANAGER.lock().on_click(mouse_pos, self) {
+                mouse_down.clear();
+            }
+        }
 
         // check for volume change
         if mouse_moved {self.volume_controller.on_mouse_move(mouse_pos)}
@@ -480,9 +499,10 @@ impl Game {
                 }
             }
         }
-    
-        
 
+        // update the notification manager
+        NOTIFICATION_MANAGER.lock().update();
+        
         // if timer.elapsed().as_secs_f32() * 1000.0 > 1.0 {
         //     println!("update took a while: {}", timer.elapsed().as_secs_f32() * 1000.0);
         // }
@@ -544,6 +564,7 @@ impl Game {
         }
 
         // users list
+        // TODO: move this to a "dialog"
         if self.show_user_list {
             //TODO: move the set_pos code to update or smth
             let mut counter = 0;
@@ -573,6 +594,10 @@ impl Game {
         self.update_display.draw(&mut self.render_queue);
         self.input_update_display.draw(&mut self.render_queue);
 
+        // draw notifications
+        
+        // update the notification manager
+        NOTIFICATION_MANAGER.lock().draw(&mut self.render_queue);
 
         // draw cursor
         let mouse_pressed = self.input_manager.mouse_buttons.len() > 0 
