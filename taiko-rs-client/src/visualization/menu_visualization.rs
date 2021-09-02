@@ -32,7 +32,7 @@ impl MenuVisualization {
 }
 
 impl Visualization for MenuVisualization {
-    fn lerp_factor(&self) -> f32 {15.0}
+    fn lerp_factor(&self) -> f32 {10.0} // 15
     fn data(&mut self) -> &mut Vec<f32> {&mut self.data}
     fn timer(&mut self) -> &mut Instant {&mut self.timer}
 
@@ -61,8 +61,11 @@ impl Visualization for MenuVisualization {
                 sin * INNER_RADIUS
             );
 
-            const MULT:f64 = 1.0; // 5.0
-            let l = INNER_RADIUS + self.data[i].abs() as f64 * MULT;
+
+            const MULT:f64 = 5.0;
+            let factor = (i as f64 + 2.0).log(10.0);
+            let l = INNER_RADIUS + self.data[i].abs() as f64 * factor * MULT;
+
             if l < CUTOFF {continue}
             let p2 = pos + Vector2::new(
                 cos * l,
