@@ -40,7 +40,6 @@ lazy_static::lazy_static!(
     };
 
     pub static ref CURRENT_DATA: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::new()));
-
     static ref PLAY_PENDING: Arc<Mutex<String>> = Arc::new(Mutex::new(String::new()));
 );
 
@@ -98,7 +97,7 @@ impl Audio {
                     }
 
                     // println!("len: {}", current_data.len());
-                    current_data.resize(8192, 0.0);
+                    current_data.resize(1024, 0.0);
                     // {
                     //     let mut current_data = CURRENT_DATA.lock();
                     //     current_data.fill(0.0)
