@@ -584,7 +584,7 @@ impl Game {
         }
 
         // volume control
-        self.render_queue.extend(self.volume_controller.draw());
+        self.render_queue.extend(self.volume_controller.draw(args));
 
         // add the things we just made to the render queue
         self.render_queue.extend(renderables);
