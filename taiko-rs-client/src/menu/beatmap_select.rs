@@ -9,7 +9,7 @@ use taiko_rs_common::types::{Score, PlayMode};
 use crate::{WINDOW_SIZE, Vector2, databases::get_scores};
 use crate::gameplay::{BeatmapMeta, modes::manager_from_playmode};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
-use crate::game::{Game, GameState, KeyModifiers, get_font, Audio, helpers::BEATMAP_MANAGER};
+use crate::game::{Game, GameState, KeyModifiers, get_font, Audio, managers::BEATMAP_MANAGER};
 
 // constants
 const INFO_BAR_HEIGHT: f64 = 60.0;

@@ -1,14 +1,17 @@
 use std::time::Instant;
 use piston::Key;
-use crate::{Vector2, WINDOW_SIZE, game::{Audio, KeyModifiers, Settings}, render::{Rectangle, Renderable, Border, Color, Text}};
+
+
+use crate::{Vector2, WINDOW_SIZE};
+use crate::game::{Audio, Settings, KeyModifiers};
+use crate::render::{Rectangle, Renderable, Border, Color, Text};
 
 /// how long should the volume thing be displayed when changed
 const VOLUME_CHANGE_DISPLAY_TIME:u64 = 2000;
-lazy_static::lazy_static! {
-    static ref MASTER_POS:Vector2 = WINDOW_SIZE - Vector2::new(300.0, 90.0);
-    static ref EFFECT_POS:Vector2 = WINDOW_SIZE - Vector2::new(300.0, 60.0);
-    static ref MUSIC_POS:Vector2 = WINDOW_SIZE - Vector2::new(300.0, 30.0);
-}
+const MASTER_POS:Vector2 = Vector2::new(WINDOW_SIZE.x - 300.0, WINDOW_SIZE.y - 90.0);
+const EFFECT_POS:Vector2 = Vector2::new(WINDOW_SIZE.x - 300.0, WINDOW_SIZE.y - 60.0);
+const MUSIC_POS:Vector2 = Vector2::new(WINDOW_SIZE.x - 300.0, WINDOW_SIZE.y - 30.0);
+
 /// helper to move volume things out of game, cleaning up code
 pub struct VolumeControl {
     /// 0-2, 0 = master, 1 = effect, 2 = music

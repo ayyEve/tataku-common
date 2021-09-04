@@ -6,7 +6,7 @@ use parking_lot::Mutex;
 use crate::gameplay::BeatmapMeta;
 use crate::render::{Color, Rectangle, Text};
 use crate::{SONGS_DIR, WINDOW_SIZE, Vector2, menu::Menu};
-use crate::game::{Game, Audio, helpers::BEATMAP_MANAGER};
+use crate::game::{Game, Audio, managers::BEATMAP_MANAGER};
 use taiko_rs_common::{types::Score, serialization::Serializable};
 
 /// helper for when starting the game. will load beatmaps, settings, etc from storage

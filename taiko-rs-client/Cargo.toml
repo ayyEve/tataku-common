@@ -24,7 +24,7 @@ glfw = {version = "0.41", features=["image"]}
 image = "0.23"
 piston = "0.53.0"
 piston2d-graphics = "0.40.0"
-pistoncore-glfw_window = "0.71.0"
+pistoncore-glfw_window = {git="https://github.com/ayyEve/glfw_window"}
 piston2d-opengl_graphics = "0.78.0"
 ayyeve-piston-ui = {git = "https://gitlab.ayyeve.xyz/ayyEve/ayyeve-piston-ui"}
 
