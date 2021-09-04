@@ -2,6 +2,7 @@ use ayyeve_piston_ui::render::*;
 use piston::{MouseButton, RenderArgs};
 
 use super::*;
+use crate::gameplay::modes::scale_coords;
 use crate::helpers::slider::get_curve;
 use crate::{window_size, Vector2, game::Settings};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
@@ -256,11 +257,14 @@ impl GameMode for StandardGame {
     }
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
         // draw the playfield
+
+        let p1 = scale_coords(Vector2::zero());
+        let p2 = scale_coords(FIELD_SIZE);
         let playfield = Rectangle::new(
             [0.2, 0.2, 0.2, 1.0].into(),
             f64::MAX-4.0,
-            pos_offset(),
-            FIELD_SIZE,
+            p1,
+            p2 - p1,
             // Vector2::new(0.0, HIT_POSITION.y - (PLAYFIELD_RADIUS + 2.0)),
             // Vector2::new(args.window_size[0], (PLAYFIELD_RADIUS+2.0) * 2.0),
             if manager.current_timing_point().kiai {
