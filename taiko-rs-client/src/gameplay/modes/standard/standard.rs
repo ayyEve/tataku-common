@@ -277,7 +277,7 @@ impl GameMode for StandardGame {
                 ScoreHit::None => continue,
                 ScoreHit::Miss => color = Color::RED,
                 ScoreHit::X100 => color = Color::GREEN,
-                ScoreHit::X300 => color = Color::YELLOW,
+                ScoreHit::X300 => color = Color::new(0.0, 0.7647, 1.0, 1.0),
                 ScoreHit::Other(_, _) => continue,
             }
             
@@ -368,7 +368,7 @@ impl GameMode for StandardGame {
     fn timing_bar_things(&self) -> (Vec<(f32,Color)>, (f32,Color)) {
         (vec![
             (self.hitwindow_100, [0.3411, 0.8901, 0.0745, 1.0].into()),
-            (self.hitwindow_300, [0.1960, 0.7372, 0.9058, 1.0].into()),
+            (self.hitwindow_300, [0.0, 0.7647, 1.0, 1.0].into()),
         ], (self.hitwindow_miss, [0.8549, 0.6823, 0.2745, 1.0].into()))
     }
 
