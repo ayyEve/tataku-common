@@ -582,7 +582,7 @@ impl Game {
             Color::new(0.8, 0.0, 0.6, 1.0),
             -f64::MAX,
             self.input_manager.mouse_pos,
-            if mouse_pressed {10.0} else {5.0}
+            if mouse_pressed {10.0} else {5.0} * settings.cursor_scale
         )));
 
 
