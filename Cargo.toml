@@ -1,2 +1,5 @@
 [workspace]
 members = ["taiko-rs-client","taiko-rs-http","taiko-rs-ws", "taiko-rs-common"]
+
+[profile.release]
+debug = 1
