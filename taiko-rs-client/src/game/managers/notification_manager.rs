@@ -1,12 +1,12 @@
 use std::time::Instant;
 
 use ayyeve_piston_ui::render::{Border, Color, Rectangle, Renderable, Text, Vector2};
-use crate::{WINDOW_SIZE, game::{Game, get_font}, sync::*};
+use crate::{window_size, game::{Game, get_font}, sync::*};
 
 
 
 const NOTIF_WIDTH:f64 = 200.0;
-const NOTIF_Y_OFFSET:f64 = 100.0; // window_size.y - this
+const NOTIF_Y_OFFSET:f64 = 100.0; // window_size().y - this
 const NOTIF_TEXT_SIZE:u32 = 15;
 const NOTIF_DEPTH:f64 = -8_000.0;
 const NOTIF_TEXT_HEIGHT:f64 = 20.0;
@@ -139,7 +139,7 @@ impl ProcessedNotif {
         }
 
         let size = Vector2::new(NOTIF_WIDTH, NOTIF_TEXT_HEIGHT * lines.len() as f64);
-        let pos = Vector2::new(WINDOW_SIZE.x - NOTIF_WIDTH, WINDOW_SIZE.y - (NOTIF_Y_OFFSET + size.y));
+        let pos = Vector2::new(window_size().x - NOTIF_WIDTH, window_size().y - (NOTIF_Y_OFFSET + size.y));
 
         Self {
             pos,

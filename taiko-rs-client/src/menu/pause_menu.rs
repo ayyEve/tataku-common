@@ -6,7 +6,7 @@ use parking_lot::Mutex;
 use crate::game::{Game, GameState, KeyModifiers};
 use crate::gameplay::IngameManager;
 use crate::menu::{Menu, MenuButton, ScrollableItem};
-use crate::{WINDOW_SIZE, Vector2, render::*};
+use crate::{window_size, Vector2, render::*};
 
 const BUTTON_SIZE:Vector2 = Vector2::new(100.0, 50.0);
 const Y_MARGIN:f64 = 20.0;
@@ -21,7 +21,7 @@ pub struct PauseMenu {
 }
 impl PauseMenu {
     pub fn new(manager:Arc<Mutex<IngameManager>>) -> PauseMenu {
-        let middle = WINDOW_SIZE.x /2.0 - BUTTON_SIZE.x/2.0;
+        let middle = window_size().x /2.0 - BUTTON_SIZE.x/2.0;
 
         PauseMenu {
             manager,

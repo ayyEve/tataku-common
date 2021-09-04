@@ -6,7 +6,7 @@ use ayyeve_piston_ui::render::*;
 use piston::{Key, MouseButton, RenderArgs};
 
 use taiko_rs_common::types::{Score, PlayMode};
-use crate::{WINDOW_SIZE, Vector2, databases::get_scores};
+use crate::{window_size, Vector2, databases::get_scores};
 use crate::gameplay::{BeatmapMeta, modes::manager_from_playmode};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
 use crate::game::{Game, GameState, KeyModifiers, get_font, Audio, managers::BEATMAP_MANAGER};
@@ -52,11 +52,11 @@ impl BeatmapSelectMenu {
             // pending_refresh: false,
             map_changing: (false, false, 0),
             current_scores: HashMap::new(),
-            back_button: MenuButton::back_button(WINDOW_SIZE),
+            back_button: MenuButton::back_button(window_size()),
 
-            // beatmap_scroll: ScrollableArea::new(Vector2::new(WINDOW_SIZE.x - (BEATMAPSET_ITEM_SIZE.x + BEATMAPSET_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(WINDOW_SIZE.x - LEADERBOARD_ITEM_SIZE.x, WINDOW_SIZE.y - INFO_BAR_HEIGHT), true),
-            beatmap_scroll: ScrollableArea::new(Vector2::new(LEADERBOARD_POS.x + LEADERBOARD_ITEM_SIZE.x, INFO_BAR_HEIGHT), Vector2::new(WINDOW_SIZE.x - LEADERBOARD_ITEM_SIZE.x, WINDOW_SIZE.y - INFO_BAR_HEIGHT), true),
-            leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(LEADERBOARD_ITEM_SIZE.x, WINDOW_SIZE.y - (LEADERBOARD_PADDING + INFO_BAR_HEIGHT)), true),
+            // beatmap_scroll: ScrollableArea::new(Vector2::new(window_size().x - (BEATMAPSET_ITEM_SIZE.x + BEATMAPSET_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(window_size().x - LEADERBOARD_ITEM_SIZE.x, window_size().y - INFO_BAR_HEIGHT), true),
+            beatmap_scroll: ScrollableArea::new(Vector2::new(LEADERBOARD_POS.x + LEADERBOARD_ITEM_SIZE.x, INFO_BAR_HEIGHT), Vector2::new(window_size().x - LEADERBOARD_ITEM_SIZE.x, window_size().y - INFO_BAR_HEIGHT), true),
+            leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(LEADERBOARD_ITEM_SIZE.x, window_size().y - (LEADERBOARD_PADDING + INFO_BAR_HEIGHT)), true),
         }
     }
 
@@ -338,11 +338,11 @@ impl BeatmapsetItem {
         //     a.partial_cmp(&b).unwrap()
         // });
 
-        const X:f64 = WINDOW_SIZE.x - (BEATMAPSET_ITEM_SIZE.x + BEATMAPSET_PAD_RIGHT + LEADERBOARD_POS.x + LEADERBOARD_ITEM_SIZE.x);
+        let x = window_size().x - (BEATMAPSET_ITEM_SIZE.x + BEATMAPSET_PAD_RIGHT + LEADERBOARD_POS.x + LEADERBOARD_ITEM_SIZE.x);
 
         BeatmapsetItem {
             beatmaps: beatmaps.clone(), 
-            pos: Vector2::new(X, 0.0),
+            pos: Vector2::new(x, 0.0),
             hover: false,
             selected: false,
             // pending_play: false,

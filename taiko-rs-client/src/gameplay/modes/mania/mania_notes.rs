@@ -4,7 +4,7 @@ use crate::Vector2;
 use crate::gameplay::{HitObject, defs::NoteType};
 use crate::render::{Color, Rectangle, Renderable, Border};
 
-use super::{NOTE_BORDER_SIZE, NOTE_SIZE, COLUMN_WIDTH, HIT_Y};
+use super::{NOTE_BORDER_SIZE, NOTE_SIZE, COLUMN_WIDTH, hit_y};
 
 
 pub trait ManiaHitObject: HitObject {
@@ -56,7 +56,7 @@ impl HitObject for ManiaNote {
         //     else if self.missed {GRAVITY_SCALING * 9.81 * ((beatmap_time as f64 - self.hit_time as f64)/1000.0).powi(2)} 
         //     else {0.0};
         
-        self.pos.y = self.y_at(beatmap_time); //HIT_Y - (self.time as f64 - beatmap_time as f64) * self.speed;
+        self.pos.y = self.y_at(beatmap_time); //hit_y() - (self.time as f64 - beatmap_time as f64) * self.speed;
     }
     fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         if self.pos.y + NOTE_SIZE.y < 0.0 || self.pos.y > args.window_size[1] as f64 {return}
@@ -91,7 +91,7 @@ impl ManiaHitObject for ManiaNote {
     }
 
     fn y_at(&self, time:f32) -> f64 {
-        HIT_Y - ((self.time - time) * self.speed) as f64
+        hit_y() - ((self.time - time) * self.speed) as f64
     }
 
     fn set_sv(&mut self, sv:f32) {
@@ -137,14 +137,14 @@ impl HitObject for ManiaHold {
 
     fn update(&mut self, beatmap_time: f32) {
         // self.pos.x = HIT_POSITION.x + (self.time as f64 - beatmap_time as f64) * self.speed;
-        self.end_y = HIT_Y - ((self.end_time - beatmap_time) * self.speed) as f64;
-        self.pos.y = HIT_Y - ((self.time - beatmap_time) * self.speed) as f64;
+        self.end_y = hit_y() - ((self.end_time - beatmap_time) * self.speed) as f64;
+        self.pos.y = hit_y() - ((self.time - beatmap_time) * self.speed) as f64;
     }
     fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         if self.pos.y < 0.0 || self.end_y > args.window_size[1] as f64 {return}
 
         // start
-        if self.pos.y < HIT_Y {
+        if self.pos.y < hit_y() {
             list.push(Box::new(Rectangle::new(
                 Color::YELLOW,
                 -100.1,
@@ -155,7 +155,7 @@ impl HitObject for ManiaHold {
         }
 
         // end
-        if self.end_y < HIT_Y {
+        if self.end_y < hit_y() {
             list.push(Box::new(Rectangle::new(
                 Color::YELLOW,
                 -100.1,
@@ -169,7 +169,7 @@ impl HitObject for ManiaHold {
         // for i in 0..self.hold_ends.len() {
         //     let start = self.hold_starts[i];
         //     let end = self.hold_ends[i];
-        //     let y = HIT_Y - (end - start) * self.speed;
+        //     let y = hit_y() - (end - start) * self.speed;
 
         //     list.push(Box::new(Rectangle::new(
         //         Color::YELLOW,
@@ -181,8 +181,8 @@ impl HitObject for ManiaHold {
         // }
 
         // middle
-        if self.end_y < HIT_Y {
-            let y = if self.holding {HIT_Y} else {self.pos.y};
+        if self.end_y < hit_y() {
+            let y = if self.holding {hit_y()} else {self.pos.y};
             list.push(Box::new(Rectangle::new(
                 Color::YELLOW,
                 -100.0,
@@ -218,7 +218,7 @@ impl ManiaHitObject for ManiaHold {
     fn miss(&mut self, _time:f32) {}
 
     fn y_at(&self, time:f32) -> f64 {
-        HIT_Y - ((self.time - time) * self.speed) as f64
+        hit_y() - ((self.time - time) * self.speed) as f64
     }
 
     fn set_sv(&mut self, sv:f32) {

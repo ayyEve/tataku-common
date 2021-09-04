@@ -8,7 +8,7 @@ use opengl_graphics::GlyphCache;
 use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
 
 use crate::{gameplay::*, helpers::visibility_bg};
-use crate::{WINDOW_SIZE, Vector2};
+use crate::{window_size, Vector2};
 use crate::render::{Renderable, Rectangle, Text, Color};
 use crate::game::{Audio, AudioHandle, Settings, get_font};
 
@@ -17,8 +17,8 @@ const OFFSET_DRAW_TIME:f32 = 2_000.0; // how long should the offset be drawn for
 const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
 
 
-const HIT_TIMING_BAR_SIZE:Vector2 = Vector2::new(WINDOW_SIZE.x / 3.0, 30.0);
-const HIT_TIMING_BAR_POS:Vector2 = Vector2::new(WINDOW_SIZE.x / 2.0 - HIT_TIMING_BAR_SIZE.x / 2.0, WINDOW_SIZE.y - (DURATION_HEIGHT + 3.0 + HIT_TIMING_BAR_SIZE.y + 5.0));
+const HIT_TIMING_BAR_SIZE:Vector2 = Vector2::new(300.0, 30.0);
+const HIT_TIMING_BAR_POS:Vector2 = Vector2::new(200.0 - HIT_TIMING_BAR_SIZE.x / 2.0, -(DURATION_HEIGHT + 3.0 + HIT_TIMING_BAR_SIZE.y + 5.0));
 const HIT_TIMING_DURATION:f32 = 1_000.0; // how long should a hit timing line last
 const HIT_TIMING_FADE:f32 = 300.0; // how long to fade out for
 const HIT_TIMING_BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // hit timing bar color
@@ -277,6 +277,7 @@ impl IngameManager {
     pub fn draw(&mut self, args: RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         let time = self.time();
         let font = self.font.clone();
+        let window_size:Vector2 = args.window_size.into();
 
         // draw offset
         if self.offset_changed_time > 0.0 && time - self.offset_changed_time < OFFSET_DRAW_TIME {
@@ -288,7 +289,7 @@ impl IngameManager {
                 format!("Offset: {}", self.offset),
                 font.clone()
             );
-            offset_text.center_text(Rectangle::bounds_only(Vector2::zero(), Vector2::new(WINDOW_SIZE.x , WINDOW_SIZE.y * 2.0/3.0)));
+            offset_text.center_text(Rectangle::bounds_only(Vector2::zero(), Vector2::new(window_size.x , window_size.y * 2.0/3.0)));
             list.push(Box::new(offset_text));
         }
 
@@ -296,14 +297,14 @@ impl IngameManager {
 
         // score bg
         list.push(visibility_bg(
-            Vector2::new(args.window_size[0] - 200.0, 10.0),
+            Vector2::new(window_size.x - 200.0, 10.0),
             Vector2::new(180.0, 75.0 - 10.0)
         ));
         // score text
         list.push(Box::new(Text::new(
             Color::BLACK,
             0.0,
-            Vector2::new(args.window_size[0] - 200.0, 40.0),
+            Vector2::new(window_size.x - 200.0, 40.0),
             30,
             crate::format(self.score.score),
             font.clone()
@@ -313,7 +314,7 @@ impl IngameManager {
         list.push(Box::new(Text::new(
             Color::BLACK,
             0.0,
-            Vector2::new(args.window_size[0] - 200.0, 70.0),
+            Vector2::new(window_size.x - 200.0, 70.0),
             30,
             format!("{:.2}%", self.score.acc()*100.0),
             font.clone()
@@ -337,16 +338,16 @@ impl IngameManager {
         list.push(Box::new(Rectangle::new(
             Color::new(0.4, 0.4, 0.4, 0.5),
             1.0,
-            Vector2::new(0.0, args.window_size[1] - (DURATION_HEIGHT + 3.0)),
-            Vector2::new(args.window_size[0], DURATION_HEIGHT),
+            Vector2::new(0.0, window_size.y - (DURATION_HEIGHT + 3.0)),
+            Vector2::new(window_size.x, DURATION_HEIGHT),
             Some(Border::new(Color::BLACK, 1.8))
         )));
         // fill
         list.push(Box::new(Rectangle::new(
             [0.4,0.4,0.4,1.0].into(),
             2.0,
-            Vector2::new(0.0, args.window_size[1] - (DURATION_HEIGHT + 3.0)),
-            Vector2::new(args.window_size[0] * (time/self.end_time) as f64, DURATION_HEIGHT),
+            Vector2::new(0.0, window_size.y - (DURATION_HEIGHT + 3.0)),
+            Vector2::new(window_size.x * (time/self.end_time) as f64, DURATION_HEIGHT),
             None
         )));
 
@@ -359,7 +360,7 @@ impl IngameManager {
         list.push(Box::new(Rectangle::new(
             *miss_color,
             17.1,
-            Vector2::new((WINDOW_SIZE.x-HIT_TIMING_BAR_SIZE.x)/2.0, HIT_TIMING_BAR_POS.y),
+            Vector2::new((window_size.x-HIT_TIMING_BAR_SIZE.x)/2.0, window_size.y + HIT_TIMING_BAR_POS.y),
             Vector2::new(HIT_TIMING_BAR_SIZE.x, HIT_TIMING_BAR_SIZE.y),
             None // for now
         )));
@@ -370,7 +371,7 @@ impl IngameManager {
             list.push(Box::new(Rectangle::new(
                 *color,
                 17.0,
-                Vector2::new((WINDOW_SIZE.x - width)/2.0, HIT_TIMING_BAR_POS.y),
+                Vector2::new((window_size.x - width)/2.0, window_size.y + HIT_TIMING_BAR_POS.y),
                 Vector2::new(width, HIT_TIMING_BAR_SIZE.y),
                 None // for now
             )));
@@ -401,7 +402,7 @@ impl IngameManager {
             list.push(Box::new(Rectangle::new(
                 c,
                 10.0,
-                Vector2::new(WINDOW_SIZE.x  / 2.0 + pos, HIT_TIMING_BAR_POS.y),
+                Vector2::new(window_size.x / 2.0 + pos, window_size.y + HIT_TIMING_BAR_POS.y),
                 Vector2::new(2.0, HIT_TIMING_BAR_SIZE.y),
                 None // for now
             )));
