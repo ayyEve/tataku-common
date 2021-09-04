@@ -10,7 +10,7 @@ use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
 
 // use crate::gameplay::Beatmap;
-use crate::{WINDOW_SIZE, Vector2, menu::*};
+use crate::{window_size, Vector2, menu::*};
 use crate::render::{Color, Image, Rectangle, Renderable};
 use taiko_rs_common::types::{SpectatorFrames, UserAction};
 use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
@@ -62,7 +62,7 @@ impl Game {
         let mut game_init_benchmark = BenchmarkHelper::new("game::new");
 
         let opengl = OpenGL::V3_2;
-        let mut window: AppWindow = WindowSettings::new("Taiko-rs", [WINDOW_SIZE.x, WINDOW_SIZE.y])
+        let mut window: AppWindow = WindowSettings::new("Taiko-rs", [window_size().x, window_size().y])
             .graphics_api(opengl)
             .resizable(false)
             .build()
@@ -439,7 +439,7 @@ impl Game {
                         };
 
                         if let Ok(t) = opengl_graphics::Texture::from_path(m.image_filename.clone(), &opengl_graphics::TextureSettings::new()) {
-                            self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, t, WINDOW_SIZE));
+                            self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, t, window_size()));
                         } else {
                             self.background_image = None;
                         }
@@ -526,7 +526,7 @@ impl Game {
             color,
             f64::MAX - 1.0,
             Vector2::zero(),
-            WINDOW_SIZE,
+            window_size(),
             None
         )));
 
@@ -552,7 +552,7 @@ impl Game {
                 [0.0, 0.0, 0.0, alpha as f32].into(),
                 -f64::MAX,
                 Vector2::zero(),
-                WINDOW_SIZE,
+                window_size(),
                 None
             )));
 
@@ -664,11 +664,11 @@ impl Game {
         let tex = opengl_graphics::Texture::from_image(&img, &settings);
         // helper.log("texture made", true);
 
-        self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, WINDOW_SIZE));
+        self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size()));
         // helper.log("background set", true);
 
         // match opengl_graphics::Texture::from_path(beatmap.image_filename.clone(), &settings) {
-        //     Ok(tex) => self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, WINDOW_SIZE)),
+        //     Ok(tex) => self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size())),
         //     Err(e) => {
         //         println!("Error loading beatmap texture: {}", e);
         //         self.background_image = None; //TODO!: use a known good background image

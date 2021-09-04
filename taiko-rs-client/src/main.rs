@@ -3,6 +3,7 @@ use std::fmt::Display;
 use std::{fs::File, path::Path};
 use std::io::{self, BufRead, BufReader, Lines};
 
+use game::Settings;
 // local imports
 use game::{Game, helpers::BenchmarkHelper};
 pub use ayyeve_piston_ui::render;
@@ -24,7 +25,12 @@ mod sync {
 }
 
 // constants
-const WINDOW_SIZE:Vector2 = Vector2::new(1000.0, 600.0);
+// const window_size():Vector2 = Vector2::new(1000.0, 600.0);
+
+
+pub fn window_size() -> Vector2 {
+    Settings::get_mut().window_size.into()
+}
 
 // folders
 pub const DOWNLOADS_DIR:&str = "downloads";

@@ -3,7 +3,7 @@ use piston::{MouseButton, RenderArgs};
 
 use super::*;
 use crate::helpers::slider::get_curve;
-use crate::{WINDOW_SIZE, Vector2, game::Settings};
+use crate::{window_size, Vector2, game::Settings};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
 use crate::gameplay::{GameMode, Beatmap, IngameManager, map_difficulty, modes::FIELD_SIZE, defs::NoteType};
 
@@ -259,7 +259,7 @@ impl GameMode for StandardGame {
         let playfield = Rectangle::new(
             [0.2, 0.2, 0.2, 1.0].into(),
             f64::MAX-4.0,
-            POS_OFFSET,
+            pos_offset(),
             FIELD_SIZE,
             // Vector2::new(0.0, HIT_POSITION.y - (PLAYFIELD_RADIUS + 2.0)),
             // Vector2::new(args.window_size[0], (PLAYFIELD_RADIUS+2.0) * 2.0),
@@ -375,7 +375,7 @@ impl GameMode for StandardGame {
     fn combo_bounds(&self) -> Rectangle {
         let size = Vector2::new(100.0, 30.0);
         Rectangle::bounds_only(
-            Vector2::new(0.0, WINDOW_SIZE.y - size.y),
+            Vector2::new(0.0, window_size().y - size.y),
             size
         )
     }

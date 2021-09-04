@@ -2,15 +2,12 @@ use std::time::Instant;
 use piston::Key;
 
 
-use crate::{Vector2, WINDOW_SIZE};
+use crate::{Vector2, window_size};
 use crate::game::{Audio, Settings, KeyModifiers};
 use crate::render::{Rectangle, Renderable, Border, Color, Text};
 
 /// how long should the volume thing be displayed when changed
 const VOLUME_CHANGE_DISPLAY_TIME:u64 = 2000;
-const MASTER_POS:Vector2 = Vector2::new(WINDOW_SIZE.x - 300.0, WINDOW_SIZE.y - 90.0);
-const EFFECT_POS:Vector2 = Vector2::new(WINDOW_SIZE.x - 300.0, WINDOW_SIZE.y - 60.0);
-const MUSIC_POS:Vector2 = Vector2::new(WINDOW_SIZE.x - 300.0, WINDOW_SIZE.y - 30.0);
 
 /// helper to move volume things out of game, cleaning up code
 pub struct VolumeControl {
@@ -72,7 +69,7 @@ impl VolumeControl {
             let b = Rectangle::new(
                 Color::WHITE,
                 -7.0,
-                WINDOW_SIZE - BOX_SIZE,
+                window_size() - BOX_SIZE,
                 BOX_SIZE,
                 Some(Border::new(Color::BLACK, 1.2))
             );
@@ -87,7 +84,7 @@ impl VolumeControl {
             let mut master_text = Text::new(
                 Color::BLACK,
                 -9.0,
-                WINDOW_SIZE - Vector2::new(300.0, 90.0+TEXT_YOFFSET),
+                window_size() - Vector2::new(300.0, 90.0+TEXT_YOFFSET),
                 20,
                 "Master:".to_owned(),
                 font.clone(),
@@ -96,7 +93,7 @@ impl VolumeControl {
             let master_border = Rectangle::new(
                 Color::TRANSPARENT_WHITE,
                 -9.0,
-                WINDOW_SIZE - Vector2::new(border_size.x + border_padding, 90.0),
+                window_size() - Vector2::new(border_size.x + border_padding, 90.0),
                 border_size,
                 Some(Border::new(Color::RED, 1.0))
             );
@@ -104,7 +101,7 @@ impl VolumeControl {
             let master_fill = Rectangle::new(
                 Color::BLUE,
                 -8.0,
-                WINDOW_SIZE - Vector2::new(border_size.x + border_padding, 90.0),
+                window_size() - Vector2::new(border_size.x + border_padding, 90.0),
                 Vector2::new(border_size.x * settings.master_vol as f64, border_size.y),
                 None
             );
@@ -114,7 +111,7 @@ impl VolumeControl {
             let mut effect_text = Text::new(
                 Color::BLACK,
                 -9.0,
-                WINDOW_SIZE - Vector2::new(300.0, 60.0+TEXT_YOFFSET),
+                window_size() - Vector2::new(300.0, 60.0+TEXT_YOFFSET),
                 20,
                 "Effects:".to_owned(),
                 font.clone()
@@ -123,7 +120,7 @@ impl VolumeControl {
             let effect_border = Rectangle::new(
                 Color::TRANSPARENT_WHITE,
                 -9.0,
-                WINDOW_SIZE - Vector2::new(border_size.x + border_padding, 60.0),
+                window_size() - Vector2::new(border_size.x + border_padding, 60.0),
                 border_size,
                 Some(Border::new(Color::RED, 1.0))
             );
@@ -131,7 +128,7 @@ impl VolumeControl {
             let effect_fill = Rectangle::new(
                 Color::BLUE,
                 -8.0,
-                WINDOW_SIZE - Vector2::new(border_size.x + border_padding, 60.0),
+                window_size() - Vector2::new(border_size.x + border_padding, 60.0),
                 Vector2::new(border_size.x * settings.effect_vol as f64, border_size.y),
                 None
             );
@@ -141,7 +138,7 @@ impl VolumeControl {
             let mut music_text = Text::new(
                 Color::BLACK,
                 -9.0,
-                WINDOW_SIZE - Vector2::new(300.0, 30.0+TEXT_YOFFSET),
+                window_size() - Vector2::new(300.0, 30.0+TEXT_YOFFSET),
                 20,
                 "Music:".to_owned(),
                 font.clone()
@@ -150,7 +147,7 @@ impl VolumeControl {
             let music_border = Rectangle::new(
                 Color::TRANSPARENT_WHITE,
                 -9.0,
-                WINDOW_SIZE - Vector2::new(border_size.x + border_padding, 30.0),
+                window_size() - Vector2::new(border_size.x + border_padding, 30.0),
                 border_size,
                 Some(Border::new(Color::RED, 1.0))
             );
@@ -158,7 +155,7 @@ impl VolumeControl {
             let music_fill = Rectangle::new(
                 Color::BLUE,
                 -8.0,
-                WINDOW_SIZE - Vector2::new(border_size.x + border_padding, 30.0),
+                window_size() - Vector2::new(border_size.x + border_padding, 30.0),
                 Vector2::new(border_size.x * settings.music_vol as f64, border_size.y),
                 None
             );
@@ -194,17 +191,22 @@ impl VolumeControl {
 
     pub fn on_mouse_move(&mut self, mouse_pos: Vector2) {
         let elapsed = self.elapsed();
+        let window_size = window_size();
+
+        let master_pos:Vector2 = Vector2::new(window_size.x - 300.0, window_size.y - 90.0);
+        let effect_pos:Vector2 = Vector2::new(window_size.x - 300.0, window_size.y - 60.0);
+        let music_pos:Vector2 = Vector2::new(window_size.x - 300.0, window_size.y - 30.0);
 
         // check if mouse moved over a volume button
         if self.vol_selected_time > 0 && elapsed as f64 - (self.vol_selected_time as f64) < VOLUME_CHANGE_DISPLAY_TIME as f64 {
-            if mouse_pos.x >= MASTER_POS.x {
-                if mouse_pos.y >= MUSIC_POS.y {
+            if mouse_pos.x >= master_pos.x {
+                if mouse_pos.y >= music_pos.y {
                     self.vol_selected_index = 2;
                     self.vol_selected_time = elapsed;
-                } else if mouse_pos.y >= EFFECT_POS.y {
+                } else if mouse_pos.y >= effect_pos.y {
                     self.vol_selected_index = 1;
                     self.vol_selected_time = elapsed;
-                } else if mouse_pos.y >= MASTER_POS.y {
+                } else if mouse_pos.y >= master_pos.y {
                     self.vol_selected_index = 0;
                     self.vol_selected_time = elapsed;
                 }
