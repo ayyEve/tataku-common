@@ -355,6 +355,8 @@ impl GameMode for StandardGame {
         self.hitwindow_miss = map_difficulty(od, 135.0, 95.0, 70.0);
         self.hitwindow_100 = map_difficulty(od, 120.0, 80.0, 50.0);
         self.hitwindow_300 = map_difficulty(od, 50.0, 35.0, 20.0);
+
+        self.draw_points.clear();
     }
 
 

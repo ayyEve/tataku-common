@@ -653,7 +653,15 @@ impl Game {
         let settings = opengl_graphics::TextureSettings::new();
         // helper.log("settings made", true);
 
-        let buf = std::fs::read(&beatmap.image_filename).unwrap();
+        let buf: Vec<u8> = match std::fs::read(&beatmap.image_filename) {
+            Ok(buf) => buf,
+            Err(_) => {
+                self.background_image = None;
+                return;
+            }
+        };
+
+        // let buf = file.unwrap();
         // helper.log("file read", true);
 
         let img = image::load_from_memory(&buf).unwrap();
