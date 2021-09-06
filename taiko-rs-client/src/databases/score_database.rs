@@ -1,56 +1,66 @@
-use std::{collections::HashMap, sync::Arc};
-use parking_lot::Mutex;
+use taiko_rs_common::{serialization::*, types::{Replay, Score}};
+use crate::REPLAYS_DIR;
 
-use taiko_rs_common::serialization::*;
-use taiko_rs_common::types::{Replay, Score};
-use crate::{REPLAYS_DIR, SCORE_DATABASE_FILE};
+pub fn get_scores(hash:&String) -> Vec<Score> {
+    let db = crate::databases::DATABASE.lock();
+    let mut s = db.prepare(&format!("SELECT * FROM scores WHERE map_hash='{}'", hash)).unwrap();
 
+    s.query_map([], |r| {
+        let _score_hash:String = r.get("score_hash")?;
 
-lazy_static::lazy_static! {
-    /// SCORES_CACHE.get(.osu_hash) = list of scores
-    static ref SCORES_CACHE: Mutex<HashMap<String, Arc<Mutex<Vec<Score>>>>> = Mutex::new(HashMap::new());
-}
+        let score = Score {
+            username: r.get("username")?,
+            playmode: r.get::<&str, u8>("playmode")?.into(),
+            score: r.get("score")?,
+            combo: r.get("combo")?,
+            max_combo: r.get("max_combo")?,
+            x100: r.get("x100")?,
+            x300: r.get("x300")?,
+            xmiss: r.get("xmiss")?,
+            beatmap_hash: r.get("map_hash")?,
+            hit_timings: Vec::new()
+        };
 
-
-pub fn get_scores(hash:&String) -> Arc<Mutex<Vec<Score>>> {
-    let mut lock = SCORES_CACHE.lock();
-    if !lock.contains_key(hash) {
-        lock.insert(hash.clone(), Arc::new(Mutex::new(Vec::new())));
-    }
-    lock.get(hash).unwrap().clone()
+        Ok(score)
+    })
+        .unwrap()
+        // .filter_map(|m|m.ok())
+        .filter_map(|m| {
+            if let Err(e) = &m {
+                println!("score error: {}", e);
+            }
+            m.ok()
+        })
+        .collect::<Vec<Score>>()
 }
 
 pub fn save_score(s:&Score) {
-    let mut lock = SCORES_CACHE.lock();
-    if !lock.contains_key(&s.beatmap_hash) {
-        lock.insert(s.beatmap_hash.clone(), Arc::new(Mutex::new(Vec::new())));
-    }
-    let x = lock.get(&s.beatmap_hash).unwrap();
-    x.lock().push(s.clone());
+    println!("saving score");
+    let db = crate::databases::DATABASE.lock();
+    let sql = format!(
+        "INSERT INTO scores (
+            map_hash, score_hash,
+            username, playmode,
+            score,
+            combo, max_combo,
+            x100, x300, xmiss
+        ) VALUES (
+            '{}', '{}',
+            '{}', {},
+            {},
+            {}, {},
+            {}, {}, {}
+        )", 
+        s.beatmap_hash, s.hash(),
+        s.username, s.playmode as u8,
+        s.score,
+        s.combo, s.max_combo,
+        s.x100, s.x300, s.xmiss
+    );
+    let mut s = db.prepare(&sql).unwrap();
+    s.execute([]).unwrap();
 }
 
-pub fn save_all_scores() -> std::io::Result<()> {
-    let mut writer = SerializationWriter::new();
-    //TODO: make a better error handler lol
-    let lock = SCORES_CACHE.lock();
-
-    let mut count:u128 = 0;
-    lock.iter().for_each(|(_hash, scores)| {
-        count += scores.lock().len() as u128;
-    });
-    
-    // write everything
-    writer.write(count);
-    lock.iter().for_each(|(_hash, scores)| {
-        let scores = scores.lock();
-        scores.iter().for_each(|score| {
-            writer.write(score.clone());
-        });
-    });
-
-    // write file
-    return save_database(SCORE_DATABASE_FILE, writer);
-}
 
 pub fn save_replay(r:&Replay, s:&Score) -> std::io::Result<()> {
     let mut writer = SerializationWriter::new();

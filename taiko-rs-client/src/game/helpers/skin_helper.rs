@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use crate::game::audio::Sound;
 
 use ayyeve_piston_ui::render::{Color, Image, Vector2};
 
@@ -12,24 +13,27 @@ fn get_tex_path(name:&String, skin_name:&String) -> String {
 pub struct SkinHelper {
     current_skin: String,
 
-    cache: HashMap<String, Option<Image>>
+    texture_cache: HashMap<String, Option<Image>>,
+    audio_cache: HashMap<String, Option<Sound>>,
 }
 
 impl SkinHelper {
     pub fn new() -> Self {
         Self {
             current_skin: DEFAULT_SKIN.to_owned(),
-            cache: HashMap::new()
+            texture_cache: HashMap::new(),
+            audio_cache: HashMap::new(),
         }
     }
 
     pub fn change_skin(&mut self, new_skin:String) {
         self.current_skin = new_skin;
-        self.cache.clear();
+        self.texture_cache.clear();
+        self.audio_cache.clear();
     }
 
     pub fn get_texture(&mut self, name:String, allow_default:bool, scale:Vector2) -> Option<Image> {
-        if !self.cache.contains_key(&name) {
+        if !self.texture_cache.contains_key(&name) {
             let mut t = match opengl_graphics::Texture::from_path(get_tex_path(&name, &self.current_skin), &opengl_graphics::TextureSettings::new()) {
                 Ok(tex) => Some(Image::new(Vector2::zero(), f64::MAX, tex, scale)),
                 Err(e) => {
@@ -48,10 +52,10 @@ impl SkinHelper {
                 };
             }
 
-            self.cache.insert(name.clone(), t);
+            self.texture_cache.insert(name.clone(), t);
         }
 
-        self.cache.get(&name).unwrap().clone()
+        self.texture_cache.get(&name).unwrap().clone()
     }
 }
 

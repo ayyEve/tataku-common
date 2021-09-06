@@ -1,13 +1,12 @@
-use std::{fs::read_dir, sync::Arc, time::Duration};
+use std::{fs::read_dir, time::Duration};
 
 use tokio::time::sleep;
-use parking_lot::Mutex;
 
 use crate::gameplay::BeatmapMeta;
 use crate::render::{Color, Rectangle, Text};
-use crate::{SONGS_DIR, window_size, Vector2, menu::Menu};
 use crate::game::{Game, Audio, managers::BEATMAP_MANAGER};
 use taiko_rs_common::{types::Score, serialization::Serializable};
+use crate::{SONGS_DIR, window_size, Vector2, menu::Menu, sync::*};
 
 /// helper for when starting the game. will load beatmaps, settings, etc from storage
 /// all while providing the user with its progress (relatively anyways)
@@ -106,8 +105,6 @@ impl LoadingMenu {
                     secs: 0,
                 };
                 meta.set_dur(duration);
-
-                println!("row: {}", meta.file_path);
 
                 Ok(meta)
             })

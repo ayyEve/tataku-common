@@ -1,10 +1,9 @@
-use ayyeve_piston_ui::render::*;
 use piston::RenderArgs;
+use ayyeve_piston_ui::render::*;
 
 use super::*;
-use crate::{window_size, Vector2};
 use crate::game::{Audio, Settings};
-use crate::helpers::slider::get_curve;
+use crate::{window_size, Vector2, helpers::curve::get_curve};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
 use crate::gameplay::{Beatmap, GameMode, IngameManager, map_difficulty, defs::*, modes::FIELD_SIZE};
 

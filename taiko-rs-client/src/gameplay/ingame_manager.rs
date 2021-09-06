@@ -1,16 +1,14 @@
-use std::{sync::{Arc, Weak}, time::Instant};
+use std::time::Instant;
 
-use ayyeve_piston_ui::render::Border;
 use piston::RenderArgs;
-use parking_lot::Mutex;
 use opengl_graphics::GlyphCache;
-
+use ayyeve_piston_ui::render::Border;
 use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
 
-use crate::{gameplay::*, helpers::visibility_bg};
-use crate::{window_size, Vector2};
 use crate::render::{Renderable, Rectangle, Text, Color};
 use crate::game::{Audio, AudioHandle, Settings, get_font};
+use crate::{Vector2, gameplay::*, sync::*, helpers::visibility_bg};
+
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
 const OFFSET_DRAW_TIME:f32 = 2_000.0; // how long should the offset be drawn for?

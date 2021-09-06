@@ -1,15 +1,11 @@
-use ayyeve_piston_ui::render::fonts::get_font;
-use ayyeve_piston_ui::render::{Line, Rectangle, Text};
-use graphics::CharacterCache;
 use piston::RenderArgs;
+use graphics::CharacterCache;
+use std::{time::Instant, f64::consts::PI};
+use ayyeve_piston_ui::render::{Line, Rectangle, Text, fonts::get_font};
 
-use std::f64::consts::PI;
-use std::time::Instant;
-
-use crate::{window_size, Vector2};
-use crate::helpers::slider::Curve;
 use taiko_rs_common::types::ScoreHit;
 use crate::render::{Circle, Color, Renderable, Border};
+use crate::{window_size, Vector2, helpers::curve::Curve};
 use crate::gameplay::{HitObject, map_difficulty, modes::scale_coords, defs::*};
 
 const SPINNER_RADIUS:f64 = 200.0;

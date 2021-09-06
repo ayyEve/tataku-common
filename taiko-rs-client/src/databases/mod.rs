@@ -6,9 +6,6 @@ mod score_database;
 pub use score_database::*;
 
 
-
-
-
 lazy_static::lazy_static! {
     pub static ref DATABASE: Arc<Mutex<Connection>> = {
         let db = Connection::open("taiko-rs.db").unwrap();
@@ -28,6 +25,7 @@ lazy_static::lazy_static! {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT,
                 map_hash TEXT,
+                score_hash TEXT,
                 playmode INTEGER,
                 score INTEGER,
                 combo INTEGER,

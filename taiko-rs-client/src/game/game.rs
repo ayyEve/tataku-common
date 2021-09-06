@@ -1,20 +1,17 @@
-use std::sync::Arc;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use parking_lot::Mutex;
 use ayyeve_piston_ui::render::Circle;
 use tokio::runtime::{Builder, Runtime};
 use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
 
-// use crate::gameplay::Beatmap;
-use crate::{window_size, Vector2, menu::*};
 use crate::render::{Color, Image, Rectangle, Renderable};
 use taiko_rs_common::types::{SpectatorFrames, UserAction};
 use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
-use crate::databases::{save_all_scores, save_replay, save_score};
+use crate::{window_size, Vector2, menu::*, sync::{Arc, Mutex}};
+use crate::databases::{save_replay, save_score};
 use crate::helpers::{FpsDisplay, BenchmarkHelper, VolumeControl};
 use crate::game::{Settings, audio::Audio, online::{USER_ITEM_SIZE, OnlineManager}, managers::{InputManager, BeatmapManager, NOTIFICATION_MANAGER}};
 
@@ -301,10 +298,10 @@ impl Game {
                             Ok(_)=> println!("replay saved ok"),
                             Err(e) => println!("error saving replay: {}", e),
                         }
-                        match save_all_scores() {
-                            Ok(_) => println!("Scores saved successfully"),
-                            Err(e) => println!("Failed to save scores! {}", e),
-                        }
+                        // match save_all_scores() {
+                        //     Ok(_) => println!("Scores saved successfully"),
+                        //     Err(e) => println!("Failed to save scores! {}", e),
+                        // }
                         println!("all scores saved");
 
                         // submit score
