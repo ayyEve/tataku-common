@@ -405,8 +405,27 @@ impl BeatmapMeta {
         // format!("od: {:.2} hp: {:.2}, {:.2}*, {}:{}", self.od, self.hp, self.sr, self.mins, self.secs)
         format!("od: {:.2} hp: {:.2}, {}:{}", self.od, self.hp, self.mins, self.secs)
     }
+
+    pub fn filter(&self, filter_str: &str) -> bool {
+        self.artist.to_ascii_lowercase().contains(filter_str) 
+        || self.artist_unicode.to_ascii_lowercase().contains(filter_str) 
+        || self.title.to_ascii_lowercase().contains(filter_str) 
+        || self.title_unicode.to_ascii_lowercase().contains(filter_str) 
+        || self.creator.to_ascii_lowercase().contains(filter_str) 
+        || self.version.to_ascii_lowercase().contains(filter_str) 
+    }
 }
 
+
+// might use this later idk
+// pub trait IntoSets {
+//     fn sort_into_sets(&self) -> Vec<Vec<BeatmapMeta>>;
+// }
+// impl IntoSets for Vec<BeatmapMeta> {
+//     fn sort_into_sets(&self) -> Vec<Vec<BeatmapMeta>> {
+//         todo!()
+//     }
+// }
 
 
 // stolen from peppy, /shrug

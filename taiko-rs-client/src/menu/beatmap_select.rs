@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use ayyeve_piston_ui::menu::menu_elements::TextInput;
 use ayyeve_piston_ui::render::*;
 use piston::{Key, MouseButton, RenderArgs};
 
@@ -33,13 +34,17 @@ pub struct BeatmapSelectMenu {
     // pending_refresh: bool,
 
     /// is changing, update loop detected that it was changing
-    map_changing: (bool, bool, u32) 
+    map_changing: (bool, bool, u32),
 
     // drag: Option<DragData>,
     // mouse_down: bool
+
+    /// internal search box
+    search_text: TextInput
 }
 impl BeatmapSelectMenu {
     pub fn new() -> BeatmapSelectMenu {
+        let window_size = window_size();
         BeatmapSelectMenu {
             mode: PlayMode::Standard,
 
@@ -49,24 +54,31 @@ impl BeatmapSelectMenu {
             // pending_refresh: false,
             map_changing: (false, false, 0),
             current_scores: HashMap::new(),
-            back_button: MenuButton::back_button(window_size()),
+            back_button: MenuButton::back_button(window_size),
 
             // beatmap_scroll: ScrollableArea::new(Vector2::new(window_size().x - (BEATMAPSET_ITEM_SIZE.x + BEATMAPSET_PAD_RIGHT), INFO_BAR_HEIGHT), Vector2::new(window_size().x - LEADERBOARD_ITEM_SIZE.x, window_size().y - INFO_BAR_HEIGHT), true),
-            beatmap_scroll: ScrollableArea::new(Vector2::new(LEADERBOARD_POS.x + LEADERBOARD_ITEM_SIZE.x, INFO_BAR_HEIGHT), Vector2::new(window_size().x - LEADERBOARD_ITEM_SIZE.x, window_size().y - INFO_BAR_HEIGHT), true),
-            leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(LEADERBOARD_ITEM_SIZE.x, window_size().y - (LEADERBOARD_PADDING + INFO_BAR_HEIGHT)), true),
+            beatmap_scroll: ScrollableArea::new(Vector2::new(LEADERBOARD_POS.x + LEADERBOARD_ITEM_SIZE.x, INFO_BAR_HEIGHT), Vector2::new(window_size.x - LEADERBOARD_ITEM_SIZE.x, window_size.y - INFO_BAR_HEIGHT), true),
+            leaderboard_scroll: ScrollableArea::new(LEADERBOARD_POS, Vector2::new(LEADERBOARD_ITEM_SIZE.x, window_size.y - (LEADERBOARD_PADDING + INFO_BAR_HEIGHT)), true),
+            search_text: TextInput::new(Vector2::new(window_size.x - (window_size.x / 4.0), 0.0), Vector2::new(window_size.x / 4.0, INFO_BAR_HEIGHT), "", "")
         }
     }
 
     pub fn refresh_maps(&mut self) {
+        let filter_text = self.search_text.get_text().to_ascii_lowercase();
         self.beatmap_scroll.clear();
 
         // used to select the current map in the list
         let current_hash = if let Some(map) = &BEATMAP_MANAGER.lock().current_beatmap {map.beatmap_hash.clone()} else {String::new()};
-        //TODO: see if we can add new maps non-destructively    
 
         let sets = BEATMAP_MANAGER.lock().all_by_sets();
         let mut full_list = Vec::new();
-        for maps in sets {
+
+        for mut maps in sets {
+            if !filter_text.is_empty() {
+                maps.retain(|bm|bm.filter(&filter_text));
+                if maps.len() == 0 {continue}
+            }
+
             let mut i = BeatmapsetItem::new(maps);
             i.check_selected(&current_hash);
             full_list.push(Box::new(i));
@@ -108,6 +120,9 @@ impl BeatmapSelectMenu {
 }
 impl Menu<Game> for BeatmapSelectMenu {
     fn update(&mut self, game:&mut Game) {
+        self.search_text.set_selected(true); // always have it selected
+        self.search_text.update();
+
         let maps = BEATMAP_MANAGER.lock().get_new_maps();
         if maps.len() > 0 {
             self.refresh_maps();
@@ -219,6 +234,9 @@ impl Menu<Game> for BeatmapSelectMenu {
         // back button
         items.extend(self.back_button.draw(args, Vector2::zero(), 0.0));
 
+        // filter text
+        items.extend(self.search_text.draw(args, Vector2::zero(), 0.0));
+
         items
     }
 
@@ -299,18 +317,25 @@ impl Menu<Game> for BeatmapSelectMenu {
         self.leaderboard_scroll.on_scroll(delta);
     }
 
-    fn on_key_press(&mut self, key:piston::Key, game:&mut Game, _mods:KeyModifiers) {
+    fn on_key_press(&mut self, key:piston::Key, game:&mut Game, mods:KeyModifiers) {
         if key == Key::Escape {
             let menu = game.menus.get("main").unwrap().clone();
             game.queue_state_change(GameState::InMenu(menu));
+            return;
         }
         if key == Key::F5 {
             self.refresh_maps();
+            return;
         }
+
+        self.search_text.on_key_press(key, mods);
+        self.refresh_maps();
     }
 
     //TODO: implement search (oh god)
-    fn on_text(&mut self, _text:String) {}
+    fn on_text(&mut self, text:String) {
+        self.search_text.on_text(text);
+    }
 }
 
 
