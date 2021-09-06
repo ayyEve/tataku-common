@@ -93,6 +93,4 @@ lazy_static::lazy_static! {
 
         Arc::new(Mutex::new(db))
     };
-    
 }
-

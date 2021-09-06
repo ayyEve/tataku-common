@@ -1,11 +1,8 @@
-use std::{fs::read_dir, time::Duration};
-
-use tokio::time::sleep;
+use std::fs::read_dir;
 
 use crate::gameplay::BeatmapMeta;
 use crate::render::{Color, Rectangle, Text};
 use crate::game::{Game, Audio, managers::BEATMAP_MANAGER};
-use taiko_rs_common::{types::Score, serialization::Serializable};
 use crate::{SONGS_DIR, window_size, Vector2, menu::Menu, sync::*};
 
 /// helper for when starting the game. will load beatmaps, settings, etc from storage
@@ -36,9 +33,6 @@ impl LoadingMenu {
 
             // load beatmaps
             Self::load_beatmaps(status.clone()).await;
-            
-            // load scores
-            Self::load_scores(status.clone()).await;
 
             status.lock().stage = LoadingStage::Done;
         });
@@ -139,34 +133,6 @@ impl LoadingMenu {
 
     }
 
-    async fn load_scores(status: Arc<Mutex<LoadingStatus>>) {
-        status.lock().stage = LoadingStage::Scores;
-
-        // set the count and reset the counter
-        status.lock().loading_count = 0;
-        status.lock().loading_done = 0;
-
-        let reader = taiko_rs_common::serialization::open_database(crate::SCORE_DATABASE_FILE);
-        match reader {
-            Err(e) => {
-                println!("Error reading scores db: {:?}", e);
-
-                status.lock().error = Some("Error reading scores db".to_owned());
-                sleep(Duration::from_secs(1)).await;
-                status.lock().error = None;
-            }
-            Ok(mut reader) => {
-                let count = reader.read_u128();
-                status.lock().loading_count = count as usize;
-                
-                for _ in 0..count {
-                    let score = Score::read(&mut reader);
-                    crate::databases::save_score(&score);
-                    status.lock().loading_done += 1;
-                }
-            }
-        }
-    }
 }
 
 impl Menu<Game> for LoadingMenu {
@@ -203,7 +169,7 @@ impl Menu<Game> for LoadingMenu {
                     error.clone(),
                     font
                 )
-            },
+            }
             None => match state.stage {
                 LoadingStage::None => {
                     text = Text::new(
@@ -224,7 +190,7 @@ impl Menu<Game> for LoadingMenu {
                         format!("Done"),
                         font
                     )
-                },
+                }
                 LoadingStage::Database => {
                     text = Text::new(
                         Color::BLACK,
@@ -234,7 +200,7 @@ impl Menu<Game> for LoadingMenu {
                         format!("Loading Database"),
                         font
                     )
-                },
+                }
                 LoadingStage::Audio => {
                     text = Text::new(
                         Color::BLACK,
@@ -244,7 +210,7 @@ impl Menu<Game> for LoadingMenu {
                         format!("Loading Audio"),
                         font
                     )
-                },
+                }
                 LoadingStage::Beatmaps => {
                     text = Text::new(
                         Color::BLACK,
@@ -254,17 +220,7 @@ impl Menu<Game> for LoadingMenu {
                         format!("Loading Beatmaps ({}/{})", state.loading_done, state.loading_count),
                         font
                     )
-                },
-                LoadingStage::Scores => {
-                    text = Text::new(
-                        Color::BLACK,
-                        -100.0,
-                        Vector2::zero(),
-                        32,
-                        format!("Loading Scores ({}/{})", state.loading_done, state.loading_count),
-                        font
-                    )
-                },
+                }
             },
         }
 
@@ -299,7 +255,6 @@ enum LoadingStage {
     None,
     Database,
     Beatmaps,
-    Scores,
     Audio,
 
     Done,

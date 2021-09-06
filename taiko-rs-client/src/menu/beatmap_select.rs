@@ -1,15 +1,14 @@
-use std::sync::Arc;
 use std::collections::HashMap;
 
-use parking_lot::Mutex;
 use ayyeve_piston_ui::render::*;
 use piston::{Key, MouseButton, RenderArgs};
 
 use taiko_rs_common::types::{Score, PlayMode};
-use crate::{window_size, Vector2, databases::get_scores};
 use crate::gameplay::{BeatmapMeta, modes::manager_from_playmode};
+use crate::{window_size, Vector2, databases::get_scores, sync::*};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
 use crate::game::{Game, GameState, KeyModifiers, get_font, Audio, managers::BEATMAP_MANAGER};
+
 
 // constants
 const INFO_BAR_HEIGHT: f64 = 60.0;
@@ -22,8 +21,6 @@ const BEATMAP_ITEM_SIZE: Vector2 = Vector2::new(450.0, 50.0);
 const LEADERBOARD_PADDING: f64 = 100.0;
 const LEADERBOARD_POS: Vector2 = Vector2::new(10.0, LEADERBOARD_PADDING);
 const LEADERBOARD_ITEM_SIZE: Vector2 = Vector2::new(200.0, 50.0);
-
-
 
 
 pub struct BeatmapSelectMenu {
