@@ -368,13 +368,32 @@ impl StandardHitObject for StandardSlider {
     // called on hit and release
     fn get_points(&mut self, time:f32, (h_miss, h100, h300):(f32,f32,f32)) -> ScoreHit {
 
+
+
+        // slider was held to end, no hitwindow to check
+        if h_miss == -1.0 {
+            let distance = ((self.end_pos.x - self.mouse_pos.x).powi(2) + (self.end_pos.y - self.mouse_pos.y).powi(2)).sqrt();
+
+            if distance > self.radius {
+                println!("slider end miss (out of radius)")
+            }
+            if self.hold_time < self.release_time {
+                println!("slider end miss (not held)")
+            }
+
+            return if distance > self.radius || self.hold_time < self.release_time {
+                ScoreHit::Miss
+            } else {
+                ScoreHit::X300
+            }
+        }
+
         // make sure the cursor is in the radius
         let distance = ((self.pos.x - self.mouse_pos.x).powi(2) + (self.pos.y - self.mouse_pos.y).powi(2)).sqrt();
 
         // outside the radius, but we dont want it to consume the object
         if distance > self.radius {return ScoreHit::None}
-
-
+        
         let judgement_time: f32;
 
         // check press

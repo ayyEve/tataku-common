@@ -3,6 +3,7 @@ use piston::{MouseButton, RenderArgs};
 
 use super::*;
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
+use crate::game::Audio;
 use crate::{window_size, Vector2, game::Settings, helpers::curve::get_curve};   
 use crate::gameplay::{GameMode, Beatmap, IngameManager, map_difficulty, defs::NoteType, modes::{FIELD_SIZE, scale_coords}};
 
@@ -148,28 +149,35 @@ impl GameMode for StandardGame {
             | ReplayFrame::Press(KeyPress::Right) => {
                 let pts = self.notes[self.note_index].get_points(time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300));
                 let note_time = self.notes[self.note_index].time();
+                self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts.clone()));
                 match pts {
                     ScoreHit::Miss => {
                         println!("miss (press)");
                         manager.score.hit_miss(time, note_time);
+                        manager.hitbar_timings.push((time, time - note_time));
+                        if self.notes[self.note_index].note_type() == NoteType::Note {
+                            self.next_note()
+                        }
                     },
-                    ScoreHit::X100 => manager.score.hit100(time, note_time),
-                    ScoreHit::X300 => manager.score.hit300(time, note_time),
+                    ScoreHit::X100 => {
+                        Audio::play_preloaded("don");
+                        manager.score.hit100(time, note_time);
+                        manager.hitbar_timings.push((time, time - note_time));
+                        if self.notes[self.note_index].note_type() == NoteType::Note {
+                            self.next_note()
+                        }
+                    },
+                    ScoreHit::X300 => {
+                        Audio::play_preloaded("kat");
+                        manager.score.hit300(time, note_time);
+                        manager.hitbar_timings.push((time, time - note_time));
+                        if self.notes[self.note_index].note_type() == NoteType::Note {
+                            self.next_note()
+                        }
+                    },
                     ScoreHit::Other(_, _) => {}
                     ScoreHit::None => {},
                 }
-
-                self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts.clone()));
-
-                // dont do the next note for sliders and spinners
-                if self.notes[self.note_index].note_type() == NoteType::Note {
-                    // check miss
-                    match pts {
-                        ScoreHit::None => {},
-                        _ => self.next_note(),
-                    }
-                }
-
                 
                 // self.notes[self.note_index].press(time);
                 for note in self.notes.iter_mut() {
@@ -181,18 +189,29 @@ impl GameMode for StandardGame {
                 if self.notes[self.note_index].note_type() == NoteType::Slider {
                     let pts = self.notes[self.note_index].get_points(time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300));
                     let note_time = self.notes[self.note_index].time();
+                    self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts));
                     match pts {
                         ScoreHit::Miss => {
-                            println!("slider miss (release)");
-                            manager.score.combo = 0;
-                            // manager.score.hit_miss(time, note_time);
+                            println!("miss (press)");
+                            manager.score.hit_miss(time, note_time);
+                            manager.hitbar_timings.push((time, time - note_time));
+                            self.next_note()
                         },
-                        ScoreHit::X100 => manager.score.hit100(time, note_time),
-                        ScoreHit::X300 => manager.score.hit300(time, note_time),
+                        ScoreHit::X100 => {
+                            Audio::play_preloaded("don");
+                            manager.score.hit100(time, note_time);
+                            manager.hitbar_timings.push((time, time - note_time));
+                            self.next_note();
+                        },
+                        ScoreHit::X300 => {
+                            Audio::play_preloaded("kat");
+                            manager.score.hit300(time, note_time);
+                            manager.hitbar_timings.push((time, time - note_time));
+                            self.next_note();
+                        },
                         ScoreHit::Other(_, _) => {}
-                        ScoreHit::None => {},
+                        ScoreHit::None => {}
                     }
-                    self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts));
                 }
 
                 // self.notes[self.note_index].release(time);
@@ -230,25 +249,41 @@ impl GameMode for StandardGame {
 
         // check if we missed the current note
         if self.notes[self.note_index].end_time(self.hitwindow_miss) < time {
-            if self.notes[self.note_index].note_type() == NoteType::Note {
-                // need to set these manually instead of score.hit_miss,
-                // since we dont want to add anything to the hit error list
-                let s = &mut manager.score;
-                s.xmiss += 1;
-                s.combo = 0;
-                println!("note miss (time)");
-                self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), ScoreHit::Miss));
-            } else {
-                // check slider points
-                let pts = self.notes[self.note_index].get_points(time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300));
-                match pts {
-                    ScoreHit::None => {}
-                    ScoreHit::Miss => {}
-                    ScoreHit::X100 => {}
-                    ScoreHit::X300 => {}
-                    ScoreHit::Other(_, _) => {}
+            match self.notes[self.note_index].note_type() {
+                NoteType::Note => {
+                    // need to set these manually instead of score.hit_miss,
+                    // since we dont want to add anything to the hit error list
+                    manager.score.hit_miss(time, self.notes[self.note_index].time());
+                    println!("note miss (time)");
+                    self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), ScoreHit::Miss));
                 }
-                self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts));
+                NoteType::Slider => {
+                    let note_time = self.notes[self.note_index].time();
+                    // check slider release points
+                    // -1.0 for miss hitwindow to indidate it was held to the end (ie, no hitwindow to check)
+                    let pts = self.notes[self.note_index].get_points(time, (-1.0, self.hitwindow_100, self.hitwindow_300));
+                    self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts));
+                    match pts {
+                        ScoreHit::None | ScoreHit::Miss => {
+                            manager.score.hit_miss(time, note_time);
+                            manager.hitbar_timings.push((time, time - note_time));
+                        },
+                        ScoreHit::X100 => {
+                            Audio::play_preloaded("don");
+                            manager.score.hit100(time, note_time);
+                            manager.hitbar_timings.push((time, time - note_time));
+                        },
+                        ScoreHit::X300 => {
+                            Audio::play_preloaded("kat");
+                            manager.score.hit300(time, note_time);
+                            manager.hitbar_timings.push((time, time - note_time));
+                        },
+                        ScoreHit::Other(_, _) => {}
+                    }
+                }
+                NoteType::Spinner => {}
+
+                _ => {},
             }
             self.next_note();
         }
@@ -259,7 +294,7 @@ impl GameMode for StandardGame {
         let p1 = scale_coords(Vector2::zero());
         let p2 = scale_coords(FIELD_SIZE);
         let playfield = Rectangle::new(
-            [0.2, 0.2, 0.2, 1.0].into(),
+            [0.2, 0.2, 0.2, 0.5].into(),
             f64::MAX-4.0,
             p1,
             p2 - p1,

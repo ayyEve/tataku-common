@@ -132,7 +132,11 @@ impl IngameManager {
             return;
 
         } else if self.lead_in_time <= 0.0 {
-            self.song.upgrade().unwrap().play();
+            // needed because if paused for a while it can crash
+            match self.song.upgrade() {
+                Some(song) => song.play(),
+                None => self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0),
+            }
         }
     }
     pub fn pause(&mut self) {
