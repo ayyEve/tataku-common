@@ -7,7 +7,7 @@ use taiko_rs_common::types::ReplayFrame;
 use taiko_rs_common::types::ScoreHit;
 use taiko_rs_common::types::PlayMode;
 
-use crate::{WINDOW_SIZE, Vector2};
+use crate::{window_size, Vector2};
 use crate::game::{Audio, Settings};
 use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint, map_difficulty, defs::*};
 
@@ -93,7 +93,7 @@ impl GameMode for TaikoGame {
             
             // convert vars
             let v = beatmap.slider_velocity_at(time);
-            let bl = beatmap.beat_length_at(time, beatmap.metadata.beatmap_version < 8.0);
+            let bl = beatmap.beat_length_at(time, beatmap.metadata.beatmap_version < 8);
             let skip_period = (bl / beatmap.metadata.slider_tick_rate).min((end_time - time) / slides as f32);
 
             if skip_period > 0.0 && beatmap.metadata.mode != PlayMode::Taiko && l / v * 1000.0 < 2.0 * bl {
@@ -299,9 +299,7 @@ impl GameMode for TaikoGame {
     }
 
 
-    fn update(&mut self, manager:&mut IngameManager) {
-        // get the current time
-        let time = manager.time();
+    fn update(&mut self, manager:&mut IngameManager, time: f32) {
 
         // update notes
         for note in self.notes.iter_mut() {note.update(time)}
@@ -334,6 +332,7 @@ impl GameMode for TaikoGame {
         }
     }
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
+        list.reserve(self.render_queue.len());
         for i in self.render_queue.iter() {
             list.push(i.clone());
         }
@@ -362,7 +361,7 @@ impl GameMode for TaikoGame {
         // draw notes
         for note in self.notes.iter_mut() {note.draw(args, list)}
         // draw timing lines
-        for tb in self.timing_bars.iter_mut() {list.extend(tb.draw(args))}
+        for tb in self.timing_bars.iter_mut() {tb.draw(args, list)}
     }
 
 
@@ -384,7 +383,7 @@ impl GameMode for TaikoGame {
     }
     fn key_up(&mut self, _key:piston::Key, _manager:&mut IngameManager) {}
 
-    fn reset(&mut self, beatmap:Beatmap) {
+    fn reset(&mut self, beatmap:&Beatmap) {
         let settings = Settings::get().taiko_settings;
         
         for note in self.notes.as_mut_slice() {
@@ -454,7 +453,7 @@ impl GameMode for TaikoGame {
     fn skip_intro(&mut self, manager: &mut IngameManager) {
         if self.note_index > 0 {return}
 
-        let x_needed = WINDOW_SIZE.x as f32;
+        let x_needed = window_size().x as f32;
         let mut time = manager.time();
 
         loop {
@@ -513,21 +512,18 @@ impl TimingBar {
         self.pos = HIT_POSITION + Vector2::new(((self.time - time) * self.speed) as f64 - BAR_WIDTH / 2.0, -PLAYFIELD_RADIUS);
     }
 
-    fn draw(&mut self, _args:RenderArgs) -> Vec<Box<dyn Renderable>> {
-        let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        if self.pos.x + BAR_WIDTH < 0.0 || self.pos.x - BAR_WIDTH > WINDOW_SIZE.x as f64 {return renderables}
+    fn draw(&mut self, _args:RenderArgs, list:&mut Vec<Box<dyn Renderable>>){
+        if self.pos.x + BAR_WIDTH < 0.0 || self.pos.x - BAR_WIDTH > window_size().x as f64 {return}
 
         const SIZE:Vector2 = Vector2::new(BAR_WIDTH, PLAYFIELD_RADIUS*2.0);
         const DEPTH:f64 = f64::MAX-5.0;
 
-        renderables.push(Box::new(Rectangle::new(
+        list.push(Box::new(Rectangle::new(
             BAR_COLOR,
             DEPTH,
             self.pos,
             SIZE,
             None
         )));
-
-        renderables
     }
 }

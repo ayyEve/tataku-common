@@ -1,24 +1,22 @@
-use std::{sync::{Arc, Weak}, time::Instant};
+use std::time::Instant;
 
-use ayyeve_piston_ui::render::Border;
 use piston::RenderArgs;
-use parking_lot::Mutex;
 use opengl_graphics::GlyphCache;
-
+use ayyeve_piston_ui::render::Border;
 use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
 
-use crate::{gameplay::*, helpers::visibility_bg};
-use crate::{WINDOW_SIZE, Vector2};
 use crate::render::{Renderable, Rectangle, Text, Color};
 use crate::game::{Audio, AudioHandle, Settings, get_font};
+use crate::{Vector2, gameplay::*, sync::*, helpers::visibility_bg};
+
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
 const OFFSET_DRAW_TIME:f32 = 2_000.0; // how long should the offset be drawn for?
 const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
 
 
-const HIT_TIMING_BAR_SIZE:Vector2 = Vector2::new(WINDOW_SIZE.x / 3.0, 30.0);
-const HIT_TIMING_BAR_POS:Vector2 = Vector2::new(WINDOW_SIZE.x / 2.0 - HIT_TIMING_BAR_SIZE.x / 2.0, WINDOW_SIZE.y - (DURATION_HEIGHT + 3.0 + HIT_TIMING_BAR_SIZE.y + 5.0));
+const HIT_TIMING_BAR_SIZE:Vector2 = Vector2::new(300.0, 30.0);
+const HIT_TIMING_BAR_POS:Vector2 = Vector2::new(200.0 - HIT_TIMING_BAR_SIZE.x / 2.0, -(DURATION_HEIGHT + 3.0 + HIT_TIMING_BAR_SIZE.y + 5.0));
 const HIT_TIMING_DURATION:f32 = 1_000.0; // how long should a hit timing line last
 const HIT_TIMING_FADE:f32 = 300.0; // how long to fade out for
 const HIT_TIMING_BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // hit timing bar color
@@ -53,7 +51,6 @@ pub struct IngameManager {
     pub font: Arc<Mutex< GlyphCache<'static>>>,
     combo_text_bounds: Rectangle,
     timing_bar_things: (Vec<(f32,Color)>, (f32,Color)),
-
 
     /// if in replay mode, what replay frame are we at?
     replay_frame: u64
@@ -101,7 +98,7 @@ impl IngameManager {
             Some(_song) => {}
             None => {
                 println!("song doesnt exist at Beatmap.time()!!");
-                self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true);
+                self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
                 self.song.upgrade().unwrap().pause();
             }
         }
@@ -124,7 +121,7 @@ impl IngameManager {
                     song.set_position(0.0);
                 }
                 None => {
-                    self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true);
+                    self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
                     self.song.upgrade().unwrap().pause();
                 }
             }
@@ -154,14 +151,15 @@ impl IngameManager {
                 song.pause();
             }
             None => {
-                self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true);
-                let s = self.song.upgrade().unwrap();
-                s.pause();
+                while let None = self.song.upgrade() {
+                    self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
+                }
+                self.song.upgrade().unwrap().pause();
             }
         }
 
         let mut lock = self.gamemode.lock();
-        lock.reset(self.beatmap.clone());
+        lock.reset(&self.beatmap);
 
         self.completed = false;
         self.started = false;
@@ -185,6 +183,7 @@ impl IngameManager {
 
 
     pub fn update(&mut self) {
+
         // check lead-in time
         if self.lead_in_time > 0.0 {
             let elapsed = self.lead_in_timer.elapsed().as_micros() as f32 / 1000.0;
@@ -200,7 +199,6 @@ impl IngameManager {
             }
         }
         let time = self.time();
-
 
         // check timing point
         let timing_points = &self.beatmap.timing_points;
@@ -219,55 +217,6 @@ impl IngameManager {
                 let (frame_time, frame) = self.replay.frames[self.replay_frame as usize];
                 if frame_time > time {break}
                 m.handle_replay_frame(frame, self);
-
-                // this should be handled by the gamemode
-                // match pressed {
-                //     KeyPress::LeftKat => {
-                //         let mut hit = HalfCircle::new(
-                //             Color::BLUE,
-                //             HIT_POSITION,
-                //             1.0,
-                //             HIT_AREA_RADIUS,
-                //             true
-                //         );
-                //         hit.set_lifetime(DRUM_LIFETIME_TIME);
-                //         self.render_queue.push(Box::new(hit));
-                //     },
-                //     KeyPress::LeftDon => {
-                //         let mut hit = HalfCircle::new(
-                //             Color::RED,
-                //             HIT_POSITION,
-                //             1.0,
-                //             HIT_AREA_RADIUS,
-                //             true
-                //         );
-                //         hit.set_lifetime(DRUM_LIFETIME_TIME);
-                //         self.render_queue.push(Box::new(hit));
-                //     },
-                //     KeyPress::RightDon => {
-                //         let mut hit = HalfCircle::new(
-                //             Color::RED,
-                //             HIT_POSITION,
-                //             1.0,
-                //             HIT_AREA_RADIUS,
-                //             false
-                //         );
-                //         hit.set_lifetime(DRUM_LIFETIME_TIME);
-                //         self.render_queue.push(Box::new(hit));
-                //     },
-                //     KeyPress::RightKat => {
-                //         let mut hit = HalfCircle::new(
-                //             Color::BLUE,
-                //             HIT_POSITION,
-                //             1.0,
-                //             HIT_AREA_RADIUS,
-                //             false
-                //         );
-                //         hit.set_lifetime(DRUM_LIFETIME_TIME);
-                //         self.render_queue.push(Box::new(hit));
-                //     },
-                // }
-
                 self.replay_frame += 1;
             }
         }
@@ -278,7 +227,7 @@ impl IngameManager {
         // update gamemode
         let m = self.gamemode.clone();
         let mut m = m.lock();
-        m.update(self);
+        m.update(self, time);
     }
 
 
@@ -326,6 +275,7 @@ impl IngameManager {
     pub fn draw(&mut self, args: RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         let time = self.time();
         let font = self.font.clone();
+        let window_size:Vector2 = args.window_size.into();
 
         // draw offset
         if self.offset_changed_time > 0.0 && time - self.offset_changed_time < OFFSET_DRAW_TIME {
@@ -337,7 +287,7 @@ impl IngameManager {
                 format!("Offset: {}", self.offset),
                 font.clone()
             );
-            offset_text.center_text(Rectangle::bounds_only(Vector2::zero(), Vector2::new(WINDOW_SIZE.x , WINDOW_SIZE.y * 2.0/3.0)));
+            offset_text.center_text(Rectangle::bounds_only(Vector2::zero(), Vector2::new(window_size.x , window_size.y * 2.0/3.0)));
             list.push(Box::new(offset_text));
         }
 
@@ -345,14 +295,14 @@ impl IngameManager {
 
         // score bg
         list.push(visibility_bg(
-            Vector2::new(args.window_size[0] - 200.0, 10.0),
+            Vector2::new(window_size.x - 200.0, 10.0),
             Vector2::new(180.0, 75.0 - 10.0)
         ));
         // score text
         list.push(Box::new(Text::new(
             Color::BLACK,
             0.0,
-            Vector2::new(args.window_size[0] - 200.0, 40.0),
+            Vector2::new(window_size.x - 200.0, 40.0),
             30,
             crate::format(self.score.score),
             font.clone()
@@ -362,7 +312,7 @@ impl IngameManager {
         list.push(Box::new(Text::new(
             Color::BLACK,
             0.0,
-            Vector2::new(args.window_size[0] - 200.0, 70.0),
+            Vector2::new(window_size.x - 200.0, 70.0),
             30,
             format!("{:.2}%", self.score.acc()*100.0),
             font.clone()
@@ -386,16 +336,16 @@ impl IngameManager {
         list.push(Box::new(Rectangle::new(
             Color::new(0.4, 0.4, 0.4, 0.5),
             1.0,
-            Vector2::new(0.0, args.window_size[1] - (DURATION_HEIGHT + 3.0)),
-            Vector2::new(args.window_size[0], DURATION_HEIGHT),
+            Vector2::new(0.0, window_size.y - (DURATION_HEIGHT + 3.0)),
+            Vector2::new(window_size.x, DURATION_HEIGHT),
             Some(Border::new(Color::BLACK, 1.8))
         )));
         // fill
         list.push(Box::new(Rectangle::new(
             [0.4,0.4,0.4,1.0].into(),
             2.0,
-            Vector2::new(0.0, args.window_size[1] - (DURATION_HEIGHT + 3.0)),
-            Vector2::new(args.window_size[0] * (time/self.end_time) as f64, DURATION_HEIGHT),
+            Vector2::new(0.0, window_size.y - (DURATION_HEIGHT + 3.0)),
+            Vector2::new(window_size.x * (time/self.end_time) as f64, DURATION_HEIGHT),
             None
         )));
 
@@ -408,18 +358,18 @@ impl IngameManager {
         list.push(Box::new(Rectangle::new(
             *miss_color,
             17.1,
-            Vector2::new((WINDOW_SIZE.x-HIT_TIMING_BAR_SIZE.x)/2.0, HIT_TIMING_BAR_POS.y),
+            Vector2::new((window_size.x-HIT_TIMING_BAR_SIZE.x)/2.0, window_size.y + HIT_TIMING_BAR_POS.y),
             Vector2::new(HIT_TIMING_BAR_SIZE.x, HIT_TIMING_BAR_SIZE.y),
             None // for now
         )));
 
-        // draw other windows
+        // draw other hit windows
         for (window, color) in windows {
             let width = (window / miss) as f64 * HIT_TIMING_BAR_SIZE.x;
             list.push(Box::new(Rectangle::new(
                 *color,
                 17.0,
-                Vector2::new((WINDOW_SIZE.x - width)/2.0, HIT_TIMING_BAR_POS.y),
+                Vector2::new((window_size.x - width)/2.0, window_size.y + HIT_TIMING_BAR_POS.y),
                 Vector2::new(width, HIT_TIMING_BAR_SIZE.y),
                 None // for now
             )));
@@ -450,7 +400,7 @@ impl IngameManager {
             list.push(Box::new(Rectangle::new(
                 c,
                 10.0,
-                Vector2::new(WINDOW_SIZE.x  / 2.0 + pos, HIT_TIMING_BAR_POS.y),
+                Vector2::new(window_size.x / 2.0 + pos, window_size.y + HIT_TIMING_BAR_POS.y),
                 Vector2::new(2.0, HIT_TIMING_BAR_SIZE.y),
                 None // for now
             )));
@@ -472,7 +422,7 @@ pub trait GameMode {
 
     fn handle_replay_frame(&mut self, frame:ReplayFrame, manager:&mut IngameManager);
 
-    fn update(&mut self, manager:&mut IngameManager);
+    fn update(&mut self, manager:&mut IngameManager, time: f32);
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list: &mut Vec<Box<dyn Renderable>>);
 
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager);
@@ -485,7 +435,7 @@ pub trait GameMode {
     fn skip_intro(&mut self, manager: &mut IngameManager);
     fn pause(&mut self, _manager:&mut IngameManager) {}
     fn unpause(&mut self, _manager:&mut IngameManager) {}
-    fn reset(&mut self, beatmap:Beatmap);
+    fn reset(&mut self, beatmap:&Beatmap);
 
 
     fn end_time(&self) -> f32;

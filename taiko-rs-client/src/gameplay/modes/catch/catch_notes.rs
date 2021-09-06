@@ -1,6 +1,6 @@
 use piston::RenderArgs;
 
-use super::HIT_Y;
+use super::hit_y;
 use crate::Vector2;
 use taiko_rs_common::types::ScoreHit;
 use crate::gameplay::{HitObject, defs::NoteType};
@@ -16,7 +16,7 @@ pub trait CatchHitObject: HitObject {
     fn radius(&self) -> f64;
     fn x(&self) -> f64;
     fn y_at(&self, time:f32) -> f64 {
-        HIT_Y 
+        hit_y() 
         - (
             (self.time() - time) 
             * self.speed() 

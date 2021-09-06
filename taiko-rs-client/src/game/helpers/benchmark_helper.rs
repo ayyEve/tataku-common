@@ -1,11 +1,9 @@
 use std::time::Instant;
 
-
 pub struct BenchmarkHelper {
     timer: Instant,
     name: String
 }
-
 impl BenchmarkHelper {
     pub fn new(name:&str) -> Self{
         println!("{} benchmarker created", name);

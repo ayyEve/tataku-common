@@ -1,16 +1,15 @@
-use ayyeve_piston_ui::render::fonts::get_font;
-use ayyeve_piston_ui::render::{Line, Rectangle, Text};
-use graphics::CharacterCache;
 use piston::RenderArgs;
+use graphics::CharacterCache;
+use std::{time::Instant, f64::consts::PI};
+use ayyeve_piston_ui::render::{Line, Rectangle, Text, fonts::get_font};
 
-use crate::{WINDOW_SIZE, Vector2};
-use crate::helpers::slider::Curve;
 use taiko_rs_common::types::ScoreHit;
 use crate::render::{Circle, Color, Renderable, Border};
-use crate::gameplay::{HitObject, map_difficulty, modes::FIELD_SIZE, defs::*};
+use crate::{window_size, Vector2, helpers::curve::Curve};
+use crate::gameplay::{HitObject, map_difficulty, modes::scale_coords, defs::*};
 
 const SPINNER_RADIUS:f64 = 200.0;
-const SPINNER_POSITION:Vector2 = Vector2::new(WINDOW_SIZE.x / 2.0, WINDOW_SIZE.y / 2.0);
+// const SPINNER_POSITION:Vector2 = Vector2::new(window_size().x / 2.0, window_size().y / 2.0);
 const SLIDER_DOT_RADIUS:f64 = 8.0;
 const NOTE_BORDER_SIZE:f64 = 2.0;
 
@@ -19,7 +18,7 @@ const HITWINDOW_CIRCLE_RADIUS:f64 = CIRCLE_RADIUS_BASE * 2.0;
 const PREEMPT_MIN:f32 = 450.0;
 const NOTE_DEPTH:f64 = -100.0;
 
-pub const POS_OFFSET:Vector2 = Vector2::new((WINDOW_SIZE.x - FIELD_SIZE.x) / 2.0, (WINDOW_SIZE.y - FIELD_SIZE.y) / 2.0);
+// pub const POS_OFFSET:Vector2 = Vector2::new((window_size.x - FIELD_SIZE.x) / 2.0, (window_size.y - FIELD_SIZE.y) / 2.0)
 
 
 pub trait StandardHitObject: HitObject {
@@ -65,7 +64,7 @@ impl StandardNote {
         let cs_scale = (1.0 - 0.7 * (cs - 5.0) / 5.0) / 2.0;
         let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
         let base_depth = get_depth(def.time);
-        let pos = POS_OFFSET + def.pos;
+        let pos = scale_coords(def.pos);
         let radius = CIRCLE_RADIUS_BASE * cs_scale as f64;
 
         let mut combo_text =  Box::new(Text::new(
@@ -215,17 +214,17 @@ impl StandardSlider {
     pub fn new(def:SliderDef, curve:Curve, ar:f32, cs:f32, color:Color, combo_num: u16) -> Self {
         let cs_scale = (1.0 - 0.7 * (cs - 5.0) / 5.0) / 2.0;
         let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
-        let end_pos = POS_OFFSET + curve.position_at_time(curve.end_time);
+        let end_pos = scale_coords(curve.position_at_length(curve.length()));
 
         let base_depth = get_depth(def.time);
-        let pos = POS_OFFSET + def.pos;
+        let pos = scale_coords(def.pos);
         let radius = CIRCLE_RADIUS_BASE * cs_scale as f64;
 
         let mut combo_text =  Box::new(Text::new(
             Color::BLACK,
             base_depth - 0.0000001,
             pos,
-            (radius) as u32,
+            radius as u32,
             format!("{}", combo_num),
             get_font("main")
         ));
@@ -274,43 +273,57 @@ impl HitObject for StandardSlider {
             list.push(self.combo_text.clone());
         } else {
             // slider ball
-            let pos = POS_OFFSET + self.curve.position_at_time(self.map_time);
+            let pos = scale_coords(self.curve.position_at_time(self.map_time));
             let distance = ((pos.x - self.mouse_pos.x).powi(2) + (pos.y - self.mouse_pos.y).powi(2)).sqrt();
-            let mut c = Circle::new(
+
+            let mut inner = Circle::new(
                 self.color,
                 self.base_depth - 0.0000001,
                 pos,
                 self.radius
             );
-            c.border = Some(Border::new(
-                if self.hold_time > self.release_time && distance <= self.radius {
+            inner.border = Some(Border::new(
+                Color::WHITE,
+                2.0
+            ));
+            list.push(Box::new(inner));
+
+
+            let radius = self.radius * 2.0;
+            let mut outer = Circle::new(
+                Color::TRANSPARENT_WHITE,
+                self.base_depth - 0.0000001,
+                pos,
+                radius
+            );
+            outer.border = Some(Border::new(
+                if self.hold_time > self.release_time && distance <= radius {
                     Color::GREEN
                 } else {
-                    Color::WHITE
+                    Color::RED
                 },
                 2.0
             ));
-            list.push(Box::new(c));
+            list.push(Box::new(outer));
         }
 
         // curves
         list.reserve(self.curve.path.len() * 2);
         for i in 0..self.curve.path.len() {
-            let color = self.color;
-
             let line = self.curve.path[i];
             list.push(Box::new(Line::new(
-                POS_OFFSET + line.p1,
-                POS_OFFSET + line.p2,
+                scale_coords(line.p1),
+                scale_coords(line.p2),
                 self.radius,
                 self.base_depth,
-                color
+                self.color
             )));
+
             // add a circle to smooth out the corners
             list.push(Box::new(Circle::new(
-                color,
+                self.color,
                 self.base_depth,
-                POS_OFFSET + line.p2,
+                scale_coords(line.p2),
                 self.radius,
             )))
         }
@@ -318,13 +331,13 @@ impl HitObject for StandardSlider {
         // start and end circles
         for pos in [self.pos, self.end_pos] {
             let mut c = Circle::new(
-                Color::YELLOW,
+                self.color,
                 self.base_depth - 0.00000005, // should be above curves but below slider ball
                 pos,
                 self.radius
             );
             c.border = Some(Border {
-                color: Color::BLACK.into(),
+                color: Color::BLACK,
                 radius: NOTE_BORDER_SIZE
             });
             list.push(Box::new(c));
@@ -397,7 +410,7 @@ impl StandardHitObject for StandardSlider {
 
         // at this point, assume we want to return points
         // get the points
-        let diff = (time - self.time).abs();
+        let diff = (time - judgement_time).abs();
 
         if diff < h300 {
             ScoreHit::X300
@@ -467,13 +480,22 @@ pub struct StandardSpinner {
 
     /// current angle of the spinner
     rotation: f64,
+    /// how fast the spinner is spinning
+    rotation_velocity: f64,
+
+    /// what was the last rotation value?
+    last_rotation_val: f64,
     /// how many rotations is needed to pass this spinner
     rotations_required: u16,
     /// how many rotations have been completed?
     rotations_completed: u16,
 
     /// should we count mouse movements?
-    holding: bool
+    holding: bool,
+
+    mouse_pos: Vector2,
+
+    last_update: Instant
 }
 impl StandardSpinner {
     pub fn new(time:f32, end_time:f32) -> Self {
@@ -483,8 +505,14 @@ impl StandardSpinner {
 
             holding: false,
             rotation: 0.0,
+            rotation_velocity: 0.0,
+            last_rotation_val: 0.0,
+
             rotations_required: 0,
-            rotations_completed: 0
+            rotations_completed: 0,
+            mouse_pos: Vector2::zero(),
+
+            last_update: Instant::now()
         }
     }
 }
@@ -493,14 +521,27 @@ impl HitObject for StandardSpinner {
     fn end_time(&self,_:f32) -> f32 {self.end_time}
     fn note_type(&self) -> NoteType {NoteType::Spinner}
 
-    fn update(&mut self, _beatmap_time: f32) {}
+    fn update(&mut self, _beatmap_time: f32) {
+        let mut diff = 0.0;
+        let pos_diff = self.mouse_pos - (window_size() / 2.0);
+        let mouse_angle = pos_diff.y.atan2(pos_diff.x);
+        if self.holding {diff = self.last_rotation_val - mouse_angle}
+
+        self.last_rotation_val = mouse_angle;
+        if diff.abs() > PI {diff = 0.0}
+        self.rotation_velocity = lerp(-diff, self.rotation_velocity, 0.5 * self.last_update.elapsed().as_secs_f64());
+        self.rotation += self.rotation_velocity;
+        self.last_update = Instant::now();
+    }
     fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
-        // if its time to start hitting the spinner
+        return;
+
+        let pos = window_size() / 2.0;
         // bg circle
         let mut bg = Circle::new(
             Color::YELLOW,
             -10.0,
-            SPINNER_POSITION,
+            pos,
             SPINNER_RADIUS
         );
         bg.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
@@ -510,11 +551,23 @@ impl HitObject for StandardSpinner {
         let mut fg = Circle::new(
             Color::WHITE,
             -11.0,
-            SPINNER_POSITION,
+            pos,
             SPINNER_RADIUS * (self.rotations_completed as f64 / self.rotations_required as f64)
         );
         fg.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
         list.push(Box::new(fg));
+
+        // draw line to show rotation
+        {
+            let p2 = pos + Vector2::new(self.rotation.cos(), self.rotation.sin()) * SPINNER_RADIUS;
+            list.push(Box::new(Line::new(
+                pos,
+                p2,
+                5.0,
+                -20.0,
+                Color::GREEN
+            )));
+        }
             
 
         //TODO: draw a counter
@@ -527,7 +580,7 @@ impl HitObject for StandardSpinner {
 }
 impl StandardHitObject for StandardSpinner {
     fn get_preempt(&self) -> f32 {0.0}
-    fn point_draw_pos(&self) -> Vector2 {SPINNER_POSITION}
+    fn point_draw_pos(&self) -> Vector2 {Vector2::zero()} //TODO
     fn causes_miss(&self) -> bool {self.rotations_completed < self.rotations_required} // if the spinner wasnt completed in time, cause a miss
 
     fn get_points(&mut self, _time:f32, _:(f32,f32,f32)) -> ScoreHit {
@@ -535,17 +588,24 @@ impl StandardHitObject for StandardSpinner {
     }
 
     fn press(&mut self, time:f32) {
-        if time >= self.time && time <= self.end_time {
+        // if time >= self.time && time <= self.end_time {
             self.holding = true;
-        }
+        // }
     }
     fn release(&mut self, _time:f32) {
         self.holding = false;
     }
     fn mouse_move(&mut self, pos:Vector2) {
-        
+        self.mouse_pos = pos;
     }
 }
+
+
+
+fn lerp(target:f64, current: f64, factor:f64) -> f64 {
+    current + (target - current) * factor
+}
+
 
 
 fn get_depth(time:f32) -> f64 {

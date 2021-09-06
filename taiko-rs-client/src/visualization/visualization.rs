@@ -1,3 +1,4 @@
+use dft::c32;
 use std::time::Instant;
 use ayyeve_piston_ui::render::{Renderable, Vector2};
 
@@ -14,22 +15,39 @@ pub trait Visualization {
     fn update_data(&mut self) {
         // get the audio being fed to the sound card
         let audio_data = crate::game::audio::CURRENT_DATA.clone();
-        let mut audio_data = audio_data.lock().clone();
+        let audio_data = audio_data.lock().clone();
+
+        let audio_data = crate::game::audio::utils::deinterleave(&audio_data, 2)[0].clone();
+
 
         let n = audio_data.len();
-        let count = 360;
+        let count = n / 4; // was 960
+
+
+        let mut audio_data = audio_data
+            .iter()
+            .map(|n| c32::new(*n, 1.0))
+            .collect::<Vec<c32>>();
 
         // if n != audio_data.len() {
         //     audio_data = audio_data[0..n].to_vec();
         // }
+
+        
         let plan = dft::Plan::new(dft::Operation::Forward, n);
         dft::transform(&mut audio_data, &plan);
 
+        let audio_data = audio_data
+            .iter()
+            .map(|n| n.re)
+            .collect::<Vec<f32>>();
+
         let audio_data = audio_data[0..count].to_vec();
         let mut audio_data:Vec<f32> = audio_data
-        .iter()
-        .map(|i|i.abs())
-        .collect();
+            .iter()
+            .map(|i|i.abs())
+            .collect();
+
 
         let time = self.timer();
         let elapsed = time.elapsed().as_secs_f32();

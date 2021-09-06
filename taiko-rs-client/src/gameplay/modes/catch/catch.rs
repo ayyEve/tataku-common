@@ -1,22 +1,28 @@
-use ayyeve_piston_ui::render::*;
 use piston::RenderArgs;
+use ayyeve_piston_ui::render::*;
 
 use super::*;
-use crate::{WINDOW_SIZE, Vector2};
 use crate::game::{Audio, Settings};
-use crate::helpers::slider::get_curve;
+use crate::{window_size, Vector2, helpers::curve::get_curve};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
 use crate::gameplay::{Beatmap, GameMode, IngameManager, map_difficulty, defs::*, modes::FIELD_SIZE};
 
 // const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
 
-pub const HIT_Y:f64 = WINDOW_SIZE.y - 100.0;
 pub const FRUIT_RADIUS_BASE:f64 = 20.0;
 pub const DROPLET_RADIUS_BASE:f64 = 10.0;
 pub const CATCHER_WIDTH_BASE:f64 = 106.75;
 pub const CATCHER_BASE_SPEED:f64 = 1.0;
 
-const X_OFFSET:f64 = (WINDOW_SIZE.x - FIELD_SIZE.x) / 2.0;
+pub fn hit_y() -> f64 {
+    window_size().y - 100.0
+}
+// pub const HIT_Y:f64 = window_size().y - 100.0
+
+fn x_offset() -> f64 {
+    (window_size().x - FIELD_SIZE.x) / 2.0
+}
+// const X_OFFSET:f64 = (window_size().x - FIELD_SIZE.x) / 2.0;
 
 
 pub struct CatchGame {
@@ -55,7 +61,7 @@ impl GameMode for CatchGame {
             catcher: Catcher::new(&beatmap),
         };
 
-        let x_offset = X_OFFSET; // (WINDOW_SIZE.x - FIELD_SIZE.x) / 2.0;
+        let x_offset = x_offset(); // (window_size().x - FIELD_SIZE.x) / 2.0;
 
         // add notes
         for note in beatmap.notes.iter() {
@@ -78,7 +84,7 @@ impl GameMode for CatchGame {
             let end_time = time + (l / v2 * bl);
             // let end_time = curve.end_time;
             
-            let bl = beatmap.beat_length_at(time, beatmap.metadata.beatmap_version < 8.0);
+            let bl = beatmap.beat_length_at(time, beatmap.metadata.beatmap_version < 8);
             let skip_period = (bl / beatmap.metadata.slider_tick_rate).min((end_time - time) / slides as f32);
 
             let mut j = time;
@@ -195,9 +201,7 @@ impl GameMode for CatchGame {
         s
     }
 
-    fn update(&mut self, manager:&mut IngameManager) {
-        // get the current time
-        let time = manager.time();
+    fn update(&mut self, manager:&mut IngameManager, time: f32) {
         self.catcher.update(time as f64);
 
         // update notes
@@ -264,7 +268,7 @@ impl GameMode for CatchGame {
         let playfield = Rectangle::new(
             [0.2, 0.2, 0.2, 1.0].into(),
             f64::MAX-4.0,
-            Vector2::new(X_OFFSET, 0.0),
+            Vector2::new(x_offset(), 0.0),
             Vector2::new(FIELD_SIZE.x, args.window_size[1]),
             if manager.beatmap.timing_points[self.timing_point_index].kiai {
                 Some(Border::new(Color::YELLOW, 2.0))
@@ -348,7 +352,7 @@ impl GameMode for CatchGame {
         }
     }
 
-    fn reset(&mut self, beatmap:Beatmap) {
+    fn reset(&mut self, beatmap:&Beatmap) {
         for note in self.notes.as_mut_slice() {
             note.reset();
         }
@@ -389,8 +393,8 @@ impl GameMode for CatchGame {
     }
     fn combo_bounds(&self) -> Rectangle {
         Rectangle::bounds_only(
-            Vector2::new(0.0, WINDOW_SIZE.y * (1.0/3.0)),
-            Vector2::new(WINDOW_SIZE.x, 30.0)
+            Vector2::new(0.0, window_size().y * (1.0/3.0)),
+            Vector2::new(window_size().x, 30.0)
         )
     }
 }
@@ -412,7 +416,7 @@ impl Catcher {
         Self {
             width,
             move_speed: 0.5, // should calc this somehow
-            pos: Vector2::new((WINDOW_SIZE.x - width) / 2.0, HIT_Y),
+            pos: Vector2::new((window_size().x - width) / 2.0, hit_y()),
             left_held: false,
             right_held: false,
             dash_held: false,
@@ -431,12 +435,13 @@ impl Catcher {
             self.pos.x += self.move_speed() * delta;
         }
 
+        let x_offset = x_offset();
         // check bounds
-        if self.pos.x < X_OFFSET {
-            self.pos.x = X_OFFSET;
+        if self.pos.x < x_offset {
+            self.pos.x = x_offset;
         }
-        if self.pos.x + self.width > X_OFFSET + FIELD_SIZE.x {
-            self.pos.x = X_OFFSET + FIELD_SIZE.x - self.width;
+        if self.pos.x + self.width > x_offset + FIELD_SIZE.x {
+            self.pos.x = x_offset + FIELD_SIZE.x - self.width;
         }
         self.last_update = time;
     }

@@ -1,7 +1,8 @@
 use std::{collections::HashSet, time::Instant};
 use piston::input::*;
+
 use crate::Vector2;
-pub use ayyeve_piston_ui::menu::KeyModifiers;
+use crate::game::KeyModifiers;
 
 pub struct InputManager {
     pub mouse_pos: Vector2,
@@ -52,19 +53,19 @@ impl InputManager {
                 (Button::Keyboard(key), ButtonState::Press) => {
                     self.keys.insert(key);
                     self.keys_down.insert((key, Instant::now()));
-                },
+                }
                 (Button::Keyboard(key), ButtonState::Release) => {
                     self.keys.remove(&key);
                     self.keys_up.insert((key, Instant::now()));
-                },
+                }
                 (Button::Mouse(mb), ButtonState::Press) => {
                     self.mouse_buttons.insert(mb);
                     self.mouse_down.insert((mb, Instant::now()));
-                },
+                }
                 (Button::Mouse(mb), ButtonState::Release) => {
                     self.mouse_buttons.remove(&mb);
                     self.mouse_up.insert((mb, Instant::now()));
-                },
+                }
                 _ => {}
             }
         }

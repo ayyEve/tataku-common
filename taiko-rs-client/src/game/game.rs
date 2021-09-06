@@ -1,29 +1,25 @@
-use std::sync::Arc;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use parking_lot::Mutex;
 use ayyeve_piston_ui::render::Circle;
 use tokio::runtime::{Builder, Runtime};
 use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
 
-// use crate::gameplay::Beatmap;
-use crate::{WINDOW_SIZE, Vector2, menu::*};
-use crate::gameplay::{Beatmap, IngameManager};
 use crate::render::{Color, Image, Rectangle, Renderable};
 use taiko_rs_common::types::{SpectatorFrames, UserAction};
-use crate::databases::{save_all_scores, save_replay, save_score};
-use crate::helpers::{FpsDisplay, BenchmarkHelper, BeatmapManager, VolumeControl};
-use crate::game::{InputManager, Settings, online::{USER_ITEM_SIZE, OnlineManager}};
-
-use super::Audio;
+use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
+use crate::{window_size, Vector2, menu::*, sync::{Arc, Mutex}};
+use crate::databases::{save_replay, save_score};
+use crate::helpers::{FpsDisplay, BenchmarkHelper, VolumeControl};
+use crate::game::{Settings, audio::Audio, online::{USER_ITEM_SIZE, OnlineManager}, managers::{InputManager, BeatmapManager, NOTIFICATION_MANAGER}};
 
 /// background color
 const GFX_CLEAR_COLOR:Color = Color::WHITE;
 /// how long do transitions between gamemodes last?
 const TRANSITION_TIME:u64 = 500;
+
 
 pub struct Game {
     // engine things
@@ -35,8 +31,6 @@ pub struct Game {
     pub threading: Runtime,
     
     pub menus: HashMap<&'static str, Arc<Mutex<dyn Menu<Game>>>>,
-    pub beatmap_manager: Arc<Mutex<BeatmapManager>>, // must be thread safe
-    
     pub current_state: GameState,
     pub queued_state: GameState,
 
@@ -65,13 +59,25 @@ impl Game {
         let mut game_init_benchmark = BenchmarkHelper::new("game::new");
 
         let opengl = OpenGL::V3_2;
-        let mut window: AppWindow = WindowSettings::new("Taiko-rs", [WINDOW_SIZE.x, WINDOW_SIZE.y])
+        let mut window: AppWindow = WindowSettings::new("Taiko-rs", [window_size().x, window_size().y])
             .graphics_api(opengl)
             .resizable(false)
             .build()
             .expect("Error creating window");
         window.window.set_cursor_mode(glfw::CursorMode::Hidden);
         game_init_benchmark.log("window created", true);
+
+        // {
+        //     match image::open("../icon.png") {
+        //         Ok(img) => {
+
+        //         }
+        //         Err(e) => {
+        //             game_init_benchmark.log(&format!("error setting window icon: {}", e), true);
+        //         }
+        //     }
+        // }
+        
 
         let graphics = GlGraphics::new(opengl);
         game_init_benchmark.log("graphics created", true);
@@ -100,7 +106,6 @@ impl Game {
             background_image: None,
 
             menus: HashMap::new(),
-            beatmap_manager: Arc::new(Mutex::new(BeatmapManager::new())),
             current_state: GameState::None,
             queued_state: GameState::None,
 
@@ -139,10 +144,10 @@ impl Game {
         });
 
         // beatmap manager loop
-        BeatmapManager::download_check_loop(self.beatmap_manager.clone(), self);
+        BeatmapManager::download_check_loop(self);
         
         
-        let mut loading_menu = LoadingMenu::new(self.beatmap_manager.clone());
+        let mut loading_menu = LoadingMenu::new();
         loading_menu.load(self);
 
         //region == menu setup ==
@@ -153,7 +158,7 @@ impl Game {
         menu_init_benchmark.log("main menu created", true);
 
         // setup beatmap select menu
-        let beatmap_menu = Arc::new(Mutex::new(BeatmapSelectMenu::new(self.beatmap_manager.clone())));
+        let beatmap_menu = Arc::new(Mutex::new(BeatmapSelectMenu::new()));
         self.menus.insert("beatmap", beatmap_menu.clone());
         menu_init_benchmark.log("beatmap menu created", true);
 
@@ -161,7 +166,6 @@ impl Game {
         let settings_menu = Arc::new(Mutex::new(SettingsMenu::new()));
         self.menus.insert("settings", settings_menu.clone());
         menu_init_benchmark.log("settings menu created", true);
-
 
         self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(loading_menu))));
     }
@@ -185,11 +189,17 @@ impl Game {
             if let Some(args) = e.update_args() {self.update(args.dt*1000.0)}
             if let Some(args) = e.render_args() {self.render(args)}
             if let Some(Button::Keyboard(_)) = e.press_args() {self.input_update_display.increment()}
+
+
+            if let Event::Input(Input::FileDrag(d), _) = e {
+                println!("got files: {:?}", d);
+            }
             // e.resize(|args| println!("Resized '{}, {}'", args.window_size[0], args.window_size[1]));
         }
     }
 
     fn update(&mut self, _delta:f64) {
+        // let timer = Instant::now();
         self.update_display.increment();
         let current_state = self.current_state.clone();
         let elapsed = self.game_start.elapsed().as_millis() as u64;
@@ -211,6 +221,13 @@ impl Game {
         //     self.register_timings = self.input_manager.get_register_delay();
         //     println!("register times: min:{}, max: {}, avg:{}", self.register_timings.0,self.register_timings.1,self.register_timings.2);
         // }
+
+        if mouse_down.len() > 0 {
+            // check notifs
+            if NOTIFICATION_MANAGER.lock().on_click(mouse_pos, self) {
+                mouse_down.clear();
+            }
+        }
 
         // check for volume change
         if mouse_moved {self.volume_controller.on_mouse_move(mouse_pos)}
@@ -281,10 +298,10 @@ impl Game {
                             Ok(_)=> println!("replay saved ok"),
                             Err(e) => println!("error saving replay: {}", e),
                         }
-                        match save_all_scores() {
-                            Ok(_) => println!("Scores saved successfully"),
-                            Err(e) => println!("Failed to save scores! {}", e),
-                        }
+                        // match save_all_scores() {
+                        //     Ok(_) => println!("Scores saved successfully"),
+                        //     Err(e) => println!("Failed to save scores! {}", e),
+                        // }
                         println!("all scores saved");
 
                         // submit score
@@ -323,7 +340,7 @@ impl Game {
                         self.queue_state_change(GameState::InMenu(menu));
                     } else {
                         // show score menu
-                        let menu = ScoreMenu::new(&score, lock.beatmap.clone());
+                        let menu = ScoreMenu::new(&score, lock.beatmap.metadata.clone());
                         self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
                     }
                 }
@@ -419,7 +436,7 @@ impl Game {
                         };
 
                         if let Ok(t) = opengl_graphics::Texture::from_path(m.image_filename.clone(), &opengl_graphics::TextureSettings::new()) {
-                            self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, t, WINDOW_SIZE));
+                            self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, t, window_size()));
                         } else {
                             self.background_image = None;
                         }
@@ -479,9 +496,17 @@ impl Game {
                 }
             }
         }
+
+        // update the notification manager
+        NOTIFICATION_MANAGER.lock().update();
+        
+        // if timer.elapsed().as_secs_f32() * 1000.0 > 1.0 {
+        //     println!("update took a while: {}", timer.elapsed().as_secs_f32() * 1000.0);
+        // }
     }
 
     fn render(&mut self, args: RenderArgs) {
+        // let timer = Instant::now();
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
         let settings = Settings::get();
         let elapsed = self.game_start.elapsed().as_millis() as u64;
@@ -498,7 +523,7 @@ impl Game {
             color,
             f64::MAX - 1.0,
             Vector2::zero(),
-            WINDOW_SIZE,
+            window_size(),
             None
         )));
 
@@ -524,7 +549,7 @@ impl Game {
                 [0.0, 0.0, 0.0, alpha as f32].into(),
                 -f64::MAX,
                 Vector2::zero(),
-                WINDOW_SIZE,
+                window_size(),
                 None
             )));
 
@@ -536,8 +561,8 @@ impl Game {
         }
 
         // users list
+        // TODO: move this to a "dialog"
         if self.show_user_list {
-
             //TODO: move the set_pos code to update or smth
             let mut counter = 0;
             
@@ -556,7 +581,7 @@ impl Game {
         }
 
         // volume control
-        self.render_queue.extend(self.volume_controller.draw());
+        self.render_queue.extend(self.volume_controller.draw(args));
 
         // add the things we just made to the render queue
         self.render_queue.extend(renderables);
@@ -566,6 +591,10 @@ impl Game {
         self.update_display.draw(&mut self.render_queue);
         self.input_update_display.draw(&mut self.render_queue);
 
+        // draw notifications
+        
+        // update the notification manager
+        NOTIFICATION_MANAGER.lock().draw(&mut self.render_queue);
 
         // draw cursor
         let mouse_pressed = self.input_manager.mouse_buttons.len() > 0 
@@ -575,7 +604,7 @@ impl Game {
             Color::new(0.8, 0.0, 0.6, 1.0),
             -f64::MAX,
             self.input_manager.mouse_pos,
-            if mouse_pressed {10.0} else {5.0}
+            if mouse_pressed {10.0} else {5.0} * settings.cursor_scale
         )));
 
 
@@ -586,7 +615,6 @@ impl Game {
         let queue = self.render_queue.as_mut_slice();
         self.graphics.draw(args.viewport(), |c, g| {
             graphics::clear(GFX_CLEAR_COLOR.into(), g);
-
             for i in queue.as_mut() {
                 if i.get_spawn_time() == 0 {i.set_spawn_time(elapsed);}
                 i.draw(g, c);
@@ -595,6 +623,11 @@ impl Game {
         
         self.clear_render_queue(false);
         self.fps_display.increment();
+
+
+        // if timer.elapsed().as_secs_f32() * 1000.0 > 1.0 {
+        //     println!("render took a while: {}", timer.elapsed().as_secs_f32() * 1000.0);
+        // }
     }
 
     pub fn clear_render_queue(&mut self, remove_all:bool) {
@@ -611,78 +644,42 @@ impl Game {
     pub fn queue_state_change(&mut self, state:GameState) {self.queued_state = state}
 
     /// shortcut for setting the game's background texture to a beatmap's image
-    pub fn set_background_beatmap(&mut self, beatmap:Arc<Mutex<Beatmap>>) {
-        match opengl_graphics::Texture::from_path(beatmap.lock().metadata.image_filename.clone(), &opengl_graphics::TextureSettings::new()) {
-            Ok(tex) => self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, WINDOW_SIZE)),
-            Err(e) => {
-                println!("Error loading beatmap texture: {}", e);
-                self.background_image = None; //TODO!: use a known good background image
-            },
-        }
+    pub fn set_background_beatmap(&mut self, beatmap:&BeatmapMeta) {
+        // let mut helper = BenchmarkHelper::new("loaad image");
+
+        let settings = opengl_graphics::TextureSettings::new();
+        // helper.log("settings made", true);
+
+        let buf: Vec<u8> = match std::fs::read(&beatmap.image_filename) {
+            Ok(buf) => buf,
+            Err(_) => {
+                self.background_image = None;
+                return;
+            }
+        };
+
+        // let buf = file.unwrap();
+        // helper.log("file read", true);
+
+        let img = image::load_from_memory(&buf).unwrap();
+        // helper.log("image created", true);
+        let img = img.into_rgba8();
+        // helper.log("format converted", true);
+        
+        let tex = opengl_graphics::Texture::from_image(&img, &settings);
+        // helper.log("texture made", true);
+
+        self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size()));
+        // helper.log("background set", true);
+
+        // match opengl_graphics::Texture::from_path(beatmap.image_filename.clone(), &settings) {
+        //     Ok(tex) => self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size())),
+        //     Err(e) => {
+        //         println!("Error loading beatmap texture: {}", e);
+        //         self.background_image = None; //TODO!: use a known good background image
+        //     },
+        // }
     }
-
-    // /// extract all zips from the downloads folder into the songs folder. not a static function as it uses threading
-    // pub fn extract_all(&self) {
-    //     let runtime = &self.threading;
-
-    //     // check for new maps
-    //     if let Ok(files) = std::fs::read_dir(crate::DOWNLOADS_DIR) {
-    //         for file in files {
-    //             if let Ok(filename) = file {
-    //                 runtime.spawn(async move {
-    //                     // unzip file into ./Songs
-
-    //                     while let Err(_) = std::fs::File::open(filename.path().to_str().unwrap()) {
-    //                         tokio::time::sleep(Duration::from_millis(1000)).await;
-    //                     }
-
-    //                     let file = std::fs::File::open(filename.path().to_str().unwrap()).unwrap();
-    //                     let mut archive = zip::ZipArchive::new(file).unwrap();
-                        
-    //                     for i in 0..archive.len() {
-    //                         let mut file = archive.by_index(i).unwrap();
-    //                         let mut outpath = match file.enclosed_name() {
-    //                             Some(path) => path,
-    //                             None => continue,
-    //                         };
-
-    //                         let x = outpath.to_str().unwrap();
-    //                         let y = format!("{}/{}/", SONGS_DIR, filename.file_name().to_str().unwrap().trim_end_matches(".osz"));
-    //                         let z = &(y + x);
-    //                         outpath = Path::new(z);
-
-    //                         if (&*file.name()).ends_with('/') {
-    //                             println!("File {} extracted to \"{}\"", i, outpath.display());
-    //                             std::fs::create_dir_all(&outpath).unwrap();
-    //                         } else {
-    //                             println!("File {} extracted to \"{}\" ({} bytes)", i, outpath.display(), file.size());
-    //                             if let Some(p) = outpath.parent() {
-    //                                 if !p.exists() {std::fs::create_dir_all(&p).unwrap()}
-    //                             }
-    //                             let mut outfile = std::fs::File::create(&outpath).unwrap();
-    //                             std::io::copy(&mut file, &mut outfile).unwrap();
-    //                         }
-
-    //                         // Get and Set permissions
-    //                         // #[cfg(unix)] {
-    //                         //     use std::os::unix::fs::PermissionsExt;
-    //                         //     if let Some(mode) = file.unix_mode() {
-    //                         //         fs::set_permissions(&outpath, fs::Permissions::from_mode(mode)).unwrap();
-    //                         //     }
-    //                         // }
-    //                     }
-                    
-    //                     match std::fs::remove_file(filename.path().to_str().unwrap()) {
-    //                         Ok(_) => {},
-    //                         Err(e) => println!("error deleting file: {}", e),
-    //                     }
-    //                 });
-    //             }
-    //         }
-    //     }
-    
-    // }
-
 }
 
 

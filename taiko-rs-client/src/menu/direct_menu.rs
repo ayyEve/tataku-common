@@ -5,7 +5,7 @@ use std::{fs::File, io::Write};
 use piston::{Key, MouseButton};
 //use rodio::Sink; // ugh
 
-use crate::{WINDOW_SIZE, DOWNLOADS_DIR, Vector2};
+use crate::{window_size, DOWNLOADS_DIR, Vector2};
 use crate::render::{Text, Renderable, Rectangle, Color, Border};
 use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
 use crate::game::{Audio, Game, GameState, KeyModifiers, Settings, get_font};
@@ -15,7 +15,8 @@ const DOWNLOAD_ITEM_YMARGIN:f64 = 30.0;
 const DOWNLOAD_ITEM_YOFFSET:f64 = SEARCH_BAR_HEIGHT + 10.0;
 const DOWNLOAD_ITEM_XOFFSET:f64 = 5.0;
 const SEARCH_BAR_HEIGHT:f64 = 50.0;
-const DIRECT_ITEM_SIZE:Vector2 = Vector2::new(WINDOW_SIZE.x - (DOWNLOAD_ITEM_SIZE.x+DOWNLOAD_ITEM_XOFFSET), 80.0);
+//TODO: change this to its own manager or smth
+const DIRECT_ITEM_SIZE:Vector2 = Vector2::new(500.0, 80.0);
 
 //TODO: properly implement this lol
 const MAX_CONCURRENT_DOWNLOADS:usize = 5;
@@ -37,12 +38,12 @@ pub struct OsuDirectMenu {
 impl OsuDirectMenu {
     pub fn new() -> OsuDirectMenu {
         let mut x = OsuDirectMenu {
-            scroll_area: ScrollableArea::new(Vector2::new(0.0, SEARCH_BAR_HEIGHT+5.0), Vector2::new(DIRECT_ITEM_SIZE.x, WINDOW_SIZE.y - SEARCH_BAR_HEIGHT+5.0), true),
+            scroll_area: ScrollableArea::new(Vector2::new(0.0, SEARCH_BAR_HEIGHT+5.0), Vector2::new(DIRECT_ITEM_SIZE.x, window_size().y - SEARCH_BAR_HEIGHT+5.0), true),
             downloading: Vec::new(),
             queue: Vec::new(),
             items: HashMap::new(),
             selected: None,
-            search_bar: TextInput::new(Vector2::zero(), Vector2::new(WINDOW_SIZE.x , SEARCH_BAR_HEIGHT), "Search", ""),
+            search_bar: TextInput::new(Vector2::zero(), Vector2::new(window_size().x , SEARCH_BAR_HEIGHT), "Search", ""),
             old_audio: None
         };
         // TODO: [audio] pause playing music, store song and pos. on close, put it back how it was
@@ -110,7 +111,7 @@ impl OsuDirectMenu {
 
             // restore previous audio
             if let Some((path, pos)) = old_audio.clone() {
-                Audio::play_song(path, false).upgrade().unwrap().set_position(pos);
+                Audio::play_song(path, false, pos);
             }
         }
 

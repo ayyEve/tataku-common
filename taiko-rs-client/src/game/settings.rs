@@ -22,10 +22,9 @@ pub struct Settings {
     pub username: String,
     pub password: String,
     
-    // osu
+    // osu login (for direct)
     pub osu_username: String,
     pub osu_password: String,
-
     
     pub standard_settings: StandardSettings,
     pub taiko_settings: TaikoSettings,
@@ -37,6 +36,7 @@ pub struct Settings {
     pub fps_target: u64,
     pub update_target: u64,
     pub window_size: [f64; 2],
+    pub cursor_scale: f64,
 
     // bg
     pub background_dim: f32,
@@ -101,7 +101,10 @@ impl Default for Settings {
             fps_target: 144,
             update_target: 1000,
             window_size: [1000.0, 600.0],
-            background_dim: 0.8
+            background_dim: 0.8,
+
+            // other
+            cursor_scale: 1.0
         }
     }
 }

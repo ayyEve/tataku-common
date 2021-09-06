@@ -4,7 +4,7 @@ use piston::RenderArgs;
 use ayyeve_piston_ui::render::*;
 use taiko_rs_common::types::{KeyPress, ReplayFrame, PlayMode};
 
-use crate::{WINDOW_SIZE, Vector2};
+use crate::{window_size, Vector2};
 use crate::game::{Audio, Settings};
 use super::{ManiaHold, ManiaNote, ManiaHitObject};
 use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint, map_difficulty, defs::*};
@@ -13,7 +13,11 @@ use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint, map_difficu
 pub const COLUMN_WIDTH: f64 = 100.0;
 pub const NOTE_SIZE:Vector2 = Vector2::new(COLUMN_WIDTH, 30.0);
 pub const NOTE_BORDER_SIZE:f64 = 1.4;
-pub const HIT_Y:f64 = WINDOW_SIZE.y - 100.0;
+
+// pub const HIT_Y:f64 = window_size().y - 100.0;
+pub fn hit_y() -> f64 {
+    window_size().y - 100.0
+}
 
 
 pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // timing bar color
@@ -46,7 +50,7 @@ impl ManiaGame {
     /// get the x_pos for `col`
     pub fn col_pos(&self, col:u8) -> f64{
         let total_width = self.column_count as f64 * COLUMN_WIDTH;
-        let x_offset = (WINDOW_SIZE.x - total_width) / 2.0;
+        let x_offset = (window_size().x - total_width) / 2.0;
 
         x_offset + col as f64 * COLUMN_WIDTH
     }
@@ -316,7 +320,7 @@ impl GameMode for ManiaGame {
         self.handle_replay_frame(ReplayFrame::Release(game_key), manager);
     }
 
-    fn reset(&mut self, beatmap:Beatmap) {
+    fn reset(&mut self, beatmap:&Beatmap) {
         for col in self.columns.iter_mut() {
             for note in col.iter_mut() {
                 note.reset();
@@ -342,7 +346,7 @@ impl GameMode for ManiaGame {
             time %= step; // get the earliest bar line possible
 
             let bar_width = self.column_count as f64 * COLUMN_WIDTH;
-            let x = (WINDOW_SIZE.x - bar_width) / 2.0;
+            let x = (window_size().x - bar_width) / 2.0;
 
             loop {
                 // if theres a bpm change, adjust the current time to that of the bpm change
@@ -376,10 +380,7 @@ impl GameMode for ManiaGame {
     }
 
 
-    fn update(&mut self, manager:&mut IngameManager) {
-        // get the current time
-        let time = manager.time();
-
+    fn update(&mut self, manager:&mut IngameManager, time: f32) {
         // update notes
         for col in self.columns.iter_mut() {
             for note in col.iter_mut() {note.update(time)}
@@ -427,7 +428,7 @@ impl GameMode for ManiaGame {
                 self.get_color(col),
                 1000.0,
                 Vector2::new(x, 0.0),
-                Vector2::new(COLUMN_WIDTH, WINDOW_SIZE.y),
+                Vector2::new(COLUMN_WIDTH, window_size().y),
                 Some(Border::new(Color::GREEN, 1.2))
             )));
 
@@ -435,7 +436,7 @@ impl GameMode for ManiaGame {
             list.push(Box::new(Rectangle::new(
                 if self.column_states[col as usize] {self.get_color(col)} else {Color::TRANSPARENT_WHITE},
                 -100.0,
-                Vector2::new(x, HIT_Y),
+                Vector2::new(x, hit_y()),
                 NOTE_SIZE,
                 Some(Border::new(Color::RED, NOTE_BORDER_SIZE))
             )));
@@ -446,7 +447,7 @@ impl GameMode for ManiaGame {
             Color::new(0.0, 0.0, 0.0, 0.8),
             1000.0,
             Vector2::new(self.col_pos(0), 0.0),
-            Vector2::new(self.col_pos(self.column_count) - self.col_pos(0), WINDOW_SIZE.y),
+            Vector2::new(self.col_pos(self.column_count) - self.col_pos(0), window_size().y),
             Some(Border::new(Color::GREEN, 1.2))
         )));
 
@@ -485,8 +486,8 @@ impl GameMode for ManiaGame {
 
     fn combo_bounds(&self) -> Rectangle {
         Rectangle::bounds_only(
-            Vector2::new(0.0, WINDOW_SIZE.y * (1.0/3.0)),
-            Vector2::new(WINDOW_SIZE.x, 30.0)
+            Vector2::new(0.0, window_size().y * (1.0/3.0)),
+            Vector2::new(window_size().x, 30.0)
         )
     }
 
@@ -523,13 +524,13 @@ impl TimingBar {
     }
 
     pub fn update(&mut self, time:f32) {
-        self.pos.y = (HIT_Y + NOTE_SIZE.y-self.size.y) - ((self.time - time) * self.speed) as f64;
+        self.pos.y = (hit_y() + NOTE_SIZE.y-self.size.y) - ((self.time - time) * self.speed) as f64;
         // self.pos = HIT_POSITION + Vector2::new(( - BAR_WIDTH / 2.0, -PLAYFIELD_RADIUS);
     }
 
     fn draw(&mut self, _args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        if self.pos.y < 0.0 || self.pos.y > WINDOW_SIZE.y {return renderables}
+        if self.pos.y < 0.0 || self.pos.y > window_size().y {return renderables}
 
         renderables.push(Box::new(Rectangle::new(
             BAR_COLOR,

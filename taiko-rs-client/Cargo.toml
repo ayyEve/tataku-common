@@ -13,17 +13,18 @@ unlimited_fps = []
 taiko-rs-common = {path="../taiko-rs-common"}
 
 # framework stuff
-rusqlite = "0.25"
+rusqlite = {version="0.25", features=["bundled"]}
 lazy_static = "1.4.0"
 parking_lot = "0.11.1"
 tokio = { version = "1.7.1", features = ["full"] }
 futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
 
 # piston etc
-glfw = "0.41"
+glfw = {version = "0.41", features=["image"]}
+image = "0.23"
 piston = "0.53.0"
 piston2d-graphics = "0.40.0"
-pistoncore-glfw_window = "0.71.0"
+pistoncore-glfw_window = {git="https://github.com/ayyEve/glfw_window"}
 piston2d-opengl_graphics = "0.78.0"
 ayyeve-piston-ui = {git = "https://gitlab.ayyeve.xyz/ayyEve/ayyeve-piston-ui"}
 
@@ -41,6 +42,7 @@ serde_json = "1.0"
 
 # helpers
 zip = "0.5"
+uuid = {version = "0.8", features=["v4"]}
 md5 = "0.7.0"
 rand = "0.8.4"
 clipboard = "0.5.0"

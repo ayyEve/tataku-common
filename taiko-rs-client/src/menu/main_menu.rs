@@ -4,10 +4,10 @@ use parking_lot::Mutex;
 use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::KeyModifiers;
 
-use crate::{WINDOW_SIZE, Vector2, render::*};
-use crate::game::{Audio, Game, GameState, get_font};
+use crate::{window_size, Vector2, render::*};
 use crate::visualization::{MenuVisualization, Visualization};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
+use crate::game::{Audio, Game, GameState, get_font, managers::BEATMAP_MANAGER};
 
 const BUTTON_SIZE: Vector2 = Vector2::new(100.0, 50.0);
 const Y_MARGIN: f64 = 20.0;
@@ -23,7 +23,7 @@ pub struct MainMenu {
 }
 impl MainMenu {
     pub fn new() -> MainMenu {
-        let middle = WINDOW_SIZE.x /2.0 - BUTTON_SIZE.x/2.0;
+        let middle = window_size().x /2.0 - BUTTON_SIZE.x/2.0;
         let mut counter = 1.0;
         
         let play_button = MenuButton::new(Vector2::new(middle, (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Play");
@@ -52,19 +52,17 @@ impl Menu<Game> for MainMenu {
     fn update(&mut self, g:&mut Game) {
         if let None = Audio::get_song() {
             println!("song done");
-            let manager = g.beatmap_manager.clone();
-            let map = manager.lock().random_beatmap();
+            let map = BEATMAP_MANAGER.lock().random_beatmap();
 
             // it should?
             if let Some(map) = map {
-                manager.lock().set_current_beatmap(g, map);
+                BEATMAP_MANAGER.lock().set_current_beatmap(g, &map, false, false);
             }
         }
 
-        let maps = g.beatmap_manager.lock().get_new_maps();
+        let maps = BEATMAP_MANAGER.lock().get_new_maps();
         if maps.len() > 0 {
-            let manager = g.beatmap_manager.clone();
-            manager.lock().set_current_beatmap(g, maps.iter().last().unwrap().clone());
+            BEATMAP_MANAGER.lock().set_current_beatmap(g, &maps[maps.len() - 1], true, false);
         }
     }
 
@@ -82,7 +80,7 @@ impl Menu<Game> for MainMenu {
             "Welcome to Taiko.rs".to_owned(),
             get_font("main")
         );
-        welcome_text.center_text(Rectangle::bounds_only(Vector2::new(0.0, 30.0), Vector2::new(WINDOW_SIZE.x , 50.0)));
+        welcome_text.center_text(Rectangle::bounds_only(Vector2::new(0.0, 30.0), Vector2::new(window_size().x , 50.0)));
         
         list.push(crate::helpers::visibility_bg(welcome_text.pos - Vector2::new(0.0, 40.0), Vector2::new(welcome_text.measure_text().x , 50.0)));
         list.push(Box::new(welcome_text));
@@ -94,7 +92,7 @@ impl Menu<Game> for MainMenu {
         list.extend(self.exit_button.draw(args, pos_offset, depth));
 
         // visualization
-        let mid = WINDOW_SIZE / 2.0;
+        let mid = window_size() / 2.0;
         self.visualization.draw(args, mid, depth + 10.0, &mut list);
 
 
@@ -142,7 +140,7 @@ impl Menu<Game> for MainMenu {
 
         //     let curve = crate::helpers::slider::get_curve(&slider, &map);
 
-        //     let pos_offset = WINDOW_SIZE / 2.0;
+        //     let pos_offset = window_size() / 2.0;
 
         //     for i in 0..curve.path.len() {
         //         let color = [
@@ -212,21 +210,19 @@ impl Menu<Game> for MainMenu {
         use piston::Key::*;
         match key {
             Left => {
-                let manager = game.beatmap_manager.clone();
-                let mut manager = manager.lock();
+                let mut manager = BEATMAP_MANAGER.lock();
 
-                if let Some(map) = manager.previous_beatmap().clone() {
-                    manager.set_current_beatmap(game, map);
+                if let Some(map) = manager.previous_beatmap() {
+                    manager.set_current_beatmap(game, &map, false, false);
                 } else {
                     println!("no prev")
                 }
             }
             Right => {
-                let manager = game.beatmap_manager.clone();
-                let mut manager = manager.lock();
+                let mut manager = BEATMAP_MANAGER.lock();
 
-                if let Some(map) = manager.next_beatmap().clone() {
-                    manager.set_current_beatmap(game, map);
+                if let Some(map) = manager.next_beatmap() {
+                    manager.set_current_beatmap(game, &map, false, false);
                 } else {
                     println!("no next")
                 }
