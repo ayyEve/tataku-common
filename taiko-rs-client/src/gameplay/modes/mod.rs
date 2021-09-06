@@ -39,7 +39,6 @@ pub fn manager_from_playmode(mut playmode: PlayMode, beatmap: &BeatmapMeta) -> I
 fn scale_window() -> (Vector2, Vector2) {
     let (scale, offset) = Settings::get_mut().standard_settings.get_playfield();
     let window_size = window_size();
-
     let scale = (window_size / FIELD_SIZE) * scale;
 
     (scale, offset)

@@ -330,7 +330,7 @@ impl HitObject for StandardSlider {
         }
         
         // start and end circles
-        for pos in [self.pos, self.end_pos] {
+        for pos in [self.end_pos, self.pos] {
             let mut c = Circle::new(
                 self.color,
                 self.base_depth - 0.00000005, // should be above curves but below slider ball
