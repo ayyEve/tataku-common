@@ -496,7 +496,7 @@ pub struct StandardSpinner {
 
     mouse_pos: Vector2,
 
-    last_update: Instant
+    last_update: f32
 }
 impl StandardSpinner {
     pub fn new(time:f32, end_time:f32) -> Self {
@@ -513,7 +513,7 @@ impl StandardSpinner {
             rotations_completed: 0,
             mouse_pos: Vector2::zero(),
 
-            last_update: Instant::now()
+            last_update: 0.0
         }
     }
 }
@@ -522,20 +522,23 @@ impl HitObject for StandardSpinner {
     fn end_time(&self,_:f32) -> f32 {self.end_time}
     fn note_type(&self) -> NoteType {NoteType::Spinner}
 
-    fn update(&mut self, _beatmap_time: f32) {
-        let mut diff = 0.0;
-        let pos_diff = self.mouse_pos - (window_size() / 2.0);
-        let mouse_angle = pos_diff.y.atan2(pos_diff.x);
-        if self.holding {diff = self.last_rotation_val - mouse_angle}
+    fn update(&mut self, beatmap_time: f32) {
+        if beatmap_time >= self.time && beatmap_time <= self.end_time {
+            let mut diff = 0.0;
+            let pos_diff = self.mouse_pos - (window_size() / 2.0);
+            let mouse_angle = pos_diff.y.atan2(pos_diff.x);
+            if self.holding {diff = self.last_rotation_val - mouse_angle}
 
-        self.last_rotation_val = mouse_angle;
-        if diff.abs() > PI {diff = 0.0}
-        self.rotation_velocity = lerp(-diff, self.rotation_velocity, 0.5 * self.last_update.elapsed().as_secs_f64());
-        self.rotation += self.rotation_velocity;
-        self.last_update = Instant::now();
+            self.last_rotation_val = mouse_angle;
+            if diff.abs() > PI {diff = 0.0}
+            self.rotation_velocity = lerp(-diff, self.rotation_velocity, 0.5 * (beatmap_time - self.last_update) as f64);
+            self.rotation += self.rotation_velocity;
+        }
+
+        self.last_update = beatmap_time;
     }
     fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
-        return;
+        if !(self.last_update >= self.time && self.last_update <= self.end_time) {return}
 
         let pos = window_size() / 2.0;
         // bg circle
