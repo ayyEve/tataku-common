@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use ayyeve_piston_ui::render::Vector2;
 use piston::Key;
 use parking_lot::{Mutex, MutexGuard};
 use serde::{Serialize, Deserialize};
@@ -66,7 +67,7 @@ impl Settings {
         }
     }
 
-    // relatively slow, if you need a more performant get, use get_mut
+    /// relatively slow, if you need a more performant get, use get_mut
     pub fn get() -> Settings {SETTINGS.lock().clone()}
     pub fn get_mut<'a>() -> MutexGuard<'a, Settings> {SETTINGS.lock()}
 
@@ -182,6 +183,15 @@ pub struct StandardSettings {
     // keys
     pub left_key: Key,
     pub right_key: Key,
+
+    pub playfield_x_offset: f64,
+    pub playfield_y_offset: f64,
+    pub playfield_scale: f64
+}
+impl StandardSettings {
+    pub fn get_playfield(&self) -> (f64, Vector2) {
+        (self.playfield_scale, Vector2::new(self.playfield_x_offset, self.playfield_y_offset))
+    }
 }
 impl Default for StandardSettings {
     fn default() -> Self {
@@ -189,6 +199,9 @@ impl Default for StandardSettings {
             // keys
             left_key: Key::S,
             right_key: Key::D,
+            playfield_x_offset: 0.0,
+            playfield_y_offset: 0.0,
+            playfield_scale: 1.0
         }
     }
 }

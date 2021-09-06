@@ -7,13 +7,13 @@ use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
 
+use crate::databases::{save_replay, save_score};
 use crate::render::{Color, Image, Rectangle, Renderable};
 use taiko_rs_common::types::{SpectatorFrames, UserAction};
 use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
-use crate::{window_size, Vector2, menu::*, sync::{Arc, Mutex}};
-use crate::databases::{save_replay, save_score};
 use crate::helpers::{FpsDisplay, BenchmarkHelper, VolumeControl};
-use crate::game::{Settings, audio::Audio, online::{USER_ITEM_SIZE, OnlineManager}, managers::{InputManager, BeatmapManager, NOTIFICATION_MANAGER}};
+use crate::{window_size, Vector2, DOWNLOADS_DIR, menu::*, sync::{Arc, Mutex}};
+use crate::game::{Settings, audio::Audio, online::{USER_ITEM_SIZE, OnlineManager}, managers::{InputManager, BeatmapManager, NotificationManager, NOTIFICATION_MANAGER}};
 
 /// background color
 const GFX_CLEAR_COLOR:Color = Color::WHITE;
@@ -67,16 +67,18 @@ impl Game {
         window.window.set_cursor_mode(glfw::CursorMode::Hidden);
         game_init_benchmark.log("window created", true);
 
-        // {
-        //     match image::open("../icon.png") {
-        //         Ok(img) => {
-
-        //         }
-        //         Err(e) => {
-        //             game_init_benchmark.log(&format!("error setting window icon: {}", e), true);
-        //         }
-        //     }
-        // }
+        {
+            //TODO: somehow make sure this file exists?
+            match image::open("./icon-small.png") {
+                Ok(img) => {
+                    window.window.set_icon(vec![img.into_rgba8()]);
+                    game_init_benchmark.log("window icon set", true);
+                }
+                Err(e) => {
+                    game_init_benchmark.log(&format!("error setting window icon: {}", e), true);
+                }
+            }
+        }
         
 
         let graphics = GlGraphics::new(opengl);
@@ -191,8 +193,34 @@ impl Game {
             if let Some(Button::Keyboard(_)) = e.press_args() {self.input_update_display.increment()}
 
 
-            if let Event::Input(Input::FileDrag(d), _) = e {
-                println!("got files: {:?}", d);
+            if let Event::Input(Input::FileDrag(FileDrag::Drop(d)), _) = e {
+                println!("got file: {:?}", d);
+                let path = d.as_path();
+                let filename = d.file_name();
+
+                if let Some(ext) = d.extension() {
+                    let ext = ext.to_str().unwrap();
+                    match *&ext {
+                        "osz" => {
+                            if let Err(e) = std::fs::copy(path, format!("{}/{}", DOWNLOADS_DIR, filename.unwrap().to_str().unwrap())) {
+                                println!("Error moving file: {}", e);
+                                NotificationManager::add_text_notification(
+                                    &format!("Error moving file\n{}", e), 
+                                    2_000.0, 
+                                    Color::RED
+                                );
+                            }
+                        }
+
+                        _ => {
+                            NotificationManager::add_text_notification(
+                                &format!("What is this?"), 
+                                1_000.0, 
+                                Color::RED
+                            );
+                        }
+                    }
+                }
             }
             // e.resize(|args| println!("Resized '{}, {}'", args.window_size[0], args.window_size[1]));
         }

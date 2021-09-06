@@ -4,7 +4,7 @@ use ayyeve_piston_ui::render::Vector2;
 use parking_lot::Mutex;
 use taiko_rs_common::types::PlayMode;
 
-use crate::window_size;
+use crate::{game::Settings, window_size};
 
 use super::{Beatmap, BeatmapMeta, GameMode, IngameManager};
 
@@ -35,7 +35,25 @@ pub fn manager_from_playmode(mut playmode: PlayMode, beatmap: &BeatmapMeta) -> I
     IngameManager::new(beatmap, gamemode)
 }
 
-pub fn scale_coords(osu_coords:Vector2) -> Vector2 {
+
+fn scale_window() -> (Vector2, Vector2) {
+    let (scale, offset) = Settings::get_mut().standard_settings.get_playfield();
     let window_size = window_size();
-    osu_coords + Vector2::new((window_size.x - FIELD_SIZE.x) / 2.0, (window_size.y - FIELD_SIZE.y) / 2.0)
+
+    let scale = (window_size / FIELD_SIZE) * scale;
+
+    (scale, offset)
+}
+
+pub fn scale_coords(osu_coords:Vector2) -> Vector2 {
+    let (scale, offset) = scale_window();
+    offset + osu_coords * scale
+
+    // osu_coords + Vector2::new((window_size.x - FIELD_SIZE.x) / 2.0, (window_size.y - FIELD_SIZE.y) / 2.0)
+}
+
+pub fn scale_cs(base:f64) -> f64 {
+    let (scale, _) = scale_window();
+
+    base * scale.x
 }

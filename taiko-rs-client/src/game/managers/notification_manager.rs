@@ -37,6 +37,10 @@ impl NotificationManager { // static
         // add the new one
         locked.processed_notifs.push(new);
     }
+    pub fn add_text_notification(text: &str, duration: f32, color: Color) {
+        let notif = Notification::new(text.to_owned(), color, duration, NotificationOnClick::None);
+        Self::add_notification(notif);
+    }
 }
 impl NotificationManager { // non-static
     fn new() -> Self { // technically static but i dont care

@@ -91,9 +91,9 @@ impl Audio {
                         let (raw, s) = queue.next().unwrap_or((0.0, 0.0));
                         *sample = s;
 
-                        if raw != 0.0 {
+                        // if raw != 0.0 {
                             current_data.push(raw);
-                        }
+                        // }
                     }
 
                     // println!("len: {}", current_data.len());

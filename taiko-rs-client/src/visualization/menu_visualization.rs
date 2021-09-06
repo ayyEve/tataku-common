@@ -1,12 +1,10 @@
-
 use std::time::Instant;
-
-use ayyeve_piston_ui::render::{Color, Image, Line, Renderable, Vector2};
 use opengl_graphics::{Texture, TextureSettings};
+use ayyeve_piston_ui::render::{Color, Image, Line, Renderable, Vector2};
 
 use super::Visualization;
 
-const CUTOFF:f64 = 1.0;
+const CUTOFF:f64 = 5.0;
 // const COLORS:[Color; 3] = [
 //     Color::RED,
 //     Color::BLUE,
@@ -40,10 +38,13 @@ impl Visualization for MenuVisualization {
     fn draw(&mut self, _args:piston::RenderArgs, pos:Vector2, depth:f64, list:&mut Vec<Box<dyn Renderable>>) {
         self.update_data();
 
-        // let mut graph = Graph::new(
-        //     Vector2::zero(), 
+
+        // let audio_data = crate::game::audio::CURRENT_DATA.clone();
+        // let audio_data = audio_data.lock().clone();
+        // let mut graph = ayyeve_piston_ui::menu::menu_elements::Graph::new(
+        //     Vector2::new(0.0, args.window_size[1] - 500.0), 
         //     Vector2::new(500.0, 500.0),
-        //     self.data.clone(),
+        //     audio_data,
         //     -10.0, 10.0
         // );
         // list.extend(graph.draw(args, Vector2::new(0.0, 0.0), depth));
@@ -53,6 +54,11 @@ impl Visualization for MenuVisualization {
         let n = (2.0 * std::f64::consts::PI * INNER_RADIUS) / self.data.len() as f64/2.0;
 
         for i in 0..self.data.len() {
+            const MULT:f64 = 5.0;
+            let factor = (i as f64 + 2.0).log(10.0);
+            let l = INNER_RADIUS + self.data[i].abs() as f64 * factor * MULT;
+            if l <= CUTOFF {continue}
+
             let theta = (a * i as f64).to_radians();
             let cos = theta.cos();
             let sin = theta.sin();
@@ -61,12 +67,6 @@ impl Visualization for MenuVisualization {
                 sin * INNER_RADIUS
             );
 
-
-            const MULT:f64 = 5.0;
-            let factor = (i as f64 + 2.0).log(10.0);
-            let l = INNER_RADIUS + self.data[i].abs() as f64 * factor * MULT;
-
-            if l < CUTOFF {continue}
             let p2 = pos + Vector2::new(
                 cos * l,
                 sin * l

@@ -4,6 +4,7 @@ use std::{time::Instant, f64::consts::PI};
 use ayyeve_piston_ui::render::{Line, Rectangle, Text, fonts::get_font};
 
 use taiko_rs_common::types::ScoreHit;
+use crate::gameplay::modes::scale_cs;
 use crate::render::{Circle, Color, Renderable, Border};
 use crate::{window_size, Vector2, helpers::curve::Curve};
 use crate::gameplay::{HitObject, map_difficulty, modes::scale_coords, defs::*};
@@ -65,7 +66,7 @@ impl StandardNote {
         let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
         let base_depth = get_depth(def.time);
         let pos = scale_coords(def.pos);
-        let radius = CIRCLE_RADIUS_BASE * cs_scale as f64;
+        let radius = CIRCLE_RADIUS_BASE * scale_cs(cs_scale as f64);
 
         let mut combo_text =  Box::new(Text::new(
             Color::BLACK,
@@ -218,7 +219,7 @@ impl StandardSlider {
 
         let base_depth = get_depth(def.time);
         let pos = scale_coords(def.pos);
-        let radius = CIRCLE_RADIUS_BASE * cs_scale as f64;
+        let radius = CIRCLE_RADIUS_BASE * scale_cs(cs_scale as f64);
 
         let mut combo_text =  Box::new(Text::new(
             Color::BLACK,
