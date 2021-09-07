@@ -33,7 +33,6 @@ pub struct Settings {
     pub mania_settings: ManiaSettings,
 
     // window settings
-    pub unlimited_fps: bool,
     pub fps_target: u64,
     pub update_target: u64,
     pub window_size: [f64; 2],
@@ -98,7 +97,6 @@ impl Default for Settings {
             mania_settings: ManiaSettings {..Default::default()},
 
             // window settings
-            unlimited_fps: false,
             fps_target: 144,
             update_target: 1000,
             window_size: [1000.0, 600.0],

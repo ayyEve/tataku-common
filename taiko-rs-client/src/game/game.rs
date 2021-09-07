@@ -177,13 +177,8 @@ impl Game {
 
         {
             let settings = Settings::get();
-            if settings.unlimited_fps || cfg!(feature="unlimited_fps") {
-                events.set_max_fps(10_000);
-                events.set_ups(10_000);
-            } else {
-                events.set_max_fps(settings.fps_target);
-                events.set_ups(settings.update_target);
-            }
+            events.set_max_fps(settings.fps_target);
+            events.set_ups(settings.update_target);
         }
 
         while let Some(e) = events.next(&mut self.window) {
