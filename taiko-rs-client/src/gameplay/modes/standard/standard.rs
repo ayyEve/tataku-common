@@ -399,6 +399,11 @@ impl GameMode for StandardGame {
     }
 
     fn mouse_down(&mut self, btn:piston::MouseButton, manager:&mut IngameManager) {
+        {
+            let settings = &Settings::get_mut().standard_settings;
+            if settings.ignore_mouse_buttons {return}
+        }
+
         if btn == MouseButton::Left {
             self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), manager);
         }
@@ -407,6 +412,11 @@ impl GameMode for StandardGame {
         }
     }
     fn mouse_up(&mut self, btn:piston::MouseButton, manager:&mut IngameManager) {
+        {
+            let settings = &Settings::get_mut().standard_settings;
+            if settings.ignore_mouse_buttons {return}
+        }
+
         if btn == MouseButton::Left {
             self.handle_replay_frame(ReplayFrame::Release(KeyPress::Left), manager);
         }

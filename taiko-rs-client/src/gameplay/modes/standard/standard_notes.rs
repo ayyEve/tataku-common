@@ -419,14 +419,10 @@ impl StandardHitObject for StandardSlider {
         if h_miss == -1.0 {
             let distance = ((self.end_pos.x - self.mouse_pos.x).powi(2) + (self.end_pos.y - self.mouse_pos.y).powi(2)).sqrt();
 
-            if distance > self.radius {
-                println!("slider end miss (out of radius)")
-            }
-            if self.hold_time < self.release_time {
-                println!("slider end miss (not held)")
-            }
+            if distance > self.radius * 2.0 {println!("slider end miss (out of radius)")}
+            if self.hold_time < self.release_time {println!("slider end miss (not held)")}
 
-            return if distance > self.radius || self.hold_time < self.release_time {
+            return if distance > self.radius * 2.0 || self.hold_time < self.release_time {
                 ScoreHit::Miss
             } else {
                 ScoreHit::X300

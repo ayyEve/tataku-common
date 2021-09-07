@@ -184,7 +184,9 @@ pub struct StandardSettings {
 
     pub playfield_x_offset: f64,
     pub playfield_y_offset: f64,
-    pub playfield_scale: f64
+    pub playfield_scale: f64,
+
+    pub ignore_mouse_buttons: bool
 }
 impl StandardSettings {
     pub fn get_playfield(&self) -> (f64, Vector2) {
@@ -199,7 +201,8 @@ impl Default for StandardSettings {
             right_key: Key::D,
             playfield_x_offset: 0.0,
             playfield_y_offset: 0.0,
-            playfield_scale: 1.0
+            playfield_scale: 1.0,
+            ignore_mouse_buttons: false
         }
     }
 }
