@@ -1,13 +1,12 @@
 use piston::RenderArgs;
+use std::f64::consts::PI;
 use graphics::CharacterCache;
-use std::{time::Instant, f64::consts::PI};
 use ayyeve_piston_ui::render::{Line, Rectangle, Text, fonts::get_font};
 
 use taiko_rs_common::types::ScoreHit;
-use crate::gameplay::modes::scale_cs;
 use crate::render::{Circle, Color, Renderable, Border};
 use crate::{window_size, Vector2, helpers::curve::Curve};
-use crate::gameplay::{HitObject, map_difficulty, modes::scale_coords, defs::*};
+use crate::gameplay::{HitObject, map_difficulty, modes::{scale_coords, scale_cs}, defs::*};
 
 const SPINNER_RADIUS:f64 = 200.0;
 // const SPINNER_POSITION:Vector2 = Vector2::new(window_size().x / 2.0, window_size().y / 2.0);
@@ -27,6 +26,8 @@ pub trait StandardHitObject: HitObject {
     fn causes_miss(&self) -> bool; //TODO: might change this to return an enum of "no", "yes". "yes_combo_only"
     fn get_points(&mut self, time:f32, hit_windows:(f32,f32,f32)) -> ScoreHit;
 
+    fn playfield_changed(&mut self);
+
     fn press(&mut self, _time:f32) {}
     fn release(&mut self, _time:f32) {}
     fn mouse_move(&mut self, pos:Vector2);
@@ -39,6 +40,7 @@ pub trait StandardHitObject: HitObject {
 // note
 #[derive(Clone)]
 pub struct StandardNote {
+    def: NoteDef,
     pos: Vector2,
     time: f32, // ms
     hit: bool,
@@ -57,11 +59,15 @@ pub struct StandardNote {
     radius: f64,
     time_preempt: f32,
 
+    cs: f32,
+    ar:f32,
+
     
     combo_text: Box<Text>,
 }
 impl StandardNote {
     pub fn new(def:NoteDef, ar:f32, cs:f32, color:Color, combo_num:u16) -> Self {
+        let time = def.time;
         let cs_scale = (1.0 - 0.7 * (cs - 5.0) / 5.0) / 2.0;
         let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
         let base_depth = get_depth(def.time);
@@ -82,8 +88,9 @@ impl StandardNote {
         ));
 
         Self {
+            def,
             pos,
-            time: def.time, 
+            time, 
             base_depth,
             color,
             combo_num,
@@ -96,6 +103,9 @@ impl StandardNote {
 
             time_preempt,
             radius,
+
+            ar,
+            cs,
             
             combo_text
         }
@@ -107,11 +117,11 @@ impl HitObject for StandardNote {
     fn end_time(&self, hw_miss:f32) -> f32 {self.time + hw_miss}
     fn update(&mut self, beatmap_time: f32) {self.map_time = beatmap_time}
 
-    fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
+    fn draw(&mut self, _args:RenderArgs, list:&mut Vec<Box<dyn Renderable>>) {
         if self.time - self.map_time > self.time_preempt || self.time - self.map_time < 0.0 || self.hit {return}
 
         // timing circle
-        list.push(timing_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth));
+        list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth));
         // combo number
         list.push(self.combo_text.clone());
 
@@ -158,6 +168,33 @@ impl StandardHitObject for StandardNote {
             ScoreHit::None
         }
     }
+
+    fn playfield_changed(&mut self) {
+        let cs_scale = (1.0 - 0.7 * (self.cs - 5.0) / 5.0) / 2.0;
+        let time_preempt = map_difficulty(self.ar, 1800.0, 1200.0, PREEMPT_MIN);
+        let pos = scale_coords(self.def.pos);
+        let radius = CIRCLE_RADIUS_BASE * scale_cs(cs_scale as f64);
+
+        let mut combo_text =  Box::new(Text::new(
+            Color::BLACK,
+            self.base_depth - 0.0000001,
+            pos,
+            (radius) as u32,
+            format!("{}", self.combo_num),
+            get_font("main")
+        ));
+        center_combo_text(&mut combo_text, Rectangle::bounds_only(
+            pos - Vector2::one() * radius / 2.0,
+            Vector2::one() * radius,
+        ));
+
+
+        self.time_preempt = time_preempt;
+        self.combo_text = combo_text;
+        self.pos = pos;
+        self.radius = radius;
+
+    }
 }
 
 
@@ -165,6 +202,8 @@ impl StandardHitObject for StandardNote {
 // slider
 #[derive(Clone)]
 pub struct StandardSlider {
+    def: SliderDef,
+
     /// start pos
     pos: Vector2,
     /// end pos
@@ -185,8 +224,6 @@ pub struct StandardSlider {
     combo_num: u16,
     /// note size
     radius: f64,
-
-
     
     /// was the start checked?
     start_checked: bool,
@@ -209,10 +246,16 @@ pub struct StandardSlider {
     /// 
     time_preempt:f32,
 
+
+    cs: f32,
+    ar: f32,
+
+
     combo_text: Box<Text>
 }
 impl StandardSlider {
     pub fn new(def:SliderDef, curve:Curve, ar:f32, cs:f32, color:Color, combo_num: u16) -> Self {
+        let time = def.time;
         let cs_scale = (1.0 - 0.7 * (cs - 5.0) / 5.0) / 2.0;
         let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
         let end_pos = scale_coords(curve.position_at_length(curve.length()));
@@ -235,6 +278,7 @@ impl StandardSlider {
         ));
 
         Self {
+            def,
             curve,
             color,
             combo_num,
@@ -244,7 +288,7 @@ impl StandardSlider {
 
             pos,
             end_pos,
-            time: def.time, 
+            time, 
             hit_dots: Vec::new(),
             map_time: 0.0,
 
@@ -253,6 +297,9 @@ impl StandardSlider {
             hold_time: 0.0,
             release_time: 0.0,
             mouse_pos: Vector2::zero(),
+
+            cs,
+            ar,
 
             combo_text
         }
@@ -269,7 +316,7 @@ impl HitObject for StandardSlider {
 
         if self.time - self.map_time > 0.0 {
             // timing circle
-            list.push(timing_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth));
+            list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth));
             // combo number
             list.push(self.combo_text.clone());
         } else {
@@ -368,8 +415,6 @@ impl StandardHitObject for StandardSlider {
     // called on hit and release
     fn get_points(&mut self, time:f32, (h_miss, h100, h300):(f32,f32,f32)) -> ScoreHit {
 
-
-
         // slider was held to end, no hitwindow to check
         if h_miss == -1.0 {
             let distance = ((self.end_pos.x - self.mouse_pos.x).powi(2) + (self.end_pos.y - self.mouse_pos.y).powi(2)).sqrt();
@@ -444,6 +489,35 @@ impl StandardHitObject for StandardSlider {
 
         // self.hit_dots.push(SliderDot::new(time, self.speed));
         // ScoreHit::Other(100, false)
+    }
+
+
+    fn playfield_changed(&mut self) {
+        let cs_scale = (1.0 - 0.7 * (self.cs - 5.0) / 5.0) / 2.0;
+        let time_preempt = map_difficulty(self.ar, 1800.0, 1200.0, PREEMPT_MIN);
+        let pos = scale_coords(self.def.pos);
+        let radius = CIRCLE_RADIUS_BASE * scale_cs(cs_scale as f64);
+        let end_pos = scale_coords(self.curve.position_at_length(self.curve.length()));
+
+        let mut combo_text =  Box::new(Text::new(
+            Color::BLACK,
+            self.base_depth - 0.0000001,
+            pos,
+            (radius) as u32,
+            format!("{}", self.combo_num),
+            get_font("main")
+        ));
+        center_combo_text(&mut combo_text, Rectangle::bounds_only(
+            pos - Vector2::one() * radius / 2.0,
+            Vector2::one() * radius,
+        ));
+
+
+        self.time_preempt = time_preempt;
+        self.combo_text = combo_text;
+        self.pos = pos;
+        self.radius = radius;
+        self.end_pos = end_pos;
     }
 }
 
@@ -550,7 +624,7 @@ impl HitObject for StandardSpinner {
 
             self.last_rotation_val = mouse_angle;
             if diff.abs() > PI {diff = 0.0}
-            self.rotation_velocity = lerp(-diff, self.rotation_velocity, 0.5 * (beatmap_time - self.last_update) as f64);
+            self.rotation_velocity = lerp(-diff, self.rotation_velocity, 0.05 * (beatmap_time - self.last_update) as f64);
             self.rotation += self.rotation_velocity;
         }
 
@@ -611,9 +685,9 @@ impl StandardHitObject for StandardSpinner {
     }
 
     fn press(&mut self, time:f32) {
-        // if time >= self.time && time <= self.end_time {
+        if time >= self.time && time <= self.end_time {
             self.holding = true;
-        // }
+        }
     }
     fn release(&mut self, _time:f32) {
         self.holding = false;
@@ -621,6 +695,10 @@ impl StandardHitObject for StandardSpinner {
     fn mouse_move(&mut self, pos:Vector2) {
         self.mouse_pos = pos;
     }
+
+    fn playfield_changed(&mut self) {
+        
+    } 
 }
 
 
@@ -629,19 +707,19 @@ fn lerp(target:f64, current: f64, factor:f64) -> f64 {
     current + (target - current) * factor
 }
 
-
-
 fn get_depth(time:f32) -> f64 {
     (NOTE_DEPTH + time as f64) / 1000.0
 }
-fn timing_circle(pos:Vector2, radius:f64, time_diff: f32, time_preempt:f32, depth: f64) -> Box<Circle> {
+fn approach_circle(pos:Vector2, radius:f64, time_diff: f32, time_preempt:f32, depth: f64) -> Box<Circle> {
+    let scale = scale_cs(1.0);
+
     let mut c = Circle::new(
         Color::TRANSPARENT_WHITE,
         depth - 100.0,
         pos,
-        radius + (time_diff as f64 / time_preempt as f64) * HITWINDOW_CIRCLE_RADIUS
+        radius + (time_diff as f64 / time_preempt as f64) * (HITWINDOW_CIRCLE_RADIUS * scale)
     );
-    c.border = Some(Border::new(Color::WHITE, NOTE_BORDER_SIZE));
+    c.border = Some(Border::new(Color::WHITE, NOTE_BORDER_SIZE * scale));
     Box::new(c)
 }
 

@@ -3,8 +3,7 @@ use piston::{MouseButton, RenderArgs};
 
 use super::*;
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
-use crate::game::Audio;
-use crate::{window_size, Vector2, game::Settings, helpers::curve::get_curve};   
+use crate::{window_size, Vector2, helpers::curve::get_curve, game::{Settings, Audio}};
 use crate::gameplay::{GameMode, Beatmap, IngameManager, map_difficulty, defs::NoteType, modes::{FIELD_SIZE, scale_coords}};
 
 const POINTS_DRAW_TIME:f32 = 100.0;
@@ -23,7 +22,13 @@ pub struct StandardGame {
     hitwindow_miss: f32,
     end_time: f32,
 
-    draw_points: Vec<(f32, Vector2, ScoreHit)>
+    draw_points: Vec<(f32, Vector2, ScoreHit)>,
+
+    mouse_pos: Vector2,
+
+
+    /// original, mouse_start
+    move_playfield: Option<(Vector2, Vector2)>
 }
 impl StandardGame {
     pub fn next_note(&mut self) {self.note_index += 1}
@@ -35,14 +40,17 @@ impl GameMode for StandardGame {
     fn new(beatmap:&Beatmap) -> Self {
         let mut s = Self {
             notes: Vec::new(),
-            note_index: 0,
+            mouse_pos:Vector2::zero(),
 
+            note_index: 0,
             end_time: 0.0,
 
             hitwindow_100: 0.0,
             hitwindow_300: 0.0,
             hitwindow_miss: 0.0,
-            draw_points: Vec::new()
+            draw_points: Vec::new(),
+
+            move_playfield: None
         };
 
         // let ar = beatmap.metadata.
@@ -338,6 +346,13 @@ impl GameMode for StandardGame {
 
 
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
+
+        if key == piston::Key::LAlt {
+            let old = Settings::get_mut().standard_settings.get_playfield();
+            self.move_playfield = Some((old.1, self.mouse_pos));
+            return;
+        }
+
         let settings = Settings::get().standard_settings;
         if key == settings.left_key {
             self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), manager);
@@ -347,6 +362,11 @@ impl GameMode for StandardGame {
         }
     }
     fn key_up(&mut self, key:piston::Key, manager:&mut IngameManager) {
+        if key == piston::Key::LAlt {
+            self.move_playfield = None;
+            return;
+        }
+
         let settings = Settings::get().standard_settings;
         if key == settings.left_key {
             self.handle_replay_frame(ReplayFrame::Release(KeyPress::Left), manager);
@@ -356,6 +376,25 @@ impl GameMode for StandardGame {
         }
     }
     fn mouse_move(&mut self, pos:Vector2, manager:&mut IngameManager) {
+        self.mouse_pos = pos;
+
+        if let Some((original, mouse_start)) = self.move_playfield {
+
+            {
+                let settings = &mut Settings::get_mut().standard_settings;
+                let change = original + (pos - mouse_start);
+
+                settings.playfield_x_offset = change.x;
+                settings.playfield_y_offset = change.y;
+            }
+
+            for note in self.notes.iter_mut() {
+                note.playfield_changed();
+            }
+
+            return;
+        }
+
         self.handle_replay_frame(ReplayFrame::MousePos(pos.x as f32, pos.y as f32), manager);
     }
 
