@@ -318,13 +318,32 @@ impl HitObject for StandardSlider {
 
     fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         if self.time - self.map_time > self.time_preempt || self.curve.end_time < self.map_time {return}
+        
+        let (show_reverse_arrow, reverse_circle_index) = {
+            if self.def.slides == 1 {
+                (false, -1) 
+            } else {
+                let unit = *self.curve.cumulative_lengths.last().unwrap() as u64;
+                let length = self.curve.get_non_normalized_length_required(self.map_time) as u64;
+                let index = length / unit;
+                
+                if index != self.def.slides - 1 {
+                    (true, (index % 2) as i8)
+                } else {
+                    (false, -1) 
+                }
+            }
+        };
 
         if self.time - self.map_time > 0.0 {
+            
             // timing circle
             list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth));
             // combo number
             list.push(self.combo_text.clone());
         } else {
+            println!("{} ", show_reverse_arrow);
+
             // slider ball
             let pos = scale_coords(self.curve.position_at_time(self.map_time));
             let distance = ((pos.x - self.mouse_pos.x).powi(2) + (pos.y - self.mouse_pos.y).powi(2)).sqrt();
@@ -382,15 +401,15 @@ impl HitObject for StandardSlider {
         }
         
         // start and end circles
-        for pos in [self.visual_end_pos, self.pos] {
+        for (i, pos) in [self.visual_end_pos, self.pos].iter().enumerate() {
             let mut c = Circle::new(
                 self.color,
                 self.base_depth - 0.00000005, // should be above curves but below slider ball
-                pos,
+                *pos,
                 self.radius
             );
             c.border = Some(Border {
-                color: Color::BLACK,
+                color: if i as i8 == reverse_circle_index { Color::YELLOW } else { Color::BLACK },
                 radius: NOTE_BORDER_SIZE
             });
             list.push(Box::new(c));
