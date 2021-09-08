@@ -70,10 +70,12 @@ impl Curve {
         self.end_time - self.slider.time
     }
 
-    pub fn position_at_time(&self, time:f32) -> Vector2 {
-        // if (this.sliderCurveSmoothLines == null) this.UpdateCalculations();
-        if time < self.slider.time || time > self.end_time {return self.slider.pos}
-
+    pub fn get_non_normalized_length_required(&self, time: f32) -> f32 {
+        let mut pos = (time - self.slider.time) / (self.length() / self.slider.slides as f32);
+        self.cumulative_lengths.last().unwrap() * pos
+    }
+    
+    pub fn get_length_required(&self, time: f32) -> f32 {
         let mut pos = (time - self.slider.time) / (self.length() / self.slider.slides as f32);
         if pos % 2.0 > 1.0 {
             pos = 1.0 - (pos % 1.0);
@@ -81,8 +83,15 @@ impl Curve {
             pos = pos % 1.0;
         }
 
-        let length_required = self.cumulative_lengths.last().unwrap() * pos;
-        self.position_at_length(length_required)
+        self.cumulative_lengths.last().unwrap() * pos
+    }
+
+    pub fn position_at_time(&self, time:f32) -> Vector2 {
+        if time < self.slider.time || time > self.end_time {return self.slider.pos}
+
+        // if (this.sliderCurveSmoothLines == null) this.UpdateCalculations();
+
+        self.position_at_length(self.get_length_required(time))
     }
 
     pub fn position_at_length(&self, length:f32) -> Vector2 {
