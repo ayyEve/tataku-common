@@ -63,7 +63,7 @@ impl VolumeControl {
         // draw the volume things if needed
         if self.vol_selected_time > 0 && elapsed - self.vol_selected_time < VOLUME_CHANGE_DISPLAY_TIME {
             let font = crate::game::get_font("main");
-            let settings = Settings::get_mut();
+            let settings = Settings::get();
             let window_size:Vector2 = settings.window_size.into();
 
             const BOX_SIZE:Vector2 = Vector2::new(300.0, 100.0);

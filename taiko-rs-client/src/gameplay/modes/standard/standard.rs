@@ -345,9 +345,10 @@ impl GameMode for StandardGame {
     }
 
 
+    
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
 
-        if key == piston::Key::LAlt {
+        if key == piston::Key::LCtrl {
             let old = Settings::get_mut().standard_settings.get_playfield();
             self.move_playfield = Some((old.1, self.mouse_pos));
             return;
@@ -362,7 +363,7 @@ impl GameMode for StandardGame {
         }
     }
     fn key_up(&mut self, key:piston::Key, manager:&mut IngameManager) {
-        if key == piston::Key::LAlt {
+        if key == piston::Key::LCtrl {
             self.move_playfield = None;
             return;
         }
@@ -375,6 +376,7 @@ impl GameMode for StandardGame {
             self.handle_replay_frame(ReplayFrame::Release(KeyPress::Right), manager);
         }
     }
+    
     fn mouse_move(&mut self, pos:Vector2, manager:&mut IngameManager) {
         self.mouse_pos = pos;
 
@@ -388,6 +390,7 @@ impl GameMode for StandardGame {
                 settings.playfield_y_offset = change.y;
             }
 
+            // update playfield for notes
             for note in self.notes.iter_mut() {
                 note.playfield_changed();
             }
@@ -397,7 +400,6 @@ impl GameMode for StandardGame {
 
         self.handle_replay_frame(ReplayFrame::MousePos(pos.x as f32, pos.y as f32), manager);
     }
-
     fn mouse_down(&mut self, btn:piston::MouseButton, manager:&mut IngameManager) {
         {
             let settings = &Settings::get_mut().standard_settings;
@@ -425,6 +427,20 @@ impl GameMode for StandardGame {
         }
     }
 
+    fn mouse_scroll(&mut self, delta:f64, _manager:&mut IngameManager) {
+        if self.move_playfield.is_some() {
+            {
+                let settings = &mut Settings::get_mut().standard_settings;
+                settings.playfield_scale += delta / 40.0;
+            }
+
+            // update playfield for notes
+            for note in self.notes.iter_mut() {
+                note.playfield_changed();
+            }
+        }
+    }
+
     fn reset(&mut self, beatmap:&Beatmap) {
         self.note_index = 0;
         
@@ -440,8 +456,6 @@ impl GameMode for StandardGame {
 
         self.draw_points.clear();
     }
-
-
 
     fn skip_intro(&mut self, manager: &mut IngameManager) {
         if self.note_index > 0 || self.notes.len() == 0 {return}

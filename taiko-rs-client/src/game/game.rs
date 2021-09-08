@@ -299,6 +299,9 @@ impl Game {
                 for btn in mouse_up {
                     lock.mouse_up(btn);
                 }
+                if scroll_delta != 0.0 {
+                    lock.mouse_scroll(scroll_delta);
+                }
 
                 for k in keys_down.iter() {
                     lock.key_down(*k);
