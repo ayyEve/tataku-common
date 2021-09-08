@@ -461,11 +461,12 @@ impl Game {
                             (lock.beatmap.metadata.clone(), lock.beatmap.hash.clone())
                         };
 
-                        if let Ok(t) = opengl_graphics::Texture::from_path(m.image_filename.clone(), &opengl_graphics::TextureSettings::new()) {
-                            self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, t, window_size()));
-                        } else {
-                            self.background_image = None;
-                        }
+                        self.set_background_beatmap(&m);
+                        // if let Ok(t) = opengl_graphics::Texture::from_path(m.image_filename.clone(), &opengl_graphics::TextureSettings::new()) {
+                        //     self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, t, window_size()));
+                        // } else {
+                        //     self.background_image = None;
+                        // }
 
                         let text = format!("{}-{}[{}]\n{}", m.artist, m.title, m.version, h);
                         self.threading.spawn(async move {
