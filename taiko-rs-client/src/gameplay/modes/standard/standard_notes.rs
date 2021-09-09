@@ -260,11 +260,12 @@ impl StandardSlider {
         let time = def.time;
         let cs_scale = (1.0 - 0.7 * (cs - 5.0) / 5.0) / 2.0;
         let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
+        
+        let pos = scale_coords(def.pos);
         let visual_end_pos = scale_coords(curve.position_at_length(curve.length()));
-        let time_end_pos = scale_coords(curve.position_at_time(curve.end_time));
+        let time_end_pos = if def.slides % 2 == 1 {visual_end_pos} else {pos};
 
         let base_depth = get_depth(def.time);
-        let pos = scale_coords(def.pos);
         let radius = CIRCLE_RADIUS_BASE * scale_cs(cs_scale as f64);
 
         let mut combo_text =  Box::new(Text::new(
@@ -495,7 +496,8 @@ impl StandardHitObject for StandardSlider {
         let pos = scale_coords(self.def.pos);
         let radius = CIRCLE_RADIUS_BASE * scale_cs(cs_scale as f64);
         self.visual_end_pos = scale_coords(self.curve.position_at_length(self.curve.length()));
-        self.time_end_pos = scale_coords(self.curve.position_at_time(self.curve.end_time));
+        self.time_end_pos = if self.def.slides % 2 == 1 {self.visual_end_pos} else {self.pos};
+    
 
         let mut combo_text =  Box::new(Text::new(
             Color::BLACK,
