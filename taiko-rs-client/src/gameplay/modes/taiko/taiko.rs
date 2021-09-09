@@ -383,6 +383,19 @@ impl GameMode for TaikoGame {
     }
     fn key_up(&mut self, _key:piston::Key, _manager:&mut IngameManager) {}
 
+    fn mouse_down(&mut self, btn:piston::MouseButton, manager:&mut IngameManager) {
+        {
+            let settings = Settings::get().taiko_settings;
+            if settings.ignore_mouse_buttons {return}
+        }
+
+        match btn {
+            piston::MouseButton::Left => self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftDon), manager),
+            piston::MouseButton::Right => self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftKat), manager),
+            _ => {}
+        }
+    }
+
     fn reset(&mut self, beatmap:&Beatmap) {
         let settings = Settings::get().taiko_settings;
         

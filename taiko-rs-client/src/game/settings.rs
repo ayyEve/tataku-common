@@ -121,6 +121,8 @@ pub struct TaikoSettings {
     pub left_don: Key,
     pub right_don: Key,
     pub right_kat: Key,
+
+    pub ignore_mouse_buttons: bool
 }
 impl Default for TaikoSettings {
     fn default() -> Self {
@@ -134,6 +136,8 @@ impl Default for TaikoSettings {
             // sv
             static_sv: false,
             sv_multiplier: 1.0,
+            
+            ignore_mouse_buttons: false
         }
     }
 }

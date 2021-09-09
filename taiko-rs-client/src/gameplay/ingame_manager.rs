@@ -276,6 +276,11 @@ impl IngameManager {
         m.mouse_up(btn, self);
     }
 
+    pub fn mouse_scroll(&mut self, delta:f64) {
+        let gamemode = self.gamemode.clone();
+        gamemode.lock().mouse_scroll(delta, self);
+    }
+
     pub fn draw(&mut self, args: RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         let time = self.time();
         let font = self.font.clone();
@@ -434,6 +439,7 @@ pub trait GameMode {
     fn mouse_move(&mut self, _pos:Vector2, _manager:&mut IngameManager) {}
     fn mouse_down(&mut self, _btn:piston::MouseButton, _manager:&mut IngameManager) {}
     fn mouse_up(&mut self, _btn:piston::MouseButton, _manager:&mut IngameManager) {}
+    fn mouse_scroll(&mut self, _delta:f64, _manager:&mut IngameManager) {}
 
 
     fn skip_intro(&mut self, manager: &mut IngameManager);

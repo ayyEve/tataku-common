@@ -80,8 +80,8 @@ impl Curve {
         } else {
             pos = pos % 1.0;
         }
-        
-        let length_required = self.slider.length * pos;
+
+        let length_required = self.cumulative_lengths.last().unwrap() * pos;
         self.position_at_length(length_required)
     }
 
@@ -91,8 +91,7 @@ impl Curve {
         
         if length == 0.0 {return self.smooth_lines[0].p1}
         
-        let end = self.cumulative_lengths.len();
-        let end = self.cumulative_lengths[end - 1];
+        let end = *self.cumulative_lengths.last().unwrap();
 
         if length > end {
             let end = self.smooth_lines.len();
@@ -107,7 +106,7 @@ impl Curve {
         let length_previous = if i == 0 {0.0} else {self.cumulative_lengths[i - 1]};
         
         let mut res = self.smooth_lines[i].p1;
-        
+    
         if length_next != length_previous {
             let n = (self.smooth_lines[i].p2 - self.smooth_lines[i].p1) 
                 * ((length - length_previous) / (length_next - length_previous)) as f64;

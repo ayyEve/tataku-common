@@ -206,8 +206,10 @@ pub struct StandardSlider {
 
     /// start pos
     pos: Vector2,
-    /// end pos
-    end_pos: Vector2,
+    /// visual end pos
+    visual_end_pos: Vector2,
+    /// time end pos
+    time_end_pos: Vector2,
 
     /// hit dots. if the slider isnt being held for these
     hit_dots: Vec<SliderDot>,
@@ -258,10 +260,12 @@ impl StandardSlider {
         let time = def.time;
         let cs_scale = (1.0 - 0.7 * (cs - 5.0) / 5.0) / 2.0;
         let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
-        let end_pos = scale_coords(curve.position_at_length(curve.length()));
+        
+        let pos = scale_coords(def.pos);
+        let visual_end_pos = scale_coords(curve.position_at_length(curve.length()));
+        let time_end_pos = if def.slides % 2 == 1 {visual_end_pos} else {pos};
 
         let base_depth = get_depth(def.time);
-        let pos = scale_coords(def.pos);
         let radius = CIRCLE_RADIUS_BASE * scale_cs(cs_scale as f64);
 
         let mut combo_text =  Box::new(Text::new(
@@ -287,7 +291,9 @@ impl StandardSlider {
             radius,
 
             pos,
-            end_pos,
+            visual_end_pos,
+            time_end_pos,
+
             time, 
             hit_dots: Vec::new(),
             map_time: 0.0,
@@ -377,7 +383,7 @@ impl HitObject for StandardSlider {
         }
         
         // start and end circles
-        for pos in [self.end_pos, self.pos] {
+        for pos in [self.visual_end_pos, self.pos] {
             let mut c = Circle::new(
                 self.color,
                 self.base_depth - 0.00000005, // should be above curves but below slider ball
@@ -414,10 +420,9 @@ impl StandardHitObject for StandardSlider {
 
     // called on hit and release
     fn get_points(&mut self, time:f32, (h_miss, h100, h300):(f32,f32,f32)) -> ScoreHit {
-
         // slider was held to end, no hitwindow to check
         if h_miss == -1.0 {
-            let distance = ((self.end_pos.x - self.mouse_pos.x).powi(2) + (self.end_pos.y - self.mouse_pos.y).powi(2)).sqrt();
+            let distance = ((self.time_end_pos.x - self.mouse_pos.x).powi(2) + (self.time_end_pos.y - self.mouse_pos.y).powi(2)).sqrt();
 
             if distance > self.radius * 2.0 {println!("slider end miss (out of radius)")}
             if self.hold_time < self.release_time {println!("slider end miss (not held)")}
@@ -431,7 +436,6 @@ impl StandardHitObject for StandardSlider {
 
         // make sure the cursor is in the radius
         let distance = ((self.pos.x - self.mouse_pos.x).powi(2) + (self.pos.y - self.mouse_pos.y).powi(2)).sqrt();
-
         // outside the radius, but we dont want it to consume the object
         if distance > self.radius {return ScoreHit::None}
         
@@ -440,6 +444,7 @@ impl StandardHitObject for StandardSlider {
         // check press
         if time > self.time - h_miss && time < self.time + h_miss {
             // within starting time frame
+
 
             // if already hit, return None
             if self.start_checked {return ScoreHit::None}
@@ -477,8 +482,6 @@ impl StandardHitObject for StandardSlider {
             ScoreHit::X300
         } else if diff < h100 {
             ScoreHit::X100
-        // } else if diff < h_miss {
-        //     ScoreHit::Miss
         } else {
             ScoreHit::Miss
         }
@@ -490,10 +493,11 @@ impl StandardHitObject for StandardSlider {
 
     fn playfield_changed(&mut self) {
         let cs_scale = (1.0 - 0.7 * (self.cs - 5.0) / 5.0) / 2.0;
-        let time_preempt = map_difficulty(self.ar, 1800.0, 1200.0, PREEMPT_MIN);
         let pos = scale_coords(self.def.pos);
         let radius = CIRCLE_RADIUS_BASE * scale_cs(cs_scale as f64);
-        let end_pos = scale_coords(self.curve.position_at_length(self.curve.length()));
+        self.visual_end_pos = scale_coords(self.curve.position_at_length(self.curve.length()));
+        self.time_end_pos = if self.def.slides % 2 == 1 {self.visual_end_pos} else {self.pos};
+    
 
         let mut combo_text =  Box::new(Text::new(
             Color::BLACK,
@@ -508,12 +512,9 @@ impl StandardHitObject for StandardSlider {
             Vector2::one() * radius,
         ));
 
-
-        self.time_preempt = time_preempt;
         self.combo_text = combo_text;
         self.pos = pos;
         self.radius = radius;
-        self.end_pos = end_pos;
     }
 }
 

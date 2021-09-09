@@ -299,6 +299,9 @@ impl Game {
                 for btn in mouse_up {
                     lock.mouse_up(btn);
                 }
+                if scroll_delta != 0.0 {
+                    lock.mouse_scroll(scroll_delta);
+                }
 
                 for k in keys_down.iter() {
                     lock.key_down(*k);
@@ -458,11 +461,12 @@ impl Game {
                             (lock.beatmap.metadata.clone(), lock.beatmap.hash.clone())
                         };
 
-                        if let Ok(t) = opengl_graphics::Texture::from_path(m.image_filename.clone(), &opengl_graphics::TextureSettings::new()) {
-                            self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, t, window_size()));
-                        } else {
-                            self.background_image = None;
-                        }
+                        self.set_background_beatmap(&m);
+                        // if let Ok(t) = opengl_graphics::Texture::from_path(m.image_filename.clone(), &opengl_graphics::TextureSettings::new()) {
+                        //     self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, t, window_size()));
+                        // } else {
+                        //     self.background_image = None;
+                        // }
 
                         let text = format!("{}-{}[{}]\n{}", m.artist, m.title, m.version, h);
                         self.threading.spawn(async move {
