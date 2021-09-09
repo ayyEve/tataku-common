@@ -1,10 +1,10 @@
 
 
-mod sound; use sound::*;
+mod sound; pub use sound::*;
 mod handle; pub use handle::*;
 mod queue;
 mod instance; use instance::*;
-mod utils;
-mod audio;
+pub mod utils;
+pub mod audio;
 
 pub use audio::*;

@@ -1,12 +1,14 @@
 #![allow(dead_code)]
 use std::collections::HashMap;
-use crate::{WINDOW_SIZE, game::Vector2, menu::{Menu, ScrollableArea, dialog::Dialog}};
+use ayyeve_piston_ui::menu::menu_elements::ScrollableItem;
+
+use crate::{Vector2, window_size, game::Game, menu::{Menu, ScrollableArea, dialog::Dialog}};
 
 
 const CHANNEL_LIST_WIDTH:f64 = 100.0;
-const CHAT_SIZE:Vector2 = Vector2::new(WINDOW_SIZE.x - CHANNEL_LIST_WIDTH, 300.0);
-const CHAT_POS:Vector2 = Vector2::new(0.0, WINDOW_SIZE.y - CHAT_SIZE.y);
-const CHANNEL_LIST_SIZE:Vector2 = Vector2::new(CHANNEL_LIST_WIDTH, CHAT_SIZE.y);
+// const CHAT_SIZE:Vector2 = Vector2::new(window_size().x - CHANNEL_LIST_WIDTH, 300.0);
+// const CHAT_POS:Vector2 = Vector2::new(0.0, window_size().y - CHAT_SIZE.y);
+// const CHANNEL_LIST_SIZE:Vector2 = Vector2::new(CHANNEL_LIST_WIDTH, CHAT_SIZE.y);
 
 pub struct Chat {
     messages: HashMap<ChatChannel, Vec<ChatMessage>>,
@@ -17,6 +19,11 @@ pub struct Chat {
 }
 impl Chat {
     pub fn new() -> Self {
+
+        let CHAT_SIZE:Vector2 = Vector2::new(window_size().x - CHANNEL_LIST_WIDTH, 300.0);
+        let CHAT_POS:Vector2 = Vector2::new(0.0, window_size().y - CHAT_SIZE.y);
+        let CHANNEL_LIST_SIZE:Vector2 = Vector2::new(CHANNEL_LIST_WIDTH, CHAT_SIZE.y);
+                
         Self {
             messages: HashMap::new(),
             visible: false,
@@ -38,13 +45,13 @@ impl Chat {
 }
 
 impl Dialog for Chat{}
-impl Menu for Chat {
+impl Menu<Game> for Chat {
     fn draw(&mut self, args:piston::RenderArgs) -> Vec<Box<dyn crate::render::Renderable>> {
         if !self.visible {return Vec::new()}
 
         let mut list: Vec<Box<dyn crate::render::Renderable>> = Vec::new();
-        list.extend(self.channel_scroll.draw(args));
-        list.extend(self.messages_scroll.draw(args));
+        list.extend(self.channel_scroll.draw(args, Vector2::zero(), 0.0));
+        list.extend(self.messages_scroll.draw(args, Vector2::zero(), 0.0));
         list
     }
 }

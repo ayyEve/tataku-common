@@ -7,33 +7,43 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-unlimited_fps = []
 
 [dependencies]
 taiko-rs-common = {path="../taiko-rs-common"}
 
 # framework stuff
+rusqlite = {version="0.25", features=["bundled"]}
 lazy_static = "1.4.0"
-futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
+parking_lot = "0.11.1"
 tokio = { version = "1.7.1", features = ["full"] }
+futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
+
+# piston etc
+glfw = {version = "0.41", features=["image"]}
+image = "0.23"
+piston = "0.53.0"
+piston2d-graphics = "0.40.0"
+pistoncore-glfw_window = {git="https://github.com/ayyEve/glfw_window"}
+piston2d-opengl_graphics = "0.78.0"
+ayyeve-piston-ui = {git = "https://gitlab.ayyeve.xyz/ayyEve/ayyeve-piston-ui"}
 
 # audio
 cpal = "0.13.3"
 symphonia = { version = "0.3.0", default-features = false, features = ["mp3", "ogg", "wav", "pcm"] }
 
-# piston etc
-piston = "0.53.0"
-piston2d-opengl_graphics = "0.78.0"
-piston2d-graphics = "0.40.0"
-pistoncore-glfw_window = "0.71.0"
-
 # networking
-reqwest = { version = "0.11.4", features = ["blocking"] }
 tokio-tungstenite = "0.15.0"
+reqwest = { version = "0.11.4", features = ["blocking"] }
+
+# serde
+serde = {version="1.0", features=["derive"]}
+serde_json = "1.0"
 
 # helpers
-parking_lot = "0.11.1"
-clipboard = "0.5.0"
-md5 = "0.7.0"
 zip = "0.5"
+uuid = {version = "0.8", features=["v4"]}
+md5 = "0.7.0"
 rand = "0.8.4"
+clipboard = "0.5.0"
+
+dft = "0.5.5"

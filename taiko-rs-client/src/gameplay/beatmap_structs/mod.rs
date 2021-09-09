@@ -1,5 +1,6 @@
 mod timing_point;
-mod score_meter;
-
+mod hitobject;
 pub use timing_point::*;
-pub use score_meter::*;
+pub use hitobject::*;
+
+pub mod hitobject_defs;

@@ -1,8 +1,12 @@
 mod beatmap;
-mod note;
-pub mod diff_calc;
-mod beatmap_structs;
+pub mod modes;
 
-pub use note::*;
+// pub mod diff_calc;
+mod beatmap_structs;
+mod ingame_manager;
+
 pub use beatmap::*;
 pub use beatmap_structs::*;
+pub use ingame_manager::*;
+
+pub use beatmap_structs::hitobject_defs as defs;

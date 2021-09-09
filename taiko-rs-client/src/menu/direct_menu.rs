@@ -5,17 +5,18 @@ use std::{fs::File, io::Write};
 use piston::{Key, MouseButton};
 //use rodio::Sink; // ugh
 
-use crate::{WINDOW_SIZE, DOWNLOADS_DIR};
+use crate::{window_size, DOWNLOADS_DIR, Vector2};
 use crate::render::{Text, Renderable, Rectangle, Color, Border};
 use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
-use crate::game::{Audio, Game, GameMode, KeyModifiers, Settings, Vector2, get_font};
+use crate::game::{Audio, Game, GameState, KeyModifiers, Settings, get_font};
 
 const DOWNLOAD_ITEM_SIZE:Vector2 = Vector2::new(300.0, 40.0);
 const DOWNLOAD_ITEM_YMARGIN:f64 = 30.0;
 const DOWNLOAD_ITEM_YOFFSET:f64 = SEARCH_BAR_HEIGHT + 10.0;
 const DOWNLOAD_ITEM_XOFFSET:f64 = 5.0;
 const SEARCH_BAR_HEIGHT:f64 = 50.0;
-const DIRECT_ITEM_SIZE:Vector2 = Vector2::new(WINDOW_SIZE.x - (DOWNLOAD_ITEM_SIZE.x+DOWNLOAD_ITEM_XOFFSET), 80.0);
+//TODO: change this to its own manager or smth
+const DIRECT_ITEM_SIZE:Vector2 = Vector2::new(500.0, 80.0);
 
 //TODO: properly implement this lol
 const MAX_CONCURRENT_DOWNLOADS:usize = 5;
@@ -37,12 +38,12 @@ pub struct OsuDirectMenu {
 impl OsuDirectMenu {
     pub fn new() -> OsuDirectMenu {
         let mut x = OsuDirectMenu {
-            scroll_area: ScrollableArea::new(Vector2::new(0.0, SEARCH_BAR_HEIGHT+5.0), Vector2::new(DIRECT_ITEM_SIZE.x, WINDOW_SIZE.y - SEARCH_BAR_HEIGHT+5.0), true),
+            scroll_area: ScrollableArea::new(Vector2::new(0.0, SEARCH_BAR_HEIGHT+5.0), Vector2::new(DIRECT_ITEM_SIZE.x, window_size().y - SEARCH_BAR_HEIGHT+5.0), true),
             downloading: Vec::new(),
             queue: Vec::new(),
             items: HashMap::new(),
             selected: None,
-            search_bar: TextInput::new(Vector2::zero(), Vector2::new(WINDOW_SIZE.x , SEARCH_BAR_HEIGHT), "Search", ""),
+            search_bar: TextInput::new(Vector2::zero(), Vector2::new(window_size().x , SEARCH_BAR_HEIGHT), "Search", ""),
             old_audio: None
         };
         // TODO: [audio] pause playing music, store song and pos. on close, put it back how it was
@@ -110,15 +111,15 @@ impl OsuDirectMenu {
 
             // restore previous audio
             if let Some((path, pos)) = old_audio.clone() {
-                Audio::play_song(path, false).upgrade().unwrap().set_position(pos);
+                Audio::play_song(path, false, pos);
             }
         }
 
         let menu = game.menus.get("main").unwrap().clone();
-        game.queue_mode_change(GameMode::InMenu(menu));
+        game.queue_state_change(GameState::InMenu(menu));
     }
 }
-impl Menu for OsuDirectMenu {
+impl Menu<Game> for OsuDirectMenu {
     fn update(&mut self, _game:&mut Game) {
         // check download statuses
         let dir = std::fs::read_dir(DOWNLOADS_DIR).unwrap();
@@ -142,7 +143,7 @@ impl Menu for OsuDirectMenu {
 
     fn draw(&mut self, args:piston::RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list:Vec<Box<dyn Renderable>> = Vec::new();
-        list.extend(self.scroll_area.draw(args));
+        list.extend(self.scroll_area.draw(args, Vector2::zero(), 0.0));
 
         list.extend(self.search_bar.draw(args, Vector2::zero(), -90.0));
 
@@ -218,10 +219,10 @@ impl Menu for OsuDirectMenu {
         self.scroll_area.on_scroll(delta);
     }
 
-    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
-        self.search_bar.on_click(pos, button);
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, mods:KeyModifiers, _game:&mut Game) {
+        self.search_bar.on_click(pos, button, mods);
 
-        if let Some(key) = self.scroll_area.on_click(pos, button, game) {
+        if let Some(key) = self.scroll_area.on_click_tagged(pos, button, mods) {
             if let Some(selected) = self.selected.clone() {
                 if key == selected {
                     if let Some(item) = self.items.get(&key) {
@@ -239,9 +240,9 @@ impl Menu for OsuDirectMenu {
         }
     }
 
-    fn on_mouse_move(&mut self, pos:Vector2, game:&mut Game) {
+    fn on_mouse_move(&mut self, pos:Vector2, _game:&mut Game) {
         self.search_bar.on_mouse_move(pos);
-        self.scroll_area.on_mouse_move(pos, game);
+        self.scroll_area.on_mouse_move(pos);
     }
 
     fn on_key_press(&mut self, key:Key, game:&mut Game, mods:KeyModifiers) {
@@ -378,7 +379,7 @@ impl ScrollableItem for DirectItem {
         list
     }
 
-    fn on_click(&mut self, _pos:Vector2, _button:piston::MouseButton) -> bool {
+    fn on_click(&mut self, _pos:Vector2, _button:piston::MouseButton, _mods:KeyModifiers) -> bool {
         if self.selected && self.hover {self.download()}
 
         self.selected = self.hover;

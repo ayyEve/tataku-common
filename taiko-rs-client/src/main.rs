@@ -3,25 +3,34 @@ use std::fmt::Display;
 use std::{fs::File, path::Path};
 use std::io::{self, BufRead, BufReader, Lines};
 
+use game::Settings;
 // local imports
-use game::{Game, Vector2, helpers::BenchmarkHelper};
+use game::{Game, helpers::BenchmarkHelper};
+pub use ayyeve_piston_ui::render;
+pub use ayyeve_piston_ui::render::Vector2;
+pub use game::helpers;
 
 // include files
 mod game;
-mod gameplay;
-mod render;
 mod menu;
+mod errors;
+mod gameplay;
 mod databases;
-mod enums;
-pub use enums::*;
-pub use game::helpers;
+mod visualization;
+
+// re-exports to make imports nicer
+mod sync {
+    pub use std::sync::{Arc, Weak};
+    pub use parking_lot::Mutex;
+}
 
 // constants
-const NOTE_RADIUS:f64 = 32.0;
-const HIT_AREA_RADIUS:f64 = NOTE_RADIUS * 1.3;
-const HIT_POSITION:Vector2 = Vector2::new(180.0, 200.0);
-const PLAYFIELD_RADIUS:f64 = NOTE_RADIUS * 2.0; // actually height, oops
-const WINDOW_SIZE:Vector2 = Vector2::new(1000.0, 600.0);
+// const window_size():Vector2 = Vector2::new(1000.0, 600.0);
+
+
+pub fn window_size() -> Vector2 {
+    Settings::get_mut().window_size.into()
+}
 
 // folders
 pub const DOWNLOADS_DIR:&str = "downloads";
@@ -64,13 +73,13 @@ fn check_folder(dir:&str, create:bool) {
 }
 
 /// read a file to the end
-fn read_lines<P>(filename: P) -> io::Result<Lines<BufReader<File>>> where P: AsRef<Path> {
+fn read_lines<P: AsRef<Path>>(filename: P) -> io::Result<Lines<BufReader<File>>> {
     let file = File::open(filename)?;
     Ok(BufReader::new(file).lines())
 }
 
 /// format a number into a locale string ie 1000000 -> 1,000,000
-fn format<T>(num:T) -> String where T:Display{
+fn format<T:Display>(num:T) -> String {
     let str = format!("{}", num);
     let mut split = str.split(".");
     let num = split.next().unwrap();
@@ -93,4 +102,10 @@ fn format<T>(num:T) -> String where T:Display{
     let mut new_new = String::with_capacity(new_str.len());
     new_new.extend(new_str.chars().rev());
     new_new.trim_start_matches(",").to_owned()
+}
+
+
+fn get_file_hash<P:AsRef<Path>>(file_path:P) -> std::io::Result<String> {
+    let body = std::fs::read(file_path)?;
+    Ok(format!("{:x}", md5::compute(body).to_owned()))
 }

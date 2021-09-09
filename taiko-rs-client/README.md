@@ -16,7 +16,6 @@ TODO:
 - // UI
  - dropdown menu item
  - notification system
- - scrollable area dragger
   
 - // Gameplay
  - letter ranking
@@ -33,6 +32,8 @@ TODO:
  - better error handling/messages
  - handle peppy direct download moment (might be best if notifs exist first)
  - depths that actually make sense
+ - make renderables a param instead of returning a new list
+ - pass the whole keys list instead of one key at a time
   
 maybe todo:
  - profiler

@@ -76,9 +76,9 @@ impl OnlineManager {
                     }
                 }
             },
-            Err(oof) => {
+            Err(_oof) => {
                 s.lock().await.connected = false;
-                println!("could not accept connection: {}", oof);
+                // println!("could not accept connection: {}", oof);
             }
         }
     }

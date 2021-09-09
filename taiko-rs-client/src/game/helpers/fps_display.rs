@@ -1,13 +1,16 @@
 use std::time::Instant;
-use crate::{game::Vector2, render::{Color, Text}};
+use ayyeve_piston_ui::render::Renderable;
+use crate::{Vector2, window_size, helpers::visibility_bg, render::{Color, Text}};
+
+const SIZE:Vector2 = Vector2::new(120.0, 20.0);
 
 /// fps display helper, cleans up some of the code in game
 pub struct FpsDisplay {
     name:String,
     pos:Vector2,
-    count: u32,
-    timer: Instant,
-    last: f32,
+    count:u32,
+    timer:Instant,
+    last:f32,
 }
 
 impl FpsDisplay {
@@ -18,12 +21,12 @@ impl FpsDisplay {
             last: 0.0,
             timer: Instant::now(),
             name: name.to_owned(),
-            pos: Vector2::new(0.0, 10.0 + 20.0 * count as f64)
+            pos: Vector2::new(window_size().x - SIZE.x, window_size().y - SIZE.y * (count+1) as f64)
         }
     }
 
     pub fn increment(&mut self) {self.count += 1}
-    pub fn draw(&mut self) -> Text {
+    pub fn draw(&mut self, list:&mut Vec<Box<dyn Renderable>>) {
         let font = crate::game::get_font("main");
 
         let fps_elapsed = self.timer.elapsed().as_micros() as f64 / 1000.0;
@@ -33,13 +36,17 @@ impl FpsDisplay {
             self.count = 0;
         }
 
-        Text::new(
+        list.push(Box::new(Text::new(
             Color::BLACK,
-            -99_999_999.0, // should be on top of everything
-            self.pos,
+            -99_999_999.99, // should be on top of everything
+            self.pos + Vector2::new(0.0, 15.0),
             12,
             format!("{:.2}{}", self.last, self.name),
             font.clone()
-        )
+        )));
+
+        let mut r = visibility_bg(self.pos, SIZE);
+        r.depth = -99_999_999.98;
+        list.push(r);
     }
 }

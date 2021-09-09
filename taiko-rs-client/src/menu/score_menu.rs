@@ -1,20 +1,20 @@
 use std::sync::Arc;
-
-use piston::{MouseButton, RenderArgs};
 use parking_lot::Mutex;
+use piston::{MouseButton, RenderArgs};
 
-use crate::gameplay::Beatmap;
+use crate::gameplay::BeatmapMeta;
 use taiko_rs_common::types::{Score, HitError};
+use crate::gameplay::modes::manager_from_playmode;
 use crate::menu::{Menu, MenuButton, ScrollableItem, Graph};
-use crate::game::{Game, GameMode, KeyModifiers, get_font, Vector2};
-use crate::{WINDOW_SIZE, databases, format, render::*, helpers::visibility_bg};
+use crate::game::{Game, GameState, KeyModifiers, get_font};
+use crate::{window_size, databases, format, Vector2, render::*, helpers::visibility_bg};
 
 const GRAPH_SIZE:Vector2 = Vector2::new(400.0, 200.0);
 const GRAPH_PADDING:Vector2 = Vector2::new(10.0,10.0);
 
 pub struct ScoreMenu {
     score: Score,
-    beatmap: Arc<Mutex<Beatmap>>,
+    beatmap: BeatmapMeta,
     back_button: MenuButton,
     replay_button: MenuButton,
     graph: Graph,
@@ -23,12 +23,12 @@ pub struct ScoreMenu {
     hit_error: HitError
 }
 impl ScoreMenu {
-    pub fn new(score:&Score, beatmap: Arc<Mutex<Beatmap>>) -> ScoreMenu {
+    pub fn new(score:&Score, beatmap: BeatmapMeta) -> ScoreMenu {
         let hit_error = score.hit_error();
-        let back_button = MenuButton::back_button();
+        let back_button = MenuButton::back_button(window_size());
 
         let graph = Graph::new(
-            Vector2::new(WINDOW_SIZE.x * 2.0/3.0, WINDOW_SIZE.y) - (GRAPH_SIZE + GRAPH_PADDING), //WINDOW_SIZE - (GRAPH_SIZE + GRAPH_PADDING),
+            Vector2::new(window_size().x * 2.0/3.0, window_size().y) - (GRAPH_SIZE + GRAPH_PADDING), //window_size() - (GRAPH_SIZE + GRAPH_PADDING),
             GRAPH_SIZE,
             score.hit_timings.iter().map(|e|*e as f32).collect(),
             -50.0,
@@ -45,12 +45,13 @@ impl ScoreMenu {
         }
     }
 }
-impl Menu for ScoreMenu {
+impl Menu<Game> for ScoreMenu {
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
 
         let depth = 0.0;
+        list.reserve(9);
 
         // draw score info
         list.push(Box::new(Text::new(
@@ -132,29 +133,33 @@ impl Menu for ScoreMenu {
         list.extend(self.graph.draw(args, Vector2::zero(), depth));
         
         // draw background so score info is readable
-        list.push(visibility_bg(Vector2::one() * 5.0, Vector2::new(WINDOW_SIZE.x * 2.0/3.0, WINDOW_SIZE.y - 5.0)));
+        list.push(visibility_bg(Vector2::one() * 5.0, Vector2::new(window_size().x * 2.0/3.0, window_size().y - 5.0)));
 
         list
     }
 
-    fn on_click(&mut self, pos:Vector2, button:MouseButton, game:&mut Game) {
-        if self.replay_button.on_click(pos, button) {
-            self.beatmap.lock().reset();
+    fn on_click(&mut self, pos:Vector2, button:MouseButton, _mods:KeyModifiers, game:&mut Game) {
+        let mods = game.input_manager.get_key_mods();
+        if self.replay_button.on_click(pos, button, mods) {
+            // self.beatmap.lock().reset();
 
             let replay = databases::get_local_replay(self.score.hash());
-
             match replay {
                 Ok(replay) => {
-                    game.menus.get("beatmap").unwrap().lock().on_change(false);
-                    game.queue_mode_change(GameMode::Replaying(self.beatmap.clone(), replay.clone(), 0));
+                    // game.menus.get("beatmap").unwrap().lock().on_change(false);
+                    // game.queue_mode_change(GameMode::Replaying(self.beatmap.clone(), replay.clone(), 0));
+                    let mut manager = manager_from_playmode(self.score.playmode, &self.beatmap);
+                    manager.replaying = true;
+                    manager.replay = replay.clone();
+                    game.queue_state_change(GameState::Ingame(Arc::new(Mutex::new(manager))));
                 },
                 Err(e) => println!("error loading replay: {}", e),
             }
         }
 
-        if self.back_button.on_click(pos, button) {
-            let menu = game.menus.get("beatmap").unwrap().to_owned();
-            game.queue_mode_change(GameMode::InMenu(menu));
+        if self.back_button.on_click(pos, button, mods) {
+            let menu = game.menus.get("beatmap").unwrap().clone();
+            game.queue_state_change(GameState::InMenu(menu));
         }
     }
 
@@ -166,7 +171,8 @@ impl Menu for ScoreMenu {
 
     fn on_key_press(&mut self, key:piston::Key, game: &mut Game, _mods:KeyModifiers) {
         if key == piston::Key::Escape {
-            game.current_mode = GameMode::InMenu(game.menus.get("beatmap").unwrap().to_owned());
+            let menu = game.menus.get("beatmap").unwrap().clone();
+            game.queue_state_change(GameState::InMenu(menu));
         }
     }
 }

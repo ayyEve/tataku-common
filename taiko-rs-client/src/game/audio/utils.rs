@@ -13,7 +13,7 @@ pub fn interleave(input: &Vec<Vec<f32>>) -> Vec<f32> {
     output
 }
 
-pub fn _deinterleave(input: &Vec<f32>, channels: usize) -> Vec<Vec<f32>> {
+pub fn deinterleave(input: &Vec<f32>, channels: usize) -> Vec<Vec<f32>> {
     let samples = input.len() / channels;
 
     let mut output = vec![Vec::with_capacity(samples); channels];

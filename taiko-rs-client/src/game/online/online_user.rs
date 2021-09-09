@@ -1,7 +1,8 @@
 
 use crate::render::*;
-use crate::game::{get_font, Vector2};
+use crate::{game::get_font, Vector2};
 use crate::menu::ScrollableItem;
+use ayyeve_piston_ui::menu::KeyModifiers;
 use taiko_rs_common::types::UserAction;
 
 pub const USER_ITEM_SIZE:Vector2 = Vector2::new(200.0, 100.0);
@@ -88,7 +89,7 @@ impl ScrollableItem for OnlineUser {
         list
     }
 
-    fn on_click(&mut self, _pos:Vector2, _button:piston::MouseButton) -> bool {
+    fn on_click(&mut self, _pos:Vector2, _button:piston::MouseButton, _mods: KeyModifiers) -> bool {
         self.hover
     }
 

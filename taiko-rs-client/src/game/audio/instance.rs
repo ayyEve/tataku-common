@@ -129,36 +129,32 @@ impl AudioInstance {
 }
 
 impl Iterator for AudioInstance {
-    type Item = f32;
+    type Item = (f32, f32);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.update();
 
         match self.state {
-            AudioState::Paused => return Some(0.0),
+            AudioState::Paused => return Some((0.0, 0.0)),
             AudioState::Stopped => return None,
             AudioState::Playing => {},
         }
 
         if self.sound.sample_rate == self.stream_sample_rate {
             // No conversion and interpolation necessary
-
             let sample = *self.interleaved_samples.get(self.current_index)?;
-
             self.current_index += 1;
-
-            return Some(sample * self.volume);
+            return Some((sample, sample * self.volume));
         }
 
         if !self.output_buffer.is_empty() {
             // No need to recalculate yet, just use what we already have
-            return Some(self.output_buffer.remove(0) * self.volume);
+            let sample = self.output_buffer.remove(0);
+            return Some((sample, sample * self.volume));
         }
 
         let effective_stream_rate = self.stream_sample_rate as f64 * self.playback_speed;
-
         let ratio = self.sound.sample_rate as f64 / effective_stream_rate;
-
         while self.interpolation_value >= 1.0 {
             self.next_frame();
             self.interpolation_value -= 1.0;
@@ -168,15 +164,15 @@ impl Iterator for AudioInstance {
 
         self.output_buffer.extend(self.current_frame.iter().zip(self.next_frame.iter())
             .map(|(&current, &next)| (next - current) * temp_value as f32 + current));
-        
-        self.interpolation_value += ratio;
 
+        self.interpolation_value += ratio;
 
         if self.output_buffer.is_empty() {
             None
         }
         else {
-            Some(self.output_buffer.remove(0) * self.volume)
+            let sample = self.output_buffer.remove(0);
+            Some((sample, sample * self.volume))
         }
     }
 }
