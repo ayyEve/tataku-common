@@ -1,21 +1,22 @@
 stages:
-  - build
+  - build-client
 
 rust-latest:
-  stage: build
+  stage: build-client
   image: rust:latest
   script:
     - apt update
     - apt install libasound2-dev cmake xorg-dev libxcb-shape0-dev libxcb-xfixes0-dev -y
-    - cargo build --verbose
-    - cargo test --verbose
+    - cargo build --bin taiko-rs-client --verbose
+    - cargo test --bin taiko-rs-client --verbose
 
 rust-nightly:
-  stage: build
+  stage: build-client
   image: rustlang/rust:nightly
   script:
     - apt update
     - apt install libasound2-dev cmake xorg-dev libxcb-shape0-dev libxcb-xfixes0-dev -y
-    - cargo build --verbose
-    - cargo test --verbose
+    - cargo build --bin taiko-rs-client --verbose
+    - cargo test --bin taiko-rs-client --verbose
   allow_failure: true
+

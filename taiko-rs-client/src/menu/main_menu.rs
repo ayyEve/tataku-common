@@ -1,10 +1,7 @@
-use std::sync::Arc;
-
-use parking_lot::Mutex;
 use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::KeyModifiers;
 
-use crate::{window_size, Vector2, render::*};
+use crate::{window_size, Vector2, render::*, sync::*};
 use crate::visualization::{MenuVisualization, Visualization};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
 use crate::game::{Audio, Game, GameState, get_font, managers::BEATMAP_MANAGER};
