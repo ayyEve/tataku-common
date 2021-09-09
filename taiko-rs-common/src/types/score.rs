@@ -13,8 +13,11 @@ pub struct Score {
     pub score: u64,
     pub combo: u16,
     pub max_combo: u16,
+    pub x50: u16,
     pub x100: u16,
     pub x300: u16,
+    pub geki: u16,
+    pub katu: u16,
     pub xmiss: u16,
 
     /// time diff for actual note hits. if the note wasnt hit, it wont be here
@@ -30,8 +33,11 @@ impl Score {
             score: 0,
             combo: 0,
             max_combo: 0,
+            x50: 0,
             x100: 0,
             x300: 0,
+            geki: 0,
+            katu: 0,
             xmiss: 0,
             hit_timings: Vec::new()
         }
@@ -128,8 +134,11 @@ impl Serializable for Score {
             score: sr.read(),
             combo: sr.read(),
             max_combo: sr.read(),
+            x50: sr.read(),
             x100: sr.read(),
             x300: sr.read(),
+            geki: sr.read(),
+            katu: sr.read(),
             xmiss: sr.read(),
             hit_timings: Vec::new()
         }
@@ -143,21 +152,27 @@ impl Serializable for Score {
         sw.write(self.score);
         sw.write(self.combo);
         sw.write(self.max_combo);
+        sw.write(self.x50);
         sw.write(self.x100);
         sw.write(self.x300);
+        sw.write(self.geki);
+        sw.write(self.katu);
         sw.write(self.xmiss);
     }
 }
 impl fmt::Display for Score {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{{ Score (h:{}, m:{:?}, score:{}, combo:{}. max_combo: {}, x100:{},x300:{},xmiss:{}) }}", 
+        write!(f, "{{ Score (h:{}, m:{:?}, score:{}, combo:{}. max_combo: {}, x50:{},x100:{},x300:{},geki:{},katu:{},xmiss:{}) }}", 
             self.beatmap_hash, 
             self.playmode,
             self.score,
             self.combo,
             self.max_combo,
+            self.x50,
             self.x100,
             self.x300,
+            self.geki,
+            self.katu,
             self.xmiss
         )
     }

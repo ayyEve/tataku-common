@@ -11,7 +11,7 @@ use crate::{Vector2, gameplay::*, sync::*, helpers::visibility_bg};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
 const OFFSET_DRAW_TIME:f32 = 2_000.0; // how long should the offset be drawn for?
-const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
+pub const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
 
 
 const HIT_TIMING_BAR_SIZE:Vector2 = Vector2::new(300.0, 30.0);

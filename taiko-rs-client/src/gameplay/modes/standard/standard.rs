@@ -1,6 +1,7 @@
 use ayyeve_piston_ui::render::*;
 use piston::{MouseButton, RenderArgs};
 
+use crate::gameplay::DURATION_HEIGHT;
 use crate::{Vector2, window_size};
 use crate::game::{Settings, Audio};
 use crate::helpers::{curve::get_curve, key_counter::KeyCounter};
@@ -35,14 +36,16 @@ pub struct StandardGame {
 }
 impl StandardGame {
     pub fn next_note(&mut self) {self.note_index += 1}
+    
+    // pub fn next_slider(&mut self) {}
+    // pub fn next_spinner(&mut self) {}
 }
 
 impl GameMode for StandardGame {
     fn playmode(&self) -> PlayMode {PlayMode::Standard}
     fn end_time(&self) -> f32 {self.end_time}
     fn new(beatmap:&Beatmap) -> Self {
-
-        let settings = Settings::get().standard_settings;
+        let settings = Settings::get_mut().standard_settings.clone();
 
         let mut s = Self {
             notes: Vec::new(),
@@ -67,7 +70,6 @@ impl GameMode for StandardGame {
             )
         };
 
-        // let ar = beatmap.metadata.
         let ar = beatmap.metadata.ar;
         let cs = beatmap.metadata.cs;
 
@@ -180,7 +182,7 @@ impl GameMode for StandardGame {
                         if self.notes[self.note_index].note_type() == NoteType::Note {
                             self.next_note()
                         }
-                    },
+                    }
                     ScoreHit::X100 => {
                         Audio::play_preloaded("don");
                         manager.score.hit100(time, note_time);
@@ -188,7 +190,7 @@ impl GameMode for StandardGame {
                         if self.notes[self.note_index].note_type() == NoteType::Note {
                             self.next_note()
                         }
-                    },
+                    }
                     ScoreHit::X300 => {
                         Audio::play_preloaded("kat");
                         manager.score.hit300(time, note_time);
@@ -196,7 +198,8 @@ impl GameMode for StandardGame {
                         if self.notes[self.note_index].note_type() == NoteType::Note {
                             self.next_note()
                         }
-                    },
+                    }
+                    
                     ScoreHit::Other(_, _) => {}
                     ScoreHit::None => {},
                 }
@@ -495,7 +498,7 @@ impl GameMode for StandardGame {
     fn combo_bounds(&self) -> Rectangle {
         let size = Vector2::new(100.0, 30.0);
         Rectangle::bounds_only(
-            Vector2::new(0.0, window_size().y - size.y),
+            Vector2::new(0.0, window_size().y - (size.y + DURATION_HEIGHT)),
             size
         )
     }

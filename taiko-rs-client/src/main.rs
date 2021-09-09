@@ -22,9 +22,7 @@ mod sync {
     pub use parking_lot::{Mutex, MutexGuard};
 }
 
-// constants
-// const window_size():Vector2 = Vector2::new(1000.0, 600.0);
-
+/// TODO: move this to settings or something, its dumb having this here
 pub fn window_size() -> Vector2 {
     Settings::get_mut().window_size.into()
 }
@@ -49,12 +47,11 @@ async fn main() {
     let mut main_benchmark = BenchmarkHelper::new("main");
 
     // check for missing folders
-    check_folder(DOWNLOADS_DIR, true);
-    check_folder(REPLAYS_DIR, true);
-    check_folder(SONGS_DIR, true);
-    // required but files are downloaded in a min if needed
-    check_folder("fonts", true);
-    check_folder("audio", true);
+    check_folder(DOWNLOADS_DIR);
+    check_folder(REPLAYS_DIR);
+    check_folder(SONGS_DIR);
+    check_folder("fonts");
+    check_folder("audio");
 
     // check for missing files
     for file in REQUIRED_FILES.iter() {

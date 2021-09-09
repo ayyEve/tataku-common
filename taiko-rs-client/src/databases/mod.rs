@@ -29,8 +29,11 @@ lazy_static::lazy_static! {
                 score INTEGER,
                 combo INTEGER,
                 max_combo INTEGER,
+                x50 INTEGER,
                 x100 INTEGER,
                 x300 INTEGER,
+                geki INTEGER,
+                katu INTEGER,
                 xmiss INTEGER
          )", [])
         .expect("error creating db table");
@@ -90,6 +93,38 @@ lazy_static::lazy_static! {
             )", [])
         .expect("error creating db table");
 
+        add_new_entries(&db);
+
         Arc::new(Mutex::new(db))
     };
+}
+
+// add new db columns here
+// needed to add new cols to existing dbs
+
+const SCORE_ENTRIES: &[(&str, &str)] = &[
+    ("x50", "INTEGER"),
+    ("katu", "INTEGER"),
+    ("geki", "INTEGER"),
+];
+const BEATMAP_ENTRIES: &[(&str, &str)] = &[
+
+];
+
+fn add_new_entries(db: &Connection) {
+    // score entries
+    for (col, t) in SCORE_ENTRIES {
+        match db.execute(&format!("ALTER TABLE scores ADD {} {};", col, t), []) {
+            Ok(_) => println!("column added to scores db: {}", col),
+            Err(e) => println!("Error adding column to scores db: {}", e),
+        }
+    }
+    
+    // beatmap entries
+    for (col, t) in BEATMAP_ENTRIES {
+        match db.execute(&format!("ALTER TABLE beatmaps ADD {} {};", col, t), []) {
+            Ok(_) => println!("column added to beatmaps db: {}", col),
+            Err(e) => println!("Error adding column to beatmaps db: {}", e),
+        }
+    }
 }

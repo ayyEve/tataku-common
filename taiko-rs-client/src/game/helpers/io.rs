@@ -1,16 +1,14 @@
 use std::{fs::File, path::Path};
 use std::io::{self, BufRead, BufReader, Lines};
 
-pub fn check_folder(dir:&str, create:bool) {
+/// check if folder exists, creating it if it doesnt
+pub fn check_folder(dir:&str) {
     if !Path::new(dir).exists() {
-        if create {
-            std::fs::create_dir(dir).expect("error creating folder: ");
-        } else {
-            panic!("Folder does not exist, but is required: {}", dir);
-        }
+        std::fs::create_dir(dir).expect("error creating folder: ");
     }
 }
 
+/// check if a file exists, downloading it if it doesnt
 pub fn check_file(path:&str, download_url:&str) {
     if !Path::new(&path).exists() {
         println!("Check failed for '{}', downloading from '{}'", path, download_url);
