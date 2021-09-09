@@ -40,6 +40,16 @@ pub const REPLAYS_DIR:&str = "replays";
 // database files
 pub const SCORE_DATABASE_FILE:&str = "scores.db";
 
+
+// https://cdn.ayyeve.xyz/taiko-rs/
+pub const REQUIRED_FILES:&[&str] = &[
+    "audio/don.wav",
+    "audio/kat.wav",
+    "audio/bigdon.wav",
+    "audio/bigkat.wav",
+    "fonts/main.ttf",
+];
+
 // main fn
 fn main() {
     let mut main_benchmark = BenchmarkHelper::new("main");
@@ -48,13 +58,20 @@ fn main() {
     check_folder(DOWNLOADS_DIR, true);
     check_folder(REPLAYS_DIR, true);
     check_folder(SONGS_DIR, true);
-    check_folder("fonts", false);
-    check_folder("audio", false);
-    main_benchmark.log("folder check done", true);
+    // required but files are downloaded in a min if needed
+    check_folder("fonts", true);
+    check_folder("audio", true);
+
+    // check for missing files
+    for file in REQUIRED_FILES.iter() {
+        check_file(file, &format!("https://cdn.ayyeve.xyz/taiko-rs/{}", file));
+    }
+
+    main_benchmark.log("File/Folder check done", true);
     
     let game = Game::new();
     let _ = game.threading.enter();
-    main_benchmark.log("game creation complete", true);
+    main_benchmark.log("Game creation complete", true);
 
     drop(main_benchmark);
     game.game_loop();

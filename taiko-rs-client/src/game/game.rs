@@ -56,7 +56,7 @@ pub struct Game {
 }
 impl Game {
     pub fn new() -> Game {
-        let mut game_init_benchmark = BenchmarkHelper::new("game::new");
+        let mut game_init_benchmark = BenchmarkHelper::new("Game::new");
 
         let opengl = OpenGL::V3_2;
         let mut window: AppWindow = WindowSettings::new("Taiko-rs", [window_size().x, window_size().y])
@@ -153,7 +153,7 @@ impl Game {
         loading_menu.load(self);
 
         //region == menu setup ==
-        let mut menu_init_benchmark = BenchmarkHelper::new("game::new");
+        let mut menu_init_benchmark = BenchmarkHelper::new("Game::init");
         // main menu
         let main_menu = Arc::new(Mutex::new(MainMenu::new()));
         self.menus.insert("main", main_menu.clone());
