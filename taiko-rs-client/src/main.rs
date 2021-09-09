@@ -1,9 +1,8 @@
 // native imports
 use std::fmt::Display;
-use std::{fs::File, path::Path};
-use std::io::{self, BufRead, BufReader, Lines};
 
 // local imports
+use helpers::io::*;
 pub use game::helpers;
 pub use ayyeve_piston_ui::render;
 pub use ayyeve_piston_ui::render::Vector2;
@@ -26,7 +25,6 @@ mod sync {
 // constants
 // const window_size():Vector2 = Vector2::new(1000.0, 600.0);
 
-
 pub fn window_size() -> Vector2 {
     Settings::get_mut().window_size.into()
 }
@@ -35,10 +33,6 @@ pub fn window_size() -> Vector2 {
 pub const DOWNLOADS_DIR:&str = "downloads";
 pub const SONGS_DIR:&str = "songs";
 pub const REPLAYS_DIR:&str = "replays";
-
-// database files
-pub const SCORE_DATABASE_FILE:&str = "scores.db";
-
 
 // https://cdn.ayyeve.xyz/taiko-rs/
 pub const REQUIRED_FILES:&[&str] = &[
@@ -50,7 +44,8 @@ pub const REQUIRED_FILES:&[&str] = &[
 ];
 
 // main fn
-fn main() {
+#[tokio::main]
+async fn main() {
     let mut main_benchmark = BenchmarkHelper::new("main");
 
     // check for missing folders
@@ -69,7 +64,6 @@ fn main() {
     main_benchmark.log("File/Folder check done", true);
     
     let game = Game::new();
-    let _ = game.threading.enter();
     main_benchmark.log("Game creation complete", true);
 
     drop(main_benchmark);
@@ -78,36 +72,7 @@ fn main() {
 
 
 // helper functions
-fn check_folder(dir:&str, create:bool) {
-    if !Path::new(dir).exists() {
-        if create {
-            std::fs::create_dir(dir).expect("error creating folder: ");
-        } else {
-            panic!("Folder does not exist, but is required: {}", dir);
-        }
-    }
-}
 
-fn check_file(path:&str, download_url:&str) {
-    if !Path::new(&path).exists() {
-        println!("Check failed for '{}', downloading from '{}'", path, download_url);
-        
-        let bytes = reqwest::blocking::get(download_url)
-            .expect("error with request")
-            .bytes()
-            .expect("error converting to bytes");
-
-        std::fs::write(path, bytes)
-            .expect("Error saving file");
-    }
-}
-
-
-/// read a file to the end
-fn read_lines<P: AsRef<Path>>(filename: P) -> io::Result<Lines<BufReader<File>>> {
-    let file = File::open(filename)?;
-    Ok(BufReader::new(file).lines())
-}
 
 /// format a number into a locale string ie 1000000 -> 1,000,000
 fn format<T:Display>(num:T) -> String {
@@ -133,10 +98,4 @@ fn format<T:Display>(num:T) -> String {
     let mut new_new = String::with_capacity(new_str.len());
     new_new.extend(new_str.chars().rev());
     new_new.trim_start_matches(",").to_owned()
-}
-
-
-fn get_file_hash<P:AsRef<Path>>(file_path:P) -> std::io::Result<String> {
-    let body = std::fs::read(file_path)?;
-    Ok(format!("{:x}", md5::compute(body).to_owned()))
 }

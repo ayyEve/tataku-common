@@ -152,7 +152,7 @@ impl Menu<Game> for BeatmapSelectMenu {
                 if Audio::get_song().is_none() {
                     // println!("song done");
                     self.map_changing = (true, false, 0);
-                    game.threading.spawn(async move {
+                    tokio::spawn(async move {
                         let lock = BEATMAP_MANAGER.lock();
                         let map = lock.current_beatmap.as_ref().unwrap();
                         Audio::play_song(map.audio_filename.clone(), true, map.audio_preview);

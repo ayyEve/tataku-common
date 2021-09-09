@@ -19,10 +19,10 @@ impl LoadingMenu {
             status: Arc::new(Mutex::new(LoadingStatus::new()))
         }
     }
-    pub fn load(&mut self, game:&Game) {
+    pub fn load(&mut self) {
         let status = self.status.clone();
         
-        game.threading.spawn(async move {
+        tokio::spawn(async move {
             let status = status.clone();
 
             // load database

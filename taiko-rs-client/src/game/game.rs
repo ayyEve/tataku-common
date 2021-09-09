@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use tokio::runtime::{Builder, Runtime};
 use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
@@ -28,7 +27,6 @@ pub struct Game {
     pub graphics: GlGraphics,
     pub input_manager: InputManager,
     pub online_manager: Arc<tokio::sync::Mutex<OnlineManager>>,
-    pub threading: Runtime,
     
     pub menus: HashMap<&'static str, Arc<Mutex<dyn Menu<Game>>>>,
     pub current_state: GameState,
@@ -90,17 +88,12 @@ impl Game {
         let online_manager = Arc::new(tokio::sync::Mutex::new(OnlineManager::new()));
         game_init_benchmark.log("online manager created", true);
 
-        let threading = Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
         game_init_benchmark.log("threading created", true);
 
         let mut g = Game {
             // engine
             window,
             graphics,
-            threading,
             input_manager,
             online_manager,
             volume_controller:VolumeControl::new(),
@@ -138,7 +131,7 @@ impl Game {
         let clone = self.online_manager.clone();
 
         // online loop
-        self.threading.spawn(async move {
+        tokio::spawn(async move {
             loop {
                 OnlineManager::start(clone.clone()).await;
                 tokio::time::sleep(Duration::from_millis(1_000)).await;
@@ -146,11 +139,11 @@ impl Game {
         });
 
         // beatmap manager loop
-        BeatmapManager::download_check_loop(self);
+        BeatmapManager::download_check_loop();
         
         
         let mut loading_menu = LoadingMenu::new();
-        loading_menu.load(self);
+        loading_menu.load();
 
         //region == menu setup ==
         let mut menu_init_benchmark = BenchmarkHelper::new("Game::init");
@@ -469,7 +462,7 @@ impl Game {
                         // }
 
                         let text = format!("{}-{}[{}]\n{}", m.artist, m.title, m.version, h);
-                        self.threading.spawn(async move {
+                        tokio::spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Ingame, text).await;
                         });
                     },
@@ -482,13 +475,13 @@ impl Game {
                             }
                         }
 
-                        self.threading.spawn(async move {
+                        tokio::spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Idle, String::new()).await;
                         });
                     },
                     GameState::Closing => {
                         // send logoff
-                        self.threading.spawn(async move {
+                        tokio::spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Leaving, String::new()).await;
                         });
                     }

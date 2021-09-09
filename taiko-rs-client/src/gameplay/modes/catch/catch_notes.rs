@@ -187,7 +187,6 @@ impl HitObject for CatchBanana {
         self.pos.y = self.y_at(beatmap_time);
     }
     fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
-        let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
         if self.pos.y + self.radius < 0.0 || self.pos.y - self.radius > args.window_size[1] as f64 || self.hit {return}
 
         let mut note = Circle::new(

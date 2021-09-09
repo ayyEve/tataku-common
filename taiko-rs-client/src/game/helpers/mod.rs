@@ -10,6 +10,8 @@ pub use fps_display::*;
 pub use volume_control::*;
 pub use benchmark_helper::*;
 
+pub mod io;
+
 use crate::Vector2;
 
 pub fn visibility_bg(pos:Vector2, size:Vector2) -> Box<crate::render::Rectangle> {

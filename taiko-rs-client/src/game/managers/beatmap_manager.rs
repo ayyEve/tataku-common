@@ -46,9 +46,9 @@ impl BeatmapManager {
     pub fn get_new_maps(&mut self) -> Vec<BeatmapMeta> {
         std::mem::take(&mut self.new_maps)
     }
-    fn check_downloads(runtime:&tokio::runtime::Runtime) {
+    fn check_downloads() {
         if read_dir(DOWNLOADS_DIR).unwrap().count() > 0 {
-            extract_all(runtime);
+            extract_all();
 
             let mut folders = Vec::new();
             read_dir(SONGS_DIR)
@@ -62,15 +62,11 @@ impl BeatmapManager {
         }
 
     }
-    pub fn download_check_loop(game:&Game) {
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        game.threading.spawn(async move {
+    pub fn download_check_loop() {
+        tokio::spawn(async move {
             loop {
                 tokio::time::sleep(Duration::from_millis(DOWNLOAD_CHECK_INTERVAL)).await;
-                BeatmapManager::check_downloads(&runtime);
+                BeatmapManager::check_downloads();
             }
         });
     }
@@ -140,7 +136,7 @@ impl BeatmapManager {
         let audio_filename = beatmap.audio_filename.clone();
         let time = if use_preview_time {beatmap.audio_preview} else {0.0};
         if do_async {
-            game.threading.spawn(async move {
+            tokio::spawn(async move {
                 Audio::play_song(audio_filename, false, time);
             });
         } else {
@@ -257,7 +253,7 @@ fn insert_metadata(map: &BeatmapMeta) -> String {
 
 
 
-pub fn extract_all(runtime:&tokio::runtime::Runtime) {
+pub fn extract_all() {
 
     // check for new maps
     if let Ok(files) = std::fs::read_dir(crate::DOWNLOADS_DIR) {
@@ -274,7 +270,7 @@ pub fn extract_all(runtime:&tokio::runtime::Runtime) {
             match file {
                 Ok(filename) => {
                     println!("[extract] file ok");
-                    runtime.spawn(async move {
+                    tokio::spawn(async move {
                         println!("[extract] reading file {:?}", filename);
 
                         let mut error_counter = 0;
