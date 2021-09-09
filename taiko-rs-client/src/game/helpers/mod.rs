@@ -1,6 +1,7 @@
 mod benchmark_helper;
 mod fps_display;
 mod volume_control;
+pub mod key_counter;
 pub mod math;
 pub mod curve;
 pub mod skin_helper;
