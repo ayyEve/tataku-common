@@ -24,7 +24,7 @@ pub trait CatchHitObject: HitObject {
         ) as f64
     }
 
-    fn set_dash(&mut self, next: &Box<dyn CatchHitObject>) {}
+    fn set_dash(&mut self, _next: &Box<dyn CatchHitObject>) {}
     fn reset_dash(&mut self) {}
 }
 

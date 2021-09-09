@@ -1,8 +1,11 @@
-use std::{collections::HashMap, fs::{DirEntry, read_dir}, path::Path, sync::Arc, time::Duration};
+use std::{collections::HashMap, fs::{DirEntry, read_dir}, path::Path, time::Duration};
 
 use rand::Rng;
-use parking_lot::Mutex;
-use crate::{DOWNLOADS_DIR, SONGS_DIR, game::{Audio, Game}, gameplay::{Beatmap, BeatmapMeta}, get_file_hash};
+use crate::sync::*;
+use crate::game::{Audio, Game};
+use crate::gameplay::{Beatmap, BeatmapMeta};
+use crate::{DOWNLOADS_DIR, SONGS_DIR, get_file_hash};
+
 
 const DOWNLOAD_CHECK_INTERVAL:u64 = 10_000;
 

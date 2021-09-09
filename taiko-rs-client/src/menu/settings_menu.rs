@@ -1,8 +1,9 @@
 use piston::{MouseButton, RenderArgs};
 
+use crate::menu::*;
+use crate::render::*;
+use crate::{window_size, Vector2, helpers::visibility_bg};
 use crate::game::{Game, GameState, KeyModifiers, Settings};
-use crate::{window_size, Vector2, helpers::visibility_bg, render::*};
-use crate::menu::{Menu, TextInput, MenuButton, KeyButton, PasswordInput, ScrollableArea, ScrollableItem, Checkbox, Slider, MenuSection};
 
 const BUTTON_SIZE:Vector2 = Vector2::new(100.0, 50.0);
 const KEYBUTTON_SIZE:Vector2 = Vector2::new(400.0, 50.0);

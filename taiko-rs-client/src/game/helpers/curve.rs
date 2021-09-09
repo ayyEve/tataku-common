@@ -1,5 +1,5 @@
-use super::math::*;
-use ayyeve_piston_ui::render::Vector2;
+use crate::Vector2;
+use crate::helpers::math::*;
 use crate::gameplay::{Beatmap, defs::{CurveType, SliderDef}};
 
 #[derive(Copy, Clone, Debug)]

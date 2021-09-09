@@ -1,9 +1,10 @@
 #![allow(dead_code)]
 use std::collections::HashMap;
-use ayyeve_piston_ui::menu::menu_elements::ScrollableItem;
 
-use crate::{Vector2, window_size, game::Game, menu::{Menu, ScrollableArea, dialog::Dialog}};
-
+use crate::game::Game;
+use crate::menu::ScrollableItem;
+use crate::{Vector2, window_size};
+use crate::menu::{Menu, ScrollableArea, dialog::Dialog};
 
 const CHANNEL_LIST_WIDTH:f64 = 100.0;
 // const CHAT_SIZE:Vector2 = Vector2::new(window_size().x - CHANNEL_LIST_WIDTH, 300.0);

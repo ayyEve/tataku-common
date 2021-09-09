@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use ayyeve_piston_ui::render::{Border, Color, Rectangle, Renderable, Vector2, Text};
-
 use crate::game::get_font;
+use crate::render::{Border, Color, Rectangle, Renderable, Vector2, Text};
+
 
 const BOX_SIZE:Vector2 = Vector2::new(40.0, 40.0);
 

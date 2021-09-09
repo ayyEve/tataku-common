@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use ayyeve_piston_ui::render::Vector2;
 use piston::Key;
+use crate::Vector2;
 use parking_lot::{Mutex, MutexGuard};
 use serde::{Serialize, Deserialize};
 

@@ -1,7 +1,7 @@
 use dft::c32;
 use std::time::Instant;
-use ayyeve_piston_ui::render::{Renderable, Vector2};
 
+use crate::render::{Renderable, Vector2};
 
 pub trait Visualization {
     fn should_lerp(&self) -> bool {true}

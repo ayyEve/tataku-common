@@ -2,11 +2,10 @@ use std::time::Instant;
 
 use piston::RenderArgs;
 use opengl_graphics::GlyphCache;
-use ayyeve_piston_ui::render::Border;
 use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
 
-use crate::render::{Renderable, Rectangle, Text, Color};
 use crate::game::{Audio, AudioHandle, Settings, get_font};
+use crate::render::{Renderable, Rectangle, Text, Color, Border};
 use crate::{Vector2, gameplay::*, sync::*, helpers::visibility_bg};
 
 

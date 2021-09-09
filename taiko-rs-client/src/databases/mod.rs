@@ -1,5 +1,4 @@
-use std::sync::Arc;
-use parking_lot::Mutex;
+use crate::sync::*;
 use rusqlite::Connection;
 
 mod score_database;

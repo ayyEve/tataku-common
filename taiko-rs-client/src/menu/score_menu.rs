@@ -1,13 +1,13 @@
-use std::sync::Arc;
-use parking_lot::Mutex;
 use piston::{MouseButton, RenderArgs};
 
+use crate::sync::*;
+use crate::render::*;
 use crate::gameplay::BeatmapMeta;
 use taiko_rs_common::types::{Score, HitError};
 use crate::gameplay::modes::manager_from_playmode;
 use crate::menu::{Menu, MenuButton, ScrollableItem, Graph};
 use crate::game::{Game, GameState, KeyModifiers, get_font};
-use crate::{window_size, databases, format, Vector2, render::*, helpers::visibility_bg};
+use crate::{window_size, databases, format, Vector2, helpers::visibility_bg};
 
 const GRAPH_SIZE:Vector2 = Vector2::new(400.0, 200.0);
 const GRAPH_PADDING:Vector2 = Vector2::new(10.0,10.0);

@@ -1,10 +1,12 @@
 use ayyeve_piston_ui::render::*;
 use piston::{MouseButton, RenderArgs};
 
-use super::*;
+use crate::{Vector2, window_size};
+use crate::game::{Settings, Audio};
+use crate::helpers::{curve::get_curve, key_counter::KeyCounter};
+use crate::gameplay::modes::{FIELD_SIZE, scale_coords, standard::*};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
-use crate::{Vector2, game::{Settings, Audio}, helpers::{curve::get_curve, key_counter::KeyCounter}, window_size};
-use crate::gameplay::{GameMode, Beatmap, IngameManager, map_difficulty, defs::NoteType, modes::{FIELD_SIZE, scale_coords}};
+use crate::gameplay::{GameMode, Beatmap, IngameManager, map_difficulty, defs::NoteType};
 
 const POINTS_DRAW_TIME:f32 = 100.0;
 const POINTS_DRAW_FADE_TIME:f32 = 40.0;

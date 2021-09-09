@@ -1,7 +1,8 @@
 use std::{path::Path};
 
+use crate::{Vector2, render::Color};
 use taiko_rs_common::types::PlayMode;
-use crate::{Vector2, render::Color, gameplay::{beatmap_structs::*, defs::*}};
+use crate::gameplay::{beatmap_structs::*, defs::*};
 
 /// timing bar color
 pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0);

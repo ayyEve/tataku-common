@@ -1,9 +1,9 @@
 use std::u8;
 
 use piston::RenderArgs;
-use ayyeve_piston_ui::render::*;
 use taiko_rs_common::types::{KeyPress, ReplayFrame, PlayMode};
 
+use crate::render::*;
 use crate::{window_size, Vector2};
 use crate::game::{Audio, Settings};
 use super::{ManiaHold, ManiaNote, ManiaHitObject};

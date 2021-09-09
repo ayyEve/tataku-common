@@ -1,7 +1,8 @@
-use ayyeve_piston_ui::render::Vector2;
+use crate::Vector2;
 
 #[derive(Clone, Debug)]
 pub struct NoteDef {
+    // 
     pub pos: Vector2,
     pub time: f32,
     pub hitsound: u32,

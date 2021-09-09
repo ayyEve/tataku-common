@@ -1,10 +1,10 @@
 use std::time::Instant;
 use piston::{Key, RenderArgs};
 
-
 use crate::{Vector2, window_size};
 use crate::game::{Audio, Settings, KeyModifiers};
 use crate::render::{Rectangle, Renderable, Border, Color, Text};
+
 
 /// how long should the volume thing be displayed when changed
 const VOLUME_CHANGE_DISPLAY_TIME:u64 = 2000;

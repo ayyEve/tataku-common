@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use crate::game::audio::Sound;
-
-use ayyeve_piston_ui::render::{Color, Image, Vector2};
+use crate::render::{Color, Image, Vector2};
 
 const SKIN_FOLDER:&str = "./skins";
 const DEFAULT_SKIN:&str = "default";

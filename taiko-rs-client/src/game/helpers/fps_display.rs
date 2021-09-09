@@ -1,6 +1,5 @@
 use std::time::Instant;
-use ayyeve_piston_ui::render::Renderable;
-use crate::{Vector2, window_size, helpers::visibility_bg, render::{Color, Text}};
+use crate::{Vector2, window_size, helpers::visibility_bg, render::{Color, Text, Renderable}};
 
 const SIZE:Vector2 = Vector2::new(120.0, 20.0);
 

@@ -3,12 +3,11 @@ use std::fmt::Display;
 use std::{fs::File, path::Path};
 use std::io::{self, BufRead, BufReader, Lines};
 
-use game::Settings;
 // local imports
-use game::{Game, helpers::BenchmarkHelper};
+pub use game::helpers;
 pub use ayyeve_piston_ui::render;
 pub use ayyeve_piston_ui::render::Vector2;
-pub use game::helpers;
+use game::{Game, Settings, helpers::BenchmarkHelper};
 
 // include files
 mod game;

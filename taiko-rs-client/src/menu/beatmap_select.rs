@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use ayyeve_piston_ui::menu::menu_elements::TextInput;
-use ayyeve_piston_ui::render::*;
 use piston::{Key, MouseButton, RenderArgs};
 
+use crate::render::*;
 use taiko_rs_common::types::{Score, PlayMode};
 use crate::gameplay::{BeatmapMeta, modes::manager_from_playmode};
 use crate::{window_size, Vector2, databases::get_scores, sync::*};

@@ -1,12 +1,10 @@
-use std::sync::Arc;
 use piston::{MouseButton, RenderArgs};
 
-use parking_lot::Mutex;
-
-use crate::game::{Game, GameState, KeyModifiers};
+use crate::sync::*;
 use crate::gameplay::IngameManager;
-use crate::menu::{Menu, MenuButton, ScrollableItem};
 use crate::{window_size, Vector2, render::*};
+use crate::game::{Game, GameState, KeyModifiers};
+use crate::menu::{Menu, MenuButton, ScrollableItem};
 
 const BUTTON_SIZE:Vector2 = Vector2::new(100.0, 50.0);
 const Y_MARGIN:f64 = 20.0;

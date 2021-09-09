@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use ayyeve_piston_ui::render::Vector2;
+use crate::Vector2;
 
 // this is essentially osu's math helper
 
