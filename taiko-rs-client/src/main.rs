@@ -67,10 +67,25 @@ fn check_folder(dir:&str, create:bool) {
         if create {
             std::fs::create_dir(dir).expect("error creating folder: ");
         } else {
-            panic!("folder does not exist, but is required: {}", dir);
+            panic!("Folder does not exist, but is required: {}", dir);
         }
     }
 }
+
+fn check_file(path:&str, download_url:&str) {
+    if !Path::new(&path).exists() {
+        println!("Check failed for '{}', downloading from '{}'", path, download_url);
+        
+        let bytes = reqwest::blocking::get(download_url)
+            .expect("error with request")
+            .bytes()
+            .expect("error converting to bytes");
+
+        std::fs::write(path, bytes)
+            .expect("Error saving file");
+    }
+}
+
 
 /// read a file to the end
 fn read_lines<P: AsRef<Path>>(filename: P) -> io::Result<Lines<BufReader<File>>> {
