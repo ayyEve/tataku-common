@@ -20,7 +20,7 @@ mod visualization;
 // re-exports to make imports nicer
 mod sync {
     pub use std::sync::{Arc, Weak};
-    pub use parking_lot::Mutex;
+    pub use parking_lot::{Mutex, MutexGuard};
 }
 
 // constants

@@ -1,9 +1,8 @@
-use std::sync::Arc;
-
 use piston::Key;
-use crate::Vector2;
-use parking_lot::{Mutex, MutexGuard};
 use serde::{Serialize, Deserialize};
+
+use crate::sync::*;
+use crate::Vector2;
 
 const SETTINGS_FILE:&str = "settings.json";
 
