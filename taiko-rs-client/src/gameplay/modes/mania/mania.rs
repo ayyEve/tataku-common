@@ -158,8 +158,7 @@ impl GameMode for ManiaGame {
         s
     }
 
-    fn handle_replay_frame(&mut self, frame:ReplayFrame, manager:&mut IngameManager) {
-        let time = manager.time();
+    fn handle_replay_frame(&mut self, frame:ReplayFrame, time:f32, manager:&mut IngameManager) {
         if !manager.replaying {
             manager.replay.frames.push((time, frame));
         }
@@ -299,8 +298,8 @@ impl GameMode for ManiaGame {
             }
         }
         if game_key == KeyPress::RightDon {return}
-
-        self.handle_replay_frame(ReplayFrame::Press(game_key), manager);
+        let time = manager.time();
+        self.handle_replay_frame(ReplayFrame::Press(game_key), time, manager);
     }
     fn key_up(&mut self, key:piston::Key, manager:&mut IngameManager) {
         let settings = Settings::get();
@@ -316,8 +315,9 @@ impl GameMode for ManiaGame {
             }
         }
         if game_key == KeyPress::RightDon {return}
+        let time = manager.time();
 
-        self.handle_replay_frame(ReplayFrame::Release(game_key), manager);
+        self.handle_replay_frame(ReplayFrame::Release(game_key), time, manager);
     }
 
     fn reset(&mut self, beatmap:&Beatmap) {

@@ -145,7 +145,14 @@ impl Beatmap {
                         let y = split.next().unwrap().parse::<f64>().unwrap();
                         let time = split.next().unwrap().parse::<f32>().unwrap();
                         let read_type = split.next().unwrap().parse::<u64>().unwrap_or(0); // see below
-                        let hitsound = split.next().unwrap().parse::<u32>().unwrap_or(0); // 0 = normal, 2 = whistle, 4 = finish, 8 = clap
+
+
+                        let hitsound = split.next().unwrap().parse::<u8>();
+                        if let Err(e) = &hitsound {
+                            println!("error parsing hitsound: {}", e)
+                        }
+                        
+                        let hitsound = hitsound.unwrap_or(0); // 0 = normal, 2 = whistle, 4 = finish, 8 = clap
 
                         // read type:
                         // abcdefgh
@@ -168,14 +175,21 @@ impl Beatmap {
                             let length = split.next().unwrap().parse::<f32>().unwrap();
                             let edge_sounds = split
                                 .next()
-                                .unwrap_or("")
+                                .unwrap_or("0")
                                 .split("|")
                                 .map(|s|s.parse::<u8>().unwrap_or(0)).collect();
                             let edge_sets = split
                                 .next()
-                                .unwrap_or("0")
+                                .unwrap_or("0:0")
                                 .split("|")
-                                .map(|s|s.parse::<u8>().unwrap_or(0)).collect();
+                                .map(|s| {
+                                    let mut s2 = s.split(':');
+                                    [
+                                        s2.next().unwrap_or("0").parse::<u8>().unwrap_or(0),
+                                        s2.next().unwrap_or("0").parse::<u8>().unwrap_or(0),
+                                    ]
+                                })
+                                .collect();
 
 
                             let curve_type = match &*curve.next().unwrap() {
@@ -196,6 +210,7 @@ impl Beatmap {
                             }
 
                             beatmap.sliders.push(SliderDef {
+                                raw: line.clone(),
                                 pos: Vector2::new(x, y),
                                 time,
                                 curve_type,
@@ -203,7 +218,7 @@ impl Beatmap {
                                 slides,
                                 length,
                                 hitsound,
-                                hitsamples: Vec::new(),
+                                hitsamples: HitSamples::from_str(split.next()),
                                 edge_sounds,
                                 edge_sets,
                                 new_combo,
@@ -221,7 +236,7 @@ impl Beatmap {
                                 time,
                                 end_time,
                                 hitsound,
-                                hitsamples: Vec::new(),
+                                hitsamples: HitSamples::from_str(split.next()),
                                 new_combo,
                                 color_skip
                             });
@@ -236,14 +251,14 @@ impl Beatmap {
                                 time,
                                 end_time,
                                 hitsound,
-                                hitsamples: Vec::new()
+                                hitsamples: HitSamples::from_str(split.next()),
                             });
                         } else { // note
                             beatmap.notes.push(NoteDef {
                                 pos: Vector2::new(x, y),
                                 time,
                                 hitsound,
-                                hitsamples: Vec::new(),
+                                hitsamples: HitSamples::from_str(split.next()),
                                 new_combo,
                                 color_skip
                             });

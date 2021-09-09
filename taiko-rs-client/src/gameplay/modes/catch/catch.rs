@@ -294,8 +294,7 @@ impl GameMode for CatchGame {
     }
 
 
-    fn handle_replay_frame(&mut self, frame:ReplayFrame, manager:&mut IngameManager) {
-        let time = manager.time();
+    fn handle_replay_frame(&mut self, frame:ReplayFrame, time:f32, manager:&mut IngameManager) {
         if !manager.replaying {
             manager.replay.frames.push((time, frame.clone()));
         }
@@ -323,31 +322,33 @@ impl GameMode for CatchGame {
     }
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
         let settings = Settings::get().catch_settings;
+        let time = manager.time();
 
         if !manager.replaying {
             if key == settings.left_key {
-                self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), manager);
+                self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), time, manager);
             }
             if key == settings.right_key {
-                self.handle_replay_frame(ReplayFrame::Press(KeyPress::Right), manager);
+                self.handle_replay_frame(ReplayFrame::Press(KeyPress::Right), time, manager);
             }
             if key == settings.dash_key { 
-                self.handle_replay_frame(ReplayFrame::Press(KeyPress::Dash), manager);
+                self.handle_replay_frame(ReplayFrame::Press(KeyPress::Dash), time, manager);
             }
         }
     }
     fn key_up(&mut self, key:piston::Key, manager:&mut IngameManager) {
         let settings = Settings::get().catch_settings;
+        let time = manager.time();
 
         if !manager.replaying {
             if key == settings.left_key {
-                self.handle_replay_frame(ReplayFrame::Release(KeyPress::Left), manager);
+                self.handle_replay_frame(ReplayFrame::Release(KeyPress::Left), time, manager);
             }
             if key == settings.right_key {
-                self.handle_replay_frame(ReplayFrame::Release(KeyPress::Right), manager);
+                self.handle_replay_frame(ReplayFrame::Release(KeyPress::Right), time, manager);
             }
             if key == settings.dash_key { 
-                self.handle_replay_frame(ReplayFrame::Release(KeyPress::Dash), manager);
+                self.handle_replay_frame(ReplayFrame::Release(KeyPress::Dash), time, manager);
             }
         }
     }

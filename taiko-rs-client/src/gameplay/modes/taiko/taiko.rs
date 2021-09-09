@@ -154,8 +154,7 @@ impl GameMode for TaikoGame {
         s
     }
 
-    fn handle_replay_frame(&mut self, frame:ReplayFrame, manager:&mut IngameManager) {
-        let time = manager.time();
+    fn handle_replay_frame(&mut self, frame:ReplayFrame, time:f32, manager:&mut IngameManager) {
         if !manager.replaying {
             manager.replay.frames.push((time, frame.clone()));
         }
@@ -364,18 +363,19 @@ impl GameMode for TaikoGame {
 
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
         let settings = Settings::get().taiko_settings;
+        let time = manager.time();
 
         if key == settings.left_kat {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftKat), manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftKat), time, manager);
         }
         if key == settings.left_don {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftDon), manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftDon), time, manager);
         }
         if key == settings.right_don {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::RightDon), manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::RightDon), time, manager);
         }
         if key == settings.right_kat {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::RightKat), manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::RightKat), time, manager);
         }
     }
     fn key_up(&mut self, _key:piston::Key, _manager:&mut IngameManager) {}
@@ -385,10 +385,11 @@ impl GameMode for TaikoGame {
             let settings = Settings::get().taiko_settings;
             if settings.ignore_mouse_buttons {return}
         }
+        let time = manager.time();
 
         match btn {
-            piston::MouseButton::Left => self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftDon), manager),
-            piston::MouseButton::Right => self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftKat), manager),
+            piston::MouseButton::Left => self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftDon), time, manager),
+            piston::MouseButton::Right => self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftKat), time, manager),
             _ => {}
         }
     }

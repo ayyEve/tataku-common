@@ -33,6 +33,11 @@ pub trait StandardHitObject: HitObject {
 
     fn get_preempt(&self) -> f32;
     fn point_draw_pos(&self) -> Vector2;
+
+
+    fn get_hitsound(&self) -> u8;
+    fn get_hitsamples(&self) -> HitSamples;
+    fn get_sound_queue(&mut self) -> Vec<(f32, u8, HitSamples, Option<String>)> {vec![]}
 }
 
 
@@ -141,6 +146,8 @@ impl HitObject for StandardNote {
     }
 }
 impl StandardHitObject for StandardNote {
+    fn get_hitsamples(&self) -> HitSamples {self.def.hitsamples.clone()}
+    fn get_hitsound(&self) -> u8 {self.def.hitsound}
     fn point_draw_pos(&self) -> Vector2 {self.pos}
     fn causes_miss(&self) -> bool {true}
     fn mouse_move(&mut self, pos:Vector2) {self.mouse_pos = pos}
@@ -201,7 +208,10 @@ impl StandardHitObject for StandardNote {
 // slider
 #[derive(Clone)]
 pub struct StandardSlider {
+    /// slider definition for this slider
     def: SliderDef,
+    /// curve that defines the slider
+    curve: Curve,
 
     /// start pos
     pos: Vector2,
@@ -215,9 +225,14 @@ pub struct StandardSlider {
 
     /// start time
     time: f32,
-
-    /// curve that defines the slider
-    curve: Curve,
+    /// what is the current sound index?
+    sound_index: usize,
+    /// how many slides have been completed?
+    slides_complete: u16,
+    /// used to check if a slide has been completed
+    moving_forward: bool,
+    /// song's current time
+    map_time: f32,
 
     /// combo color
     color: Color,
@@ -238,21 +253,22 @@ pub struct StandardSlider {
     /// stored mouse pos
     mouse_pos: Vector2,
 
-    /// song's current time
-    map_time: f32,
-
     /// note depth
     base_depth: f64,
-
-    /// 
+    /// when should the note start being drawn (specifically the )
     time_preempt:f32,
 
-
+    /// circle size, used in rescale recalc
     cs: f32,
+    /// approach rate, used in rescale recalc
     ar: f32,
 
+    /// combo text cache, probably not needed but whatever
+    combo_text: Box<Text>,
 
-    combo_text: Box<Text>
+    /// list of sounds waiting to be played (used by repeat and slider dot sounds)
+    /// (time, hitsound, samples, override sample name)
+    sound_queue: Vec<(f32, u8, HitSamples, Option<String>)>
 }
 impl StandardSlider {
     pub fn new(def:SliderDef, curve:Curve, ar:f32, cs:f32, color:Color, combo_num: u16) -> Self {
@@ -294,6 +310,9 @@ impl StandardSlider {
             time_end_pos,
 
             time, 
+            sound_index: 0,
+            slides_complete: 0,
+            moving_forward: true,
             hit_dots: Vec::new(),
             map_time: 0.0,
 
@@ -306,7 +325,8 @@ impl StandardSlider {
             cs,
             ar,
 
-            combo_text
+            combo_text,
+            sound_queue: Vec::new()
         }
     }
 }
@@ -314,7 +334,35 @@ impl HitObject for StandardSlider {
     fn note_type(&self) -> NoteType {NoteType::Slider}
     fn time(&self) -> f32 {self.time}
     fn end_time(&self,_:f32) -> f32 {self.curve.end_time}
-    fn update(&mut self, beatmap_time: f32) {self.map_time = beatmap_time}
+    fn update(&mut self, beatmap_time: f32) {
+        self.map_time = beatmap_time;
+
+        // find out if a slide has been completed
+        let pos = (beatmap_time - self.time) / (self.curve.length() / self.def.slides as f32);
+        // if pos % 2.0 > 1.0 {
+        //     current_moving_forwards = false;
+        // } else {
+        //     current_moving_forwards = true;
+        // }
+        if self.time - beatmap_time > self.time_preempt || self.curve.end_time < beatmap_time {return}
+
+        let current_moving_forwards = pos % 2.0 <= 1.0;
+        if current_moving_forwards != self.moving_forward {
+            // direction changed
+            self.moving_forward = current_moving_forwards;
+            self.slides_complete += 1;
+            println!("repeat {} started", self.slides_complete);
+
+            //TODO: play sound
+            self.sound_queue.push((
+                beatmap_time,
+                self.get_hitsound(),
+                self.get_hitsamples().clone(),
+                None
+            ));
+            self.sound_index += 1;
+        }
+    }
 
     fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         if self.time - self.map_time > self.time_preempt || self.curve.end_time < self.map_time {return}
@@ -410,6 +458,21 @@ impl HitObject for StandardSlider {
     }
 }
 impl StandardHitObject for StandardSlider {
+    fn get_hitsamples(&self) -> HitSamples {
+        let mut samples = self.def.hitsamples.clone();
+        let [normal_set, addition_set] = self.def.edge_sets[self.sound_index.min(self.def.edge_sets.len() - 1)];
+        samples.normal_set = normal_set;
+        samples.addition_set = addition_set;
+
+        samples
+    }
+    fn get_hitsound(&self) -> u8 {
+        if self.sound_index >= self.def.edge_sounds.len() {
+            println!("line: {}", self.def.raw);
+        }
+        self.def.edge_sounds[self.sound_index.min(self.def.edge_sounds.len() - 1)]
+        // self.def.hitsound
+    }
     fn causes_miss(&self) -> bool {false}
     fn point_draw_pos(&self) -> Vector2 {self.pos}
     fn get_preempt(&self) -> f32 {self.time_preempt}
@@ -444,12 +507,12 @@ impl StandardHitObject for StandardSlider {
         if time > self.time - h_miss && time < self.time + h_miss {
             // within starting time frame
 
-
             // if already hit, return None
             if self.start_checked {return ScoreHit::None}
             
             // start wasnt hit yet, set it to true
             self.start_checked = true;
+            self.sound_index += 1;
             
             // set the judgement time to our start time
             judgement_time = self.time;
@@ -489,6 +552,10 @@ impl StandardHitObject for StandardSlider {
         // ScoreHit::Other(100, false)
     }
 
+
+    fn get_sound_queue(&mut self) -> Vec<(f32, u8, HitSamples, Option<String>)> {
+        std::mem::take(&mut self.sound_queue)
+    }
 
     fn playfield_changed(&mut self) {
         let cs_scale = (1.0 - 0.7 * (self.cs - 5.0) / 5.0) / 2.0;
@@ -563,8 +630,9 @@ impl SliderDot {
 
 
 // spinner
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct StandardSpinner {
+    def: SpinnerDef,
     time: f32, // ms
     end_time: f32, // ms
 
@@ -588,8 +656,11 @@ pub struct StandardSpinner {
     last_update: f32
 }
 impl StandardSpinner {
-    pub fn new(time:f32, end_time:f32) -> Self {
+    pub fn new(def: SpinnerDef) -> Self {
+        let time = def.time;
+        let end_time = def.end_time;
         Self {
+            def,
             time, 
             end_time,
 
@@ -672,6 +743,8 @@ impl HitObject for StandardSpinner {
     }
 }
 impl StandardHitObject for StandardSpinner {
+    fn get_hitsamples(&self) -> HitSamples {self.def.hitsamples.clone()}
+    fn get_hitsound(&self) -> u8 {self.def.hitsound}
     fn get_preempt(&self) -> f32 {0.0}
     fn point_draw_pos(&self) -> Vector2 {Vector2::zero()} //TODO
     fn causes_miss(&self) -> bool {self.rotations_completed < self.rotations_required} // if the spinner wasnt completed in time, cause a miss

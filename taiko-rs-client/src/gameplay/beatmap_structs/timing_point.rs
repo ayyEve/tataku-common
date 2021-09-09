@@ -22,9 +22,9 @@ pub struct TimingPoint {
     // samples
 
     /// Default sample set for hit objects (0 = beatmap default, 1 = normal, 2 = soft, 3 = drum)
-    pub sample_set: u32,
+    pub sample_set: u8,
     /// Custom sample index for hit objects. 0 indicates osu!'s default hitsounds
-    pub sample_index: u32
+    pub sample_index: u8
 }
 impl TimingPoint {
     pub fn from_str(str:&str) -> TimingPoint {
@@ -34,8 +34,8 @@ impl TimingPoint {
         let time = split.next().unwrap_or("0").parse::<f32>().unwrap_or(0.0);
         let beat_length = split.next().unwrap_or("0").parse::<f32>().unwrap_or(0.0);
         let meter = split.next().unwrap_or("4").parse::<u32>().unwrap_or(4);
-        let sample_set = split.next().unwrap_or("0").parse::<u32>().unwrap_or(0);
-        let sample_index = split.next().unwrap_or("0").parse::<u32>().unwrap_or(0);
+        let sample_set = split.next().unwrap_or("0").parse::<u8>().unwrap_or(0);
+        let sample_index = split.next().unwrap_or("0").parse::<u8>().unwrap_or(0);
 
         let volume = match split.next() {
             Some(str) => str.parse::<u32>().unwrap_or(50),

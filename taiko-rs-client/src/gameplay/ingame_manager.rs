@@ -1,12 +1,15 @@
+use std::collections::HashMap;
 use std::time::Instant;
 
 use piston::RenderArgs;
 use opengl_graphics::GlyphCache;
 use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
 
-use crate::game::{Audio, AudioHandle, Settings, get_font};
+use crate::game::{Audio, AudioHandle, Settings, Sound, get_font};
 use crate::render::{Renderable, Rectangle, Text, Color, Border};
 use crate::{Vector2, gameplay::*, sync::*, helpers::visibility_bg};
+
+use super::hitobject_defs::HitSamples;
 
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
@@ -39,6 +42,9 @@ pub struct IngameManager {
     pub timing_point_index: usize,
     pub song: Weak<AudioHandle>,
 
+
+    pub hitsound_cache: HashMap<String, Sound>,
+
     // offset things
     offset: f32,
     offset_changed_time: f32,
@@ -60,7 +66,10 @@ impl IngameManager {
         let lock = lock.lock();
         let playmode = lock.playmode();
 
+        let hitsound_cache = HashMap::new();
+
         Self {
+            hitsound_cache,
             lead_in_timer: Instant::now(),
             score: Score::new(beatmap.hash.clone(), Settings::get().username.clone(), playmode),
 
@@ -219,7 +228,7 @@ impl IngameManager {
                 
                 let (frame_time, frame) = self.replay.frames[self.replay_frame as usize];
                 if frame_time > time {break}
-                m.handle_replay_frame(frame, self);
+                m.handle_replay_frame(frame, frame_time, self);
                 self.replay_frame += 1;
             }
         }
@@ -233,6 +242,108 @@ impl IngameManager {
         m.update(self, time);
     }
 
+
+    pub fn play_note_sound(&mut self, _note_time:f32, note_hitsound: u8, note_hitsamples:HitSamples) {
+        // let timing_point = self.beatmap.control_point_at(note_time);
+        
+        let mut play_normal = (note_hitsound & 1) > 0; // 0: Normal
+        let play_whistle = (note_hitsound & 2) > 0; // 1: Whistle
+        let play_finish = (note_hitsound & 4) > 0; // 2: Finish
+        let play_clap = (note_hitsound & 8) > 0; // 3: Clap
+
+        if !(play_normal || play_whistle || play_finish || play_clap) {
+            play_normal = true
+        }
+
+        // https://osu.ppy.sh/wiki/en/osu%21_File_Formats/Osu_%28file_format%29#hitsounds
+
+        // normalSet and additionSet can be any of the following:
+        // 0: No custom sample set
+        // For normal sounds, the set is determined by the timing point's sample set.
+        // For additions, the set is determined by the normal sound's sample set.
+        // 1: Normal set
+        // 2: Soft set
+        // 3: Drum set
+
+        // The filename is <sampleSet>-hit<hitSound><index>.wav, where:
+
+        // sampleSet is normal, soft, or drum, determined by either normalSet or additionSet depending on which hitsound is playing
+        const SAMPLE_SETS:&[&str] = &["normal", "normal", "soft", "drum"];
+
+        // hitSound is normal, whistle, finish, or clap
+        // index is the same index as above, except it is not written if the value is 0 or 1
+
+
+        let mut play_list = Vec::new();
+
+        if play_normal {
+            let hitsound = "normal";
+            let sample_set = note_hitsamples.normal_set;
+            let index = note_hitsamples.index;
+            // if sample_set == 0 {sample_set = timing_point.sample_set}
+            // if index == 1 {} //idk wtf 
+
+            play_list.push((hitsound, SAMPLE_SETS[sample_set as usize], index))
+        }
+
+        if play_whistle {
+            let hitsound = "whistle";
+            let sample_set = note_hitsamples.addition_set;
+            let index = note_hitsamples.index;
+            // if sample_set == 0 {sample_set = timing_point.sample_set}
+            // if index == 1 {} //idk wtf 
+
+            play_list.push((hitsound, SAMPLE_SETS[sample_set as usize], index))
+        }
+        if play_finish {
+            let hitsound = "finish";
+            let sample_set = note_hitsamples.addition_set;
+            let index = note_hitsamples.index;
+            // if sample_set == 0 {sample_set = timing_point.sample_set}
+            // if index == 1 {} //idk wtf 
+
+            play_list.push((hitsound, SAMPLE_SETS[sample_set as usize], index))
+        }
+        if play_clap {
+            let hitsound = "clap";
+            let sample_set = note_hitsamples.addition_set;
+            let index = note_hitsamples.index;
+            // if sample_set == 0 {sample_set = timing_point.sample_set}
+            // if index == 1 {} //idk wtf 
+
+            play_list.push((hitsound, SAMPLE_SETS[sample_set as usize], index))
+        }
+
+
+        // The sound file is loaded from the first of the following directories that contains a matching filename:
+        // Beatmap, if index is not 0
+        // Skin, with the index removed
+        // Default osu! resources, with the index removed
+        // When filename is given, no addition sounds will be played, and this file in the beatmap directory is played instead.
+        for (hitsound, mut sample_set, _index) in play_list.iter() {
+            if sample_set == "drum" {sample_set = &"normal"}
+            let sound_file = format!("{}-hit{}", sample_set, hitsound);
+
+            if !self.hitsound_cache.contains_key(&sound_file) {
+                println!("not cached");
+                let sound = Sound::load(format!("audio/{}.wav", sound_file));
+                self.hitsound_cache.insert(sound_file.clone(), sound);
+
+                // println!("playing sound {}", sound_file);
+                // let sound = Audio::play(sound_file);
+            }
+
+            let sound = self.hitsound_cache.get(&sound_file).unwrap();
+            let sound = Audio::play_sound(sound.clone());
+
+            if let Some(sound) =  sound.upgrade() {
+                sound.set_volume(1.0);
+                sound.set_position(0.0);
+                sound.play();
+            }
+        }
+
+    }
 
     pub fn key_down(&mut self, key:piston::Key) {
         let m = self.gamemode.clone();
@@ -428,7 +539,7 @@ pub trait GameMode {
     fn playmode(&self) -> PlayMode;
     // fn hit(&mut self, key:KeyPress, manager:&mut IngameManager);
 
-    fn handle_replay_frame(&mut self, frame:ReplayFrame, manager:&mut IngameManager);
+    fn handle_replay_frame(&mut self, frame:ReplayFrame, time:f32, manager:&mut IngameManager);
 
     fn update(&mut self, manager:&mut IngameManager, time: f32);
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list: &mut Vec<Box<dyn Renderable>>);
@@ -455,3 +566,7 @@ pub trait GameMode {
     /// f64 is hitwindow, color is color for that window. last is miss hitwindow
     fn timing_bar_things(&self) -> (Vec<(f32,Color)>, (f32,Color));
 }
+
+
+
+//TODO: make a sound effect manager, sound effects are cancer

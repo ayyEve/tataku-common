@@ -1,13 +1,12 @@
 use ayyeve_piston_ui::render::*;
 use piston::{MouseButton, RenderArgs};
 
-use crate::gameplay::DURATION_HEIGHT;
+use crate::game::Settings;
 use crate::{Vector2, window_size};
-use crate::game::{Settings, Audio};
 use crate::helpers::{curve::get_curve, key_counter::KeyCounter};
 use crate::gameplay::modes::{FIELD_SIZE, scale_coords, standard::*};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
-use crate::gameplay::{GameMode, Beatmap, IngameManager, map_difficulty, defs::NoteType};
+use crate::gameplay::{DURATION_HEIGHT, GameMode, Beatmap, IngameManager, map_difficulty, defs::NoteType};
 
 const POINTS_DRAW_TIME:f32 = 100.0;
 const POINTS_DRAW_FADE_TIME:f32 = 40.0;
@@ -149,8 +148,7 @@ impl GameMode for StandardGame {
             }
             if let Some(spinner) = spinner {
                 s.notes.push(Box::new(StandardSpinner::new(
-                    spinner.time,
-                    spinner.end_time
+                    spinner.clone()
                 )))
             }
 
@@ -161,8 +159,7 @@ impl GameMode for StandardGame {
         s
     }
 
-    fn handle_replay_frame(&mut self, frame:ReplayFrame, manager:&mut IngameManager) {
-        let time = manager.time();
+    fn handle_replay_frame(&mut self, frame:ReplayFrame, time:f32, manager:&mut IngameManager) {
         if !manager.replaying {
             manager.replay.frames.push((time, frame.clone()));
         }
@@ -184,7 +181,13 @@ impl GameMode for StandardGame {
                         }
                     }
                     ScoreHit::X100 => {
-                        Audio::play_preloaded("don");
+                        {
+                            let hitsound = self.notes[self.note_index].get_hitsound();
+                            let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
+                            manager.play_note_sound(note_time, hitsound, hitsamples);
+                        }
+
+                        // Audio::play_preloaded("don");
                         manager.score.hit100(time, note_time);
                         manager.hitbar_timings.push((time, time - note_time));
                         if self.notes[self.note_index].note_type() == NoteType::Note {
@@ -192,14 +195,20 @@ impl GameMode for StandardGame {
                         }
                     }
                     ScoreHit::X300 => {
-                        Audio::play_preloaded("kat");
+                        {
+                            let hitsound = self.notes[self.note_index].get_hitsound();
+                            let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
+                            manager.play_note_sound(note_time, hitsound, hitsamples);
+                        }
+
+                        // Audio::play_preloaded("kat");
                         manager.score.hit300(time, note_time);
                         manager.hitbar_timings.push((time, time - note_time));
                         if self.notes[self.note_index].note_type() == NoteType::Note {
                             self.next_note()
                         }
                     }
-                    
+
                     ScoreHit::Other(_, _) => {}
                     ScoreHit::None => {},
                 }
@@ -223,13 +232,23 @@ impl GameMode for StandardGame {
                             self.next_note()
                         },
                         ScoreHit::X100 => {
-                            Audio::play_preloaded("don");
+                            {
+                                let hitsound = self.notes[self.note_index].get_hitsound();
+                                let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
+                                manager.play_note_sound(note_time, hitsound, hitsamples);
+                            }
+
                             manager.score.hit100(time, note_time);
                             manager.hitbar_timings.push((time, time - note_time));
                             self.next_note();
                         },
                         ScoreHit::X300 => {
-                            Audio::play_preloaded("kat");
+                            {
+                                let hitsound = self.notes[self.note_index].get_hitsound();
+                                let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
+                                manager.play_note_sound(note_time, hitsound, hitsamples);
+                            }
+
                             manager.score.hit300(time, note_time);
                             manager.hitbar_timings.push((time, time - note_time));
                             self.next_note();
@@ -257,7 +276,17 @@ impl GameMode for StandardGame {
 
     fn update(&mut self, manager:&mut IngameManager, time:f32) {
         // update notes
-        for note in self.notes.iter_mut() {note.update(time)}
+        for note in self.notes.iter_mut() {
+            note.update(time);
+
+            // play queued sounds
+            for (time, hitsound, mut samples, override_name) in note.get_sound_queue() {
+                samples.filename = override_name;
+
+                manager.play_note_sound(time, hitsound, samples);
+            }
+        }
+
         
         // remove old draw points
         self.draw_points.retain(|a| time < a.0 + POINTS_DRAW_TIME);
@@ -273,17 +302,27 @@ impl GameMode for StandardGame {
         // TODO! figure out this criteria
 
         // check if we missed the current note
-        if self.notes[self.note_index].end_time(self.hitwindow_miss) < time {
-            match self.notes[self.note_index].note_type() {
+        let end_time = self.notes[self.note_index].end_time(self.hitwindow_miss);
+        let ntype = self.notes[self.note_index].note_type();
+        let flag = match ntype {
+            NoteType::Note => end_time < time,
+            NoteType::Slider 
+            | NoteType::Spinner => end_time <= time,
+            _ => false,
+        };
+
+        if flag {
+            match ntype {
                 NoteType::Note => {
                     // need to set these manually instead of score.hit_miss,
                     // since we dont want to add anything to the hit error list
-                    manager.score.hit_miss(time, self.notes[self.note_index].time());
-                    println!("note miss (time)");
+                    let note_time = self.notes[self.note_index].time();
+                    manager.score.hit_miss(time, note_time);
+                    println!("note miss (time: {}, {}, diff: {}, od: {})", time, note_time, time - note_time, manager.beatmap.metadata.od);
                     self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), ScoreHit::Miss));
                 }
                 NoteType::Slider => {
-                    let note_time = self.notes[self.note_index].time();
+                    let note_time = self.notes[self.note_index].end_time(0.0);
                     // check slider release points
                     // -1.0 for miss hitwindow to indidate it was held to the end (ie, no hitwindow to check)
                     let pts = self.notes[self.note_index].get_points(time, (-1.0, self.hitwindow_100, self.hitwindow_300));
@@ -294,12 +333,23 @@ impl GameMode for StandardGame {
                             manager.hitbar_timings.push((time, time - note_time));
                         },
                         ScoreHit::X100 => {
-                            Audio::play_preloaded("don");
+                            {
+                                println!("sound on slider end: {} - {} = {}", time, note_time, time - note_time);
+                                let hitsound = self.notes[self.note_index].get_hitsound();
+                                let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
+                                manager.play_note_sound(note_time, hitsound, hitsamples);
+                            }
+
                             manager.score.hit100(time, note_time);
                             manager.hitbar_timings.push((time, time - note_time));
                         },
                         ScoreHit::X300 => {
-                            Audio::play_preloaded("kat");
+                            {
+                                let hitsound = self.notes[self.note_index].get_hitsound();
+                                let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
+                                manager.play_note_sound(note_time, hitsound, hitsamples);
+                            }
+
                             manager.score.hit300(time, note_time);
                             manager.hitbar_timings.push((time, time - note_time));
                         },
@@ -312,6 +362,7 @@ impl GameMode for StandardGame {
             }
             self.next_note();
         }
+
     }
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
         // draw the playfield
@@ -374,13 +425,14 @@ impl GameMode for StandardGame {
         }
 
         self.key_counter.key_press(key);
+        let time = manager.time();
 
         let settings = Settings::get().standard_settings;
         if key == settings.left_key {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), time, manager);
         }
         if key == settings.right_key {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::Right), manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::Right), time, manager);
         }
     }
     fn key_up(&mut self, key:piston::Key, manager:&mut IngameManager) {
@@ -388,18 +440,20 @@ impl GameMode for StandardGame {
             self.move_playfield = None;
             return;
         }
+        let time = manager.time();
 
         let settings = Settings::get().standard_settings;
         if key == settings.left_key {
-            self.handle_replay_frame(ReplayFrame::Release(KeyPress::Left), manager);
+            self.handle_replay_frame(ReplayFrame::Release(KeyPress::Left), time, manager);
         }
         if key == settings.right_key {
-            self.handle_replay_frame(ReplayFrame::Release(KeyPress::Right), manager);
+            self.handle_replay_frame(ReplayFrame::Release(KeyPress::Right), time, manager);
         }
     }
     
     fn mouse_move(&mut self, pos:Vector2, manager:&mut IngameManager) {
         self.mouse_pos = pos;
+        let time = manager.time();
 
         if let Some((original, mouse_start)) = self.move_playfield {
 
@@ -419,7 +473,7 @@ impl GameMode for StandardGame {
             return;
         }
 
-        self.handle_replay_frame(ReplayFrame::MousePos(pos.x as f32, pos.y as f32), manager);
+        self.handle_replay_frame(ReplayFrame::MousePos(pos.x as f32, pos.y as f32), time, manager);
     }
     fn mouse_down(&mut self, btn:piston::MouseButton, manager:&mut IngameManager) {
         {
@@ -427,11 +481,12 @@ impl GameMode for StandardGame {
             if settings.ignore_mouse_buttons {return}
         }
 
+        let time = manager.time();
         if btn == MouseButton::Left {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), time, manager);
         }
         if btn == MouseButton::Right {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::Right), manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::Right), time, manager);
         }
     }
     fn mouse_up(&mut self, btn:piston::MouseButton, manager:&mut IngameManager) {
@@ -440,11 +495,12 @@ impl GameMode for StandardGame {
             if settings.ignore_mouse_buttons {return}
         }
 
+        let time = manager.time();
         if btn == MouseButton::Left {
-            self.handle_replay_frame(ReplayFrame::Release(KeyPress::Left), manager);
+            self.handle_replay_frame(ReplayFrame::Release(KeyPress::Left), time, manager);
         }
         if btn == MouseButton::Right {
-            self.handle_replay_frame(ReplayFrame::Release(KeyPress::Right), manager);
+            self.handle_replay_frame(ReplayFrame::Release(KeyPress::Right), time, manager);
         }
     }
 

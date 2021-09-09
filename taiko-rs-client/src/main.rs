@@ -58,6 +58,16 @@ async fn main() {
         check_file(file, &format!("https://cdn.ayyeve.xyz/taiko-rs/{}", file));
     }
 
+
+    // hitsounds
+    for sample_set in ["normal", "soft"] {
+        for hitsound in ["normal", "whistle", "clap", "finish"] {
+            let file = &format!("audio/{}-hit{}.wav", sample_set, hitsound);
+            check_file(file, &format!("https://cdn.ayyeve.xyz/taiko-rs/{}", file));
+        }
+    }
+
+
     main_benchmark.log("File/Folder check done", true);
     
     let game = Game::new();

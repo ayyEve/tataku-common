@@ -25,6 +25,8 @@ pub struct AudioInstance {
 
 impl AudioInstance {
     pub fn new(sound: Sound, stream_sample_rate: u32, playback_speed: f64) -> Self {
+        // let now = Instant::now();
+
         let interleaved = if sound.channels == 1 {
             let mut vec = sound.samples.as_ref().clone();
 
@@ -40,8 +42,9 @@ impl AudioInstance {
 
         let current_frame = temp_iter.by_ref().take(sound.channels).cloned().collect();
         let next_frame = temp_iter.take(sound.channels).cloned().collect();
-
         let handle = Arc::new(AudioHandle::new());
+
+        // println!("took {:2}ms to interleave", now.elapsed().as_secs_f32() * 1000.0);
 
         Self {
             sound,

@@ -60,8 +60,17 @@ impl Audio {
 
         // println!("Range Rate: {}-{}Hz", supported_config_range.min_sample_rate().0, supported_config_range.max_sample_rate().0);
 
+        let buff_range = supported_config_range.buffer_size().clone();
+
         let supported_config = supported_config_range.with_max_sample_rate();
         let sample_rate = supported_config.sample_rate().0;
+
+        if let cpal::SupportedBufferSize::Range{min, ..} = buff_range {
+            supported_config.config().buffer_size = cpal::BufferSize::Fixed(min);
+            println!("setting buffer size to {}", min);
+        } else {
+            println!("unknown buffer size");
+        }
 
         // println!("Sample Rate Stream: {}", sample_rate);
         let (controller, mut queue) = AudioQueue::new();
@@ -224,7 +233,7 @@ impl Audio {
         CURRENT_SONG.lock().clone()
     }
 
-    pub fn _play(path: impl AsRef<str>) -> Weak<AudioHandle> {
+    pub fn play(path: impl AsRef<str>) -> Weak<AudioHandle> {
         Audio::play_sound(Sound::load(path.as_ref()))
     }
 
