@@ -260,7 +260,7 @@ pub fn extract_all() {
         // let completed = Arc::new(Mutex::new(0));
 
         let files:Vec<std::io::Result<DirEntry>> = files.collect();
-        let len = files.len();
+        // let len = files.len();
         println!("[extract] files: {:?}", files);
 
         for file in files {

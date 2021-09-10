@@ -5,6 +5,7 @@ use piston::{Key, MouseButton, RenderArgs};
 
 use crate::render::*;
 use taiko_rs_common::types::{Score, PlayMode};
+use crate::game::managers::NotificationManager;
 use crate::gameplay::{BeatmapMeta, modes::manager_from_playmode};
 use crate::{window_size, Vector2, databases::get_scores, sync::*};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
@@ -125,8 +126,8 @@ impl Menu<Game> for BeatmapSelectMenu {
 
         let maps = BEATMAP_MANAGER.lock().get_new_maps();
         if maps.len() > 0 {
-            self.refresh_maps();
             BEATMAP_MANAGER.lock().set_current_beatmap(game, &maps[maps.len() - 1], false, true);
+            self.refresh_maps();
         }
     
         self.map_changing.2 += 1;
@@ -328,8 +329,28 @@ impl Menu<Game> for BeatmapSelectMenu {
             return;
         }
 
+        if mods.alt {
+            let new_mode = match key {
+                piston::Key::D1 => Some(PlayMode::Standard),
+                piston::Key::D2 => Some(PlayMode::Taiko),
+                piston::Key::D3 => Some(PlayMode::Catch),
+                piston::Key::D4 => Some(PlayMode::Mania),
+                _ => None
+            };
+
+            if let Some(new_mode) = new_mode {
+                self.mode = new_mode;
+                NotificationManager::add_text_notification(&format!("Mode changed to {:?}", new_mode), 1000.0, Color::BLUE);
+            }
+        }
+
+        // only refresh if the text changed
+        let old_text = self.search_text.get_text();
         self.search_text.on_key_press(key, mods);
-        self.refresh_maps();
+
+        if self.search_text.get_text() != old_text {
+            self.refresh_maps();
+        }
     }
 
     //TODO: implement search (oh god)
