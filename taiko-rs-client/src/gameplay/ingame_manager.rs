@@ -243,8 +243,8 @@ impl IngameManager {
     }
 
 
-    pub fn play_note_sound(&mut self, _note_time:f32, note_hitsound: u8, note_hitsamples:HitSamples) {
-        // let timing_point = self.beatmap.control_point_at(note_time);
+    pub fn play_note_sound(&mut self, note_time:f32, note_hitsound: u8, note_hitsamples:HitSamples) {
+        let timing_point = self.beatmap.control_point_at(note_time);
         
         let mut play_normal = (note_hitsound & 1) > 0; // 0: Normal
         let play_whistle = (note_hitsound & 2) > 0; // 1: Whistle
@@ -320,6 +320,10 @@ impl IngameManager {
         // Skin, with the index removed
         // Default osu! resources, with the index removed
         // When filename is given, no addition sounds will be played, and this file in the beatmap directory is played instead.
+
+        // println!("{}, {} | {}", timing_point.volume, note_hitsamples.volume, );
+
+        let vol = (if note_hitsamples.volume == 0 {timing_point.volume} else {note_hitsamples.volume} as f32 / 100.0) * Settings::get_mut().get_effect_vol();
         for (hitsound, mut sample_set, _index) in play_list.iter() {
             if sample_set == "drum" {sample_set = &"normal"}
             let sound_file = format!("{}-hit{}", sample_set, hitsound);
@@ -337,7 +341,7 @@ impl IngameManager {
             let sound = Audio::play_sound(sound.clone());
 
             if let Some(sound) = sound.upgrade() {
-                // sound.set_volume(1.0);
+                sound.set_volume(vol);
                 sound.set_position(0.0);
                 sound.play();
             }

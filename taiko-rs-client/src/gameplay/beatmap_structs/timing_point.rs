@@ -8,9 +8,9 @@ pub struct TimingPoint {
     ///     For inherited timing points, a negative inverse slider velocity multiplier, as a percentage. For example, -50 would make all sliders in this timing section twice as fast as SliderMultiplier.
     pub beat_length: f32,
     /// Volume percentage for hit objects
-    pub volume: u32,
+    pub volume: u8,
     /// Amount of beats in a measure. Inherited timing points ignore this property.
-    pub meter: u32,
+    pub meter: u8,
 
     // effects
 
@@ -33,17 +33,17 @@ impl TimingPoint {
         let mut split = str.split(',');
         let time = split.next().unwrap_or("0").parse::<f32>().unwrap_or(0.0);
         let beat_length = split.next().unwrap_or("0").parse::<f32>().unwrap_or(0.0);
-        let meter = split.next().unwrap_or("4").parse::<u32>().unwrap_or(4);
+        let meter = split.next().unwrap_or("4").parse::<u8>().unwrap_or(4);
         let sample_set = split.next().unwrap_or("0").parse::<u8>().unwrap_or(0);
         let sample_index = split.next().unwrap_or("0").parse::<u8>().unwrap_or(0);
 
         let volume = match split.next() {
-            Some(str) => str.parse::<u32>().unwrap_or(50),
+            Some(str) => str.parse::<u8>().unwrap_or(50),
             None => 50
         };
         let _uninherited = split.next();
         let effects = match split.next() {
-            Some(str) => str.parse::<u32>().unwrap_or(0),
+            Some(str) => str.parse::<u8>().unwrap_or(0),
             None => 0
         };
 

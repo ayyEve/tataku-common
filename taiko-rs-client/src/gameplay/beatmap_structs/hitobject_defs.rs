@@ -108,8 +108,8 @@ impl HitSamples {
             None =>  Self {..Default::default()},
             Some(str) => {
                 let mut split = str.split(':');
-                let normal_set = split.next().unwrap().parse().unwrap();
-                let addition_set = split.next().unwrap().parse().unwrap();
+                let normal_set = split.next().unwrap_or("0").parse().unwrap_or(0);
+                let addition_set = split.next().unwrap_or("0").parse().unwrap_or(0);
                 let index = split.next().unwrap_or("0").parse().unwrap_or(0);
                 let volume = split.next().unwrap_or("0").parse().unwrap_or(0);
                 let filename = match split.next() {Some(s) => Some(s.to_owned()), None => None};
