@@ -3,6 +3,7 @@ use std::{fs::File, io::Write};
 
 use piston::{Key, MouseButton};
 
+use crate::game::managers::NotificationManager;
 use crate::sync::Arc;
 use crate::{window_size, DOWNLOADS_DIR, Vector2};
 use crate::render::{Text, Renderable, Rectangle, Color, Border};
@@ -54,7 +55,7 @@ impl OsuDirectMenu {
         let q = self.search_bar.get_text();
         let settings = Settings::get();
 
-        let data = do_search(settings.username, settings.password, 1, 0, 0, if q.len() > 0 {Some(q)} else {None});
+        let data = do_search(settings.osu_username, settings.osu_password, 1, 0, 0, if q.len() > 0 {Some(q)} else {None});
         let mut lines = data.split('\n');
         let count = lines.next().unwrap_or("0").parse::<i32>().unwrap_or(0);
         if count <= 0 {return}
@@ -79,7 +80,15 @@ impl OsuDirectMenu {
 
         let req = reqwest::blocking::get(url.clone());
         if let Ok(thing) = req {
-            let data = thing.bytes().expect("error converting mp3 preview to bytes");
+            let data = match thing.bytes() {
+                Ok(bytes) => bytes,
+                Err(e) => {
+                    println!("Error converting mp3 preview to bytes: {}", e);
+                    NotificationManager::add_text_notification("Error loading preview audio", 1000.0, Color::RED);
+                    return;
+                }
+            };
+            
             let mut data2 = Vec::new();
             data.iter().for_each(|e| data2.push(e.clone()));
 
@@ -249,7 +258,6 @@ impl Menu<Game> for OsuDirectMenu {
 
         if key == Key::Escape {return self.back(game)}
 
-        println!("got key {:?}", key);
         if key == Key::Return {
             self.do_search();
         }

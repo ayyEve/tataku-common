@@ -65,19 +65,22 @@ impl Audio {
         let supported_config = supported_config_range.with_max_sample_rate();
         let sample_rate = supported_config.sample_rate().0;
 
-        if let cpal::SupportedBufferSize::Range{min, ..} = buff_range {
-            supported_config.config().buffer_size = cpal::BufferSize::Fixed(min);
+        let config = if let cpal::SupportedBufferSize::Range{min, ..} = buff_range {
+            let mut config = supported_config.config();
+            config.buffer_size = cpal::BufferSize::Fixed(min.max(2048));
             println!("setting buffer size to {}", min);
+            config
         } else {
             println!("unknown buffer size");
-        }
+            supported_config.config()
+        };
 
         // println!("Sample Rate Stream: {}", sample_rate);
         let (controller, mut queue) = AudioQueue::new();
 
         std::thread::spawn(move || {
             let stream = device.build_output_stream(
-                &supported_config.into(),
+                &config,
                 move |data: &mut [f32], info: &cpal::OutputCallbackInfo| {
                     
                     // react to stream events and read or write stream data here.

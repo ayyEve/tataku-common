@@ -453,8 +453,17 @@ impl HitObject for StandardSlider {
 
     fn reset(&mut self) {
         self.hit_dots.clear();
+        self.sound_queue.clear();
+
+        self.map_time = 0.0;
         self.hold_time = 0.0;
         self.release_time = 0.0;
+        self.start_checked = false;
+        self.end_checked = false;
+        
+        self.sound_index = 0;
+        self.slides_complete = 0;
+        self.moving_forward = true;
     }
 }
 impl StandardHitObject for StandardSlider {
@@ -467,9 +476,9 @@ impl StandardHitObject for StandardSlider {
         samples
     }
     fn get_hitsound(&self) -> u8 {
-        if self.sound_index >= self.def.edge_sounds.len() {
-            println!("line: {}", self.def.raw);
-        }
+        // if self.sound_index >= self.def.edge_sounds.len() {
+        //     println!("line: {}", self.def.raw);
+        // }
         self.def.edge_sounds[self.sound_index.min(self.def.edge_sounds.len() - 1)]
         // self.def.hitsound
     }

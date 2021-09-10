@@ -318,7 +318,7 @@ impl GameMode for StandardGame {
                     // since we dont want to add anything to the hit error list
                     let note_time = self.notes[self.note_index].time();
                     manager.score.hit_miss(time, note_time);
-                    println!("note miss (time: {}, {}, diff: {}, od: {})", time, note_time, time - note_time, manager.beatmap.metadata.od);
+                    // println!("note miss (time: {}, {}, diff: {}, od: {})", time, note_time, time - note_time, manager.beatmap.metadata.od);
                     self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), ScoreHit::Miss));
                 }
                 NoteType::Slider => {

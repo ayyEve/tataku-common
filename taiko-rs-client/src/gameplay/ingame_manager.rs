@@ -336,8 +336,8 @@ impl IngameManager {
             let sound = self.hitsound_cache.get(&sound_file).unwrap();
             let sound = Audio::play_sound(sound.clone());
 
-            if let Some(sound) =  sound.upgrade() {
-                sound.set_volume(1.0);
+            if let Some(sound) = sound.upgrade() {
+                // sound.set_volume(1.0);
                 sound.set_position(0.0);
                 sound.play();
             }
