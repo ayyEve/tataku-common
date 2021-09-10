@@ -354,13 +354,13 @@ impl HitObject for StandardSlider {
             println!("repeat {} started", self.slides_complete);
 
             //TODO: play sound
+            self.sound_index += 1;
             self.sound_queue.push((
                 beatmap_time,
                 self.get_hitsound(),
                 self.get_hitsamples().clone(),
                 None
             ));
-            self.sound_index += 1;
         }
     }
 
@@ -521,7 +521,7 @@ impl StandardHitObject for StandardSlider {
             
             // start wasnt hit yet, set it to true
             self.start_checked = true;
-            self.sound_index += 1;
+            // self.sound_index += 1;
             
             // set the judgement time to our start time
             judgement_time = self.time;

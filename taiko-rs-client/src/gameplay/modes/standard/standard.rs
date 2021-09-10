@@ -155,7 +155,7 @@ impl GameMode for StandardGame {
         }
 
         // s.notes.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
-        s.end_time = s.notes[s.notes.len() - 1].end_time(100.0);
+        s.end_time = s.notes.last().unwrap().end_time(0.0) + 1000.0;
         s
     }
 
