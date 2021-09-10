@@ -257,7 +257,7 @@ pub fn extract_all() {
 
     // check for new maps
     if let Ok(files) = std::fs::read_dir(crate::DOWNLOADS_DIR) {
-        let completed = Arc::new(Mutex::new(0));
+        // let completed = Arc::new(Mutex::new(0));
 
         let files:Vec<std::io::Result<DirEntry>> = files.collect();
         let len = files.len();
@@ -265,12 +265,12 @@ pub fn extract_all() {
 
         for file in files {
             println!("[extract] looping file {:?}", file);
-            let completed = completed.clone();
+            // let completed = completed.clone();
 
             match file {
                 Ok(filename) => {
                     println!("[extract] file ok");
-                    tokio::spawn(async move {
+                    // tokio::spawn(async move {
                         println!("[extract] reading file {:?}", filename);
 
                         let mut error_counter = 0;
@@ -285,7 +285,7 @@ pub fn extract_all() {
                                 return;
                             }
 
-                            tokio::time::sleep(Duration::from_millis(1000)).await;
+                            // tokio::time::sleep(Duration::from_millis(1000)).await;
                         }
 
                         let file = std::fs::File::open(filename.path().to_str().unwrap()).unwrap();
@@ -330,8 +330,8 @@ pub fn extract_all() {
                         }
                         
                         println!("[extract] done");
-                        *completed.lock() += 1;
-                    });
+                        // *completed.lock() += 1;
+                    // });
                 }
                 Err(e) => {
                     println!("error with file: {}", e);
@@ -340,9 +340,9 @@ pub fn extract_all() {
         }
     
         
-        while *completed.lock() < len {
-            println!("waiting for downloads {} of {}", *completed.lock(), len);
-            std::thread::sleep(Duration::from_millis(500));
-        }
+        // while *completed.lock() < len {
+        //     println!("waiting for downloads {} of {}", *completed.lock(), len);
+        //     std::thread::sleep(Duration::from_millis(500));
+        // }
     }
 }
