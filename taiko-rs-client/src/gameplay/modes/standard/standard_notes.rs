@@ -351,7 +351,7 @@ impl HitObject for StandardSlider {
             // direction changed
             self.moving_forward = current_moving_forwards;
             self.slides_complete += 1;
-            println!("repeat {} started", self.slides_complete);
+            // println!("repeat {} started", self.slides_complete);
 
             //TODO: play sound
             self.sound_index += 1;
@@ -500,11 +500,8 @@ impl StandardHitObject for StandardSlider {
         samples
     }
     fn get_hitsound(&self) -> u8 {
-        // if self.sound_index >= self.def.edge_sounds.len() {
-        //     println!("line: {}", self.def.raw);
-        // }
+        // println!("{}: getting hitsound at index {}/{}", self.time, self.sound_index, self.def.edge_sounds.len() - 1);
         self.def.edge_sounds[self.sound_index.min(self.def.edge_sounds.len() - 1)]
-        // self.def.hitsound
     }
     fn causes_miss(&self) -> bool {false}
     fn point_draw_pos(&self) -> Vector2 {self.pos}
@@ -525,6 +522,7 @@ impl StandardHitObject for StandardSlider {
             return if distance > self.radius * 2.0 || self.hold_time < self.release_time {
                 ScoreHit::Miss
             } else {
+                self.sound_index = self.def.edge_sounds.len() - 1;
                 ScoreHit::X300
             }
         }
@@ -560,6 +558,9 @@ impl StandardHitObject for StandardSlider {
             
             // start wasnt hit yet, set it to true
             self.end_checked = true;
+
+            // make sure the last hitsound in the list is played
+            self.sound_index = self.def.edge_sounds.len() - 1;
             
             // set the judgement time to our end time
             judgement_time = self.curve.end_time;
