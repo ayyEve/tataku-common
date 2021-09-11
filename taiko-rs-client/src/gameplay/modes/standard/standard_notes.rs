@@ -228,7 +228,7 @@ pub struct StandardSlider {
     /// what is the current sound index?
     sound_index: usize,
     /// how many slides have been completed?
-    slides_complete: u16,
+    slides_complete: u64,
     /// used to check if a slide has been completed
     moving_forward: bool,
     /// song's current time
@@ -430,19 +430,43 @@ impl HitObject for StandardSlider {
         }
         
         // start and end circles
-        for pos in [self.visual_end_pos, self.pos] {
-            let mut c = Circle::new(
-                self.color,
-                self.base_depth - 0.00000005, // should be above curves but below slider ball
-                pos,
-                self.radius
-            );
-            c.border = Some(Border {
-                color: Color::BLACK,
-                radius: NOTE_BORDER_SIZE
-            });
-            list.push(Box::new(c));
-        }
+        let repeats = self.def.slides > 1;
+        let repeat_diff = self.def.slides - self.slides_complete;
+
+        // end pos
+        let mut c = Circle::new(
+            self.color,
+            self.base_depth - 0.00000005, // should be above curves but below slider ball
+            self.visual_end_pos,
+            self.radius
+        );
+        c.border = Some(Border::new(
+            if repeats && repeat_diff > 1 {
+                Color::RED
+            } else {
+                Color::BLACK
+            },
+            NOTE_BORDER_SIZE
+        ));
+        list.push(Box::new(c));
+
+        // start pos
+        let mut c = Circle::new(
+            self.color,
+            self.base_depth - 0.00000005, // should be above curves but below slider ball
+            self.pos,
+            self.radius
+        );
+        c.border = Some(Border::new(
+            if repeats && repeat_diff > 2 {
+                Color::RED
+            } else {
+                Color::BLACK
+            },
+            NOTE_BORDER_SIZE
+        ));
+        list.push(Box::new(c));
+
 
         // draw hit dots
         // for dot in self.hit_dots.as_slice() {
