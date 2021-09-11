@@ -4,6 +4,8 @@ use serde::{Serialize, Deserialize};
 use crate::sync::*;
 use crate::Vector2;
 
+use super::managers::NotificationManager;
+
 const SETTINGS_FILE:&str = "settings.json";
 
 lazy_static::lazy_static! {
@@ -42,26 +44,32 @@ pub struct Settings {
 }
 impl Settings {
     fn load() -> Settings {
-        match std::fs::read_to_string(SETTINGS_FILE) {
+        let s = match std::fs::read_to_string(SETTINGS_FILE) {
             Ok(b) => match serde_json::from_str(&b) {
                 Ok(settings) => settings,
-                Err(_) => {
-                    println!("error reading settings.json, loading defaults");
+                Err(e) => {
+                    // println!("error reading settings.json, loading defaults");
+                    NotificationManager::add_error_notification("Error reading settings.json\nLoading defaults", e.into());
                     Settings::default()
-                },
-            },
-            Err(_) => {
-                println!("error reading settings.json, loading defaults");
+                }
+            }
+            Err(e) => {
+                // println!("error reading settings.json, loading defaults");
+                NotificationManager::add_error_notification("Error reading settings.json\nLoading defaults", e.into());
                 Settings::default()
-            },
-        }
+            }
+        };
+        // save after loading.
+        // writes file if it doesnt exist, and writes new values from updates
+        s.save();
+        s
     }
     pub fn save(&self) {
         println!("Saving settings");
         let str = serde_json::to_string_pretty(self).unwrap();
         match std::fs::write(SETTINGS_FILE, str) {
             Ok(_) => println!("settings saved successfully"),
-            Err(e) => println!("error saving settings: {}", e),
+            Err(e) => NotificationManager::add_error_notification("Error saving settings", e.into()),
         }
     }
 

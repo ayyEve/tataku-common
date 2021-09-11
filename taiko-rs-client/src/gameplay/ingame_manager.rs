@@ -325,7 +325,7 @@ impl IngameManager {
 
         let vol = (if note_hitsamples.volume == 0 {timing_point.volume} else {note_hitsamples.volume} as f32 / 100.0) * Settings::get_mut().get_effect_vol();
         for (hitsound, mut sample_set, _index) in play_list.iter() {
-            if sample_set == "drum" {sample_set = &"normal"}
+            // if sample_set == "drum" {sample_set = &"normal"}
             let sound_file = format!("{}-hit{}", sample_set, hitsound);
 
             if !self.hitsound_cache.contains_key(&sound_file) {

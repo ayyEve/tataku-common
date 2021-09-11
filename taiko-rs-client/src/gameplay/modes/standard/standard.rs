@@ -247,21 +247,23 @@ impl GameMode for StandardGame {
                     let note_time = self.notes[self.note_index].time();
                     self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts));
                     match pts {
-                        ScoreHit::Miss => {
-                            println!("miss (press)");
-                            manager.score.hit_miss(time, note_time);
-                            manager.hitbar_timings.push((time, time - note_time));
-                            self.next_note()
-                        },
                         ScoreHit::Other(_, _) | ScoreHit::None => {}
 
+                        ScoreHit::Miss => {
+                            println!("miss (press)");
+                            manager.score.combo = 0;
+                            // manager.score.hit_miss(time, note_time);
+                            // manager.hitbar_timings.push((time, time - note_time));
+                            self.next_note()
+                        },
+
                         pts => {
-                            match pts {
-                                ScoreHit::X300 => manager.score.hit300(time, note_time),
-                                ScoreHit::X100 => manager.score.hit100(time, note_time),
-                                ScoreHit::X50  => manager.score.hit50 (time, note_time),
-                                _ => {}
-                            }
+                            // match pts {
+                            //     ScoreHit::X300 => manager.score.hit300(time, note_time),
+                            //     ScoreHit::X100 => manager.score.hit100(time, note_time),
+                            //     ScoreHit::X50  => manager.score.hit50 (time, note_time),
+                            //     _ => {}
+                            // }
 
                             // play hitsound
                             let hitsound = self.notes[self.note_index].get_hitsound();
@@ -269,7 +271,7 @@ impl GameMode for StandardGame {
                             manager.play_note_sound(note_time, hitsound, hitsamples);
                             
                             // add to hit timing bar
-                            manager.hitbar_timings.push((time, time - note_time));
+                            // manager.hitbar_timings.push((time, time - note_time));
 
                             // next note
                             self.next_note();

@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+use crate::errors::TaikoError;
 use crate::sync::*;
 use crate::window_size;
 use crate::game::{Game, get_font};
@@ -25,7 +26,6 @@ pub struct NotificationManager {
 }
 impl NotificationManager { // static
     pub fn add_notification(notif: Notification) {
-
         let new = ProcessedNotif::new(notif);
         let mut locked = NOTIFICATION_MANAGER.lock();
 
@@ -41,6 +41,16 @@ impl NotificationManager { // static
     pub fn add_text_notification(text: &str, duration: f32, color: Color) {
         let notif = Notification::new(text.to_owned(), color, duration, NotificationOnClick::None);
         Self::add_notification(notif);
+    }
+    pub fn add_error_notification(msg:&str, error:TaikoError) {
+        let text = format!("{}:\n{}", msg, error);
+        
+        println!("{}", text);
+        Self::add_text_notification(
+            &text, 
+            5_000.0, 
+            Color::RED
+        );
     }
 }
 impl NotificationManager { // non-static

@@ -60,7 +60,7 @@ async fn main() {
 
 
     // hitsounds
-    for sample_set in ["normal", "soft"] {
+    for sample_set in ["normal", "soft", "drum"] {
         for hitsound in ["normal", "whistle", "clap", "finish"] {
             let file = &format!("audio/{}-hit{}.wav", sample_set, hitsound);
             check_file(file, &format!("https://cdn.ayyeve.xyz/taiko-rs/{}", file));
