@@ -19,7 +19,6 @@ pub struct InputManager {
     keys_down: HashSet<(Key, Instant)>,
     /// keys that were released but waiting to be registered
     keys_up: HashSet<(Key, Instant)>,
-
     
     text_cache: String,
     window_change_focus: Option<bool>,

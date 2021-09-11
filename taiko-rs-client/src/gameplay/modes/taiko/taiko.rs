@@ -242,14 +242,14 @@ impl GameMode for TaikoGame {
                     manager.score.add_pts(points as u64, false);
                     return;
                 },
-                ScoreHit::None => {},
+                ScoreHit::None | ScoreHit::X50 => {},
             }
         }
 
         let note = self.notes.get_mut(self.note_index).unwrap();
         let note_time = note.time();
         match note.get_points(hit_type, time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300)) {
-            ScoreHit::None => {
+            ScoreHit::None | ScoreHit::X50 => {
                 // play sound
                 // Audio::play_preloaded(sound);
             },
@@ -268,7 +268,7 @@ impl GameMode for TaikoGame {
 
                 // only play finisher sounds if the note is both a finisher and was hit
                 // could maybe also just change this to HitObject.get_sound() -> &str
-                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"};}
+                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"}}
                 // Audio::play_preloaded(sound);
                 //TODO: indicate this was a bad hit
 
@@ -278,7 +278,7 @@ impl GameMode for TaikoGame {
                 manager.score.hit300(time, note_time);
                 manager.hitbar_timings.push((time, time - note_time));
                 
-                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"};}
+                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"}}
                 // Audio::play_preloaded(sound);
 
                 self.next_note();

@@ -98,6 +98,14 @@ impl Score {
 
         self.hit_timings.push(hit_time - note_time);
     }
+    pub fn hit50(&mut self, hit_time:f32, note_time:f32) {
+        self.combo += 1;
+        self.max_combo = self.max_combo.max(self.combo);
+        self.x100 += 1;
+        self.add_pts(100, true);
+        
+        self.hit_timings.push(hit_time - note_time);
+    }
     pub fn hit100(&mut self, hit_time:f32, note_time:f32) {
         self.combo += 1;
         self.max_combo = self.max_combo.max(self.combo);
@@ -183,6 +191,7 @@ impl fmt::Display for Score {
 pub enum ScoreHit {
     None,
     Miss,
+    X50,
     X100,
     X300,
     /// score increment, consume the object

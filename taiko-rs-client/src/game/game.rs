@@ -6,13 +6,15 @@ use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
 
 use crate::databases::{save_replay, save_score};
+use crate::render::{Color, Image, Rectangle, Renderable};
 use taiko_rs_common::types::{SpectatorFrames, UserAction};
 use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
 use crate::helpers::{FpsDisplay, BenchmarkHelper, VolumeControl};
-use crate::render::{Color, Image, Rectangle, Renderable, Circle};
 use crate::{window_size, Vector2, DOWNLOADS_DIR, menu::*, sync::{Arc, Mutex}};
 use crate::game::{Settings, audio::Audio, online::{USER_ITEM_SIZE, OnlineManager}};
 use crate::game::managers::{InputManager, BeatmapManager, NotificationManager, NOTIFICATION_MANAGER};
+
+use super::managers::CursorManager;
 
 /// background color
 const GFX_CLEAR_COLOR:Color = Color::WHITE;
@@ -46,6 +48,9 @@ pub struct Game {
 
     // user list
     show_user_list: bool,
+
+    // cursor
+    cursor_manager: CursorManager,
 
     // misc
     pub game_start: Instant,
@@ -113,6 +118,9 @@ impl Game {
             transition: None,
             transition_last: None,
             transition_timer: 0,
+
+            // cursor
+            cursor_manager: CursorManager::new(),
 
             // misc
             show_user_list: false,
@@ -237,6 +245,13 @@ impl Game {
         //     self.register_timings = self.input_manager.get_register_delay();
         //     println!("register times: min:{}, max: {}, avg:{}", self.register_timings.0,self.register_timings.1,self.register_timings.2);
         // }
+        if !self.cursor_manager.replay_mode {
+            self.cursor_manager.set_cursor_pos(mouse_pos);
+        } else if self.cursor_manager.replay_mode_changed {
+            self.cursor_manager.replay_mode_changed = false;
+            use glfw::CursorMode::{Normal, Hidden};
+            self.window.window.set_cursor_mode(if self.cursor_manager.replay_mode {Normal} else {Hidden});
+        }
 
         if mouse_down.len() > 0 {
             // check notifs
@@ -617,15 +632,10 @@ impl Game {
         NOTIFICATION_MANAGER.lock().draw(&mut self.render_queue);
 
         // draw cursor
-        let mouse_pressed = self.input_manager.mouse_buttons.len() > 0 
-            || self.input_manager.key_down(settings.standard_settings.left_key)
-            || self.input_manager.key_down(settings.standard_settings.right_key);
-        self.render_queue.push(Box::new(Circle::new(
-            Color::new(0.8, 0.0, 0.6, 1.0),
-            -f64::MAX,
-            self.input_manager.mouse_pos,
-            if mouse_pressed {10.0} else {5.0} * settings.cursor_scale
-        )));
+        // let mouse_pressed = self.input_manager.mouse_buttons.len() > 0 
+        //     || self.input_manager.key_down(settings.standard_settings.left_key)
+        //     || self.input_manager.key_down(settings.standard_settings.right_key);
+        self.cursor_manager.draw(&mut self.render_queue);
 
 
         // sort the queue here (so it only needs to be sorted once per frame, instead of every time a shape is added)

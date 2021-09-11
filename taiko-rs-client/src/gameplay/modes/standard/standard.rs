@@ -21,6 +21,7 @@ pub struct StandardGame {
     // hit timing bar stuff
     hitwindow_300: f32,
     hitwindow_100: f32,
+    hitwindow_50: f32,
     hitwindow_miss: f32,
     end_time: f32,
 
@@ -57,6 +58,7 @@ impl GameMode for StandardGame {
             note_index: 0,
             end_time: 0.0,
 
+            hitwindow_50: 0.0,
             hitwindow_100: 0.0,
             hitwindow_300: 0.0,
             hitwindow_miss: 0.0,
@@ -173,13 +175,27 @@ impl GameMode for StandardGame {
             ReplayFrame::Press(KeyPress::Left)
             | ReplayFrame::Press(KeyPress::Right) => {
                 self.hold_count += 1;
-                let pts = self.notes[self.note_index].get_points(time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300));
+                let pts = self.notes[self.note_index].get_points(time, (self.hitwindow_miss, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
                 let note_time = self.notes[self.note_index].time();
                 self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts.clone()));
                 match pts {
                     ScoreHit::Miss => {
                         println!("miss (press)");
                         manager.score.hit_miss(time, note_time);
+                        manager.hitbar_timings.push((time, time - note_time));
+                        if self.notes[self.note_index].note_type() == NoteType::Note {
+                            self.next_note()
+                        }
+                    }
+                    ScoreHit::X50 => {
+                        {
+                            let hitsound = self.notes[self.note_index].get_hitsound();
+                            let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
+                            manager.play_note_sound(note_time, hitsound, hitsamples);
+                        }
+
+                        // Audio::play_preloaded("don");
+                        manager.score.hit50(time, note_time);
                         manager.hitbar_timings.push((time, time - note_time));
                         if self.notes[self.note_index].note_type() == NoteType::Note {
                             self.next_note()
@@ -227,7 +243,7 @@ impl GameMode for StandardGame {
             | ReplayFrame::Release(KeyPress::Right) => {
                 self.hold_count -= 1;
                 if self.notes[self.note_index].note_type() == NoteType::Slider {
-                    let pts = self.notes[self.note_index].get_points(time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300));
+                    let pts = self.notes[self.note_index].get_points(time, (self.hitwindow_miss, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
                     let note_time = self.notes[self.note_index].time();
                     self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts));
                     match pts {
@@ -237,30 +253,27 @@ impl GameMode for StandardGame {
                             manager.hitbar_timings.push((time, time - note_time));
                             self.next_note()
                         },
-                        ScoreHit::X100 => {
-                            {
-                                let hitsound = self.notes[self.note_index].get_hitsound();
-                                let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
-                                manager.play_note_sound(note_time, hitsound, hitsamples);
+                        ScoreHit::Other(_, _) | ScoreHit::None => {}
+
+                        pts => {
+                            match pts {
+                                ScoreHit::X300 => manager.score.hit300(time, note_time),
+                                ScoreHit::X100 => manager.score.hit100(time, note_time),
+                                ScoreHit::X50  => manager.score.hit50 (time, note_time),
+                                _ => {}
                             }
 
-                            manager.score.hit100(time, note_time);
+                            // play hitsound
+                            let hitsound = self.notes[self.note_index].get_hitsound();
+                            let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
+                            manager.play_note_sound(note_time, hitsound, hitsamples);
+                            
+                            // add to hit timing bar
                             manager.hitbar_timings.push((time, time - note_time));
-                            self.next_note();
-                        },
-                        ScoreHit::X300 => {
-                            {
-                                let hitsound = self.notes[self.note_index].get_hitsound();
-                                let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
-                                manager.play_note_sound(note_time, hitsound, hitsamples);
-                            }
 
-                            manager.score.hit300(time, note_time);
-                            manager.hitbar_timings.push((time, time - note_time));
+                            // next note
                             self.next_note();
-                        },
-                        ScoreHit::Other(_, _) => {}
-                        ScoreHit::None => {}
+                        }
                     }
                 }
 
@@ -333,35 +346,30 @@ impl GameMode for StandardGame {
                     let note_time = self.notes[self.note_index].end_time(0.0);
                     // check slider release points
                     // -1.0 for miss hitwindow to indidate it was held to the end (ie, no hitwindow to check)
-                    let pts = self.notes[self.note_index].get_points(time, (-1.0, self.hitwindow_100, self.hitwindow_300));
+                    let pts = self.notes[self.note_index].get_points(time, (-1.0, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
                     self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts));
                     match pts {
                         ScoreHit::None | ScoreHit::Miss => {
                             manager.score.hit_miss(time, note_time);
                             manager.hitbar_timings.push((time, time - note_time));
-                        },
-                        ScoreHit::X100 => {
-                            {
-                                println!("sound on slider end: {} - {} = {}", time, note_time, time - note_time);
-                                let hitsound = self.notes[self.note_index].get_hitsound();
-                                let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
-                                manager.play_note_sound(note_time, hitsound, hitsamples);
-                            }
-
-                            manager.score.hit100(time, note_time);
-                            manager.hitbar_timings.push((time, time - note_time));
-                        },
-                        ScoreHit::X300 => {
-                            {
-                                let hitsound = self.notes[self.note_index].get_hitsound();
-                                let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
-                                manager.play_note_sound(note_time, hitsound, hitsamples);
-                            }
-
-                            manager.score.hit300(time, note_time);
-                            manager.hitbar_timings.push((time, time - note_time));
-                        },
+                        }
                         ScoreHit::Other(_, _) => {}
+                        pts => {
+                            match pts {
+                                ScoreHit::X300 => manager.score.hit300(time, note_time),
+                                ScoreHit::X100 => manager.score.hit100(time, note_time),
+                                ScoreHit::X50 => manager.score.hit50(time, note_time),
+                                _ => {}
+                            }
+
+                            // play hitsound
+                            let hitsound = self.notes[self.note_index].get_hitsound();
+                            let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
+                            manager.play_note_sound(note_time, hitsound, hitsamples);
+
+
+                            manager.hitbar_timings.push((time, time - note_time));
+                        }
                     }
                 }
                 NoteType::Spinner => {}
@@ -398,11 +406,11 @@ impl GameMode for StandardGame {
         for (p_time, pos, pts) in self.draw_points.iter() {
             let mut color;
             match pts {
-                ScoreHit::None => continue,
                 ScoreHit::Miss => color = Color::RED,
+                ScoreHit::X50  => color = Color::YELLOW,
                 ScoreHit::X100 => color = Color::GREEN,
                 ScoreHit::X300 => color = Color::new(0.0, 0.7647, 1.0, 1.0),
-                ScoreHit::Other(_, _) => continue,
+                ScoreHit::None | ScoreHit::Other(_, _) => continue,
             }
             
             let diff = time - p_time;
@@ -533,11 +541,13 @@ impl GameMode for StandardGame {
             note.reset();
         }
         
-        let od = beatmap.metadata.od;
+        
         // setup hitwindows
-        self.hitwindow_miss = map_difficulty(od, 135.0, 95.0, 70.0);
-        self.hitwindow_100 = map_difficulty(od, 120.0, 80.0, 50.0);
-        self.hitwindow_300 = map_difficulty(od, 50.0, 35.0, 20.0);
+        let od = beatmap.metadata.od;
+        self.hitwindow_miss = map_difficulty(od, 225.0, 175.0, 125.0); // idk
+        self.hitwindow_50   = map_difficulty(od, 200.0, 150.0, 100.0);
+        self.hitwindow_100  = map_difficulty(od, 140.0, 100.0, 60.0);
+        self.hitwindow_300  = map_difficulty(od, 80.0, 50.0, 20.0);
 
         self.draw_points.clear();
     }
@@ -554,9 +564,10 @@ impl GameMode for StandardGame {
 
     fn timing_bar_things(&self) -> (Vec<(f32,Color)>, (f32,Color)) {
         (vec![
+            (self.hitwindow_50, [0.8549, 0.6823, 0.2745, 1.0].into()),
             (self.hitwindow_100, [0.3411, 0.8901, 0.0745, 1.0].into()),
             (self.hitwindow_300, [0.0, 0.7647, 1.0, 1.0].into()),
-        ], (self.hitwindow_miss, [0.8549, 0.6823, 0.2745, 1.0].into()))
+        ], (self.hitwindow_miss, [0.9, 0.05, 0.05, 1.0].into()))
     }
 
     fn combo_bounds(&self) -> Rectangle {
