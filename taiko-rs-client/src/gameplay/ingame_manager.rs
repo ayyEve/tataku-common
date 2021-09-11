@@ -5,12 +5,10 @@ use piston::RenderArgs;
 use opengl_graphics::GlyphCache;
 use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
 
+use crate::gameplay::hitobject_defs::HitSamples;
 use crate::game::{Audio, AudioHandle, Settings, Sound, get_font};
 use crate::render::{Renderable, Rectangle, Text, Color, Border};
 use crate::{Vector2, gameplay::*, sync::*, helpers::visibility_bg};
-
-use super::hitobject_defs::HitSamples;
-
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
 const OFFSET_DRAW_TIME:f32 = 2_000.0; // how long should the offset be drawn for?
@@ -157,18 +155,22 @@ impl IngameManager {
         let settings = Settings::get().clone();
         
         // reset song
-        match self.song.upgrade().clone() {
+        match self.song.upgrade() {
             Some(song) => {
                 song.set_position(0.0);
                 song.pause();
+                // song.set_playback_speed(2.0);
             }
             None => {
                 while let None = self.song.upgrade() {
                     self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
                 }
-                self.song.upgrade().unwrap().pause();
+                let song = self.song.upgrade().unwrap();
+                song.pause();
+                // song.set_playback_speed(2.0);
             }
         }
+
 
         let mut lock = self.gamemode.lock();
         lock.reset(&self.beatmap);
@@ -324,8 +326,7 @@ impl IngameManager {
         // println!("{}, {} | {}", timing_point.volume, note_hitsamples.volume, );
 
         let vol = (if note_hitsamples.volume == 0 {timing_point.volume} else {note_hitsamples.volume} as f32 / 100.0) * Settings::get_mut().get_effect_vol();
-        for (hitsound, mut sample_set, _index) in play_list.iter() {
-            // if sample_set == "drum" {sample_set = &"normal"}
+        for (hitsound, sample_set, _index) in play_list.iter() {
             let sound_file = format!("{}-hit{}", sample_set, hitsound);
 
             if !self.hitsound_cache.contains_key(&sound_file) {

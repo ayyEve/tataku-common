@@ -258,12 +258,12 @@ impl GameMode for StandardGame {
                         },
 
                         pts => {
-                            // match pts {
-                            //     ScoreHit::X300 => manager.score.hit300(time, note_time),
-                            //     ScoreHit::X100 => manager.score.hit100(time, note_time),
-                            //     ScoreHit::X50  => manager.score.hit50 (time, note_time),
-                            //     _ => {}
-                            // }
+                            match pts {
+                                ScoreHit::X300 => manager.score.hit300(time, note_time),
+                                ScoreHit::X100 => manager.score.hit100(time, note_time),
+                                ScoreHit::X50  => manager.score.hit50 (time, note_time),
+                                _ => {}
+                            }
 
                             // play hitsound
                             let hitsound = self.notes[self.note_index].get_hitsound();

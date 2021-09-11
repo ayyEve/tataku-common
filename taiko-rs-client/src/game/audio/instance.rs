@@ -88,6 +88,12 @@ impl AudioInstance {
             self.handle.volume_changed.store(false, Ordering::SeqCst);
         }
 
+        if self.handle.playback_speed_changed.load(Ordering::SeqCst) {
+            self.playback_speed = self.handle.playback_speed.lock().clone();
+
+            self.handle.playback_speed_changed.store(false, Ordering::SeqCst);
+        }
+
         if self.handle.position_changed.load(Ordering::SeqCst) {
             let new_position = {
                 let mut lock = self.handle.new_position.lock();
@@ -156,7 +162,7 @@ impl Iterator for AudioInstance {
             return Some((sample, sample * self.volume));
         }
 
-        let effective_stream_rate = self.stream_sample_rate as f64 * self.playback_speed;
+        let effective_stream_rate = self.stream_sample_rate as f64 / self.playback_speed;
         let ratio = self.sound.sample_rate as f64 / effective_stream_rate;
         while self.interpolation_value >= 1.0 {
             self.next_frame();
