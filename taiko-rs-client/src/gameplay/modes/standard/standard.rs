@@ -31,7 +31,10 @@ pub struct StandardGame {
     key_counter: KeyCounter,
 
     /// original, mouse_start
-    move_playfield: Option<(Vector2, Vector2)>
+    move_playfield: Option<(Vector2, Vector2)>,
+
+    /// how many keys are being held?
+    hold_count: u8
 }
 impl StandardGame {
     pub fn next_note(&mut self) {self.note_index += 1}
@@ -50,6 +53,7 @@ impl GameMode for StandardGame {
             notes: Vec::new(),
             mouse_pos:Vector2::zero(),
 
+            hold_count: 0,
             note_index: 0,
             end_time: 0.0,
 
@@ -168,6 +172,7 @@ impl GameMode for StandardGame {
         match frame {
             ReplayFrame::Press(KeyPress::Left)
             | ReplayFrame::Press(KeyPress::Right) => {
+                self.hold_count += 1;
                 let pts = self.notes[self.note_index].get_points(time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300));
                 let note_time = self.notes[self.note_index].time();
                 self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts.clone()));
@@ -220,6 +225,7 @@ impl GameMode for StandardGame {
             }
             ReplayFrame::Release(KeyPress::Left) 
             | ReplayFrame::Release(KeyPress::Right) => {
+                self.hold_count -= 1;
                 if self.notes[self.note_index].note_type() == NoteType::Slider {
                     let pts = self.notes[self.note_index].get_points(time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300));
                     let note_time = self.notes[self.note_index].time();
@@ -259,8 +265,10 @@ impl GameMode for StandardGame {
                 }
 
                 // self.notes[self.note_index].release(time);
-                for note in self.notes.iter_mut() {
-                    note.release(time)
+                if self.hold_count == 0 {
+                    for note in self.notes.iter_mut() {
+                        note.release(time)
+                    }
                 }
             }
             ReplayFrame::MousePos(x, y) => {
