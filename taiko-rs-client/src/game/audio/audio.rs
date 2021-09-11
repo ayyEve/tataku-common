@@ -67,7 +67,7 @@ impl Audio {
 
         let config = if let cpal::SupportedBufferSize::Range{min, ..} = buff_range {
             let mut config = supported_config.config();
-            config.buffer_size = cpal::BufferSize::Fixed(min.max(2048));
+            config.buffer_size = cpal::BufferSize::Fixed(min.max(8192));
             println!("setting buffer size to {}", min);
             config
         } else {
