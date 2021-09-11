@@ -103,13 +103,11 @@ impl GameMode for TaikoGame {
                 // when loading, if unified just have it as sound_types with 1 index
                 let mut sound_types:Vec<(HitType, bool)> = Vec::new();
 
-                // for i in sound_list_raw {
-                //     if let Ok(hitsound) = i.parse::<u32>() {
-                //         let hit_type = if (hitsound & (2 | 8)) > 0 {super::HitType::Kat} else {super::HitType::Don};
-                //         let finisher = (hitsound & 4) > 0;
-                //         sound_types.push((hit_type, finisher));
-                //     }
-                // }
+                for hitsound in slider.edge_sounds.iter() {
+                    let hit_type = if (hitsound & (2 | 8)) > 0 {super::HitType::Kat} else {super::HitType::Don};
+                    let finisher = (hitsound & 4) > 0;
+                    sound_types.push((hit_type, finisher));
+                }
                 
                 let unified_sound_addition = sound_types.len() == 0;
                 if unified_sound_addition {
