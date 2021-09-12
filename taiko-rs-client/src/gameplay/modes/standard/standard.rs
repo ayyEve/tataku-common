@@ -175,7 +175,7 @@ impl GameMode for StandardGame {
             ReplayFrame::Press(KeyPress::Left)
             | ReplayFrame::Press(KeyPress::Right) => {
                 self.hold_count += 1;
-                let pts = self.notes[self.note_index].get_points(time, (self.hitwindow_miss, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
+                let pts = self.notes[self.note_index].get_points(true, time, (self.hitwindow_miss, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
                 let note_time = self.notes[self.note_index].time();
                 self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts.clone()));
                 match pts {
@@ -243,7 +243,7 @@ impl GameMode for StandardGame {
             | ReplayFrame::Release(KeyPress::Right) => {
                 self.hold_count -= 1;
                 if self.notes[self.note_index].note_type() == NoteType::Slider {
-                    let pts = self.notes[self.note_index].get_points(time, (self.hitwindow_miss, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
+                    let pts = self.notes[self.note_index].get_points(false, time, (self.hitwindow_miss, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
                     let note_time = self.notes[self.note_index].time();
                     self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts));
                     match pts {
@@ -348,7 +348,7 @@ impl GameMode for StandardGame {
                     let note_time = self.notes[self.note_index].end_time(0.0);
                     // check slider release points
                     // -1.0 for miss hitwindow to indidate it was held to the end (ie, no hitwindow to check)
-                    let pts = self.notes[self.note_index].get_points(time, (-1.0, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
+                    let pts = self.notes[self.note_index].get_points(false, time, (-1.0, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
                     self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts));
                     match pts {
                         ScoreHit::None | ScoreHit::Miss => {

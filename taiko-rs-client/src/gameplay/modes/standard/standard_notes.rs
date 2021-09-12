@@ -23,7 +23,7 @@ const NOTE_DEPTH:f64 = -100.0;
 pub trait StandardHitObject: HitObject {
     /// does this object count as a miss if it is not hit?
     fn causes_miss(&self) -> bool; //TODO: might change this to return an enum of "no", "yes". "yes_combo_only"
-    fn get_points(&mut self, time:f32, hit_windows:(f32,f32,f32,f32)) -> ScoreHit;
+    fn get_points(&mut self, is_press:bool, time:f32, hit_windows:(f32,f32,f32,f32)) -> ScoreHit;
 
     fn playfield_changed(&mut self);
 
@@ -153,7 +153,7 @@ impl StandardHitObject for StandardNote {
     fn mouse_move(&mut self, pos:Vector2) {self.mouse_pos = pos}
     fn get_preempt(&self) -> f32 {self.time_preempt}
 
-    fn get_points(&mut self, time:f32, (hitwindow_miss, hitwindow_50, hitwindow_100, hitwindow_300):(f32,f32,f32,f32)) -> ScoreHit {
+    fn get_points(&mut self, _is_press:bool, time:f32, (hitwindow_miss, hitwindow_50, hitwindow_100, hitwindow_300):(f32,f32,f32,f32)) -> ScoreHit {
         let diff = (time - self.time).abs();
         
         // make sure the cursor is in the radius
@@ -512,7 +512,7 @@ impl StandardHitObject for StandardSlider {
     fn mouse_move(&mut self, pos:Vector2) {self.mouse_pos = pos}
 
     // called on hit and release
-    fn get_points(&mut self, time:f32, (h_miss, h50, h100, h300):(f32,f32,f32,f32)) -> ScoreHit {
+    fn get_points(&mut self, is_press:bool, time:f32, (h_miss, h50, h100, h300):(f32,f32,f32,f32)) -> ScoreHit {
         // slider was held to end, no hitwindow to check
         if h_miss == -1.0 {
             let distance = ((self.time_end_pos.x - self.mouse_pos.x).powi(2) + (self.time_end_pos.y - self.mouse_pos.y).powi(2)).sqrt();
@@ -539,8 +539,8 @@ impl StandardHitObject for StandardSlider {
         if time > self.time - h_miss && time < self.time + h_miss {
             // within starting time frame
 
-            // if already hit, return None
-            if self.start_checked {return ScoreHit::None}
+            // if already hit, or this is a release, return None
+            if self.start_checked || !is_press {return ScoreHit::None}
             
             // start wasnt hit yet, set it to true
             self.start_checked = true;
@@ -786,7 +786,7 @@ impl StandardHitObject for StandardSpinner {
     fn point_draw_pos(&self) -> Vector2 {Vector2::zero()} //TODO
     fn causes_miss(&self) -> bool {self.rotations_completed < self.rotations_required} // if the spinner wasnt completed in time, cause a miss
 
-    fn get_points(&mut self, _:f32, _:(f32,f32,f32,f32)) -> ScoreHit {
+    fn get_points(&mut self, is_press:bool, _:f32, _:(f32,f32,f32,f32)) -> ScoreHit {
         ScoreHit::Other(100, false)
     }
 
