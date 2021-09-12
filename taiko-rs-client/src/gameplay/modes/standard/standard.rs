@@ -2,6 +2,7 @@ use ayyeve_piston_ui::render::*;
 use piston::{MouseButton, RenderArgs};
 
 use crate::game::Settings;
+use crate::gameplay::hitobject_defs::NoteDef;
 use crate::{Vector2, window_size};
 use crate::helpers::{curve::get_curve, key_counter::KeyCounter};
 use crate::gameplay::modes::{FIELD_SIZE, scale_coords, standard::*};
@@ -85,7 +86,14 @@ impl GameMode for StandardGame {
             all_items.push((Some(note), None, None))
         }
         for slider in beatmap.sliders.iter() {
-            all_items.push((None, Some(slider), None))
+            // if slider.curve_points.len() == 0 || slider.length == 0.0 {
+
+
+            //     all_items.push((Some(note), None, None))
+
+            // } else {
+                all_items.push((None, Some(slider), None))
+            // }
         }
         for spinner in beatmap.spinners.iter() {
             all_items.push((None, None, Some(spinner)))
@@ -142,15 +150,36 @@ impl GameMode for StandardGame {
                 )));
             }
             if let Some(slider) = slider {
-                let curve = get_curve(slider, &beatmap);
-                s.notes.push(Box::new(StandardSlider::new(
-                    slider.clone(),
-                    curve,
-                    ar,
-                    cs,
-                    color,
-                    combo_num as u16
-                )))
+                
+                if slider.curve_points.len() == 0 || slider.length == 0.0 {
+                    let note = &NoteDef {
+                        pos: slider.pos,
+                        time: slider.time,
+                        hitsound: slider.hitsound,
+                        hitsamples: slider.hitsamples.clone(),
+                        new_combo: slider.new_combo,
+                        color_skip: slider.color_skip
+                    };
+
+                    s.notes.push(Box::new(StandardNote::new(
+                        note.clone(),
+                        ar,
+                        cs,
+                        Color::new(0.0, 0.0, 0.0, 1.0),
+                        combo_num as u16
+                    )));
+                } else {
+                    let curve = get_curve(slider, &beatmap);
+                    s.notes.push(Box::new(StandardSlider::new(
+                        slider.clone(),
+                        curve,
+                        ar,
+                        cs,
+                        color,
+                        combo_num as u16
+                    )))
+                }
+
             }
             if let Some(spinner) = spinner {
                 s.notes.push(Box::new(StandardSpinner::new(
