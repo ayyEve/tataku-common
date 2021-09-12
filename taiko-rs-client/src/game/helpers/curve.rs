@@ -131,7 +131,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
                 let v1 = if j >= 1 {points[j-1]} else {points[j]};
                 let v2 = points[j];
                 let v3 = if j + 1 < points.len() {points[j + 1]} else {v2 + (v2 - v1)};
-                let v4 = if j + 1 < points.len() {points[j + 2]} else {v3 + (v3 - v2)};
+                let v4 = if j + 2 < points.len() {points[j + 2]} else {v3 + (v3 - v2)};
 
                 for k in 0..SLIDER_DETAIL_LEVEL {
                     path.push(Line::new(
