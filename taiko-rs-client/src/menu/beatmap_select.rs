@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use ayyeve_piston_ui::menu::menu_elements::TextInput;
 use piston::{Key, MouseButton, RenderArgs};
+use ayyeve_piston_ui::menu::menu_elements::TextInput;
 
 use crate::render::*;
 use taiko_rs_common::types::{Score, PlayMode};

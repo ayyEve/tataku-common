@@ -70,19 +70,18 @@ impl Game {
         window.window.set_cursor_mode(glfw::CursorMode::Hidden);
         game_init_benchmark.log("window created", true);
 
-        {
-            //TODO: somehow make sure this file exists?
-            match image::open("./icon-small.png") {
-                Ok(img) => {
-                    window.window.set_icon(vec![img.into_rgba8()]);
-                    game_init_benchmark.log("window icon set", true);
-                }
-                Err(e) => {
-                    game_init_benchmark.log(&format!("error setting window icon: {}", e), true);
-                }
+
+        //TODO: make sure this file exists?
+        match image::open("./icon-small.png") {
+            Ok(img) => {
+                window.window.set_icon(vec![img.into_rgba8()]);
+                game_init_benchmark.log("window icon set", true);
+            }
+            Err(e) => {
+                game_init_benchmark.log(&format!("error setting window icon: {}", e), true);
             }
         }
-        
+
 
         let graphics = GlGraphics::new(opengl);
         game_init_benchmark.log("graphics created", true);
@@ -92,8 +91,6 @@ impl Game {
 
         let online_manager = Arc::new(tokio::sync::Mutex::new(OnlineManager::new()));
         game_init_benchmark.log("online manager created", true);
-
-        game_init_benchmark.log("threading created", true);
 
         let mut g = Game {
             // engine
@@ -175,6 +172,7 @@ impl Game {
     pub fn game_loop(mut self) {
         // input and rendering thread
         let mut events = Events::new(EventSettings::new());
+        events.set_ups_reset(0);
 
         {
             let settings = Settings::get();

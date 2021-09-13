@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use ayyeve_piston_ui::render::*;
 use piston::{MouseButton, RenderArgs};
 
@@ -11,6 +13,9 @@ use crate::gameplay::{DURATION_HEIGHT, GameMode, Beatmap, IngameManager, map_dif
 
 const POINTS_DRAW_TIME:f32 = 100.0;
 const POINTS_DRAW_FADE_TIME:f32 = 40.0;
+
+const NOTE_DEPTH:Range<f64> = 100.0..200.0;
+const SLIDER_DEPTH:Range<f64> = 200.0..300.0;
 
 pub struct StandardGame {
     // lists
@@ -95,18 +100,27 @@ impl GameMode for StandardGame {
             settings,
         };
 
-
         // join notes and sliders into a single array
         // needed because of combo counts
         let mut all_items = Vec::new();
         for note in beatmap.notes.iter() {
-            all_items.push((Some(note), None, None))
+            all_items.push((Some(note), None, None));
+            s.end_time = s.end_time.max(note.time);
         }
         for slider in beatmap.sliders.iter() {
-            all_items.push((None, Some(slider), None))
+            all_items.push((None, Some(slider), None));
+
+            // can this be improved somehow?
+            if slider.curve_points.len() == 0 || slider.length == 0.0 {
+                s.end_time = s.end_time.max(slider.time);
+            } else {
+                let curve = get_curve(slider, &beatmap);
+                s.end_time = s.end_time.max(curve.end_time);
+            }
         }
         for spinner in beatmap.spinners.iter() {
-            all_items.push((None, None, Some(spinner)))
+            all_items.push((None, None, Some(spinner)));
+            s.end_time = s.end_time.max(spinner.end_time);
         }
         // sort
         all_items.sort_by(|a, b| {
@@ -137,6 +151,8 @@ impl GameMode for StandardGame {
             Color::new(0.0, 0.0, 0.8, 1.0)
         ];
 
+        let end_time = s.end_time as f64;
+
         for (note, slider, spinner) in all_items {
             // check for new combo
             if let Some(note) = note {if note.new_combo {combo_num = 0}}
@@ -150,12 +166,15 @@ impl GameMode for StandardGame {
             combo_num += 1;
 
             if let Some(note) = note {
+                let depth = NOTE_DEPTH.start + (note.time as f64 / end_time) * NOTE_DEPTH.end;
+
                 s.notes.push(Box::new(StandardNote::new(
                     note.clone(),
                     ar,
                     color,
                     combo_num as u16,
-                    &scaling_helper
+                    &scaling_helper,
+                    depth
                 )));
             }
             if let Some(slider) = slider {
@@ -171,14 +190,19 @@ impl GameMode for StandardGame {
                         color_skip: slider.color_skip
                     };
 
+                    let depth = NOTE_DEPTH.start + (note.time as f64 / end_time) * NOTE_DEPTH.end;
                     s.notes.push(Box::new(StandardNote::new(
                         note.clone(),
                         ar,
                         Color::new(0.0, 0.0, 0.0, 1.0),
                         combo_num as u16,
-                        &scaling_helper
+                        &scaling_helper,
+                        depth
                     )));
                 } else {
+                    let slider_depth = SLIDER_DEPTH.start + (slider.time as f64 / end_time) * SLIDER_DEPTH.end;
+                    let depth = NOTE_DEPTH.start + (slider.time as f64 / end_time) * NOTE_DEPTH.end;
+
                     let curve = get_curve(slider, &beatmap);
                     s.notes.push(Box::new(StandardSlider::new(
                         slider.clone(),
@@ -186,7 +210,9 @@ impl GameMode for StandardGame {
                         ar,
                         color,
                         combo_num as u16,
-                        scaling_helper.clone()
+                        scaling_helper.clone(),
+                        slider_depth,
+                        depth
                     )))
                 }
 
@@ -200,10 +226,10 @@ impl GameMode for StandardGame {
 
         }
 
-        // get the end pos
-        for n in s.notes.iter() {
-            s.end_time = s.end_time.max(n.end_time(0.0));
-        }
+        // get the end time
+        // for n in s.notes.iter() {
+        //     s.end_time = s.end_time.max(n.end_time(0.0));
+        // }
         s.end_time += 1000.0;
 
         s

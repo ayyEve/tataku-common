@@ -31,7 +31,7 @@ fn length(p:Vector2) -> f32 {
     num.sqrt() as f32
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Curve {
     pub slider: SliderDef,
     pub path: Vec<Line>,
@@ -45,10 +45,10 @@ pub struct Curve {
 }
 impl Curve {
     fn new(slider: SliderDef, path: Vec<Line>, beatmap: &Beatmap) -> Self {
-        // let l = slider.length * 1.4 * slider.slides as f32;
-        // let v2 = 100.0 * beatmap.metadata.slider_multiplier * 1.4;
-        let l = slider.length * slider.slides as f32;
-        let v2 = 100.0 * beatmap.metadata.slider_multiplier;
+        let l = slider.length * 1.4 * slider.slides as f32;
+        let v2 = 100.0 * beatmap.metadata.slider_multiplier * 1.4;
+        // let l = slider.length * slider.slides as f32;
+        // let v2 = 100.0 * beatmap.metadata.slider_multiplier;
         let bl = beatmap.beat_length_at(slider.time, true);
         let end_time = slider.time + (l / v2 * bl) - 1.0;
 
