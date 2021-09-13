@@ -34,6 +34,8 @@ pub trait StandardHitObject: HitObject {
     fn get_preempt(&self) -> f32;
     fn point_draw_pos(&self) -> Vector2;
 
+    fn was_hit(&self) -> bool;
+
 
     fn get_hitsound(&self) -> u8;
     fn get_hitsamples(&self) -> HitSamples;
@@ -146,6 +148,7 @@ impl HitObject for StandardNote {
     }
 }
 impl StandardHitObject for StandardNote {
+    fn was_hit(&self) -> bool {self.hit || self.missed}
     fn get_hitsamples(&self) -> HitSamples {self.def.hitsamples.clone()}
     fn get_hitsound(&self) -> u8 {self.def.hitsound}
     fn point_draw_pos(&self) -> Vector2 {self.pos}
@@ -492,6 +495,7 @@ impl HitObject for StandardSlider {
     }
 }
 impl StandardHitObject for StandardSlider {
+    fn was_hit(&self) -> bool {self.start_checked}
     fn get_hitsamples(&self) -> HitSamples {
         let mut samples = self.def.hitsamples.clone();
         let [normal_set, addition_set] = self.def.edge_sets[self.sound_index.min(self.def.edge_sets.len() - 1)];
@@ -780,13 +784,14 @@ impl HitObject for StandardSpinner {
     }
 }
 impl StandardHitObject for StandardSpinner {
+    fn was_hit(&self) -> bool {true} 
     fn get_hitsamples(&self) -> HitSamples {self.def.hitsamples.clone()}
     fn get_hitsound(&self) -> u8 {self.def.hitsound}
     fn get_preempt(&self) -> f32 {0.0}
     fn point_draw_pos(&self) -> Vector2 {Vector2::zero()} //TODO
     fn causes_miss(&self) -> bool {self.rotations_completed < self.rotations_required} // if the spinner wasnt completed in time, cause a miss
 
-    fn get_points(&mut self, is_press:bool, _:f32, _:(f32,f32,f32,f32)) -> ScoreHit {
+    fn get_points(&mut self, _is_press:bool, _:f32, _:(f32,f32,f32,f32)) -> ScoreHit {
         ScoreHit::Other(100, false)
     }
 

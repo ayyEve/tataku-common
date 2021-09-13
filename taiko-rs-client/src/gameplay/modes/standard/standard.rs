@@ -17,7 +17,7 @@ pub struct StandardGame {
     pub notes: Vec<Box<dyn StandardHitObject>>,
     
     /// where to start checking notes from
-    note_index: usize,
+    // note_index: usize,
 
     // hit timing bar stuff
     hitwindow_300: f32,
@@ -39,10 +39,7 @@ pub struct StandardGame {
     hold_count: u8
 }
 impl StandardGame {
-    pub fn next_note(&mut self) {self.note_index += 1}
-    
-    // pub fn next_slider(&mut self) {}
-    // pub fn next_spinner(&mut self) {}
+    // pub fn next_note(&mut self) {self.note_index += 1}
 }
 
 impl GameMode for StandardGame {
@@ -56,7 +53,7 @@ impl GameMode for StandardGame {
             mouse_pos:Vector2::zero(),
 
             hold_count: 0,
-            note_index: 0,
+            // note_index: 0,
             end_time: 0.0,
 
             hitwindow_50: 0.0,
@@ -86,14 +83,7 @@ impl GameMode for StandardGame {
             all_items.push((Some(note), None, None))
         }
         for slider in beatmap.sliders.iter() {
-            // if slider.curve_points.len() == 0 || slider.length == 0.0 {
-
-
-            //     all_items.push((Some(note), None, None))
-
-            // } else {
-                all_items.push((None, Some(slider), None))
-            // }
+            all_items.push((None, Some(slider), None))
         }
         for spinner in beatmap.spinners.iter() {
             all_items.push((None, None, Some(spinner)))
@@ -190,7 +180,13 @@ impl GameMode for StandardGame {
         }
 
         // s.notes.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
-        s.end_time = s.notes.last().unwrap().end_time(0.0) + 1000.0;
+        // s.end_time = s.notes.last().unwrap().end_time(0.0) + 1000.0;
+        let mut end_time:f32 = 0.0;
+        for n in s.notes.iter() {
+            end_time = end_time.max(n.end_time(0.0));
+        }
+
+        s.end_time = end_time + 1000.0;
         s
     }
 
@@ -198,71 +194,61 @@ impl GameMode for StandardGame {
         if !manager.replaying {
             manager.replay.frames.push((time, frame.clone()));
         }
-        if self.note_index >= self.notes.len() {return}
+        // if self.note_index >= self.notes.len() {return}
 
         match frame {
             ReplayFrame::Press(KeyPress::Left)
             | ReplayFrame::Press(KeyPress::Right) => {
                 self.hold_count += 1;
-                let pts = self.notes[self.note_index].get_points(true, time, (self.hitwindow_miss, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
-                let note_time = self.notes[self.note_index].time();
-                self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts.clone()));
-                match pts {
-                    ScoreHit::Miss => {
-                        println!("miss (press)");
-                        manager.score.hit_miss(time, note_time);
-                        manager.hitbar_timings.push((time, time - note_time));
-                        if self.notes[self.note_index].note_type() == NoteType::Note {
-                            self.next_note()
+
+                let pt_pos;
+                let pts;
+                {
+                    let mut check_notes = Vec::new();
+                    let w = self.hitwindow_miss;
+                    for note in self.notes.iter_mut() {
+                        // check if note is in hitwindow
+                        if (time - note.time()).abs() <= w && !note.was_hit() {
+                            check_notes.push(note);
                         }
                     }
-                    ScoreHit::X50 => {
-                        {
-                            let hitsound = self.notes[self.note_index].get_hitsound();
-                            let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
+                    if check_notes.len() == 0 {return} // no notes to check
+
+                    check_notes.sort_by(|a, b| a.time().partial_cmp(&b.time()).unwrap());
+                    let note = &mut check_notes[0];
+
+                    pts = note.get_points(true, time, (self.hitwindow_miss, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
+                    let note_time = note.time();
+
+                    match &pts {
+                        ScoreHit::None | ScoreHit::Other(_,_) => {}
+                        ScoreHit::Miss => {
+                            println!("miss (press)");
+                            manager.score.hit_miss(time, note_time);
+                            manager.hitbar_timings.push((time, time - note_time));
+                        }
+
+                        pts => {
+                            let hitsound = note.get_hitsound();
+                            let hitsamples = note.get_hitsamples().clone();
                             manager.play_note_sound(note_time, hitsound, hitsamples);
-                        }
 
-                        // Audio::play_preloaded("don");
-                        manager.score.hit50(time, note_time);
-                        manager.hitbar_timings.push((time, time - note_time));
-                        if self.notes[self.note_index].note_type() == NoteType::Note {
-                            self.next_note()
+                            match pts {
+                                ScoreHit::X50 => manager.score.hit50(time, note_time),
+                                ScoreHit::X100 => manager.score.hit100(time, note_time),
+                                ScoreHit::X300 => manager.score.hit300(time, note_time),
+                                _ => {}
+                            }
+
+                            manager.hitbar_timings.push((time, time - note_time));
                         }
                     }
-                    ScoreHit::X100 => {
-                        {
-                            let hitsound = self.notes[self.note_index].get_hitsound();
-                            let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
-                            manager.play_note_sound(note_time, hitsound, hitsamples);
-                        }
-
-                        // Audio::play_preloaded("don");
-                        manager.score.hit100(time, note_time);
-                        manager.hitbar_timings.push((time, time - note_time));
-                        if self.notes[self.note_index].note_type() == NoteType::Note {
-                            self.next_note()
-                        }
-                    }
-                    ScoreHit::X300 => {
-                        {
-                            let hitsound = self.notes[self.note_index].get_hitsound();
-                            let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
-                            manager.play_note_sound(note_time, hitsound, hitsamples);
-                        }
-
-                        // Audio::play_preloaded("kat");
-                        manager.score.hit300(time, note_time);
-                        manager.hitbar_timings.push((time, time - note_time));
-                        if self.notes[self.note_index].note_type() == NoteType::Note {
-                            self.next_note()
-                        }
-                    }
-
-                    ScoreHit::Other(_, _) => {}
-                    ScoreHit::None => {},
+                    
+                    pt_pos = note.point_draw_pos();
                 }
-                
+
+                self.draw_points.push((time, pt_pos, pts.clone()));
+
                 // self.notes[self.note_index].press(time);
                 for note in self.notes.iter_mut() {
                     note.press(time)
@@ -271,10 +257,25 @@ impl GameMode for StandardGame {
             ReplayFrame::Release(KeyPress::Left) 
             | ReplayFrame::Release(KeyPress::Right) => {
                 self.hold_count -= 1;
-                if self.notes[self.note_index].note_type() == NoteType::Slider {
-                    let pts = self.notes[self.note_index].get_points(false, time, (self.hitwindow_miss, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
-                    let note_time = self.notes[self.note_index].time();
-                    self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts));
+
+                let mut check_notes = Vec::new();
+                let w = self.hitwindow_miss;
+                for note in self.notes.iter_mut() {
+                    // check if note is in hitwindow
+                    if (time - note.time()).abs() <= w && !note.was_hit() {
+                        check_notes.push(note);
+                    }
+                }
+                if check_notes.len() == 0 {return} // no notes to check
+                
+                check_notes.sort_by(|a, b| a.time().partial_cmp(&b.time()).unwrap());
+                let note = &mut check_notes[0];
+
+                
+                if note.note_type() == NoteType::Slider {
+                    let pts = note.get_points(false, time, (self.hitwindow_miss, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
+                    let note_time = note.time();
+                    self.draw_points.push((time, note.point_draw_pos(), pts));
                     match pts {
                         ScoreHit::Other(_, _) | ScoreHit::None => {}
 
@@ -283,7 +284,7 @@ impl GameMode for StandardGame {
                             manager.score.combo = 0;
                             // manager.score.hit_miss(time, note_time);
                             // manager.hitbar_timings.push((time, time - note_time));
-                            self.next_note()
+                            // self.next_note()
                         },
 
                         pts => {
@@ -295,15 +296,15 @@ impl GameMode for StandardGame {
                             }
 
                             // play hitsound
-                            let hitsound = self.notes[self.note_index].get_hitsound();
-                            let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
+                            let hitsound = note.get_hitsound();
+                            let hitsamples = note.get_hitsamples().clone();
                             manager.play_note_sound(note_time, hitsound, hitsamples);
                             
                             // add to hit timing bar
                             // manager.hitbar_timings.push((time, time - note_time));
 
                             // next note
-                            self.next_note();
+                            // self.next_note();
                         }
                     }
                 }
@@ -344,7 +345,7 @@ impl GameMode for StandardGame {
         self.draw_points.retain(|a| time < a.0 + POINTS_DRAW_TIME);
 
         // if theres no more notes to hit, show score screen
-        if self.note_index >= self.notes.len() {
+        if time >= self.end_time {
             manager.completed = true;
             return;
         }
@@ -353,63 +354,69 @@ impl GameMode for StandardGame {
         // we need to check all notes up until a certain criteria 
         // TODO! figure out this criteria
 
-        // check if we missed the current note
-        let end_time = self.notes[self.note_index].end_time(self.hitwindow_miss);
-        let ntype = self.notes[self.note_index].note_type();
-        let flag = match ntype {
-            NoteType::Note => end_time < time,
-            NoteType::Slider 
-            | NoteType::Spinner => end_time <= time,
-            _ => false,
-        };
+        let w = self.hitwindow_miss;
+        for note in self.notes.iter_mut() {
+            // check if note is in hitwindow
+            if (time - note.time()).abs() <= w && !note.was_hit() {
 
-        if flag {
-            match ntype {
-                NoteType::Note => {
-                    // need to set these manually instead of score.hit_miss,
-                    // since we dont want to add anything to the hit error list
-                    let note_time = self.notes[self.note_index].time();
-                    manager.score.hit_miss(time, note_time);
-                    // println!("note miss (time: {}, {}, diff: {}, od: {})", time, note_time, time - note_time, manager.beatmap.metadata.od);
-                    self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), ScoreHit::Miss));
-                }
-                NoteType::Slider => {
-                    let note_time = self.notes[self.note_index].end_time(0.0);
-                    // check slider release points
-                    // -1.0 for miss hitwindow to indidate it was held to the end (ie, no hitwindow to check)
-                    let pts = self.notes[self.note_index].get_points(false, time, (-1.0, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
-                    self.draw_points.push((time, self.notes[self.note_index].point_draw_pos(), pts));
-                    match pts {
-                        ScoreHit::None | ScoreHit::Miss => {
+                // check if we missed the current note
+                let end_time = note.end_time(self.hitwindow_miss);
+                let ntype = note.note_type();
+                let flag = match ntype {
+                    NoteType::Note => end_time < time,
+                    NoteType::Slider 
+                    | NoteType::Spinner => end_time <= time,
+                    _ => false,
+                };
+
+                if flag {
+                    match ntype {
+                        NoteType::Note => {
+                            // need to set these manually instead of score.hit_miss,
+                            // since we dont want to add anything to the hit error list
+                            let note_time = note.time();
                             manager.score.hit_miss(time, note_time);
-                            manager.hitbar_timings.push((time, time - note_time));
+                            // println!("note miss (time: {}, {}, diff: {}, od: {})", time, note_time, time - note_time, manager.beatmap.metadata.od);
+                            self.draw_points.push((time, note.point_draw_pos(), ScoreHit::Miss));
                         }
-                        ScoreHit::Other(_, _) => {}
-                        pts => {
+                        NoteType::Slider => {
+                            let note_time = note.end_time(0.0);
+                            // check slider release points
+                            // -1.0 for miss hitwindow to indidate it was held to the end (ie, no hitwindow to check)
+                            let pts = note.get_points(false, time, (-1.0, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
+                            self.draw_points.push((time, note.point_draw_pos(), pts));
                             match pts {
-                                ScoreHit::X300 => manager.score.hit300(time, note_time),
-                                ScoreHit::X100 => manager.score.hit100(time, note_time),
-                                ScoreHit::X50 => manager.score.hit50(time, note_time),
-                                _ => {}
+                                ScoreHit::None | ScoreHit::Miss => {
+                                    manager.score.hit_miss(time, note_time);
+                                    manager.hitbar_timings.push((time, time - note_time));
+                                }
+                                ScoreHit::Other(_, _) => {}
+                                pts => {
+                                    match pts {
+                                        ScoreHit::X300 => manager.score.hit300(time, note_time),
+                                        ScoreHit::X100 => manager.score.hit100(time, note_time),
+                                        ScoreHit::X50 => manager.score.hit50(time, note_time),
+                                        _ => {}
+                                    }
+
+                                    // play hitsound
+                                    let hitsound = note.get_hitsound();
+                                    let hitsamples = note.get_hitsamples().clone();
+                                    manager.play_note_sound(note_time, hitsound, hitsamples);
+
+
+                                    manager.hitbar_timings.push((time, time - note_time));
+                                }
                             }
-
-                            // play hitsound
-                            let hitsound = self.notes[self.note_index].get_hitsound();
-                            let hitsamples = self.notes[self.note_index].get_hitsamples().clone();
-                            manager.play_note_sound(note_time, hitsound, hitsamples);
-
-
-                            manager.hitbar_timings.push((time, time - note_time));
                         }
+                        NoteType::Spinner => {}
+
+                        _ => {},
                     }
+                    // self.next_note();
                 }
-                NoteType::Spinner => {}
-
-                _ => {},
             }
-            self.next_note();
         }
-
     }
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
         // draw the playfield
@@ -566,7 +573,7 @@ impl GameMode for StandardGame {
     }
 
     fn reset(&mut self, beatmap:&Beatmap) {
-        self.note_index = 0;
+        // self.note_index = 0;
         
         for note in self.notes.as_mut_slice() {
             note.reset();
@@ -584,7 +591,7 @@ impl GameMode for StandardGame {
     }
 
     fn skip_intro(&mut self, manager: &mut IngameManager) {
-        if self.note_index > 0 || self.notes.len() == 0 {return}
+        if self.notes.len() == 0 {return}
 
         let time = self.notes[0].time() - self.notes[0].get_preempt();
         if time < manager.time() {return}
