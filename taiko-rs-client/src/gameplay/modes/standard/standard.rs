@@ -354,13 +354,17 @@ impl GameMode for StandardGame {
         // we need to check all notes up until a certain criteria 
         // TODO! figure out this criteria
 
-        let w = self.hitwindow_miss;
+        // if the time is leading in, we dont want to check if any notes have been missed
+        if time < 0.0 {return}
+
         for note in self.notes.iter_mut() {
+            let end_time = note.end_time(self.hitwindow_miss);
+
             // check if note is in hitwindow
-            if (time - note.time()).abs() <= w && !note.was_hit() {
+            if time - end_time >= 0.0 && !note.was_hit() {
+                println!("note missed: {}-{}", time, end_time);
 
                 // check if we missed the current note
-                let end_time = note.end_time(self.hitwindow_miss);
                 let ntype = note.note_type();
                 let flag = match ntype {
                     NoteType::Note => end_time < time,
@@ -415,6 +419,9 @@ impl GameMode for StandardGame {
                     }
                     // self.next_note();
                 }
+
+                // force the note to be misssed
+                note.miss(); 
             }
         }
     }

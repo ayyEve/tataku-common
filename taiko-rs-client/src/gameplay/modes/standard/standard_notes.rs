@@ -36,7 +36,7 @@ pub trait StandardHitObject: HitObject {
 
     fn was_hit(&self) -> bool;
 
-
+    fn miss(&mut self);
     fn get_hitsound(&self) -> u8;
     fn get_hitsamples(&self) -> HitSamples;
     fn get_sound_queue(&mut self) -> Vec<(f32, u8, HitSamples, Option<String>)> {vec![]}
@@ -46,10 +46,16 @@ pub trait StandardHitObject: HitObject {
 // note
 #[derive(Clone)]
 pub struct StandardNote {
+    /// note definition
     def: NoteDef,
+    /// note position
     pos: Vector2,
-    time: f32, // ms
+    /// note time in ms
+    time: f32,
+
+    /// was the note hit?
     hit: bool,
+    /// was the note missed?
     missed: bool,
 
     /// combo color
@@ -59,17 +65,24 @@ pub struct StandardNote {
 
     /// note depth
     base_depth: f64,
-
-    map_time: f32,
-    mouse_pos: Vector2,
+    /// note radius (scaled by cs and size)
     radius: f64,
+    /// when the hitcircle should start being drawn
     time_preempt: f32,
 
+    /// map cs (TODO: remove from here)
     cs: f32,
-    ar:f32,
-
+    /// map ar (TODO: remove from here)
+    ar: f32,
     
+    /// combo num text cache
     combo_text: Box<Text>,
+
+
+    /// current map time
+    map_time: f32,
+    /// current mouse pos
+    mouse_pos: Vector2,
 }
 impl StandardNote {
     pub fn new(def:NoteDef, ar:f32, cs:f32, color:Color, combo_num:u16) -> Self {
@@ -148,6 +161,7 @@ impl HitObject for StandardNote {
     }
 }
 impl StandardHitObject for StandardNote {
+    fn miss(&mut self) {self.missed = true}
     fn was_hit(&self) -> bool {self.hit || self.missed}
     fn get_hitsamples(&self) -> HitSamples {self.def.hitsamples.clone()}
     fn get_hitsound(&self) -> u8 {self.def.hitsound}
@@ -495,6 +509,7 @@ impl HitObject for StandardSlider {
     }
 }
 impl StandardHitObject for StandardSlider {
+    fn miss(&mut self) {self.start_checked = true; self.end_checked = true}
     fn was_hit(&self) -> bool {self.start_checked}
     fn get_hitsamples(&self) -> HitSamples {
         let mut samples = self.def.hitsamples.clone();
@@ -784,6 +799,7 @@ impl HitObject for StandardSpinner {
     }
 }
 impl StandardHitObject for StandardSpinner {
+    fn miss(&mut self) {}
     fn was_hit(&self) -> bool {true} 
     fn get_hitsamples(&self) -> HitSamples {self.def.hitsamples.clone()}
     fn get_hitsound(&self) -> u8 {self.def.hitsound}
