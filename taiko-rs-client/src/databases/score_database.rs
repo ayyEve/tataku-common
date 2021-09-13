@@ -17,9 +17,9 @@ pub fn get_scores(hash:&String) -> Vec<Score> {
             x50: r.get("x50").unwrap_or(0),
             x100: r.get("x100")?,
             x300: r.get("x300")?,
-            geki: r.get("geki")?,
+            geki: r.get("geki").unwrap_or(0),
             katu: r.get("katu").unwrap_or(0),
-            xmiss: r.get("xmiss").unwrap_or(0),
+            xmiss: r.get("xmiss")?,
             beatmap_hash: r.get("map_hash")?,
             hit_timings: Vec::new()
         };
