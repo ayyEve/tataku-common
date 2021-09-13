@@ -1,32 +1,43 @@
-use std::collections::HashMap;
 use crate::game::get_font;
+use std::collections::HashMap;
+use taiko_rs_common::types::KeyPress;
 use crate::render::{Border, Color, Rectangle, Renderable, Vector2, Text};
-
 
 const BOX_SIZE:Vector2 = Vector2::new(40.0, 40.0);
 
 pub struct KeyCounter {
     pos: Vector2,
-    keys_vec: Vec<piston::Key>,
-    keys: HashMap<piston::Key, u16>
+    keys: HashMap<KeyPress, KeyInfo>,
+    key_order: Vec<KeyPress>
 }
 impl KeyCounter {
-    pub fn new(keys_vec:Vec<piston::Key>, pos:Vector2) -> Self {
+    pub fn new(key_defs:Vec<(KeyPress, String)>, pos:Vector2) -> Self {
+        let mut key_order = Vec::new();
         let mut keys = HashMap::new();
-        for key in keys_vec.iter() {keys.insert(*key, 0);}
 
-        println!("{:?}", keys_vec);
+        for (key, label) in key_defs {
+            key_order.push(key);
+            keys.insert(key, KeyInfo::new(label));
+        }
 
         Self {
             keys,
-            keys_vec,
+            key_order,
             pos
         }
     }
 
-    pub fn key_press(&mut self, key: piston::Key) {
+    pub fn key_down(&mut self, key: KeyPress) {
         if self.keys.contains_key(&key) {
-            *self.keys.get_mut(&key).unwrap() += 1;
+            let info = self.keys.get_mut(&key).unwrap();
+            info.count += 1;
+            info.held = true;
+        }
+    }
+    pub fn key_up(&mut self, key: KeyPress) {
+        if self.keys.contains_key(&key) {
+            let info = self.keys.get_mut(&key).unwrap();
+            info.held = false;
         }
     }
 
@@ -36,19 +47,22 @@ impl KeyCounter {
         let window_size:Vector2 = args.window_size.into();
 
         //TODO: center properly somehow
-        for i in 0..self.keys_vec.len() {
+        for i in 0..self.key_order.len() {
+            let info = &self.keys[&self.key_order[i]];
             let pos = (Vector2::new(window_size.x - BOX_SIZE.x, window_size.y / 2.0 - BOX_SIZE.y) - self.pos) + Vector2::new(0.0, BOX_SIZE.y * i as f64);
-            
+
             // draw bg box
             list.push(Box::new(Rectangle::new(
-                Color::new(0.0, 0.0, 0.0, 0.8),
+                if info.held {
+                    Color::new(0.8, 0.0, 0.8, 0.8)
+                } else {
+                    Color::new(0.0, 0.0, 0.0, 0.8)
+                },
                 -100.0,
                 pos,
                 BOX_SIZE,
                 Some(Border::new(Color::BLACK, 2.0))
             )));
-
-            let count = self.keys.get(&self.keys_vec[i]).unwrap();
 
             // draw key
             let mut text = Text::new(
@@ -56,11 +70,28 @@ impl KeyCounter {
                 -100.1,
                 pos,
                 20,
-                if *count == 0 {format!("{:?}", self.keys_vec[i])} else {format!("{}", count)},
+                if info.count == 0 {info.label.clone()} else {format!("{}", info.count)},
                 font.clone()
             );
             text.center_text(Rectangle::bounds_only(pos, BOX_SIZE));
             list.push(Box::new(text));
+        }
+    }
+}
+
+
+
+struct KeyInfo {
+    label: String,
+    held: bool,
+    count: u16,
+}
+impl KeyInfo {
+    fn new(label: String) -> Self {
+        Self {
+            label,
+            held: false,
+            count: 0
         }
     }
 }

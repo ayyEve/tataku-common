@@ -17,14 +17,15 @@ pub struct StandardGame {
     pub notes: Vec<Box<dyn StandardHitObject>>,
 
     // hit timing bar stuff
-    hitwindow_300: f32,
-    hitwindow_100: f32,
     hitwindow_50: f32,
+    hitwindow_100: f32,
+    hitwindow_300: f32,
     hitwindow_miss: f32,
     end_time: f32,
 
     draw_points: Vec<(f32, Vector2, ScoreHit)>,
     mouse_pos: Vector2,
+    window_mouse_pos: Vector2,
 
     key_counter: KeyCounter,
 
@@ -65,6 +66,7 @@ impl GameMode for StandardGame {
         let mut s = Self {
             notes: Vec::new(),
             mouse_pos:Vector2::zero(),
+            window_mouse_pos:Vector2::zero(),
 
             hold_count: 0,
             // note_index: 0,
@@ -82,8 +84,10 @@ impl GameMode for StandardGame {
 
             key_counter: KeyCounter::new(
                 vec![
-                    settings.left_key,
-                    settings.right_key
+                    (KeyPress::LeftMouse, "M1".to_owned()),
+                    (KeyPress::RightMouse, "M2".to_owned()),
+                    (KeyPress::Left, "L".to_owned()),
+                    (KeyPress::Right, "R".to_owned()),
                 ],
                 Vector2::zero()
             ),
@@ -209,67 +213,69 @@ impl GameMode for StandardGame {
             manager.replay.frames.push((time, frame.clone()));
         }
 
+        const ALLOWED_PRESSES:&[KeyPress] = &[
+            KeyPress::Left, 
+            KeyPress::Right,
+            KeyPress::LeftMouse,
+            KeyPress::RightMouse,
+        ];
+
         match frame {
-            ReplayFrame::Press(KeyPress::Left)
-            | ReplayFrame::Press(KeyPress::Right) => {
+            ReplayFrame::Press(key) if ALLOWED_PRESSES.contains(&key) => {
+                self.key_counter.key_down(key);
                 self.hold_count += 1;
 
-                let pt_pos;
-                let pts;
-                {
-                    let mut check_notes = Vec::new();
-                    let w = self.hitwindow_miss;
-                    for note in self.notes.iter_mut() {
-                        // check if note is in hitwindow
-                        if (time - note.time()).abs() <= w && !note.was_hit() {
-                            check_notes.push(note);
-                        }
+            
+                let mut check_notes = Vec::new();
+                let w = self.hitwindow_miss;
+                for note in self.notes.iter_mut() {
+                    // check if note is in hitwindow
+                    if (time - note.time()).abs() <= w && !note.was_hit() {
+                        check_notes.push(note);
                     }
-                    if check_notes.len() == 0 {return} // no notes to check
-
-                    check_notes.sort_by(|a, b| a.time().partial_cmp(&b.time()).unwrap());
-                    let note = &mut check_notes[0];
-
-                    pts = note.get_points(true, time, (self.hitwindow_miss, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
-                    let note_time = note.time();
-
-                    match &pts {
-                        ScoreHit::None | ScoreHit::Other(_,_) => {}
-                        ScoreHit::Miss => {
-                            println!("miss (press)");
-                            manager.score.hit_miss(time, note_time);
-                            manager.hitbar_timings.push((time, time - note_time));
-                        }
-
-                        pts => {
-                            let hitsound = note.get_hitsound();
-                            let hitsamples = note.get_hitsamples().clone();
-                            manager.play_note_sound(note_time, hitsound, hitsamples);
-
-                            match pts {
-                                ScoreHit::X50 => manager.score.hit50(time, note_time),
-                                ScoreHit::X100 => manager.score.hit100(time, note_time),
-                                ScoreHit::X300 => manager.score.hit300(time, note_time),
-                                _ => {}
-                            }
-
-                            manager.hitbar_timings.push((time, time - note_time));
-                        }
-                    }
-                    
-                    pt_pos = note.point_draw_pos();
                 }
+                if check_notes.len() == 0 {return} // no notes to check
 
-                self.draw_points.push((time, pt_pos, pts.clone()));
+
+                check_notes.sort_by(|a, b| a.time().partial_cmp(&b.time()).unwrap());
+                
+                let note = &mut check_notes[0];
+                let note_time = note.time();
+                let pts = note.get_points(true, time, (self.hitwindow_miss, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
+                self.draw_points.push((time, note.point_draw_pos(), pts.clone()));
+
+                match &pts {
+                    ScoreHit::None | ScoreHit::Other(_,_) => {}
+                    ScoreHit::Miss => {
+                        println!("miss (press)");
+                        manager.score.hit_miss(time, note_time);
+                        manager.hitbar_timings.push((time, time - note_time));
+                    }
+
+                    pts => {
+                        let hitsound = note.get_hitsound();
+                        let hitsamples = note.get_hitsamples().clone();
+                        manager.play_note_sound(note_time, hitsound, hitsamples);
+
+                        match pts {
+                            ScoreHit::X50 => manager.score.hit50(time, note_time),
+                            ScoreHit::X100 => manager.score.hit100(time, note_time),
+                            ScoreHit::X300 => manager.score.hit300(time, note_time),
+                            _ => {}
+                        }
+
+                        manager.hitbar_timings.push((time, time - note_time));
+                    }
+                }
 
                 // self.notes[self.note_index].press(time);
                 for note in self.notes.iter_mut() {
                     note.press(time)
                 }
             }
-            ReplayFrame::Release(KeyPress::Left) 
-            | ReplayFrame::Release(KeyPress::Right) => {
-                if self.hold_count == 0 {return} // dont continue if no keys were being held (happens when leaving a menu)
+            // dont continue if no keys were being held (happens when leaving a menu)
+            ReplayFrame::Release(key) if ALLOWED_PRESSES.contains(&key) && self.hold_count > 0 => {
+                self.key_counter.key_up(key);
                 self.hold_count -= 1;
 
                 let mut check_notes = Vec::new();
@@ -283,9 +289,8 @@ impl GameMode for StandardGame {
                 if check_notes.len() == 0 {return} // no notes to check
                 
                 check_notes.sort_by(|a, b| a.time().partial_cmp(&b.time()).unwrap());
-                let note = &mut check_notes[0];
-
                 
+                let note = &mut check_notes[0];
                 if note.note_type() == NoteType::Slider {
                     let pts = note.get_points(false, time, (self.hitwindow_miss, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
                     let note_time = note.time();
@@ -490,12 +495,10 @@ impl GameMode for StandardGame {
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
         if key == piston::Key::LCtrl {
             let old = Settings::get_mut().standard_settings.get_playfield();
-            self.move_playfield = Some((old.1, self.mouse_pos));
+            self.move_playfield = Some((old.1, self.window_mouse_pos));
             return;
         }
 
-        self.key_counter.key_press(key);
-        
         let time = manager.time();
         if key == self.settings.left_key {
             self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), time, manager);
@@ -519,8 +522,10 @@ impl GameMode for StandardGame {
         }
     }
     
+
     fn mouse_move(&mut self, pos:Vector2, manager:&mut IngameManager) {
         let time = manager.time();
+        self.window_mouse_pos = pos;
 
         if let Some((original, mouse_start)) = self.move_playfield {
             {
@@ -550,10 +555,10 @@ impl GameMode for StandardGame {
 
         let time = manager.time();
         if btn == MouseButton::Left {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), time, manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftMouse), time, manager);
         }
         if btn == MouseButton::Right {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::Right), time, manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::RightMouse), time, manager);
         }
     }
     fn mouse_up(&mut self, btn:piston::MouseButton, manager:&mut IngameManager) {
@@ -564,10 +569,10 @@ impl GameMode for StandardGame {
 
         let time = manager.time();
         if btn == MouseButton::Left {
-            self.handle_replay_frame(ReplayFrame::Release(KeyPress::Left), time, manager);
+            self.handle_replay_frame(ReplayFrame::Release(KeyPress::LeftMouse), time, manager);
         }
         if btn == MouseButton::Right {
-            self.handle_replay_frame(ReplayFrame::Release(KeyPress::Right), time, manager);
+            self.handle_replay_frame(ReplayFrame::Release(KeyPress::RightMouse), time, manager);
         }
     }
 
@@ -607,8 +612,7 @@ impl GameMode for StandardGame {
         manager.song.upgrade().unwrap().set_position(time);
     }
 
-
-
+    
     fn timing_bar_things(&self) -> (Vec<(f32,Color)>, (f32,Color)) {
         (vec![
             (self.hitwindow_50, [0.8549, 0.6823, 0.2745, 1.0].into()),

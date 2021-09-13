@@ -60,7 +60,7 @@ impl From<u8> for Playstyle {
 }
 
 
-#[derive(Clone, Debug, Copy, PartialEq, Eq)]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
 pub enum KeyPress {
     LeftKat = 0,
     LeftDon = 1,
@@ -82,6 +82,10 @@ pub enum KeyPress {
     /// doubles as std right
     Right = 31,
     Dash = 32,
+
+    LeftMouse = 33,
+    RightMouse = 34,
+
 
 
     Unknown = 255
