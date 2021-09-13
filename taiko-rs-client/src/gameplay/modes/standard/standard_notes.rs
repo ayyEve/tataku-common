@@ -3,8 +3,9 @@ use std::f64::consts::PI;
 use graphics::CharacterCache;
 
 use taiko_rs_common::types::ScoreHit;
+use crate::gameplay::modes::ScalingHelper;
 use crate::{window_size, Vector2, helpers::curve::Curve};
-use crate::gameplay::{HitObject, map_difficulty, modes::{scale_coords, scale_cs}, defs::*};
+use crate::gameplay::{HitObject, map_difficulty, defs::*};
 use crate::render::{Circle, Color, Renderable, Border, Line, Rectangle, Text, fonts::get_font};
 
 const SPINNER_RADIUS:f64 = 200.0;
@@ -25,7 +26,7 @@ pub trait StandardHitObject: HitObject {
     fn causes_miss(&self) -> bool; //TODO: might change this to return an enum of "no", "yes". "yes_combo_only"
     fn get_points(&mut self, is_press:bool, time:f32, hit_windows:(f32,f32,f32,f32)) -> ScoreHit;
 
-    fn playfield_changed(&mut self);
+    fn playfield_changed(&mut self, new_scale: &ScalingHelper);
 
     fn press(&mut self, _time:f32) {}
     fn release(&mut self, _time:f32) {}
@@ -69,11 +70,9 @@ pub struct StandardNote {
     radius: f64,
     /// when the hitcircle should start being drawn
     time_preempt: f32,
-
-    /// map cs (TODO: remove from here)
-    cs: f32,
-    /// map ar (TODO: remove from here)
-    ar: f32,
+    /// what is the scaling value? needed for approach circle
+    // (lol)
+    scaling_scale: f64,
     
     /// combo num text cache
     combo_text: Box<Text>,
@@ -85,13 +84,13 @@ pub struct StandardNote {
     mouse_pos: Vector2,
 }
 impl StandardNote {
-    pub fn new(def:NoteDef, ar:f32, cs:f32, color:Color, combo_num:u16) -> Self {
+    pub fn new(def:NoteDef, ar:f32, color:Color, combo_num:u16, scaling_helper: &ScalingHelper) -> Self {
         let time = def.time;
-        let cs_scale = (1.0 - 0.7 * (cs - 5.0) / 5.0) / 2.0;
         let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
         let base_depth = get_depth(def.time);
-        let pos = scale_coords(def.pos);
-        let radius = CIRCLE_RADIUS_BASE * scale_cs(cs_scale as f64);
+
+        let pos = scaling_helper.scale_coords(def.pos);
+        let radius = CIRCLE_RADIUS_BASE * scaling_helper.scaled_cs;
 
         let mut combo_text =  Box::new(Text::new(
             Color::BLACK,
@@ -122,9 +121,7 @@ impl StandardNote {
 
             time_preempt,
             radius,
-
-            ar,
-            cs,
+            scaling_scale: scaling_helper.scale,
             
             combo_text
         }
@@ -140,7 +137,7 @@ impl HitObject for StandardNote {
         if self.time - self.map_time > self.time_preempt || self.time - self.map_time < 0.0 || self.hit {return}
 
         // timing circle
-        list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth));
+        list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth, self.scaling_scale));
         // combo number
         list.push(self.combo_text.clone());
 
@@ -175,7 +172,10 @@ impl StandardHitObject for StandardNote {
         
         // make sure the cursor is in the radius
         let distance = ((self.pos.x - self.mouse_pos.x).powi(2) + (self.pos.y - self.mouse_pos.y).powi(2)).sqrt();
-        if distance > self.radius {return ScoreHit::None}
+        if distance > self.radius {
+            println!("mouse too far: {} > {}", distance, self.radius);
+            return ScoreHit::None
+        }
 
         if diff < hitwindow_300 {
             self.hit = true;
@@ -184,6 +184,7 @@ impl StandardHitObject for StandardNote {
             self.hit = true;
             ScoreHit::X100
         } else if diff < hitwindow_50 {
+            self.hit = true;
             ScoreHit::X50
         } else if diff < hitwindow_miss { // too early, miss
             self.missed = true;
@@ -193,31 +194,25 @@ impl StandardHitObject for StandardNote {
         }
     }
 
-    fn playfield_changed(&mut self) {
-        let cs_scale = (1.0 - 0.7 * (self.cs - 5.0) / 5.0) / 2.0;
-        let time_preempt = map_difficulty(self.ar, 1800.0, 1200.0, PREEMPT_MIN);
-        let pos = scale_coords(self.def.pos);
-        let radius = CIRCLE_RADIUS_BASE * scale_cs(cs_scale as f64);
+    fn playfield_changed(&mut self, new_scale: &ScalingHelper) {
+        self.pos = new_scale.scale_coords(self.def.pos);
+        self.radius = CIRCLE_RADIUS_BASE * new_scale.scaled_cs;
+        self.scaling_scale = new_scale.scale;
 
         let mut combo_text =  Box::new(Text::new(
             Color::BLACK,
             self.base_depth - 0.0000001,
-            pos,
-            (radius) as u32,
+            self.pos,
+            self.radius as u32,
             format!("{}", self.combo_num),
             get_font("main")
         ));
         center_combo_text(&mut combo_text, Rectangle::bounds_only(
-            pos - Vector2::one() * radius / 2.0,
-            Vector2::one() * radius,
+            self.pos - Vector2::one() * self.radius / 2.0,
+            Vector2::one() * self.radius,
         ));
 
-
-        self.time_preempt = time_preempt;
         self.combo_text = combo_text;
-        self.pos = pos;
-        self.radius = radius;
-
     }
 }
 
@@ -276,30 +271,26 @@ pub struct StandardSlider {
     /// when should the note start being drawn (specifically the )
     time_preempt:f32,
 
-    /// circle size, used in rescale recalc
-    cs: f32,
-    /// approach rate, used in rescale recalc
-    ar: f32,
-
     /// combo text cache, probably not needed but whatever
     combo_text: Box<Text>,
 
     /// list of sounds waiting to be played (used by repeat and slider dot sounds)
     /// (time, hitsound, samples, override sample name)
-    sound_queue: Vec<(f32, u8, HitSamples, Option<String>)>
+    sound_queue: Vec<(f32, u8, HitSamples, Option<String>)>,
+
+    /// scaling helper, should greatly improve rendering speed due to locking
+    scaling_helper: ScalingHelper
 }
 impl StandardSlider {
-    pub fn new(def:SliderDef, curve:Curve, ar:f32, cs:f32, color:Color, combo_num: u16) -> Self {
+    pub fn new(def:SliderDef, curve:Curve, ar:f32, color:Color, combo_num: u16, scaling_helper:ScalingHelper) -> Self {
         let time = def.time;
-        let cs_scale = (1.0 - 0.7 * (cs - 5.0) / 5.0) / 2.0;
+        let base_depth = get_depth(def.time);
         let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
         
-        let pos = scale_coords(def.pos);
-        let visual_end_pos = scale_coords(curve.position_at_length(curve.length()));
+        let pos = scaling_helper.scale_coords(def.pos);
+        let visual_end_pos = scaling_helper.scale_coords(curve.position_at_length(curve.length()));
         let time_end_pos = if def.slides % 2 == 1 {visual_end_pos} else {pos};
-
-        let base_depth = get_depth(def.time);
-        let radius = CIRCLE_RADIUS_BASE * scale_cs(cs_scale as f64);
+        let radius = CIRCLE_RADIUS_BASE * scaling_helper.scaled_cs;
 
         let mut combo_text =  Box::new(Text::new(
             Color::BLACK,
@@ -340,11 +331,10 @@ impl StandardSlider {
             release_time: 0.0,
             mouse_pos: Vector2::zero(),
 
-            cs,
-            ar,
-
             combo_text,
-            sound_queue: Vec::new()
+            sound_queue: Vec::new(),
+
+            scaling_helper
         }
     }
 }
@@ -387,12 +377,12 @@ impl HitObject for StandardSlider {
 
         if self.time - self.map_time > 0.0 {
             // timing circle
-            list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth));
+            list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth, self.scaling_helper.scale));
             // combo number
             list.push(self.combo_text.clone());
         } else {
             // slider ball
-            let pos = scale_coords(self.curve.position_at_time(self.map_time));
+            let pos = self.scaling_helper.scale_coords(self.curve.position_at_time(self.map_time));
             let distance = ((pos.x - self.mouse_pos.x).powi(2) + (pos.y - self.mouse_pos.y).powi(2)).sqrt();
 
             let mut inner = Circle::new(
@@ -430,9 +420,12 @@ impl HitObject for StandardSlider {
         list.reserve(self.curve.path.len() * 2);
         for i in 0..self.curve.path.len() {
             let line = self.curve.path[i];
+
+            let p1 = self.scaling_helper.scale_coords(line.p1);
+            let p2 = self.scaling_helper.scale_coords(line.p2);
             list.push(Box::new(Line::new(
-                scale_coords(line.p1),
-                scale_coords(line.p2),
+                p1,
+                p2,
                 self.radius,
                 self.base_depth,
                 self.color
@@ -442,7 +435,7 @@ impl HitObject for StandardSlider {
             list.push(Box::new(Circle::new(
                 self.color,
                 self.base_depth,
-                scale_coords(line.p2),
+                p2,
                 self.radius,
             )))
         }
@@ -613,30 +606,27 @@ impl StandardHitObject for StandardSlider {
         std::mem::take(&mut self.sound_queue)
     }
 
-    fn playfield_changed(&mut self) {
-        let cs_scale = (1.0 - 0.7 * (self.cs - 5.0) / 5.0) / 2.0;
-        let pos = scale_coords(self.def.pos);
-        let radius = CIRCLE_RADIUS_BASE * scale_cs(cs_scale as f64);
-        self.visual_end_pos = scale_coords(self.curve.position_at_length(self.curve.length()));
+    fn playfield_changed(&mut self, new_scale: &ScalingHelper) {
+        self.scaling_helper = new_scale.clone();
+        self.pos = new_scale.scale_coords(self.def.pos);
+        self.radius = CIRCLE_RADIUS_BASE * new_scale.scaled_cs;
+        self.visual_end_pos = new_scale.scale_coords(self.curve.position_at_length(self.curve.length()));
         self.time_end_pos = if self.def.slides % 2 == 1 {self.visual_end_pos} else {self.pos};
         
-
         let mut combo_text =  Box::new(Text::new(
             Color::BLACK,
             self.base_depth - 0.0000001,
-            pos,
-            (radius) as u32,
+            self.pos,
+            self.radius as u32,
             format!("{}", self.combo_num),
             get_font("main")
         ));
         center_combo_text(&mut combo_text, Rectangle::bounds_only(
-            pos - Vector2::one() * radius / 2.0,
-            Vector2::one() * radius,
+            self.pos - Vector2::one() * self.radius / 2.0,
+            Vector2::one() * self.radius,
         ));
 
         self.combo_text = combo_text;
-        self.pos = pos;
-        self.radius = radius;
     }
 }
 
@@ -679,10 +669,6 @@ impl SliderDot {
         // ]
     }
 }
-
-
-
-
 
 
 // spinner
@@ -823,7 +809,7 @@ impl StandardHitObject for StandardSpinner {
         self.mouse_pos = pos;
     }
 
-    fn playfield_changed(&mut self) {
+    fn playfield_changed(&mut self, _new_scale: &ScalingHelper) {
         
     } 
 }
@@ -837,8 +823,7 @@ fn lerp(target:f64, current: f64, factor:f64) -> f64 {
 fn get_depth(time:f32) -> f64 {
     (NOTE_DEPTH + time as f64) / 1000.0
 }
-fn approach_circle(pos:Vector2, radius:f64, time_diff: f32, time_preempt:f32, depth: f64) -> Box<Circle> {
-    let scale = scale_cs(1.0);
+fn approach_circle(pos:Vector2, radius:f64, time_diff:f32, time_preempt:f32, depth:f64, scale:f64) -> Box<Circle> {
 
     let mut c = Circle::new(
         Color::TRANSPARENT_WHITE,

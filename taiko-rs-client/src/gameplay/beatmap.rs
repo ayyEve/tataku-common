@@ -430,6 +430,14 @@ impl BeatmapMeta {
         || self.creator.to_ascii_lowercase().contains(filter_str) 
         || self.version.to_ascii_lowercase().contains(filter_str) 
     }
+
+    pub fn check_mode_override(&self, override_mode:PlayMode) -> PlayMode {
+        if self.mode == PlayMode::Standard {
+            override_mode
+        } else {
+            self.mode
+        }
+    }
 }
 
 

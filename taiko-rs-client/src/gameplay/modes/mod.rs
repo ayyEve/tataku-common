@@ -36,25 +36,82 @@ pub fn manager_from_playmode(mut playmode: PlayMode, beatmap: &BeatmapMeta) -> I
 }
 
 
-fn scale_window() -> (f64, Vector2) {
-    let (scale, offset) = Settings::get_mut().standard_settings.get_playfield();
-    let window_size = window_size();
-    let scale = (window_size.y / FIELD_SIZE.y) * scale;
+// fn scale_window() -> (f64, Vector2) {
+//     let (scale, offset) = Settings::get_mut().standard_settings.get_playfield();
+//     let window_size = window_size();
+//     let scale = (window_size.y / FIELD_SIZE.y) * scale;
 
-    let offset = (window_size - FIELD_SIZE * scale) / 2.0 + offset;
+//     let offset = (window_size - FIELD_SIZE * scale) / 2.0 + offset;
 
-    (scale, offset)
+//     (scale, offset)
+// }
+
+// pub fn scale_coords(osu_coords:Vector2) -> Vector2 {
+//     let (scale, offset) = scale_window();
+//     offset + osu_coords * scale
+
+//     // osu_coords + Vector2::new((window_size.x - FIELD_SIZE.x) / 2.0, (window_size.y - FIELD_SIZE.y) / 2.0)
+// }
+
+// pub fn scale_cs(base:f64) -> f64 {
+//     let (scale, _) = scale_window();
+
+//     base * scale
+// }
+
+
+#[derive(Copy, Clone)]
+pub struct ScalingHelper {
+    /// scale setting in settings
+    pub settings_scale: f64,
+    /// playfield offset in settings
+    pub settings_offset: Vector2,
+
+    /// window size to playfield size scale, scales by settings_scale
+    pub scale: f64,
+
+    /// window size from settings
+    pub window_size: Vector2,
+
+    /// scaled pos offset for the playfield
+    pub scaled_pos_offset: Vector2,
+
+    /// cs size scaled
+    pub scaled_cs: f64
 }
+impl ScalingHelper {
+    pub fn new(cs:f32, mode:PlayMode) -> Self {
+        let window_size = window_size();
 
-pub fn scale_coords(osu_coords:Vector2) -> Vector2 {
-    let (scale, offset) = scale_window();
-    offset + osu_coords * scale
+        let (settings_scale, settings_offset) = match mode {
+            PlayMode::Standard => Settings::get_mut().standard_settings.get_playfield(),
+            _ => {(0.0, Vector2::zero())}
+        };
+            
+        let scale = (window_size.y / FIELD_SIZE.y) * settings_scale;
+        let scaled_pos_offset = (window_size - FIELD_SIZE * scale) / 2.0 + settings_offset;
 
-    // osu_coords + Vector2::new((window_size.x - FIELD_SIZE.x) / 2.0, (window_size.y - FIELD_SIZE.y) / 2.0)
-}
 
-pub fn scale_cs(base:f64) -> f64 {
-    let (scale, _) = scale_window();
+        let cs_base = (1.0 - 0.7 * (cs as f64 - 5.0) / 5.0) / 2.0;
+        let scaled_cs = cs_base * scale;
 
-    base * scale
+        Self {
+            settings_scale,
+            settings_offset,
+            scale,
+            window_size,
+            scaled_pos_offset,
+            scaled_cs
+        }
+    }
+
+    /// turn playfield (osu) coords into window coords
+    pub fn scale_coords(&self, osu_coords:Vector2) -> Vector2 {
+        self.scaled_pos_offset + osu_coords * self.scale
+    }
+    /// turn window coords into playfield coords
+    pub fn descale_coords(&self, window_coords: Vector2) -> Vector2 {
+        (window_coords - self.scaled_pos_offset) / self.scale
+    }
+
 }

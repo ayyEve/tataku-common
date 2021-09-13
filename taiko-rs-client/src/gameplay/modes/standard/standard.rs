@@ -1,11 +1,11 @@
 use ayyeve_piston_ui::render::*;
 use piston::{MouseButton, RenderArgs};
 
-use crate::game::Settings;
+use crate::game::{Settings, StandardSettings};
 use crate::gameplay::hitobject_defs::NoteDef;
 use crate::{Vector2, window_size};
 use crate::helpers::{curve::get_curve, key_counter::KeyCounter};
-use crate::gameplay::modes::{FIELD_SIZE, scale_coords, standard::*};
+use crate::gameplay::modes::{FIELD_SIZE, ScalingHelper, standard::*};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
 use crate::gameplay::{DURATION_HEIGHT, GameMode, Beatmap, IngameManager, map_difficulty, defs::NoteType};
 
@@ -15,9 +15,6 @@ const POINTS_DRAW_FADE_TIME:f32 = 40.0;
 pub struct StandardGame {
     // lists
     pub notes: Vec<Box<dyn StandardHitObject>>,
-    
-    /// where to start checking notes from
-    // note_index: usize,
 
     // hit timing bar stuff
     hitwindow_300: f32,
@@ -29,24 +26,41 @@ pub struct StandardGame {
     draw_points: Vec<(f32, Vector2, ScoreHit)>,
     mouse_pos: Vector2,
 
-
     key_counter: KeyCounter,
 
     /// original, mouse_start
     move_playfield: Option<(Vector2, Vector2)>,
 
     /// how many keys are being held?
-    hold_count: u8
+    hold_count: u8,
+
+    /// scaling helper to help with scaling
+    scaling_helper: ScalingHelper,
+    /// needed for scaling recalc
+    cs: f32,
+
+    /// cached settings, saves on locking
+    settings: StandardSettings
 }
 impl StandardGame {
-    // pub fn next_note(&mut self) {self.note_index += 1}
+    fn playfield_changed(&mut self) {
+        let new_scale = ScalingHelper::new(self.cs, PlayMode::Standard);
+        self.scaling_helper = new_scale;
+
+        // update playfield for notes
+        for note in self.notes.iter_mut() {
+            note.playfield_changed(&new_scale);
+        }
+    }
 }
 
 impl GameMode for StandardGame {
     fn playmode(&self) -> PlayMode {PlayMode::Standard}
     fn end_time(&self) -> f32 {self.end_time}
     fn new(beatmap:&Beatmap) -> Self {
+        let ar = beatmap.metadata.ar;
         let settings = Settings::get_mut().standard_settings.clone();
+        let scaling_helper = ScalingHelper::new(beatmap.metadata.cs, PlayMode::Standard);
 
         let mut s = Self {
             notes: Vec::new(),
@@ -63,6 +77,8 @@ impl GameMode for StandardGame {
             draw_points: Vec::new(),
 
             move_playfield: None,
+            scaling_helper,
+            cs: beatmap.metadata.cs,
 
             key_counter: KeyCounter::new(
                 vec![
@@ -70,11 +86,11 @@ impl GameMode for StandardGame {
                     settings.right_key
                 ],
                 Vector2::zero()
-            )
+            ),
+
+            settings,
         };
 
-        let ar = beatmap.metadata.ar;
-        let cs = beatmap.metadata.cs;
 
         // join notes and sliders into a single array
         // needed because of combo counts
@@ -129,18 +145,18 @@ impl GameMode for StandardGame {
             // update combo number
             combo_num += 1;
 
-
             if let Some(note) = note {
                 s.notes.push(Box::new(StandardNote::new(
                     note.clone(),
                     ar,
-                    cs,
                     color,
-                    combo_num as u16
+                    combo_num as u16,
+                    &scaling_helper
                 )));
             }
             if let Some(slider) = slider {
                 
+                // invisible note
                 if slider.curve_points.len() == 0 || slider.length == 0.0 {
                     let note = &NoteDef {
                         pos: slider.pos,
@@ -154,9 +170,9 @@ impl GameMode for StandardGame {
                     s.notes.push(Box::new(StandardNote::new(
                         note.clone(),
                         ar,
-                        cs,
                         Color::new(0.0, 0.0, 0.0, 1.0),
-                        combo_num as u16
+                        combo_num as u16,
+                        &scaling_helper
                     )));
                 } else {
                     let curve = get_curve(slider, &beatmap);
@@ -164,9 +180,9 @@ impl GameMode for StandardGame {
                         slider.clone(),
                         curve,
                         ar,
-                        cs,
                         color,
-                        combo_num as u16
+                        combo_num as u16,
+                        scaling_helper.clone()
                     )))
                 }
 
@@ -179,14 +195,12 @@ impl GameMode for StandardGame {
 
         }
 
-        // s.notes.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
-        // s.end_time = s.notes.last().unwrap().end_time(0.0) + 1000.0;
-        let mut end_time:f32 = 0.0;
+        // get the end pos
         for n in s.notes.iter() {
-            end_time = end_time.max(n.end_time(0.0));
+            s.end_time = s.end_time.max(n.end_time(0.0));
         }
+        s.end_time += 1000.0;
 
-        s.end_time = end_time + 1000.0;
         s
     }
 
@@ -194,7 +208,6 @@ impl GameMode for StandardGame {
         if !manager.replaying {
             manager.replay.frames.push((time, frame.clone()));
         }
-        // if self.note_index >= self.notes.len() {return}
 
         match frame {
             ReplayFrame::Press(KeyPress::Left)
@@ -256,6 +269,7 @@ impl GameMode for StandardGame {
             }
             ReplayFrame::Release(KeyPress::Left) 
             | ReplayFrame::Release(KeyPress::Right) => {
+                if self.hold_count == 0 {return} // dont continue if no keys were being held (happens when leaving a menu)
                 self.hold_count -= 1;
 
                 let mut check_notes = Vec::new();
@@ -280,11 +294,8 @@ impl GameMode for StandardGame {
                         ScoreHit::Other(_, _) | ScoreHit::None => {}
 
                         ScoreHit::Miss => {
-                            println!("miss (press)");
+                            println!("slider miss (release)");
                             manager.score.combo = 0;
-                            // manager.score.hit_miss(time, note_time);
-                            // manager.hitbar_timings.push((time, time - note_time));
-                            // self.next_note()
                         },
 
                         pts => {
@@ -302,14 +313,11 @@ impl GameMode for StandardGame {
                             
                             // add to hit timing bar
                             // manager.hitbar_timings.push((time, time - note_time));
-
-                            // next note
-                            // self.next_note();
                         }
                     }
                 }
 
-                // self.notes[self.note_index].release(time);
+                // if this is the last key to be released
                 if self.hold_count == 0 {
                     for note in self.notes.iter_mut() {
                         note.release(time)
@@ -317,10 +325,13 @@ impl GameMode for StandardGame {
                 }
             }
             ReplayFrame::MousePos(x, y) => {
+                // scale the coords from playfield to window
+                let pos = self.scaling_helper.scale_coords(Vector2::new(x as f64, y as f64));
+                self.mouse_pos = pos;
+
                 for note in self.notes.iter_mut() {
-                    note.mouse_move(Vector2::new(x as f64, y as f64));
+                    note.mouse_move(pos);
                 }
-                // self.notes[self.note_index]
             }
             _ => {}
         }
@@ -350,10 +361,6 @@ impl GameMode for StandardGame {
             return;
         }
 
-        // since some std maps are non-linear (2b),
-        // we need to check all notes up until a certain criteria 
-        // TODO! figure out this criteria
-
         // if the time is leading in, we dont want to check if any notes have been missed
         if time < 0.0 {return}
 
@@ -376,11 +383,7 @@ impl GameMode for StandardGame {
                 if flag {
                     match ntype {
                         NoteType::Note => {
-                            // need to set these manually instead of score.hit_miss,
-                            // since we dont want to add anything to the hit error list
-                            let note_time = note.time();
-                            manager.score.hit_miss(time, note_time);
-                            // println!("note miss (time: {}, {}, diff: {}, od: {})", time, note_time, time - note_time, manager.beatmap.metadata.od);
+                            manager.score.hit_miss(time, end_time);
                             self.draw_points.push((time, note.point_draw_pos(), ScoreHit::Miss));
                         }
                         NoteType::Slider => {
@@ -417,7 +420,6 @@ impl GameMode for StandardGame {
 
                         _ => {},
                     }
-                    // self.next_note();
                 }
 
                 // force the note to be misssed
@@ -427,16 +429,13 @@ impl GameMode for StandardGame {
     }
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
         // draw the playfield
-
-        let p1 = scale_coords(Vector2::zero());
-        let p2 = scale_coords(FIELD_SIZE);
+        let p1 = self.scaling_helper.scale_coords(Vector2::zero());
+        let p2 = self.scaling_helper.scale_coords(FIELD_SIZE);
         let playfield = Rectangle::new(
             [0.2, 0.2, 0.2, 0.5].into(),
             f64::MAX-4.0,
             p1,
             p2 - p1,
-            // Vector2::new(0.0, HIT_POSITION.y - (PLAYFIELD_RADIUS + 2.0)),
-            // Vector2::new(args.window_size[0], (PLAYFIELD_RADIUS+2.0) * 2.0),
             if manager.current_timing_point().kiai {
                 Some(Border::new(Color::YELLOW, 2.0))
             } else {None}
@@ -445,6 +444,16 @@ impl GameMode for StandardGame {
 
         // draw key counter
         self.key_counter.draw(args, list);
+
+        // if this is a replay, we need to draw the replay curser
+        if manager.replaying {
+            list.push(Box::new(Circle::new(
+                Color::RED,
+                -999.9,
+                self.mouse_pos,
+                20.0
+            )))
+        }
 
 
         let time = manager.time();
@@ -486,13 +495,12 @@ impl GameMode for StandardGame {
         }
 
         self.key_counter.key_press(key);
+        
         let time = manager.time();
-
-        let settings = Settings::get().standard_settings;
-        if key == settings.left_key {
+        if key == self.settings.left_key {
             self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), time, manager);
         }
-        if key == settings.right_key {
+        if key == self.settings.right_key {
             self.handle_replay_frame(ReplayFrame::Press(KeyPress::Right), time, manager);
         }
     }
@@ -501,23 +509,20 @@ impl GameMode for StandardGame {
             self.move_playfield = None;
             return;
         }
-        let time = manager.time();
 
-        let settings = Settings::get().standard_settings;
-        if key == settings.left_key {
+        let time = manager.time();
+        if key == self.settings.left_key {
             self.handle_replay_frame(ReplayFrame::Release(KeyPress::Left), time, manager);
         }
-        if key == settings.right_key {
+        if key == self.settings.right_key {
             self.handle_replay_frame(ReplayFrame::Release(KeyPress::Right), time, manager);
         }
     }
     
     fn mouse_move(&mut self, pos:Vector2, manager:&mut IngameManager) {
-        self.mouse_pos = pos;
         let time = manager.time();
 
         if let Some((original, mouse_start)) = self.move_playfield {
-
             {
                 let settings = &mut Settings::get_mut().standard_settings;
                 let change = original + (pos - mouse_start);
@@ -526,21 +531,22 @@ impl GameMode for StandardGame {
                 settings.playfield_y_offset = change.y;
             }
 
-            // update playfield for notes
-            for note in self.notes.iter_mut() {
-                note.playfield_changed();
-            }
-
+            self.playfield_changed();
             return;
         }
 
+        // dont continue if this is a replay
+        if manager.replaying {return}
+
+        // convert window pos to playfield pos
+        let pos = self.scaling_helper.descale_coords(pos);
         self.handle_replay_frame(ReplayFrame::MousePos(pos.x as f32, pos.y as f32), time, manager);
     }
     fn mouse_down(&mut self, btn:piston::MouseButton, manager:&mut IngameManager) {
-        {
-            let settings = &Settings::get_mut().standard_settings;
-            if settings.ignore_mouse_buttons {return}
-        }
+        if self.settings.ignore_mouse_buttons {return}
+
+        // dont continue if this is a replay
+        if manager.replaying {return}
 
         let time = manager.time();
         if btn == MouseButton::Left {
@@ -551,10 +557,10 @@ impl GameMode for StandardGame {
         }
     }
     fn mouse_up(&mut self, btn:piston::MouseButton, manager:&mut IngameManager) {
-        {
-            let settings = &Settings::get_mut().standard_settings;
-            if settings.ignore_mouse_buttons {return}
-        }
+        if self.settings.ignore_mouse_buttons {return}
+
+        // dont continue if this is a replay
+        if manager.replaying {return}
 
         let time = manager.time();
         if btn == MouseButton::Left {
@@ -572,20 +578,15 @@ impl GameMode for StandardGame {
                 settings.playfield_scale += delta / 40.0;
             }
 
-            // update playfield for notes
-            for note in self.notes.iter_mut() {
-                note.playfield_changed();
-            }
+            self.playfield_changed();
         }
     }
 
     fn reset(&mut self, beatmap:&Beatmap) {
-        // self.note_index = 0;
-        
+        // reset notes
         for note in self.notes.as_mut_slice() {
             note.reset();
         }
-        
         
         // setup hitwindows
         let od = beatmap.metadata.od;
@@ -605,6 +606,7 @@ impl GameMode for StandardGame {
 
         manager.song.upgrade().unwrap().set_position(time);
     }
+
 
 
     fn timing_bar_things(&self) -> (Vec<(f32,Color)>, (f32,Color)) {

@@ -378,6 +378,7 @@ impl IngameManager {
     pub fn mouse_move(&mut self, pos:Vector2) {
         let m = self.gamemode.clone();
         let mut m = m.lock();
+        // let pos = m.scale_mouse_pos(pos);
         m.mouse_move(pos, self);
     }
     pub fn mouse_down(&mut self, btn:piston::MouseButton) {
@@ -541,8 +542,14 @@ impl IngameManager {
 
 pub trait GameMode {
     fn new(beatmap:&Beatmap) -> Self where Self: Sized;
+
     fn playmode(&self) -> PlayMode;
-    // fn hit(&mut self, key:KeyPress, manager:&mut IngameManager);
+    fn end_time(&self) -> f32;
+    fn combo_bounds(&self) -> Rectangle;
+    /// f64 is hitwindow, color is color for that window. last is miss hitwindow
+    fn timing_bar_things(&self) -> (Vec<(f32,Color)>, (f32,Color));
+    /// convert mouse pos to mode's playfield coords
+    // fn scale_mouse_pos(&self, mouse_pos:Vector2) -> Vector2 {mouse_pos}
 
     fn handle_replay_frame(&mut self, frame:ReplayFrame, time:f32, manager:&mut IngameManager);
 
@@ -561,15 +568,6 @@ pub trait GameMode {
     fn pause(&mut self, _manager:&mut IngameManager) {}
     fn unpause(&mut self, _manager:&mut IngameManager) {}
     fn reset(&mut self, beatmap:&Beatmap);
-
-
-    fn end_time(&self) -> f32;
-
-
-    fn combo_bounds(&self) -> Rectangle;
-
-    /// f64 is hitwindow, color is color for that window. last is miss hitwindow
-    fn timing_bar_things(&self) -> (Vec<(f32,Color)>, (f32,Color));
 }
 
 
