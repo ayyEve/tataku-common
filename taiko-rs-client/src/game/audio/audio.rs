@@ -13,11 +13,12 @@ use crate::game::Settings;
 use super::instance::AudioInstance;
 use super::queue::{AudioQueueController, AudioQueue};
 
-const SOUND_LIST:[&'static str; 4] = [
+const SOUND_LIST:&[&'static str] = &[
     "audio/don.wav",
     "audio/kat.wav",
     "audio/bigdon.wav",
     "audio/bigkat.wav",
+    "audio/combobreak.mp3",
 ];
 
 lazy_static::lazy_static!(

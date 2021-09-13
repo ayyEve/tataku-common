@@ -29,7 +29,7 @@ impl Sound {
         );
 
         let probe = symphonia::default::get_probe().format(
-            Hint::new().with_extension("mp3"),
+            &Hint::new().with_extension("mp3"),
             source,
             &Default::default(),
             &Default::default(),

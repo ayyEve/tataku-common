@@ -3,13 +3,12 @@ use std::ops::Range;
 use ayyeve_piston_ui::render::*;
 use piston::{MouseButton, RenderArgs};
 
-use crate::game::{Settings, StandardSettings};
-use crate::gameplay::hitobject_defs::NoteDef;
 use crate::{Vector2, window_size};
+use crate::game::{Settings, StandardSettings};
 use crate::helpers::{curve::get_curve, key_counter::KeyCounter};
 use crate::gameplay::modes::{FIELD_SIZE, ScalingHelper, standard::*};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
-use crate::gameplay::{DURATION_HEIGHT, GameMode, Beatmap, IngameManager, map_difficulty, defs::NoteType};
+use crate::gameplay::{DURATION_HEIGHT, GameMode, Beatmap, IngameManager, map_difficulty, defs::{NoteType, NoteDef}};
 
 const POINTS_DRAW_TIME:f32 = 100.0;
 const POINTS_DRAW_FADE_TIME:f32 = 40.0;
@@ -275,6 +274,7 @@ impl GameMode for StandardGame {
                     ScoreHit::None | ScoreHit::Other(_,_) => {}
                     ScoreHit::Miss => {
                         println!("miss (press)");
+                        manager.combo_break();
                         manager.score.hit_miss(time, note_time);
                         manager.hitbar_timings.push((time, time - note_time));
                     }
@@ -327,7 +327,7 @@ impl GameMode for StandardGame {
 
                         ScoreHit::Miss => {
                             println!("slider miss (release)");
-                            manager.score.combo = 0;
+                            manager.combo_break();
                         },
 
                         pts => {
@@ -377,7 +377,6 @@ impl GameMode for StandardGame {
             return;
         }
 
-
         // update notes
         for note in self.notes.iter_mut() {
             note.update(time);
@@ -385,13 +384,12 @@ impl GameMode for StandardGame {
             // play queued sounds
             for (time, hitsound, mut samples, override_name) in note.get_sound_queue() {
                 samples.filename = override_name;
-
                 manager.play_note_sound(time, hitsound, samples);
             }
 
             let add_combo = note.pending_combo();
             if add_combo < 0 {
-                manager.score.combo = 0;
+                manager.combo_break();
             } else if add_combo > 0 {
                 for _ in 0..add_combo {
                     manager.score.hit300(0.0, 0.0)
@@ -412,6 +410,7 @@ impl GameMode for StandardGame {
                 // check if we missed the current note
                 match note.note_type() {
                     NoteType::Note if end_time < time => {
+                        manager.combo_break();
                         manager.score.hit_miss(time, end_time);
                         self.draw_points.push((time, note.point_draw_pos(), ScoreHit::Miss));
                     }
@@ -424,6 +423,7 @@ impl GameMode for StandardGame {
                         match pts {
                             ScoreHit::Other(_, _) => {}
                             ScoreHit::None | ScoreHit::Miss => {
+                                manager.combo_break();
                                 manager.score.hit_miss(time, note_time);
                                 manager.hitbar_timings.push((time, time - note_time));
                             }
@@ -432,8 +432,7 @@ impl GameMode for StandardGame {
                                     ScoreHit::X300 => manager.score.hit300(time, note_time),
                                     ScoreHit::X100 => {
                                         manager.score.hit100(time, note_time);
-                                        manager.score.combo = 0;
-                                        //TODO: play miss sound
+                                        manager.combo_break();
                                     },
                                     ScoreHit::X50 => manager.score.hit50(time, note_time),
                                     _ => {}
@@ -443,7 +442,6 @@ impl GameMode for StandardGame {
                                 let hitsound = note.get_hitsound();
                                 let hitsamples = note.get_hitsamples().clone();
                                 manager.play_note_sound(note_time, hitsound, hitsamples);
-
                                 manager.hitbar_timings.push((time, time - note_time));
                             }
                         }

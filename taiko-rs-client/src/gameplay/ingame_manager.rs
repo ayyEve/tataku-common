@@ -350,6 +350,17 @@ impl IngameManager {
 
     }
 
+    pub fn combo_break(&mut self) {
+
+        if self.score.combo >= 20 {
+            // play hitsound
+            Audio::play_preloaded("combobreak");
+        }
+
+        // reset combo to 0
+        self.score.combo = 0;
+    }
+
     pub fn key_down(&mut self, key:piston::Key) {
         let m = self.gamemode.clone();
         let mut m = m.lock();
