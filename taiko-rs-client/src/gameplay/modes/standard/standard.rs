@@ -371,6 +371,13 @@ impl GameMode for StandardGame {
 
 
     fn update(&mut self, manager:&mut IngameManager, time:f32) {
+        // if the map is over, say it is
+        if time >= self.end_time {
+            manager.completed = true;
+            return;
+        }
+
+
         // update notes
         for note in self.notes.iter_mut() {
             note.update(time);
@@ -390,22 +397,12 @@ impl GameMode for StandardGame {
                     manager.score.hit300(0.0, 0.0)
                 }
             }
-        }
 
-        
-        // remove old draw points
-        self.draw_points.retain(|a| time < a.0 + POINTS_DRAW_TIME);
+            // check if note was missed
+            
+            // if the time is leading in, we dont want to check if any notes have been missed
+            if time < 0.0 {continue}
 
-        // if theres no more notes to hit, show score screen
-        if time >= self.end_time {
-            manager.completed = true;
-            return;
-        }
-
-        // if the time is leading in, we dont want to check if any notes have been missed
-        if time < 0.0 {return}
-
-        for note in self.notes.iter_mut() {
             let end_time = note.end_time(self.hitwindow_miss);
 
             // check if note is in hitwindow
@@ -413,60 +410,58 @@ impl GameMode for StandardGame {
                 println!("note missed: {}-{}", time, end_time);
 
                 // check if we missed the current note
-                let ntype = note.note_type();
-                let flag = match ntype {
-                    NoteType::Note => end_time < time,
-                    NoteType::Slider 
-                    | NoteType::Spinner => end_time <= time,
-                    _ => false,
-                };
-
-                if flag {
-                    match ntype {
-                        NoteType::Note => {
-                            manager.score.hit_miss(time, end_time);
-                            self.draw_points.push((time, note.point_draw_pos(), ScoreHit::Miss));
-                        }
-                        NoteType::Slider => {
-                            let note_time = note.end_time(0.0);
-                            // check slider release points
-                            // -1.0 for miss hitwindow to indidate it was held to the end (ie, no hitwindow to check)
-                            let pts = note.get_points(false, time, (-1.0, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
-                            self.draw_points.push((time, note.point_draw_pos(), pts));
-                            match pts {
-                                ScoreHit::None | ScoreHit::Miss => {
-                                    manager.score.hit_miss(time, note_time);
-                                    manager.hitbar_timings.push((time, time - note_time));
+                match note.note_type() {
+                    NoteType::Note if end_time < time => {
+                        manager.score.hit_miss(time, end_time);
+                        self.draw_points.push((time, note.point_draw_pos(), ScoreHit::Miss));
+                    }
+                    NoteType::Slider if end_time <= time => {
+                        let note_time = note.end_time(0.0);
+                        // check slider release points
+                        // -1.0 for miss hitwindow to indidate it was held to the end (ie, no hitwindow to check)
+                        let pts = note.get_points(false, time, (-1.0, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
+                        self.draw_points.push((time, note.point_draw_pos(), pts));
+                        match pts {
+                            ScoreHit::Other(_, _) => {}
+                            ScoreHit::None | ScoreHit::Miss => {
+                                manager.score.hit_miss(time, note_time);
+                                manager.hitbar_timings.push((time, time - note_time));
+                            }
+                            pts => {
+                                match pts {
+                                    ScoreHit::X300 => manager.score.hit300(time, note_time),
+                                    ScoreHit::X100 => {
+                                        manager.score.hit100(time, note_time);
+                                        manager.score.combo = 0;
+                                        //TODO: play miss sound
+                                    },
+                                    ScoreHit::X50 => manager.score.hit50(time, note_time),
+                                    _ => {}
                                 }
-                                ScoreHit::Other(_, _) => {}
-                                pts => {
-                                    match pts {
-                                        ScoreHit::X300 => manager.score.hit300(time, note_time),
-                                        ScoreHit::X100 => manager.score.hit100(time, note_time),
-                                        ScoreHit::X50 => manager.score.hit50(time, note_time),
-                                        _ => {}
-                                    }
 
-                                    // play hitsound
-                                    let hitsound = note.get_hitsound();
-                                    let hitsamples = note.get_hitsamples().clone();
-                                    manager.play_note_sound(note_time, hitsound, hitsamples);
+                                // play hitsound
+                                let hitsound = note.get_hitsound();
+                                let hitsamples = note.get_hitsamples().clone();
+                                manager.play_note_sound(note_time, hitsound, hitsamples);
 
-
-                                    manager.hitbar_timings.push((time, time - note_time));
-                                }
+                                manager.hitbar_timings.push((time, time - note_time));
                             }
                         }
-                        NoteType::Spinner => {}
-
-                        _ => {},
                     }
+
+                    NoteType::Spinner if end_time <= time => {}
+
+                    _ => {},
                 }
+                
 
                 // force the note to be misssed
                 note.miss(); 
             }
         }
+        
+        // remove old draw points
+        self.draw_points.retain(|a| time < a.0 + POINTS_DRAW_TIME);
     }
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
         // draw the playfield
