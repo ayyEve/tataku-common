@@ -110,11 +110,10 @@ impl BeatmapSelectMenu {
                 self.leaderboard_scroll.add_item(Box::new(LeaderboardItem::new(s.to_owned())));
             }
         }
-
     }
 
     fn play_map(&self, game: &mut Game, map: &BeatmapMeta) {
-        Audio::stop_song();
+        // Audio::stop_song();
         let manager = manager_from_playmode(self.mode, map);
         game.queue_state_change(GameState::Ingame(Arc::new(Mutex::new(manager))));
     }
@@ -277,6 +276,7 @@ impl Menu<Game> for BeatmapSelectMenu {
         // check if beatmap item was clicked
         if let Some(clicked_hash) = self.beatmap_scroll.on_click_tagged(pos, button, mods) {
             let mut lock = BEATMAP_MANAGER.lock();
+            println!("clicked: {}", clicked_hash);
 
             // compare last clicked map hash with the new hash.
             // if the hashes are the same, the same map was clicked twice in a row.
@@ -284,7 +284,7 @@ impl Menu<Game> for BeatmapSelectMenu {
             if let Some(current) = &lock.current_beatmap {
                 if current.beatmap_hash == clicked_hash {
                     self.play_map(game, current);
-                    // self.map_changing = (true, false, 0);
+                    self.map_changing = (true, false, 0);
                     return;
                 }
             }
@@ -297,6 +297,7 @@ impl Menu<Game> for BeatmapSelectMenu {
 
             self.beatmap_scroll.refresh_layout();
             self.load_scores();
+            return;
         }
         
         // else {
@@ -306,7 +307,7 @@ impl Menu<Game> for BeatmapSelectMenu {
         //     self.leaderboard_scroll.clear();
         // }
 
-        self.beatmap_scroll.refresh_layout();
+        // self.beatmap_scroll.refresh_layout();
     }
     fn on_mouse_move(&mut self, pos:Vector2, _game:&mut Game) {
         self.back_button.on_mouse_move(pos);
@@ -347,7 +348,6 @@ impl Menu<Game> for BeatmapSelectMenu {
         // only refresh if the text changed
         let old_text = self.search_text.get_text();
         self.search_text.on_key_press(key, mods);
-
         if self.search_text.get_text() != old_text {
             self.refresh_maps();
         }
@@ -356,6 +356,7 @@ impl Menu<Game> for BeatmapSelectMenu {
     //TODO: implement search (oh god)
     fn on_text(&mut self, text:String) {
         self.search_text.on_text(text);
+        self.refresh_maps();
     }
 }
 

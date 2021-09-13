@@ -137,12 +137,16 @@ impl HitObject for StandardNote {
 
         // timing circle
         list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth, self.scaling_scale));
+
+        let alpha = (1.0 - ((self.time - (self.time_preempt * (3.0/4.0))) - self.map_time) / (self.time_preempt / 4.0)).clamp(0.0, 1.0);
+
         // combo number
+        self.combo_text.color.alpha(alpha);
         list.push(self.combo_text.clone());
 
         // note
         let mut note = Circle::new(
-            self.color,
+            self.color.alpha(alpha),
             self.base_depth,
             self.pos,
             self.radius
@@ -399,11 +403,19 @@ impl HitObject for StandardSlider {
     fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         if self.time - self.map_time > self.time_preempt || self.curve.end_time < self.map_time {return}
 
+        // let alpha = (self.time_preempt / 4.0) / ((self.time - self.time_preempt / 4.0) - self.map_time).clamp(0.0, 1.0);
+        let alpha = (1.0 - ((self.time - (self.time_preempt * (3.0/4.0))) - self.map_time) / (self.time_preempt / 4.0)).clamp(0.0, 1.0);
+
+        // combo number
+        self.combo_text.color.alpha(alpha);
+        list.push(self.combo_text.clone());
+
         if self.time - self.map_time > 0.0 {
             // timing circle
             list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.circle_depth, self.scaling_helper.scale));
             // combo number
             list.push(self.combo_text.clone());
+
         } else {
             // slider ball
             let mut inner = Circle::new(
@@ -436,6 +448,7 @@ impl HitObject for StandardSlider {
             list.push(Box::new(outer));
         }
 
+
         // curves
         list.reserve(self.curve.path.len() * 2);
         for i in 0..self.curve.path.len() {
@@ -448,12 +461,12 @@ impl HitObject for StandardSlider {
                 p2,
                 self.radius,
                 self.slider_depth,
-                self.color
+                self.color.alpha(alpha)
             )));
 
             // add a circle to smooth out the corners
             list.push(Box::new(Circle::new(
-                self.color,
+                self.color.alpha(alpha),
                 self.slider_depth,
                 p2,
                 self.radius,
@@ -466,7 +479,7 @@ impl HitObject for StandardSlider {
 
         // end pos
         let mut c = Circle::new(
-            self.color,
+            self.color.alpha(alpha),
             self.circle_depth, // should be above curves but below slider ball
             self.visual_end_pos,
             self.radius
@@ -483,7 +496,7 @@ impl HitObject for StandardSlider {
 
         // start pos
         let mut c = Circle::new(
-            self.color,
+            self.color.alpha(alpha),
             self.circle_depth, // should be above curves but below slider ball
             self.pos,
             self.radius
@@ -549,9 +562,6 @@ impl StandardHitObject for StandardSlider {
 
     // called on hit and release
     fn get_points(&mut self, is_press:bool, time:f32, (h_miss, h50, h100, h300):(f32,f32,f32,f32)) -> ScoreHit {
-
-        // println!("slider: {:?}, {:?}", self.def, self.curve);
-
         // if slider was held to end, no hitwindow to check
         if h_miss == -1.0 {
             let distance = ((self.time_end_pos.x - self.mouse_pos.x).powi(2) + (self.time_end_pos.y - self.mouse_pos.y).powi(2)).sqrt();
