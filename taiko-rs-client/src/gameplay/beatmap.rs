@@ -133,9 +133,7 @@ impl Beatmap {
                         }
                     }
                     BeatmapSection::TimingPoints => {
-                        let tp = TimingPoint::from_str(&line);
-
-                        beatmap.timing_points.push(tp);
+                        beatmap.timing_points.push(TimingPoint::from_str(&line));
                     }
                     BeatmapSection::HitObjects => {
                         let mut split = line.split(",");
@@ -145,7 +143,6 @@ impl Beatmap {
                         let y = split.next().unwrap().parse::<f64>().unwrap();
                         let time = split.next().unwrap().parse::<f32>().unwrap();
                         let read_type = split.next().unwrap().parse::<u64>().unwrap_or(0); // see below
-
 
                         let hitsound = split.next().unwrap().parse::<u8>();
                         if let Err(e) = &hitsound {
@@ -164,9 +161,9 @@ impl Beatmap {
                         // h = mania hold
                         let new_combo = (read_type & 4) > 0;
                         let color_skip = 
-                              if (read_type & 2u64.pow(4)) > 0 {1} else {0} 
-                            + if (read_type & 2u64.pow(5)) > 0 {2} else {0} 
-                            + if (read_type & 2u64.pow(6)) > 0 {4} else {0};
+                              if (read_type & 16) > 0 {1} else {0} 
+                            + if (read_type & 32) > 0 {2} else {0} 
+                            + if (read_type & 64) > 0 {4} else {0};
 
                         if (read_type & 2) > 0 { // slider
                             let curve_raw = split.next().unwrap();
@@ -229,7 +226,6 @@ impl Beatmap {
                             // x,y,time,type,hitSound,...
                             // endTime,hitSample
                             let end_time = split.next().unwrap().parse::<f32>().unwrap();
-                            // let length = end_time as f64 - time as f64;
 
                             beatmap.spinners.push(SpinnerDef {
                                 pos: Vector2::new(x, y),
@@ -301,18 +297,18 @@ impl Beatmap {
             }
         }
 
-        let mut mult:f32 = 1.0;
+        let mut mult = 1.0;
         let p = point.unwrap();
 
         if allow_multiplier && inherited_point.is_some() {
             let ip = inherited_point.unwrap();
 
-            if p.time < ip.time && ip.beat_length < 0.0 {
-                mult = (-ip.beat_length as f32).clamp(10.0, 1000.0) / 100.0;
+            if p.time <= ip.time && ip.beat_length < 0.0 {
+                mult = (-ip.beat_length).clamp(10.0, 1000.0) / 100.0;
             }
         }
 
-        p.beat_length as f32 * mult
+        p.beat_length * mult
     }
     
     // something is fucked with this, it returns values wayyyyyyyyyyyyyyyyyyyyyy too high
