@@ -354,6 +354,15 @@ impl GameMode for StandardGame {
 
                 manager.play_note_sound(time, hitsound, samples);
             }
+
+            let add_combo = note.pending_combo();
+            if add_combo < 0 {
+                manager.score.combo = 0;
+            } else if add_combo > 0 {
+                for _ in 0..add_combo {
+                    manager.score.hit300(0.0, 0.0)
+                }
+            }
         }
 
         
@@ -612,7 +621,7 @@ impl GameMode for StandardGame {
         manager.song.upgrade().unwrap().set_position(time);
     }
 
-    
+
     fn timing_bar_things(&self) -> (Vec<(f32,Color)>, (f32,Color)) {
         (vec![
             (self.hitwindow_50, [0.8549, 0.6823, 0.2745, 1.0].into()),

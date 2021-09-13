@@ -23,8 +23,10 @@ const NOTE_DEPTH:f64 = -100.0;
 
 pub trait StandardHitObject: HitObject {
     /// does this object count as a miss if it is not hit?
-    fn causes_miss(&self) -> bool; //TODO: might change this to return an enum of "no", "yes". "yes_combo_only"
+    fn causes_miss(&self) -> bool; //TODO: might change this to return an enum of "no", "yes". "yes_combo_only" 
     fn get_points(&mut self, is_press:bool, time:f32, hit_windows:(f32,f32,f32,f32)) -> ScoreHit;
+    /// return negative for combo break
+    fn pending_combo(&mut self) -> i8 {0}
 
     fn playfield_changed(&mut self, new_scale: &ScalingHelper);
 
@@ -236,6 +238,9 @@ pub struct StandardSlider {
     /// hit dots. if the slider isnt being held for these
     hit_dots: Vec<SliderDot>,
 
+    /// used for repeat sliders
+    pending_combo: i8,
+
     /// start time
     time: f32,
     /// what is the current sound index?
@@ -279,7 +284,13 @@ pub struct StandardSlider {
     sound_queue: Vec<(f32, u8, HitSamples, Option<String>)>,
 
     /// scaling helper, should greatly improve rendering speed due to locking
-    scaling_helper: ScalingHelper
+    scaling_helper: ScalingHelper,
+
+    /// is the mouse in a good state for sliding? (pos + key down)
+    sliding_ok: bool,
+
+    /// cached slider ball pos
+    slider_ball_pos: Vector2,
 }
 impl StandardSlider {
     pub fn new(def:SliderDef, curve:Curve, ar:f32, color:Color, combo_num: u16, scaling_helper:ScalingHelper) -> Self {
@@ -319,6 +330,7 @@ impl StandardSlider {
             time_end_pos,
 
             time, 
+            pending_combo: 0,
             sound_index: 0,
             slides_complete: 0,
             moving_forward: true,
@@ -334,7 +346,9 @@ impl StandardSlider {
             combo_text,
             sound_queue: Vec::new(),
 
-            scaling_helper
+            scaling_helper,
+            sliding_ok: false,
+            slider_ball_pos: Vector2::zero()
         }
     }
 }
@@ -345,13 +359,14 @@ impl HitObject for StandardSlider {
     fn update(&mut self, beatmap_time: f32) {
         self.map_time = beatmap_time;
 
+        // check sliding ok
+        self.slider_ball_pos = self.scaling_helper.scale_coords(self.curve.position_at_time(beatmap_time));
+        let distance = ((self.slider_ball_pos.x - self.mouse_pos.x).powi(2) + (self.slider_ball_pos.y - self.mouse_pos.y).powi(2)).sqrt();
+        self.sliding_ok = self.hold_time > self.release_time && distance <= self.radius * 2.0;
+
+
         // find out if a slide has been completed
         let pos = (beatmap_time - self.time) / (self.curve.length() / self.def.slides as f32);
-        // if pos % 2.0 > 1.0 {
-        //     current_moving_forwards = false;
-        // } else {
-        //     current_moving_forwards = true;
-        // }
         if self.time - beatmap_time > self.time_preempt || self.curve.end_time < beatmap_time {return}
 
         let current_moving_forwards = pos % 2.0 <= 1.0;
@@ -361,14 +376,24 @@ impl HitObject for StandardSlider {
             self.slides_complete += 1;
             // println!("repeat {} started", self.slides_complete);
 
-            //TODO: play sound
+            // increment index
             self.sound_index += 1;
-            self.sound_queue.push((
-                beatmap_time,
-                self.get_hitsound(),
-                self.get_hitsamples().clone(),
-                None
-            ));
+
+            // check cursor
+            if self.sliding_ok {
+                // increment pending combo
+                self.pending_combo += 1;
+                self.sound_queue.push((
+                    beatmap_time,
+                    self.get_hitsound(),
+                    self.get_hitsamples().clone(),
+                    None
+                ));
+            } else {
+                // set it to negative, we broke combo
+                self.pending_combo = -1;
+            }
+
         }
     }
 
@@ -382,13 +407,10 @@ impl HitObject for StandardSlider {
             list.push(self.combo_text.clone());
         } else {
             // slider ball
-            let pos = self.scaling_helper.scale_coords(self.curve.position_at_time(self.map_time));
-            let distance = ((pos.x - self.mouse_pos.x).powi(2) + (pos.y - self.mouse_pos.y).powi(2)).sqrt();
-
             let mut inner = Circle::new(
                 self.color,
                 self.base_depth - 0.0000001,
-                pos,
+                self.slider_ball_pos,
                 self.radius
             );
             inner.border = Some(Border::new(
@@ -398,15 +420,14 @@ impl HitObject for StandardSlider {
             list.push(Box::new(inner));
 
 
-            let radius = self.radius * 2.0;
             let mut outer = Circle::new(
                 Color::TRANSPARENT_WHITE,
                 self.base_depth - 0.0000001,
-                pos,
-                radius
+                self.slider_ball_pos,
+                self.radius* 2.0
             );
             outer.border = Some(Border::new(
-                if self.hold_time > self.release_time && distance <= radius {
+                if self.sliding_ok {
                     Color::GREEN
                 } else {
                     Color::RED
@@ -490,6 +511,7 @@ impl HitObject for StandardSlider {
         self.hit_dots.clear();
         self.sound_queue.clear();
 
+        self.pending_combo = 0;
         self.map_time = 0.0;
         self.hold_time = 0.0;
         self.release_time = 0.0;
@@ -502,8 +524,8 @@ impl HitObject for StandardSlider {
     }
 }
 impl StandardHitObject for StandardSlider {
-    fn miss(&mut self) {self.start_checked = true; self.end_checked = true}
-    fn was_hit(&self) -> bool {self.start_checked}
+    fn miss(&mut self) {self.end_checked = true}
+    fn was_hit(&self) -> bool {self.end_checked}
     fn get_hitsamples(&self) -> HitSamples {
         let mut samples = self.def.hitsamples.clone();
         let [normal_set, addition_set] = self.def.edge_sets[self.sound_index.min(self.def.edge_sets.len() - 1)];
@@ -517,7 +539,10 @@ impl StandardHitObject for StandardSlider {
         self.def.edge_sounds[self.sound_index.min(self.def.edge_sounds.len() - 1)]
     }
     fn causes_miss(&self) -> bool {false}
-    fn point_draw_pos(&self) -> Vector2 {self.pos}
+    fn point_draw_pos(&self) -> Vector2 {
+        if self.end_checked {self.time_end_pos}
+        else {self.pos}
+    }
     fn get_preempt(&self) -> f32 {self.time_preempt}
     fn press(&mut self, time:f32) {self.hold_time = time}
     fn release(&mut self, time:f32) {self.release_time = time}
@@ -605,6 +630,10 @@ impl StandardHitObject for StandardSlider {
     fn get_sound_queue(&mut self) -> Vec<(f32, u8, HitSamples, Option<String>)> {
         std::mem::take(&mut self.sound_queue)
     }
+    fn pending_combo(&mut self) -> i8 {
+        std::mem::take(&mut self.pending_combo)
+    }
+
 
     fn playfield_changed(&mut self, new_scale: &ScalingHelper) {
         self.scaling_helper = new_scale.clone();
@@ -634,20 +663,17 @@ impl StandardHitObject for StandardSlider {
 #[derive(Clone, Copy)]
 struct SliderDot {
     time: f64,
-    pos: Vector2,
-    pub done: bool
+    pos: Vector2
 }
 impl SliderDot {
     pub fn new(time:f64, pos:Vector2) -> SliderDot {
         SliderDot {
             time,
-            pos,
-            done: false
+            pos
         }
     }
     pub fn update(&mut self, _beatmap_time:f64) {}
     pub fn draw(&self, list:&mut Vec<Box<dyn Renderable>>) {
-
         let mut c = Circle::new(
             Color::YELLOW,
             -100.0,
