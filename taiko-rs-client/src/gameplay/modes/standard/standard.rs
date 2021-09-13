@@ -193,7 +193,8 @@ impl GameMode for StandardGame {
             }
             if let Some(spinner) = spinner {
                 s.notes.push(Box::new(StandardSpinner::new(
-                    spinner.clone()
+                    spinner.clone(),
+                    &scaling_helper
                 )))
             }
 

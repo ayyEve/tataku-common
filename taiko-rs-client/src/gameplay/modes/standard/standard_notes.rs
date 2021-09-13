@@ -701,6 +701,7 @@ impl SliderDot {
 #[derive(Clone)]
 pub struct StandardSpinner {
     def: SpinnerDef,
+    pos: Vector2,
     time: f32, // ms
     end_time: f32, // ms
 
@@ -724,10 +725,11 @@ pub struct StandardSpinner {
     last_update: f32
 }
 impl StandardSpinner {
-    pub fn new(def: SpinnerDef) -> Self {
+    pub fn new(def: SpinnerDef, scaling_helper: &ScalingHelper) -> Self {
         let time = def.time;
         let end_time = def.end_time;
         Self {
+            pos: scaling_helper.window_size / 2.0,
             def,
             time, 
             end_time,
@@ -768,12 +770,11 @@ impl HitObject for StandardSpinner {
     fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         if !(self.last_update >= self.time && self.last_update <= self.end_time) {return}
 
-        let pos = window_size() / 2.0;
         // bg circle
         let mut bg = Circle::new(
             Color::YELLOW,
             -10.0,
-            pos,
+            self.pos,
             SPINNER_RADIUS
         );
         bg.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
@@ -783,7 +784,7 @@ impl HitObject for StandardSpinner {
         let mut fg = Circle::new(
             Color::WHITE,
             -11.0,
-            pos,
+            self.pos,
             SPINNER_RADIUS * (self.rotations_completed as f64 / self.rotations_required as f64)
         );
         fg.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
@@ -791,16 +792,16 @@ impl HitObject for StandardSpinner {
 
         // draw line to show rotation
         {
-            let p2 = pos + Vector2::new(self.rotation.cos(), self.rotation.sin()) * SPINNER_RADIUS;
+            let p2 = self.pos + Vector2::new(self.rotation.cos(), self.rotation.sin()) * SPINNER_RADIUS;
             list.push(Box::new(Line::new(
-                pos,
+                self.pos,
                 p2,
                 5.0,
                 -20.0,
                 Color::GREEN
             )));
         }
-            
+        
 
         //TODO: draw a counter
     }

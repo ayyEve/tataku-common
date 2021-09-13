@@ -288,7 +288,7 @@ impl Game {
                 let mut lock = manager.lock();
                 
                 // pause button, or focus lost, only if not replaying
-                if !lock.replaying && matches!(window_focus_changed, Some(false)) || keys_down.contains(&Key::Escape) {
+                if !lock.replaying && (matches!(window_focus_changed, Some(false)) && Settings::get_mut().pause_on_focus_lost) || keys_down.contains(&Key::Escape) {
                     lock.pause();
                     let menu = PauseMenu::new(manager.clone());
                     self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
@@ -298,25 +298,14 @@ impl Game {
                 if keys_down.contains(&Key::Equals) {lock.increment_offset(5.0)}
                 if keys_down.contains(&Key::Minus) {lock.increment_offset(-5.0)}
 
-                if mouse_moved {
-                    lock.mouse_move(mouse_pos);
-                }
-                for btn in mouse_down {
-                    lock.mouse_down(btn);
-                }
-                for btn in mouse_up {
-                    lock.mouse_up(btn);
-                }
-                if scroll_delta != 0.0 {
-                    lock.mouse_scroll(scroll_delta);
-                }
+                // inputs
+                if mouse_moved {lock.mouse_move(mouse_pos)}
+                for btn in mouse_down {lock.mouse_down(btn)}
+                for btn in mouse_up {lock.mouse_up(btn)}
+                if scroll_delta != 0.0 {lock.mouse_scroll(scroll_delta)}
 
-                for k in keys_down.iter() {
-                    lock.key_down(*k);
-                }
-                for k in keys_up.iter() {
-                    lock.key_up(*k);
-                }
+                for k in keys_down.iter() {lock.key_down(*k)}
+                for k in keys_up.iter() {lock.key_up(*k)}
 
                 // update, then check if complete
                 lock.update();

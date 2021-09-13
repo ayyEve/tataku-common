@@ -41,6 +41,10 @@ pub struct Settings {
 
     // bg
     pub background_dim: f32,
+    /// should the game pause when focus is lost?
+    pub pause_on_focus_lost: bool,
+
+    pub cursor_color: String
 }
 impl Settings {
     fn load() -> Settings {
@@ -110,7 +114,10 @@ impl Default for Settings {
             background_dim: 0.8,
 
             // other
-            cursor_scale: 1.0
+            cursor_scale: 1.0,
+            pause_on_focus_lost: true,
+
+            cursor_color: "#cc0099".to_owned()
         }
     }
 }

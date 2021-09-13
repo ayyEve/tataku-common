@@ -9,6 +9,8 @@ pub struct CursorManager {
     /// should the cursor be visible?
     pub visible: bool,
 
+    pub color: Color,
+
     /// should the mouse not follow the user's cursor.
     /// actually used inside game, not here
     pub replay_mode: bool,
@@ -28,6 +30,7 @@ impl CursorManager {
             visible: true,
             replay_mode: false,
             replay_mode_changed: false,
+            color: Color::from_hex(&Settings::get_mut().cursor_color),
 
             left_pressed: false,
             right_pressed: false
