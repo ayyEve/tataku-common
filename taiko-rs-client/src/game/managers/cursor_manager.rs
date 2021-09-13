@@ -59,7 +59,7 @@ impl CursorManager {
         }
 
         list.push(Box::new(Circle::new(
-            Color::new(0.8, 0.0, 0.6, 1.0),
+            self.color,
             -f64::MAX,
             self.pos,
             radius * Settings::get_mut().cursor_scale
