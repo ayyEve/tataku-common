@@ -1,9 +1,8 @@
 use std::sync::Arc;
-
-use ayyeve_piston_ui::render::Vector2;
 use parking_lot::Mutex;
 use taiko_rs_common::types::PlayMode;
 
+use crate::render::{Rectangle, Vector2};
 use crate::{game::Settings, window_size};
 
 use super::{Beatmap, BeatmapMeta, GameMode, IngameManager};
@@ -77,23 +76,59 @@ pub struct ScalingHelper {
     pub scaled_pos_offset: Vector2,
 
     /// cs size scaled
-    pub scaled_cs: f64
+    pub scaled_cs: f64,
+
+    /// scaled playfield
+    playfield_scaled: Rectangle,
+    /// scaled playfield
+    playfield_scaled_with_cs_border: Rectangle,
 }
 impl ScalingHelper {
     pub fn new(cs:f32, mode:PlayMode) -> Self {
         let window_size = window_size();
 
-        let (settings_scale, settings_offset) = match mode {
-            PlayMode::Standard => Settings::get_mut().standard_settings.get_playfield(),
-            _ => {(0.0, Vector2::zero())}
+        let circle_size;
+        let settings_scale;
+        let settings_offset;
+
+        match mode {
+            PlayMode::Standard => {
+                let things = Settings::get_mut().standard_settings.get_playfield();
+                settings_scale = things.0;
+                settings_offset = things.1;
+                circle_size = standard::CIRCLE_RADIUS_BASE;
+            },
+
+            _ => {
+                settings_scale = 0.0;
+                settings_offset = Vector2::zero();
+                circle_size = 0.0;
+            }
         };
             
         let scale = (window_size.y / FIELD_SIZE.y) * settings_scale;
         let scaled_pos_offset = (window_size - FIELD_SIZE * scale) / 2.0 + settings_offset;
 
-
         let cs_base = (1.0 - 0.7 * (cs as f64 - 5.0) / 5.0) / 2.0;
         let scaled_cs = cs_base * scale;
+
+        let circle_size = Vector2::one() * circle_size * scaled_cs;
+
+        let playfield_scaled = Rectangle::new(
+            [0.2, 0.2, 0.2, 0.5].into(),
+            f64::MAX-4.0,
+            scaled_pos_offset,
+            FIELD_SIZE * scale,
+            None
+        );
+
+        let playfield_scaled_with_cs_border = Rectangle::new(
+            [0.2, 0.2, 0.2, 0.5].into(),
+            f64::MAX-4.0,
+            scaled_pos_offset - circle_size,
+            FIELD_SIZE * scale + circle_size,
+            None
+        );
 
         Self {
             settings_scale,
@@ -101,7 +136,10 @@ impl ScalingHelper {
             scale,
             window_size,
             scaled_pos_offset,
-            scaled_cs
+            scaled_cs,
+
+            playfield_scaled,
+            playfield_scaled_with_cs_border
         }
     }
 

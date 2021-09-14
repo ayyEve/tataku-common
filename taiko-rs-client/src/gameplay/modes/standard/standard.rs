@@ -5,8 +5,8 @@ use piston::{MouseButton, RenderArgs};
 
 use crate::{Vector2, window_size};
 use crate::game::{Settings, StandardSettings};
+use crate::gameplay::modes::{ScalingHelper, standard::*};
 use crate::helpers::{curve::get_curve, key_counter::KeyCounter};
-use crate::gameplay::modes::{FIELD_SIZE, ScalingHelper, standard::*};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
 use crate::gameplay::{DURATION_HEIGHT, GameMode, Beatmap, IngameManager, map_difficulty, defs::{NoteType, NoteDef}};
 
@@ -45,7 +45,8 @@ pub struct StandardGame {
     cs: f32,
 
     /// cached settings, saves on locking
-    settings: StandardSettings
+    settings: StandardSettings,
+
 }
 impl StandardGame {
     fn playfield_changed(&mut self) {
@@ -421,18 +422,12 @@ impl GameMode for StandardGame {
         self.draw_points.retain(|a| time < a.0 + POINTS_DRAW_TIME);
     }
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
+
         // draw the playfield
-        let p1 = self.scaling_helper.scale_coords(Vector2::zero());
-        let p2 = self.scaling_helper.scale_coords(FIELD_SIZE);
-        let playfield = Rectangle::new(
-            [0.2, 0.2, 0.2, 0.5].into(),
-            f64::MAX-4.0,
-            p1,
-            p2 - p1,
-            if manager.current_timing_point().kiai {
-                Some(Border::new(Color::YELLOW, 2.0))
-            } else {None}
-        );
+        let mut playfield = self.scaling_helper.playfield_scaled_with_cs_border.clone();
+        if manager.current_timing_point().kiai {
+            playfield.border = Some(Border::new(Color::YELLOW, 2.0));
+        }
         list.push(Box::new(playfield));
 
         // draw key counter
