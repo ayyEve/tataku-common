@@ -61,6 +61,8 @@ impl Menu<Game> for MainMenu {
         if maps.len() > 0 {
             BEATMAP_MANAGER.lock().set_current_beatmap(g, &maps[maps.len() - 1], true, false);
         }
+
+        self.visualization.update();
     }
 
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {

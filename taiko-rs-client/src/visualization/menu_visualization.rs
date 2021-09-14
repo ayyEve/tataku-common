@@ -21,11 +21,14 @@ pub struct MenuVisualization {
 
     bar_height: f64,
 
+    rotation: f64,
+
     cookie: Image
 }
 impl MenuVisualization {
     pub fn new() -> Self {
         Self {
+            rotation: 0.0,
             data: Vec::new(),
             timer: Instant::now(),
             cookie: Image::new(Vector2::zero(), 0.0, Texture::empty(&TextureSettings::new()).unwrap(), Vector2::new(INNER_RADIUS, INNER_RADIUS)),
@@ -40,10 +43,12 @@ impl Visualization for MenuVisualization {
     fn data(&mut self) -> &mut Vec<FFTEntry> {&mut self.data}
     fn timer(&mut self) -> &mut Instant {&mut self.timer}
 
-
     fn draw(&mut self, _args:piston::RenderArgs, pos:Vector2, depth:f64, list:&mut Vec<Box<dyn Renderable>>) {
+        let since_last = self.timer.elapsed().as_secs_f64();
         self.update_data();
 
+        let rotation_increment = 0.2;
+        self.rotation += rotation_increment * since_last;
 
         // let mut graph = ayyeve_piston_ui::menu::menu_elements::Graph::new(
         //     Vector2::new(0.0, _args.window_size[1] - 500.0), 
@@ -61,19 +66,17 @@ impl Visualization for MenuVisualization {
         // )));
 
 
-
         let a = (2.0 * std::f64::consts::PI) / self.data.len() as f64;
         let n = (2.0 * std::f64::consts::PI * INNER_RADIUS) / self.data.len() as f64 / 2.0;
 
         for i in 0..self.data.len() {
             if self.data[i].1 <= CUTOFF {continue}
 
-
             let factor = (i as f64 + 2.0).log(10.0);
 
             let l = INNER_RADIUS + self.data[i].1 as f64 * factor * self.bar_height;
 
-            let theta = a * i as f64;
+            let theta = self.rotation + a * i as f64;
             let cos = theta.cos();
             let sin = theta.sin();
             let p1 = pos + Vector2::new(
