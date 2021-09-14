@@ -45,22 +45,20 @@ impl Visualization for MenuVisualization {
         self.update_data();
 
 
-        // let audio_data = crate::game::audio::CURRENT_DATA.clone();
-        // let audio_data = audio_data.lock().clone();
-        let mut graph = ayyeve_piston_ui::menu::menu_elements::Graph::new(
-            Vector2::new(0.0, _args.window_size[1] - 500.0), 
-            Vector2::new(500.0, 500.0),
-            self.data.iter().map(|a|a.1).collect(),
-            0.0, 20.0
-        );
-        list.extend(ayyeve_piston_ui::menu::menu_elements::ScrollableItem::draw(&mut graph, _args, Vector2::new(0.0, 0.0), depth));
-        list.push(Box::new(Rectangle::new(
-            Color::WHITE,
-            depth + 10.0,
-            Vector2::new(0.0, _args.window_size[1] - 500.0), 
-            Vector2::new(500.0, 500.0),
-            None
-        )));
+        // let mut graph = ayyeve_piston_ui::menu::menu_elements::Graph::new(
+        //     Vector2::new(0.0, _args.window_size[1] - 500.0), 
+        //     Vector2::new(500.0, 500.0),
+        //     self.data.iter().map(|a|a.1).collect(),
+        //     0.0, 20.0
+        // );
+        // list.extend(ayyeve_piston_ui::menu::menu_elements::ScrollableItem::draw(&mut graph, _args, Vector2::new(0.0, 0.0), depth));
+        // list.push(Box::new(Rectangle::new(
+        //     Color::WHITE,
+        //     depth + 10.0,
+        //     Vector2::new(0.0, _args.window_size[1] - 500.0), 
+        //     Vector2::new(500.0, 500.0),
+        //     None
+        // )));
 
 
 
