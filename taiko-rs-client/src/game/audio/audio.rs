@@ -22,7 +22,7 @@ const SOUND_LIST:&[&'static str] = &[
 ];
 
 lazy_static::lazy_static!(
-    static ref AUDIO: Arc<Audio> = Arc::new(Audio::setup());
+    pub static ref AUDIO: Arc<Audio> = Arc::new(Audio::setup());
     static ref CURRENT_SONG: Arc<Mutex<Option<(String,Weak<AudioHandle>)>>> = Arc::new(Mutex::new(None));
 
     static ref PRELOADED_SOUNDS: HashMap<String, Sound> = {
@@ -46,7 +46,7 @@ lazy_static::lazy_static!(
 
 pub struct Audio {
     queue: Arc<AudioQueueController>,
-    sample_rate: u32,
+    pub sample_rate: u32,
 }
 impl Audio {
     // todo: fix everything so nothing crashes and you can always change the device later etc
@@ -110,7 +110,7 @@ impl Audio {
                     }
 
                     // println!("len: {}", current_data.len());
-                    current_data.resize(1024, 0.0);
+                    current_data.resize(2048, 0.0);
                     // {
                     //     let mut current_data = CURRENT_DATA.lock();
                     //     current_data.fill(0.0)

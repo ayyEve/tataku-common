@@ -19,11 +19,11 @@ tokio = { version = "1.7.1", features = ["full"] }
 futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
 
 # piston etc
-glfw = {version = "0.41", features=["image"]}
+glfw = {version = "0.41.0", features=["image"]}
 image = "0.23"
 piston = "0.53.0"
 piston2d-graphics = "0.40.0"
-pistoncore-glfw_window = {git="https://github.com/ayyEve/glfw_window"}
+pistoncore-glfw_window = {git="https://github.com/ayyEve/glfw_window", rev="41bd3f2b318a2fdd551f1d2b8a4c16b24d11e142"}
 piston2d-opengl_graphics = "0.78.0"
 ayyeve-piston-ui = {git = "https://gitlab.ayyeve.xyz/ayyEve/ayyeve-piston-ui"}
 
@@ -46,4 +46,5 @@ md5 = "0.7.0"
 rand = "0.8.4"
 clipboard = "0.5.0"
 
-dft = "0.5.5"
+#dft = "0.5.5"
+rustfft = "6.0"
