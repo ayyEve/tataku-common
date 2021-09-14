@@ -135,10 +135,11 @@ impl HitObject for StandardNote {
     fn draw(&mut self, _args:RenderArgs, list:&mut Vec<Box<dyn Renderable>>) {
         if self.time - self.map_time > self.time_preempt || self.time - self.map_time < 0.0 || self.hit {return}
 
-        // timing circle
-        list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth, self.scaling_scale));
+        let alpha = (1.0 - ((self.time - (self.time_preempt * (2.0/3.0))) - self.map_time) / (self.time_preempt * (1.0/3.0))).clamp(0.0, 1.0);
 
-        let alpha = (1.0 - ((self.time - (self.time_preempt * (3.0/4.0))) - self.map_time) / (self.time_preempt / 4.0)).clamp(0.0, 1.0);
+        // timing circle
+        list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth, self.scaling_scale, alpha));
+
 
         // combo number
         self.combo_text.color.alpha(alpha);
@@ -404,7 +405,7 @@ impl HitObject for StandardSlider {
         if self.time - self.map_time > self.time_preempt || self.curve.end_time < self.map_time {return}
 
         // let alpha = (self.time_preempt / 4.0) / ((self.time - self.time_preempt / 4.0) - self.map_time).clamp(0.0, 1.0);
-        let alpha = (1.0 - ((self.time - (self.time_preempt * (3.0/4.0))) - self.map_time) / (self.time_preempt / 4.0)).clamp(0.0, 1.0);
+        let alpha = (1.0 - ((self.time - (self.time_preempt * (2.0/3.0))) - self.map_time) / (self.time_preempt * (1.0/3.0))).clamp(0.0, 1.0);
 
         // combo number
         self.combo_text.color.alpha(alpha);
@@ -412,7 +413,7 @@ impl HitObject for StandardSlider {
 
         if self.time - self.map_time > 0.0 {
             // timing circle
-            list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.circle_depth, self.scaling_helper.scale));
+            list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.circle_depth, self.scaling_helper.scale, alpha));
             // combo number
             list.push(self.combo_text.clone());
 
@@ -879,7 +880,7 @@ fn lerp(target:f64, current: f64, factor:f64) -> f64 {
     current + (target - current) * factor
 }
 
-fn approach_circle(pos:Vector2, radius:f64, time_diff:f32, time_preempt:f32, depth:f64, scale:f64) -> Box<Circle> {
+fn approach_circle(pos:Vector2, radius:f64, time_diff:f32, time_preempt:f32, depth:f64, scale:f64, alpha: f32) -> Box<Circle> {
 
     let mut c = Circle::new(
         Color::TRANSPARENT_WHITE,
@@ -887,7 +888,7 @@ fn approach_circle(pos:Vector2, radius:f64, time_diff:f32, time_preempt:f32, dep
         pos,
         radius + (time_diff as f64 / time_preempt as f64) * (HITWINDOW_CIRCLE_RADIUS * scale)
     );
-    c.border = Some(Border::new(Color::WHITE, NOTE_BORDER_SIZE * scale));
+    c.border = Some(Border::new(Color::WHITE.alpha(alpha), NOTE_BORDER_SIZE * scale));
     Box::new(c)
 }
 
