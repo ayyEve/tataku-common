@@ -303,7 +303,7 @@ impl GameMode for StandardGame {
                 let mut check_notes = Vec::new();
                 let w = self.hitwindow_miss;
                 for note in self.notes.iter_mut() {
-                    
+
                     // if this is the last key to be released
                     if self.hold_count == 0 {
                         note.release(time)
@@ -314,42 +314,6 @@ impl GameMode for StandardGame {
                         check_notes.push(note);
                     }
                 }
-                if check_notes.len() == 0 {return} // no notes to check
-                
-                check_notes.sort_by(|a, b| a.time().partial_cmp(&b.time()).unwrap());
-                
-                let note = &mut check_notes[0];
-                if note.note_type() == NoteType::Slider {
-                    let pts = note.get_points(false, time, (self.hitwindow_miss, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
-                    let note_time = note.time();
-                    self.draw_points.push((time, note.point_draw_pos(), pts));
-                    match pts {
-                        ScoreHit::Other(_, _) | ScoreHit::None => {}
-
-                        ScoreHit::Miss => {
-                            println!("slider miss (release)");
-                            manager.combo_break();
-                        },
-
-                        pts => {
-                            match pts {
-                                ScoreHit::X300 => manager.score.hit300(time, note_time),
-                                ScoreHit::X100 => manager.score.hit100(time, note_time),
-                                ScoreHit::X50  => manager.score.hit50 (time, note_time),
-                                _ => {}
-                            }
-
-                            // play hitsound
-                            let hitsound = note.get_hitsound();
-                            let hitsamples = note.get_hitsamples().clone();
-                            manager.play_note_sound(note_time, hitsound, hitsamples);
-                            
-                            // add to hit timing bar
-                            // manager.hitbar_timings.push((time, time - note_time));
-                        }
-                    }
-                }
-
             }
             ReplayFrame::MousePos(x, y) => {
                 // scale the coords from playfield to window
