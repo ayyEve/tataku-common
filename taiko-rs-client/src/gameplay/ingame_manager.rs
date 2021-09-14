@@ -253,9 +253,10 @@ impl IngameManager {
         let play_finish = (note_hitsound & 4) > 0; // 2: Finish
         let play_clap = (note_hitsound & 8) > 0; // 3: Clap
 
-        if !(play_normal || play_whistle || play_finish || play_clap) {
-            play_normal = true
-        }
+        // if !(play_normal || play_whistle || play_finish || play_clap) {
+        //     play_normal = true
+        // }
+        play_normal = true;
 
         // https://osu.ppy.sh/wiki/en/osu%21_File_Formats/Osu_%28file_format%29#hitsounds
 
@@ -351,7 +352,6 @@ impl IngameManager {
     }
 
     pub fn combo_break(&mut self) {
-
         if self.score.combo >= 20 {
             // play hitsound
             Audio::play_preloaded("combobreak");
