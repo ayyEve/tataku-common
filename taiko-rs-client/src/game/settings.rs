@@ -219,7 +219,7 @@ impl Default for StandardSettings {
             right_key: Key::D,
             playfield_x_offset: 0.0,
             playfield_y_offset: 0.0,
-            playfield_scale: 1.0,
+            playfield_scale: 0.8,
             ignore_mouse_buttons: false
         }
     }
