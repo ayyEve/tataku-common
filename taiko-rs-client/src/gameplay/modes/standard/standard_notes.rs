@@ -485,7 +485,7 @@ impl HitObject for StandardSlider {
             self.radius
         );
         c.border = Some(Border::new(
-            if repeats && repeat_diff > 1 {
+            if repeats && repeat_diff > 0 {
                 Color::RED
             } else {
                 Color::BLACK
@@ -502,7 +502,7 @@ impl HitObject for StandardSlider {
             self.radius
         );
         c.border = Some(Border::new(
-            if repeats && repeat_diff > 2 {
+            if repeats && repeat_diff > 1 {
                 Color::RED
             } else {
                 Color::BLACK
