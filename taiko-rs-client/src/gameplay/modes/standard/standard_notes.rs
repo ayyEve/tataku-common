@@ -859,11 +859,9 @@ impl StandardHitObject for StandardSpinner {
 
     fn press(&mut self, _time:f32) {
         self.holding = true;
-        println!("press: {}", self.holding);
     }
     fn release(&mut self, _time:f32) {
         self.holding = false;
-        println!("release: {}", self.holding);
     }
     fn mouse_move(&mut self, pos:Vector2) {
         self.mouse_pos = pos;

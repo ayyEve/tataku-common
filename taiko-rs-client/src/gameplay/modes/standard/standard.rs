@@ -10,7 +10,7 @@ use crate::helpers::{curve::get_curve, key_counter::KeyCounter};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
 use crate::gameplay::{DURATION_HEIGHT, GameMode, Beatmap, IngameManager, map_difficulty, defs::{NoteType, NoteDef}};
 
-const POINTS_DRAW_TIME:f32 = 100.0;
+const POINTS_DRAW_DURATION:f32 = 200.0;
 const POINTS_DRAW_FADE_DURATION:f32 = 60.0;
 
 const NOTE_DEPTH:Range<f64> = 100.0..200.0;
@@ -46,7 +46,6 @@ pub struct StandardGame {
 
     /// cached settings, saves on locking
     settings: StandardSettings,
-
 }
 impl StandardGame {
     fn playfield_changed(&mut self) {
@@ -419,7 +418,7 @@ impl GameMode for StandardGame {
         }
         
         // remove old draw points
-        self.draw_points.retain(|a| time < a.0 + POINTS_DRAW_TIME);
+        self.draw_points.retain(|a| time < a.0 + POINTS_DRAW_DURATION);
     }
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
 
@@ -443,10 +442,9 @@ impl GameMode for StandardGame {
             )))
         }
 
-
         let time = manager.time();
         for (p_time, pos, pts) in self.draw_points.iter() {
-            let mut color;
+            let color;
             match pts {
                 ScoreHit::Miss => color = Color::RED,
                 ScoreHit::X50  => color = Color::YELLOW,
@@ -455,24 +453,18 @@ impl GameMode for StandardGame {
                 ScoreHit::None | ScoreHit::Other(_, _) => continue,
             }
             
-            let diff = time - p_time;
-            if diff > POINTS_DRAW_TIME - POINTS_DRAW_FADE_DURATION {
-                color.a = 1.0 - (diff-POINTS_DRAW_TIME) / POINTS_DRAW_FADE_DURATION;
-            }
-
+            let alpha = (1.0 - (time - (p_time + (POINTS_DRAW_DURATION - POINTS_DRAW_FADE_DURATION))) / POINTS_DRAW_FADE_DURATION).clamp(0.0, 1.0);
             list.push(Box::new(Circle::new(
-                color,
+                color.alpha(alpha),
                 -99_999.9,
                 *pos,
                 20.0
             )))
         }
 
-
         // draw notes
         for note in self.notes.iter_mut() {note.draw(args, list)}
     }
-
 
     
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
