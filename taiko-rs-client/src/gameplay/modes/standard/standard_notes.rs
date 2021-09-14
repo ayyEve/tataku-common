@@ -409,7 +409,6 @@ impl HitObject for StandardSlider {
 
         // combo number
         self.combo_text.color.alpha(alpha);
-        list.push(self.combo_text.clone());
 
         if self.time - self.map_time > 0.0 {
             // timing circle
