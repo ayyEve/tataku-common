@@ -88,10 +88,10 @@ impl GameMode for StandardGame {
 
             key_counter: KeyCounter::new(
                 vec![
-                    (KeyPress::LeftMouse, "M1".to_owned()),
-                    (KeyPress::RightMouse, "M2".to_owned()),
                     (KeyPress::Left, "L".to_owned()),
                     (KeyPress::Right, "R".to_owned()),
+                    (KeyPress::LeftMouse, "M1".to_owned()),
+                    (KeyPress::RightMouse, "M2".to_owned()),
                 ],
                 Vector2::zero()
             ),
