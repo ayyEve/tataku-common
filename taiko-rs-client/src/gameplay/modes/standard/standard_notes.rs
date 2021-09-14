@@ -765,18 +765,22 @@ impl HitObject for StandardSpinner {
     fn note_type(&self) -> NoteType {NoteType::Spinner}
 
     fn update(&mut self, beatmap_time: f32) {
-        if beatmap_time >= self.time && beatmap_time <= self.end_time {
-            let mut diff = 0.0;
-            let pos_diff = self.mouse_pos - (window_size() / 2.0);
-            let mouse_angle = pos_diff.y.atan2(pos_diff.x);
-            if self.holding {diff = self.last_rotation_val - mouse_angle}
+        let mut diff = 0.0;
+        let pos_diff = self.mouse_pos - self.pos;
+        let mouse_angle = pos_diff.y.atan2(pos_diff.x);
 
-            self.last_rotation_val = mouse_angle;
+        if beatmap_time >= self.time && beatmap_time <= self.end_time {
+            if self.holding {
+                diff = self.last_rotation_val - mouse_angle;
+            }
             if diff.abs() > PI {diff = 0.0}
-            self.rotation_velocity = lerp(-diff, self.rotation_velocity, 0.05 * (beatmap_time - self.last_update) as f64);
-            self.rotation += self.rotation_velocity;
+            self.rotation_velocity = lerp(-diff, self.rotation_velocity, 0.005 * (beatmap_time - self.last_update) as f64);
+            self.rotation += self.rotation_velocity * (beatmap_time - self.last_update) as f64;
+
+            // println!("rotation: {}, diff: {}", self.rotation, diff);
         }
 
+        self.last_rotation_val = mouse_angle;
         self.last_update = beatmap_time;
     }
     fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
@@ -815,17 +819,33 @@ impl HitObject for StandardSpinner {
         }
         
 
-        //TODO: draw a counter
+        // draw a counter
+        let rpm = (self.rotation_velocity * 1000.0 * 60.0) / (2.0 * PI);
+        let mut txt = Text::new(
+            Color::BLACK,
+            -999.9,
+            Vector2::zero(),
+            30,
+            format!("{:.0}rpm", rpm.abs()),
+            get_font("main")
+        );
+        txt.center_text(Rectangle::bounds_only(
+            Vector2::new(0.0, self.pos.y + 50.0),
+            Vector2::new(self.pos.x * 2.0, 50.0)
+        ));
+        list.push(Box::new(txt));
     }
 
     fn reset(&mut self) {
+        self.holding = false;
         self.rotation = 0.0;
+        self.rotation_velocity = 0.0;
         self.rotations_completed = 0;
     }
 }
 impl StandardHitObject for StandardSpinner {
     fn miss(&mut self) {}
-    fn was_hit(&self) -> bool {true} 
+    fn was_hit(&self) -> bool {self.last_update >= self.end_time} 
     fn get_hitsamples(&self) -> HitSamples {self.def.hitsamples.clone()}
     fn get_hitsound(&self) -> u8 {self.def.hitsound}
     fn get_preempt(&self) -> f32 {0.0}
@@ -836,13 +856,13 @@ impl StandardHitObject for StandardSpinner {
         ScoreHit::Other(100, false)
     }
 
-    fn press(&mut self, time:f32) {
-        if time >= self.time && time <= self.end_time {
-            self.holding = true;
-        }
+    fn press(&mut self, _time:f32) {
+        self.holding = true;
+        println!("press: {}", self.holding);
     }
     fn release(&mut self, _time:f32) {
         self.holding = false;
+        println!("release: {}", self.holding);
     }
     fn mouse_move(&mut self, pos:Vector2) {
         self.mouse_pos = pos;

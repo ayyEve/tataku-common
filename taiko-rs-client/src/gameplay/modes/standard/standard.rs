@@ -11,7 +11,7 @@ use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
 use crate::gameplay::{DURATION_HEIGHT, GameMode, Beatmap, IngameManager, map_difficulty, defs::{NoteType, NoteDef}};
 
 const POINTS_DRAW_TIME:f32 = 100.0;
-const POINTS_DRAW_FADE_TIME:f32 = 40.0;
+const POINTS_DRAW_FADE_DURATION:f32 = 60.0;
 
 const NOTE_DEPTH:Range<f64> = 100.0..200.0;
 const SLIDER_DEPTH:Range<f64> = 200.0..300.0;
@@ -251,20 +251,20 @@ impl GameMode for StandardGame {
                 self.key_counter.key_down(key);
                 self.hold_count += 1;
 
-            
+
                 let mut check_notes = Vec::new();
                 let w = self.hitwindow_miss;
                 for note in self.notes.iter_mut() {
+                    note.press(time);
                     // check if note is in hitwindow
                     if (time - note.time()).abs() <= w && !note.was_hit() {
                         check_notes.push(note);
                     }
                 }
                 if check_notes.len() == 0 {return} // no notes to check
-
-
                 check_notes.sort_by(|a, b| a.time().partial_cmp(&b.time()).unwrap());
                 
+
                 let note = &mut check_notes[0];
                 let note_time = note.time();
                 let pts = note.get_points(true, time, (self.hitwindow_miss, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
@@ -294,11 +294,6 @@ impl GameMode for StandardGame {
                         manager.hitbar_timings.push((time, time - note_time));
                     }
                 }
-
-                // self.notes[self.note_index].press(time);
-                for note in self.notes.iter_mut() {
-                    note.press(time)
-                }
             }
             // dont continue if no keys were being held (happens when leaving a menu)
             ReplayFrame::Release(key) if ALLOWED_PRESSES.contains(&key) && self.hold_count > 0 => {
@@ -308,6 +303,12 @@ impl GameMode for StandardGame {
                 let mut check_notes = Vec::new();
                 let w = self.hitwindow_miss;
                 for note in self.notes.iter_mut() {
+                    
+                    // if this is the last key to be released
+                    if self.hold_count == 0 {
+                        note.release(time)
+                    }
+
                     // check if note is in hitwindow
                     if (time - note.time()).abs() <= w && !note.was_hit() {
                         check_notes.push(note);
@@ -349,12 +350,6 @@ impl GameMode for StandardGame {
                     }
                 }
 
-                // if this is the last key to be released
-                if self.hold_count == 0 {
-                    for note in self.notes.iter_mut() {
-                        note.release(time)
-                    }
-                }
             }
             ReplayFrame::MousePos(x, y) => {
                 // scale the coords from playfield to window
@@ -502,8 +497,8 @@ impl GameMode for StandardGame {
             }
             
             let diff = time - p_time;
-            if diff > POINTS_DRAW_TIME - POINTS_DRAW_FADE_TIME {
-                color.a = 1.0 - (diff-POINTS_DRAW_TIME) / POINTS_DRAW_FADE_TIME;
+            if diff > POINTS_DRAW_TIME - POINTS_DRAW_FADE_DURATION {
+                color.a = 1.0 - (diff-POINTS_DRAW_TIME) / POINTS_DRAW_FADE_DURATION;
             }
 
             list.push(Box::new(Circle::new(
