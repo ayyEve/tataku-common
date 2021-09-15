@@ -54,15 +54,15 @@ impl SettingsMenu {
         bg_dim.set_tag("bg_dim");
 
         // add to scroll area
-        scroll_area.add_item(Box::new(MenuSection::new(p - Vector2::new(SECTION_XOFFSET, 0.0), SECTION_HEIGHT, "Osu Login")));
+        scroll_area.add_item(Box::new(MenuSection::new(p - Vector2::new(SECTION_XOFFSET, 0.0), SECTION_HEIGHT, "osu! login")));
         scroll_area.add_item(Box::new(username_input));
         scroll_area.add_item(Box::new(password_input));
-        scroll_area.add_item(Box::new(MenuSection::new(p - Vector2::new(SECTION_XOFFSET, 0.0), SECTION_HEIGHT, "Keybinds")));
+        scroll_area.add_item(Box::new(MenuSection::new(p - Vector2::new(SECTION_XOFFSET, 0.0), SECTION_HEIGHT, "Key bindings")));
         scroll_area.add_item(Box::new(left_kat_btn));
         scroll_area.add_item(Box::new(left_don_btn));
         scroll_area.add_item(Box::new(right_don_btn));
         scroll_area.add_item(Box::new(right_kat_btn));
-        scroll_area.add_item(Box::new(MenuSection::new(p - Vector2::new(SECTION_XOFFSET, 0.0), SECTION_HEIGHT, "SV Settings")));
+        scroll_area.add_item(Box::new(MenuSection::new(p - Vector2::new(SECTION_XOFFSET, 0.0), SECTION_HEIGHT, "Slider Velocity")));
         scroll_area.add_item(Box::new(static_sv));
         scroll_area.add_item(Box::new(sv_mult)); // broken
         scroll_area.add_item(Box::new(bg_dim));
