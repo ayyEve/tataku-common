@@ -31,7 +31,7 @@ impl MenuVisualization {
             timer: Instant::now(),
             cookie: Image::new(Vector2::zero(), 0.0, Texture::empty(&TextureSettings::new()).unwrap(), Vector2::new(INNER_RADIUS, INNER_RADIUS)),
 
-            bar_height: 5.0 //(Settings::get_mut().window_size[1] - INNER_RADIUS) / 128.0
+            bar_height: 1.0 //(Settings::get_mut().window_size[1] - INNER_RADIUS) / 128.0
         }
     }
 }
@@ -48,6 +48,12 @@ impl Visualization for MenuVisualization {
         let rotation_increment = 0.2;
         self.rotation += rotation_increment * since_last;
 
+
+        // let mut mirror = self.data.clone();
+        // mirror.reverse();
+        // self.data.extend(mirror);
+
+        
         // let mut graph = ayyeve_piston_ui::menu::menu_elements::Graph::new(
         //     Vector2::new(0.0, _args.window_size[1] - 500.0), 
         //     Vector2::new(500.0, 500.0),
@@ -70,8 +76,7 @@ impl Visualization for MenuVisualization {
         for i in 0..self.data.len() {
             if self.data[i].1 <= CUTOFF {continue}
 
-            let factor = (i as f64 + 2.0).log(10.0);
-
+            let factor = (i as f64 + 2.0).log10();
             let l = INNER_RADIUS + self.data[i].1 as f64 * factor * self.bar_height;
 
             let theta = self.rotation + a * i as f64;

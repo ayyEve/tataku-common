@@ -35,7 +35,7 @@ impl FFT {
 }
 
 /// (frequency, amplitude)
-pub fn fft(buf: &mut [f32], size: FFT, amp_thres: f32) -> Vec<(f32, f32)> {
+pub fn fft(buf: &mut [f32], size: FFT) -> Vec<(f32, f32)> {
     let len = size.size();
     let mut res = vec![];
 
@@ -65,23 +65,28 @@ pub fn fft(buf: &mut [f32], size: FFT, amp_thres: f32) -> Vec<(f32, f32)> {
     let mut p = FftPlanner::<f32>::new();
     let fft = p.plan_fft_forward(len);
 
+
     fft.process(&mut complex_buf[0..len]);
 
+
     let amplitudes: Vec<_> =
-        complex_buf[0..len].iter().map(|c| c.norm()).collect();
+        complex_buf[0..len]
+        .iter()
+        .map(|c| c.norm())
+        .collect();
 //    println!("fft: {:?}", &complex_buf[0..len]);
 
+
     for (i, amp) in amplitudes.iter().enumerate() {
-        if *amp >= amp_thres {
-            let freq = (i as f32 * super::AUDIO.sample_rate as f32) / len as f32;
-            if freq > 22050.0 {
-                // no freqency images above nyquist...
-                continue;
-            }
-//            println!("{:6.0} {}", freq, *amp);
-            res.push((freq.round(), *amp));
+        let freq = (i as f32 * super::AUDIO.sample_rate as f32) / len as f32;
+        if freq > 22050.0 {
+            // no freqency images above nyquist...
+            continue;
         }
+//        println!("{:6.0} {}", freq, *amp);
+        res.push((freq.round(), *amp));
     }
 
+    // println!("fft -> len: {}, complex: {}, amplitudes: {}, res: {}", len, complex_buf.len(), amplitudes.len(), res.len());
     res
 }

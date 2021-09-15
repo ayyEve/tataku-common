@@ -24,9 +24,13 @@ pub trait Visualization {
         let audio_data = crate::game::audio::CURRENT_DATA.clone();
         let mut audio_data = audio_data.lock().clone();
 
-        let mut audio_data = crate::game::audio::fft::fft(&mut audio_data, crate::game::audio::fft::FFT::F1024, 0.0);
+        let mut audio_data = crate::game::audio::fft::fft(
+            &mut audio_data, 
+            crate::game::audio::fft::FFT::F8192
+        );
 
         audio_data.retain(|(freq, _amp)| *freq < 7_000.0);
+
         // audio_data.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
         // let mut audio_data = audio_data.iter().map(|(_freq, amp)| {
