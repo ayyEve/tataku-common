@@ -49,14 +49,16 @@ impl MainMenu {
 
 
     fn setup_manager(&mut self) {
-        println!("creating manager");
+        let settings = Settings::get().background_game_settings;
+        if !settings.enabled {return}
+
         let lock = BEATMAP_MANAGER.lock();
         let map = match &lock.current_beatmap {
             Some(map) => map,
             None => return
         };
 
-        let mut manager = manager_from_playmode(Settings::get().background_game_settings.mode, &map);
+        let mut manager = manager_from_playmode(settings.mode, &map);
         manager.autoplay = true;
         manager.menu_background = true;
         manager.start();
