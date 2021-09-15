@@ -1,5 +1,6 @@
 use piston::Key;
 use serde::{Serialize, Deserialize};
+use taiko_rs_common::types::PlayMode;
 
 use crate::sync::*;
 use crate::Vector2;
@@ -20,6 +21,9 @@ pub struct Settings {
     pub music_vol: f32,
     pub effect_vol: f32,
 
+    // offset
+    pub global_offset: f32,
+
     // login
     pub username: String,
     pub password: String,
@@ -32,6 +36,7 @@ pub struct Settings {
     pub taiko_settings: TaikoSettings,
     pub catch_settings: CatchSettings,
     pub mania_settings: ManiaSettings,
+    pub background_game_settings: BackgroundGameSettings,
 
     // window settings
     pub fps_target: u64,
@@ -92,6 +97,7 @@ impl Default for Settings {
             music_vol: 1.0,
             effect_vol: 1.0,
             master_vol: 0.3,
+            global_offset: 0.0,
 
             // username
             username: "Guest".to_owned(),
@@ -106,6 +112,7 @@ impl Default for Settings {
             taiko_settings: TaikoSettings {..Default::default()},
             catch_settings: CatchSettings {..Default::default()},
             mania_settings: ManiaSettings {..Default::default()},
+            background_game_settings: BackgroundGameSettings {..Default::default()},
 
             // window settings
             fps_target: 144,
@@ -192,7 +199,6 @@ impl Default for ManiaSettings {
 }
 
 
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct StandardSettings {
@@ -241,6 +247,30 @@ impl Default for CatchSettings {
             left_key: Key::Left,
             right_key: Key::Right,
             dash_key: Key::LShift,
+        }
+    }
+}
+
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BackgroundGameSettings {
+    /// wether to have gameplay in the main menu bg or not
+    pub enabled: bool,
+    /// gameplay alpha multiplier
+    pub opacity: f32,
+    /// hitsound volume multiplier
+    pub hitsound_volume: f32,
+    /// what mode should be playing?
+    pub mode: PlayMode,
+}
+impl Default for BackgroundGameSettings {
+    fn default() -> Self {
+        Self { 
+            enabled: true,
+            opacity: 0.5,
+            hitsound_volume: 0.3,
+            mode: PlayMode::Standard
         }
     }
 }

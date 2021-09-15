@@ -14,7 +14,7 @@ pub struct Sound {
 impl Sound {
     // todo: make not crash
     pub fn load(path: impl AsRef<str>) -> Self {
-        let file = std::fs::File::open(path.as_ref()).expect("Failed to open file.");
+        let file = std::fs::File::open(path.as_ref()).expect(&format!("Failed to open file. {:?}", path.as_ref()));
         Sound::decode(file)
     }
 

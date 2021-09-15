@@ -6,6 +6,7 @@
 /downloads
 /replays
 /skins
+/resources
 
 *.db
 dev_assets.zip

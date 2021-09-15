@@ -1,6 +1,9 @@
 use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::KeyModifiers;
 
+use crate::game::Settings;
+use crate::gameplay::IngameManager;
+use crate::gameplay::modes::manager_from_playmode;
 use crate::{window_size, Vector2, render::*, sync::*};
 use crate::visualization::{MenuVisualization, Visualization};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
@@ -16,7 +19,9 @@ pub struct MainMenu {
     pub settings_button: MenuButton,
     pub exit_button: MenuButton,
 
-    visualization: MenuVisualization
+    visualization: MenuVisualization,
+
+    background_game: Option<IngameManager>,
 }
 impl MainMenu {
     pub fn new() -> MainMenu {
@@ -37,13 +42,33 @@ impl MainMenu {
             settings_button,
             exit_button,
 
-            visualization: MenuVisualization::new()
+            visualization: MenuVisualization::new(),
+            background_game: None
         }
+    }
+
+
+    fn setup_manager(&mut self) {
+        println!("creating manager");
+        let lock = BEATMAP_MANAGER.lock();
+        let map = match &lock.current_beatmap {
+            Some(map) => map,
+            None => return
+        };
+
+        let mut manager = manager_from_playmode(Settings::get().background_game_settings.mode, &map);
+        manager.autoplay = true;
+        manager.menu_background = true;
+        manager.start();
+
+        self.background_game = Some(manager);
     }
 }
 impl Menu<Game> for MainMenu {
     fn on_change(&mut self, _into:bool) {
         self.visualization.reset();
+
+        self.setup_manager();
     }
 
     fn update(&mut self, g:&mut Game) {
@@ -54,15 +79,25 @@ impl Menu<Game> for MainMenu {
             // it should?
             if let Some(map) = map {
                 BEATMAP_MANAGER.lock().set_current_beatmap(g, &map, false, false);
+                self.setup_manager();
             }
         }
 
         let maps = BEATMAP_MANAGER.lock().get_new_maps();
         if maps.len() > 0 {
             BEATMAP_MANAGER.lock().set_current_beatmap(g, &maps[maps.len() - 1], true, false);
+            self.setup_manager();
         }
 
         self.visualization.update();
+
+        if let Some(manager) = self.background_game.as_mut() {
+            manager.update();
+
+            if manager.completed {
+                self.background_game = None;
+            }
+        }
     }
 
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
@@ -94,75 +129,9 @@ impl Menu<Game> for MainMenu {
         let mid = window_size() / 2.0;
         self.visualization.draw(args, mid, depth + 10.0, &mut list);
 
-
-        // slider drawing testing
-        
-        // use crate::gameplay::Beatmap;
-        // {
-        //     let mut map = Beatmap {
-        //         hash: "".to_owned(),
-        //         metadata: crate::gameplay::BeatmapMeta::new(),
-        //         timing_points: vec![
-        //             crate::gameplay::TimingPoint {
-        //                 time: 0.0,
-        //                 beat_length: 100.0,
-        //                 volume: 0,
-        //                 kiai: true
-        //             }
-        //         ],
-        //         notes: Vec::new(),
-        //         sliders: Vec::new(),
-        //         spinners: Vec::new(),
-        //         holds: Vec::new(),
-        //     };
-        //     map.metadata.beatmap_version = 9.0;
-
-        //     const N:f64 = 50.0;
-
-        //     let slider = crate::gameplay::hitobject_defs::SliderDef {
-        //         pos: Vector2::new(168.0, 208.0),
-        //         time: 0.0,
-        //         hitsound: 0,
-        //         curve_type: crate::gameplay::hitobject_defs::CurveType::Bézier,
-        //         curve_points: vec![
-        //             Vector2::new(240.0, 248.0),
-        //             Vector2::new(320.0, 192.0),
-        //             Vector2::new(296.0, 104.0),
-        //         ],
-        //         slides: 1,
-        //         length: 0.0,
-        //         edge_sets: vec![],
-        //         edge_sounds: vec![],
-        //         hitsamples: vec![],
-        //         raw_str: "".to_owned()
-        //     };
-
-        //     let curve = crate::helpers::slider::get_curve(&slider, &map);
-
-        //     let pos_offset = window_size() / 2.0;
-
-        //     for i in 0..curve.path.len() {
-        //         let color = [
-        //             Color::GREEN,
-        //             Color::RED
-        //         ][i % 2];
-        //         let depth = -1000.0;
-        //         let radius = 20.0;
-    
-        //         let line = curve.path[i];
-        //         list.push(Box::new(Line::new(
-        //             pos_offset + line.p1,
-        //             pos_offset + line.p2,
-        //             radius,
-        //             depth,
-        //             color
-        //         )));
-        //     }
-
-        // }
-
-
-
+        if let Some(manager) = self.background_game.as_mut() {
+            manager.draw(args, &mut list);
+        }
 
         list
     }
@@ -206,6 +175,9 @@ impl Menu<Game> for MainMenu {
 
     fn on_key_press(&mut self, key:piston::Key, game:&mut Game, mods:KeyModifiers) {
         if mods.alt {return}
+
+        let mut needs_manager_setup = false;
+
         use piston::Key::*;
         match key {
             Left => {
@@ -213,6 +185,7 @@ impl Menu<Game> for MainMenu {
 
                 if let Some(map) = manager.previous_beatmap() {
                     manager.set_current_beatmap(game, &map, false, false);
+                    needs_manager_setup = true;
                 } else {
                     println!("no prev")
                 }
@@ -222,12 +195,18 @@ impl Menu<Game> for MainMenu {
 
                 if let Some(map) = manager.next_beatmap() {
                     manager.set_current_beatmap(game, &map, false, false);
+                    needs_manager_setup = true;
                 } else {
                     println!("no next")
                 }
             }
 
             _ => {}
+        }
+
+
+        if needs_manager_setup {
+            self.setup_manager();
         }
     }
 }

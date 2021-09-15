@@ -46,6 +46,9 @@ pub struct StandardGame {
 
     /// cached settings, saves on locking
     settings: StandardSettings,
+
+
+    auto_helper: StandardAutoHelper
 }
 impl StandardGame {
     fn playfield_changed(&mut self) {
@@ -97,6 +100,7 @@ impl GameMode for StandardGame {
             ),
 
             settings,
+            auto_helper: StandardAutoHelper::new()
         };
 
         // join notes and sliders into a single array
@@ -330,6 +334,19 @@ impl GameMode for StandardGame {
 
 
     fn update(&mut self, manager:&mut IngameManager, time:f32) {
+
+        // do autoplay things
+        if manager.autoplay {
+            let mut pending_frames = Vec::new();
+
+            self.auto_helper.update(time, &mut self.notes, &self.scaling_helper, &mut pending_frames);
+
+            for frame in pending_frames.iter() {
+                self.handle_replay_frame(*frame, time, manager);
+            }
+        }
+
+
         // if the map is over, say it is
         if time >= self.end_time {
             manager.completed = true;
@@ -423,17 +440,20 @@ impl GameMode for StandardGame {
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
 
         // draw the playfield
-        let mut playfield = self.scaling_helper.playfield_scaled_with_cs_border.clone();
-        if manager.current_timing_point().kiai {
-            playfield.border = Some(Border::new(Color::YELLOW, 2.0));
-        }
-        list.push(Box::new(playfield));
+        if !manager.menu_background {
+            let mut playfield = self.scaling_helper.playfield_scaled_with_cs_border.clone();
+            if manager.current_timing_point().kiai {
+                playfield.border = Some(Border::new(Color::YELLOW, 2.0));
+            }
+            list.push(Box::new(playfield));
 
-        // draw key counter
-        self.key_counter.draw(args, list);
+            // draw key counter
+            self.key_counter.draw(args, list);
+        }
+
 
         // if this is a replay, we need to draw the replay curser
-        if manager.replaying {
+        if manager.replaying || manager.autoplay {
             list.push(Box::new(Circle::new(
                 Color::RED,
                 -999.9,
@@ -603,5 +623,96 @@ impl GameMode for StandardGame {
             size
         )
     }
+
+    
+    fn apply_auto(&mut self, settings: &crate::game::BackgroundGameSettings) {
+        for note in self.notes.iter_mut() {
+            note.set_alpha(settings.opacity)
+        }
+    }
 }
 
+
+
+
+struct StandardAutoHelper {
+    // point_trail_angle: Vector2,
+    point_trail_start_time: f32,
+    point_trail_end_time: f32,
+    point_trail_start_pos: Vector2,
+    point_trail_end_pos: Vector2,
+
+    current_note_index: usize,
+}
+impl StandardAutoHelper {
+    fn new() -> Self {
+        Self {
+            // point_trail_angle: Vector2::zero(),
+            point_trail_start_time: 0.0,
+            point_trail_end_time: 0.0,
+            current_note_index: 0,
+            point_trail_start_pos: Vector2::zero(),
+            point_trail_end_pos: Vector2::zero(),
+        }
+    }
+
+    fn update(&mut self, time:f32, notes: &mut Vec<Box<dyn StandardHitObject>>, scaling_helper: &ScalingHelper, frames: &mut Vec<ReplayFrame>) {
+        let mut any_checked = false;
+
+        for i in 0..notes.len() {
+            let note = &notes[i];
+
+            if time >= note.time() && !note.was_hit() {
+                let pos = scaling_helper.descale_coords(note.pos_at(time, &scaling_helper));
+                frames.push(ReplayFrame::MousePos(
+                    pos.x as f32,
+                    pos.y as f32
+                ));
+
+                if i == self.current_note_index {
+                    if note.note_type() != NoteType::Note {
+                        if time <= note.end_time(0.0) {
+                            frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
+                        }
+                    }
+                } else {
+                    frames.push(ReplayFrame::Press(KeyPress::LeftMouse));
+                    frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
+                }
+
+                if i + 1 >= notes.len() {
+                    self.point_trail_start_pos = pos;
+                    self.point_trail_end_pos = scaling_helper.descale_coords(scaling_helper.window_size / 2.0);
+                    
+                    self.point_trail_start_time = 0.0;
+                    self.point_trail_end_time = 1.0;
+                    continue;
+                }
+
+                // draw a line to the next note
+                let next_note = &notes[i + 1];
+
+                self.point_trail_start_pos = pos;
+                self.point_trail_end_pos = scaling_helper.descale_coords(next_note.pos_at(self.point_trail_end_time, scaling_helper));
+                
+                self.point_trail_start_time = time;
+                self.point_trail_end_time = next_note.time();
+
+                any_checked = true;
+            }
+        }
+        if any_checked {return}
+
+        // if we got here no notes were updated
+        // follow the point_trail
+        let duration = self.point_trail_end_time - self.point_trail_start_time;
+        let current = time - self.point_trail_start_time;
+        let len = current / duration;
+        
+        let new_pos = crate::helpers::math::lerp(self.point_trail_start_pos, self.point_trail_end_pos, len as f64);
+        frames.push(ReplayFrame::MousePos(
+            new_pos.x as f32,
+            new_pos.y as f32
+        ));
+    }
+}

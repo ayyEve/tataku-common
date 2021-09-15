@@ -3,12 +3,12 @@ use std::time::Instant;
 
 use piston::RenderArgs;
 use opengl_graphics::GlyphCache;
-use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
 
 use crate::gameplay::hitobject_defs::HitSamples;
-use crate::game::{Audio, AudioHandle, Settings, Sound, get_font};
 use crate::render::{Renderable, Rectangle, Text, Color, Border};
 use crate::{Vector2, gameplay::*, sync::*, helpers::visibility_bg};
+use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
+use crate::game::{Audio, AudioHandle, BackgroundGameSettings, Settings, Sound, get_font};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
 const OFFSET_DRAW_TIME:f32 = 2_000.0; // how long should the offset be drawn for?
@@ -22,6 +22,7 @@ const HIT_TIMING_FADE:f32 = 300.0; // how long to fade out for
 const HIT_TIMING_BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // hit timing bar color
 
 
+
 pub struct IngameManager {
     pub beatmap: Beatmap,
     pub gamemode: Arc<Mutex<dyn GameMode>>,
@@ -32,6 +33,9 @@ pub struct IngameManager {
     pub started: bool,
     pub completed: bool,
     pub replaying: bool,
+    pub autoplay: bool,
+    /// is this playing in the background of the main menu?
+    pub menu_background: bool,
     pub end_time: f32,
 
     pub lead_in_time: f32,
@@ -46,6 +50,7 @@ pub struct IngameManager {
     // offset things
     offset: f32,
     offset_changed_time: f32,
+    global_offset: f32,
 
     /// (map.time, note.time - hit.time)
     pub hitbar_timings: Vec<(f32, f32)>,
@@ -56,7 +61,9 @@ pub struct IngameManager {
     timing_bar_things: (Vec<(f32,Color)>, (f32,Color)),
 
     /// if in replay mode, what replay frame are we at?
-    replay_frame: u64
+    replay_frame: u64,
+
+    background_game_settings: BackgroundGameSettings,
 }
 impl IngameManager {
     pub fn new(beatmap: Beatmap, gamemode: Arc<Mutex<dyn GameMode>>) -> Self {
@@ -65,11 +72,12 @@ impl IngameManager {
         let playmode = lock.playmode();
 
         let hitsound_cache = HashMap::new();
+        let settings = Settings::get_mut().clone();
 
         Self {
             hitsound_cache,
             lead_in_timer: Instant::now(),
-            score: Score::new(beatmap.hash.clone(), Settings::get().username.clone(), playmode),
+            score: Score::new(beatmap.hash.clone(), settings.username.clone(), playmode),
 
             replay: Replay::new(),
             gamemode,
@@ -79,19 +87,25 @@ impl IngameManager {
             started: false,
             completed: false,
             replaying: false,
+            autoplay: false,
+            menu_background: false,
 
             lead_in_time: LEAD_IN_TIME,
             end_time: lock.end_time(),
 
             offset: 0.0,
             offset_changed_time: 0.0,
+            global_offset: settings.global_offset,
+
             replay_frame: 0,
             timing_point_index: 0,
 
             font: get_font("main"),
             combo_text_bounds: lock.combo_bounds(),
             timing_bar_things: lock.timing_bar_things(),
-            hitbar_timings: Vec::new()
+            hitbar_timings: Vec::new(),
+
+            background_game_settings: settings.background_game_settings.clone()
         }
     }
 
@@ -100,15 +114,33 @@ impl IngameManager {
     }
 
     pub fn time(&mut self) -> f32 {
-        match self.song.upgrade() {
-            Some(_song) => {}
-            None => {
+        let t = match (self.song.upgrade(), Audio::get_song_raw()) {
+            (None, Some((_, song))) => {
+                match song.upgrade() {
+                    Some(s) => {
+                        self.song = song;
+                        s.current_time()
+                    }
+                    None => {
+                        println!("song doesnt exist at Beatmap.time()!!");
+                        self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
+                        self.song.upgrade().unwrap().pause();
+                        0.0
+                    }
+                }
+            },
+            (None, None) => {
                 println!("song doesnt exist at Beatmap.time()!!");
                 self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
                 self.song.upgrade().unwrap().pause();
+                0.0
             }
-        }
-        self.song.upgrade().unwrap().current_time() - (self.lead_in_time + self.offset)
+            (Some(song), _) => song.current_time(),
+        };
+
+        // println!("time: {}", t);
+
+        t - (self.lead_in_time + self.offset + self.global_offset)
     }
 
     pub fn increment_offset(&mut self, delta:f32) {
@@ -119,25 +151,36 @@ impl IngameManager {
 
     // can be from either paused or new
     pub fn start(&mut self) {
+        println!("ingame_manager::start, background_menu: {}", self.menu_background);
+
         if !self.started {
             self.reset();
 
-            match self.song.upgrade() {
-                Some(song) => {
-                    song.set_position(0.0);
+            if self.menu_background {
+                // dont reset the song, and dont do lead in
+                self.lead_in_time = 0.0;
+            } else {
+                match self.song.upgrade() {
+                    Some(song) => {
+                        song.set_position(0.0);
+                    }
+                    None => {
+                        self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
+                        self.song.upgrade().unwrap().pause();
+                    }
                 }
-                None => {
-                    self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
-                    self.song.upgrade().unwrap().pause();
-                }
+                self.lead_in_timer = Instant::now();
+                self.lead_in_time = LEAD_IN_TIME;
             }
-            self.lead_in_timer = Instant::now();
-            self.lead_in_time = LEAD_IN_TIME;
+
             // volume is set when the song is actually started (when lead_in_time is <= 0)
             self.started = true;
             return;
 
         } else if self.lead_in_time <= 0.0 {
+            // if this is the menu, dont do anything
+            if self.menu_background {return}
+
             // needed because if paused for a while it can crash
             match self.song.upgrade() {
                 Some(song) => song.play(),
@@ -152,28 +195,33 @@ impl IngameManager {
         // might mess with lead-in but meh
     }
     pub fn reset(&mut self) {
-        let settings = Settings::get().clone();
+        let settings = Settings::get();
         
-        // reset song
-        match self.song.upgrade() {
-            Some(song) => {
-                song.set_position(0.0);
-                song.pause();
-                // song.set_playback_speed(2.0);
-            }
-            None => {
-                while let None = self.song.upgrade() {
-                    self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
+        if !self.menu_background {
+            // reset song
+            match self.song.upgrade() {
+                Some(song) => {
+                    song.set_position(0.0);
+                    song.pause();
+                    // song.set_playback_speed(2.0);
                 }
-                let song = self.song.upgrade().unwrap();
-                song.pause();
-                // song.set_playback_speed(2.0);
+                None => {
+                    while let None = self.song.upgrade() {
+                        self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
+                    }
+                    let song = self.song.upgrade().unwrap();
+                    song.pause();
+                    // song.set_playback_speed(2.0);
+                }
             }
         }
 
-
         let mut lock = self.gamemode.lock();
         lock.reset(&self.beatmap);
+        if self.menu_background {
+            self.background_game_settings = settings.background_game_settings.clone();
+            lock.apply_auto(&self.background_game_settings)
+        }
 
         self.completed = false;
         self.started = false;
@@ -197,7 +245,6 @@ impl IngameManager {
 
 
     pub fn update(&mut self) {
-
         // check lead-in time
         if self.lead_in_time > 0.0 {
             let elapsed = self.lead_in_timer.elapsed().as_micros() as f32 / 1000.0;
@@ -220,7 +267,8 @@ impl IngameManager {
             self.timing_point_index += 1;
         }
 
-        if self.replaying {
+        // read inputs from replay if replaying
+        if self.replaying && !self.autoplay {
             let m = self.gamemode.clone();
             let mut m = m.lock();
 
@@ -248,7 +296,7 @@ impl IngameManager {
     pub fn play_note_sound(&mut self, note_time:f32, note_hitsound: u8, note_hitsamples:HitSamples) {
         let timing_point = self.beatmap.control_point_at(note_time);
         
-        let mut play_normal = (note_hitsound & 1) > 0; // 0: Normal
+        // let mut play_normal = (note_hitsound & 1) > 0; // 0: Normal
         let play_whistle = (note_hitsound & 2) > 0; // 1: Whistle
         let play_finish = (note_hitsound & 4) > 0; // 2: Finish
         let play_clap = (note_hitsound & 8) > 0; // 3: Clap
@@ -256,7 +304,7 @@ impl IngameManager {
         // if !(play_normal || play_whistle || play_finish || play_clap) {
         //     play_normal = true
         // }
-        play_normal = true;
+        let play_normal = true;
 
         // https://osu.ppy.sh/wiki/en/osu%21_File_Formats/Osu_%28file_format%29#hitsounds
 
@@ -326,13 +374,15 @@ impl IngameManager {
 
         // println!("{}, {} | {}", timing_point.volume, note_hitsamples.volume, );
 
-        let vol = (if note_hitsamples.volume == 0 {timing_point.volume} else {note_hitsamples.volume} as f32 / 100.0) * Settings::get_mut().get_effect_vol();
+        let mut vol = (if note_hitsamples.volume == 0 {timing_point.volume} else {note_hitsamples.volume} as f32 / 100.0) * Settings::get_mut().get_effect_vol();
+        if self.menu_background {vol *= self.background_game_settings.hitsound_volume};
+
         for (hitsound, sample_set, _index) in play_list.iter() {
             let sound_file = format!("{}-hit{}", sample_set, hitsound);
 
             if !self.hitsound_cache.contains_key(&sound_file) {
                 println!("not cached");
-                let sound = Sound::load(format!("audio/{}.wav", sound_file));
+                let sound = Sound::load(format!("resources/audio/{}.wav", sound_file));
                 self.hitsound_cache.insert(sound_file.clone(), sound);
 
                 // println!("playing sound {}", sound_file);
@@ -352,7 +402,7 @@ impl IngameManager {
     }
 
     pub fn combo_break(&mut self) {
-        if self.score.combo >= 20 {
+        if self.score.combo >= 20 && !self.menu_background {
             // play hitsound
             Audio::play_preloaded("combobreak");
         }
@@ -365,7 +415,7 @@ impl IngameManager {
         let m = self.gamemode.clone();
         let mut m = m.lock();
 
-        if self.replaying {
+        if self.replaying || self.autoplay {
             // check replay-only keys
             if key == piston::Key::Escape {
                 self.started = false;
@@ -378,6 +428,8 @@ impl IngameManager {
         if key == piston::Key::Space {
             m.skip_intro(self);
         }
+
+        // if key == piston::Key::d
 
         m.key_down(key, self);
     }
@@ -412,6 +464,13 @@ impl IngameManager {
         let time = self.time();
         let font = self.font.clone();
         let window_size:Vector2 = args.window_size.into();
+
+        // draw gamemode
+        let m = self.gamemode.clone();
+        let mut m = m.lock();
+        m.draw(args, self, list);
+
+        if self.menu_background {return}
 
         // draw offset
         if self.offset_changed_time > 0.0 && time - self.offset_changed_time < OFFSET_DRAW_TIME {
@@ -542,14 +601,8 @@ impl IngameManager {
             )));
         }
 
-        // draw gamemode
-        let m = self.gamemode.clone();
-        let mut m = m.lock();
-        m.draw(args, self, list);
     }
 }
-
-
 
 pub trait GameMode {
     fn new(beatmap:&Beatmap) -> Self where Self: Sized;
@@ -574,13 +627,14 @@ pub trait GameMode {
     fn mouse_up(&mut self, _btn:piston::MouseButton, _manager:&mut IngameManager) {}
     fn mouse_scroll(&mut self, _delta:f64, _manager:&mut IngameManager) {}
 
+    fn apply_auto(&mut self, settings: &BackgroundGameSettings);
+
 
     fn skip_intro(&mut self, manager: &mut IngameManager);
     fn pause(&mut self, _manager:&mut IngameManager) {}
     fn unpause(&mut self, _manager:&mut IngameManager) {}
     fn reset(&mut self, beatmap:&Beatmap);
 }
-
 
 
 //TODO: make a sound effect manager, sound effects are cancer

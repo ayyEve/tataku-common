@@ -34,11 +34,12 @@ pub const REPLAYS_DIR:&str = "replays";
 
 // https://cdn.ayyeve.xyz/taiko-rs/
 pub const REQUIRED_FILES:&[&str] = &[
-    "audio/don.wav",
-    "audio/kat.wav",
-    "audio/bigdon.wav",
-    "audio/bigkat.wav",
-    "audio/combobreak.mp3",
+    "resources/audio/don.wav",
+    "resources/audio/kat.wav",
+    "resources/audio/bigdon.wav",
+    "resources/audio/bigkat.wav",
+    "resources/audio/combobreak.mp3",
+    "resources/icon-small.png",
     "fonts/main.ttf",
 ];
 
@@ -52,7 +53,10 @@ async fn main() {
     check_folder(REPLAYS_DIR);
     check_folder(SONGS_DIR);
     check_folder("fonts");
-    check_folder("audio");
+    check_folder("resources");
+    check_folder("resources/audio");
+
+    main_benchmark.log("Folder check done", true);
 
     // check for missing files
     for file in REQUIRED_FILES.iter() {
@@ -63,13 +67,13 @@ async fn main() {
     // hitsounds
     for sample_set in ["normal", "soft", "drum"] {
         for hitsound in ["normal", "whistle", "clap", "finish"] {
-            let file = &format!("audio/{}-hit{}.wav", sample_set, hitsound);
+            let file = &format!("resources/audio/{}-hit{}.wav", sample_set, hitsound);
             check_file(file, &format!("https://cdn.ayyeve.xyz/taiko-rs/{}", file));
         }
     }
 
 
-    main_benchmark.log("File/Folder check done", true);
+    main_benchmark.log("File check done", true);
     
     let game = Game::new();
     main_benchmark.log("Game creation complete", true);

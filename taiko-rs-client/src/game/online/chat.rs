@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+#![allow(dead_code, unused, non_snake_case)]
 use std::collections::HashMap;
 
 use crate::game::Game;

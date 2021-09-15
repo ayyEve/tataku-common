@@ -1,3 +1,5 @@
+#[allow(unused, dead_code)]
+
 use std::collections::HashMap;
 use crate::game::audio::Sound;
 use crate::render::{Color, Image, Vector2};
@@ -59,7 +61,7 @@ impl SkinHelper {
 }
 
 
-
+#[allow(unused, dead_code)]
 pub struct SkinSettings {
     // general
     name: String,
@@ -82,6 +84,7 @@ pub struct SkinSettings {
     /// ???
     spinner_approach_circle: Color,
 }
+#[allow(unused, dead_code)]
 impl SkinSettings {
     fn from_file(path:String) -> Self {
         enum SkinSection {

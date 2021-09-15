@@ -1,14 +1,17 @@
 use super::*;
 
 use std::{fmt::Display, io::Error as IOError};
-
 use serde_json::Error as JsonError;
+use image::ImageError;
 
 #[derive(Debug)]
+#[allow(dead_code, unused)]
 pub enum TaikoError {
     Beatmap(BeatmapError),
     IO(IOError),
     Serde(JsonError),
+
+    Image(ImageError)
 }
 
 impl Display for TaikoError {
@@ -17,6 +20,7 @@ impl Display for TaikoError {
             TaikoError::Beatmap(e) => write!(f, "{:?}", e),
             TaikoError::Serde(e) => write!(f, "{:?}", e),
             TaikoError::IO(e) => write!(f, "{}", e),
+            TaikoError::Image(e) => write!(f, "{:?}", e),
         }
     }
 }
@@ -27,4 +31,7 @@ impl From<JsonError> for TaikoError {
 }
 impl From<IOError> for TaikoError {
     fn from(e: IOError) -> Self {TaikoError::IO(e)}
+}
+impl From<ImageError> for TaikoError {
+    fn from(e: ImageError) -> Self {TaikoError::Image(e)}
 }

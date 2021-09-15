@@ -74,7 +74,8 @@ impl Curve {
 
     pub fn position_at_time(&self, time:f32) -> Vector2 {
         // if (this.sliderCurveSmoothLines == null) this.UpdateCalculations();
-        if time < self.slider.time || time > self.end_time {return self.slider.pos}
+        if time < self.slider.time {return self.slider.pos}
+        if time > self.end_time {return self.position_at_length(self.length())}
 
         let mut pos = (time - self.slider.time) / (self.length() / self.slider.slides as f32);
         if pos % 2.0 > 1.0 {
@@ -99,7 +100,7 @@ impl Curve {
             let end = self.smooth_lines.len();
             return self.smooth_lines[end - 1].p2;
         }
-        let i = match self.cumulative_lengths.binary_search_by(|f| f.partial_cmp(&length).unwrap()) {
+        let i = match self.cumulative_lengths.binary_search_by(|f| f.partial_cmp(&length).unwrap_or(std::cmp::Ordering::Greater)) {
             Ok(n) => n,
             Err(n) => n.min(self.cumulative_lengths.len() - 1),
         };
@@ -307,6 +308,9 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
 
         for l in 0..curve.path.len() {
             total += curve.path[l].rho();
+            if total.is_nan() {
+                total = 0.0;
+            }
             curve.cumulative_lengths.push(total);
         }
     }

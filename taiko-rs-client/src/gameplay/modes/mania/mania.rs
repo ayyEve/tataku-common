@@ -13,6 +13,8 @@ use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint, map_difficu
 pub const COLUMN_WIDTH: f64 = 100.0;
 pub const NOTE_SIZE:Vector2 = Vector2::new(COLUMN_WIDTH, 30.0);
 pub const NOTE_BORDER_SIZE:f64 = 1.4;
+const FIELD_DEPTH:f64 = 110.0;
+const HIT_AREA_DEPTH: f64 = 99.9;
 
 // pub const HIT_Y:f64 = window_size().y - 100.0;
 pub fn hit_y() -> f64 {
@@ -23,7 +25,7 @@ pub fn hit_y() -> f64 {
 pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // timing bar color
 const BAR_HEIGHT:f64 = 4.0; // how tall is a timing bar
 const BAR_SPACING:f32 = 4.0; // how many beats between timing bars
-const BAR_DEPTH:f64 = -90.0; // how many beats between timing bars
+const BAR_DEPTH:f64 = -90.0;
 
 const SV_FACTOR:f32 = 700.0; // bc sv is bonked, divide it by this amount
 const COLUMN_COUNT:u8 = 4; //TODO!!
@@ -45,6 +47,8 @@ pub struct ManiaGame {
 
     end_time: f32,
     column_count: u8,
+
+    auto_helper: ManiaAutoHelper
 }
 impl ManiaGame {
     /// get the x_pos for `col`
@@ -95,7 +99,8 @@ impl GameMode for ManiaGame {
             hitwindow_300: 0.0,
             hitwindow_miss: 0.0,
 
-            column_count: COLUMN_COUNT
+            column_count: COLUMN_COUNT,
+            auto_helper: ManiaAutoHelper::new()
         };
 
         // init defaults for the columsn
@@ -381,6 +386,16 @@ impl GameMode for ManiaGame {
 
 
     fn update(&mut self, manager:&mut IngameManager, time: f32) {
+
+        if manager.autoplay {
+            let mut frames = Vec::new();
+            self.auto_helper.update(&self.columns, &mut self.column_indices, time, &mut frames);
+            for frame in frames {
+                self.handle_replay_frame(frame, time, manager)
+            }
+        }
+
+
         // update notes
         for col in self.columns.iter_mut() {
             for note in col.iter_mut() {note.update(time)}
@@ -419,14 +434,25 @@ impl GameMode for ManiaGame {
             self.set_sv(sv);
         }
     }
-    fn draw(&mut self, args:RenderArgs, _manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
+    fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
+
+        // playfield
+        list.push(Box::new(Rectangle::new(
+            Color::new(0.0, 0.0, 0.0, 0.8),
+            FIELD_DEPTH + 1.0,
+            Vector2::new(self.col_pos(0), 0.0),
+            Vector2::new(self.col_pos(self.column_count) - self.col_pos(0), window_size().y),
+            Some(Border::new(if manager.current_timing_point().kiai {Color::YELLOW} else {Color::BLACK}, 1.2))
+        )));
 
         // draw columns
         for col in 0..self.column_count {
             let x = self.col_pos(col);
+
+            // column background
             list.push(Box::new(Rectangle::new(
-                self.get_color(col),
-                1000.0,
+                Color::new(0.1, 0.1, 0.1, 0.8),
+                FIELD_DEPTH,
                 Vector2::new(x, 0.0),
                 Vector2::new(COLUMN_WIDTH, window_size().y),
                 Some(Border::new(Color::GREEN, 1.2))
@@ -435,21 +461,13 @@ impl GameMode for ManiaGame {
             // hit area/button state for this col
             list.push(Box::new(Rectangle::new(
                 if self.column_states[col as usize] {self.get_color(col)} else {Color::TRANSPARENT_WHITE},
-                -100.0,
+                HIT_AREA_DEPTH,
                 Vector2::new(x, hit_y()),
                 NOTE_SIZE,
                 Some(Border::new(Color::RED, NOTE_BORDER_SIZE))
             )));
         }
         
-        // column background
-        list.push(Box::new(Rectangle::new(
-            Color::new(0.0, 0.0, 0.0, 0.8),
-            1000.0,
-            Vector2::new(self.col_pos(0), 0.0),
-            Vector2::new(self.col_pos(self.column_count) - self.col_pos(0), window_size().y),
-            Some(Border::new(Color::GREEN, 1.2))
-        )));
 
         // draw notes
         for col in self.columns.iter_mut() {
@@ -497,6 +515,15 @@ impl GameMode for ManiaGame {
             (self.hitwindow_300, [0.1960, 0.7372, 0.9058, 1.0].into()),
         ], (self.hitwindow_miss, [0.8549, 0.6823, 0.2745, 1.0].into()))
     }
+
+    
+    fn apply_auto(&mut self, settings: &crate::game::BackgroundGameSettings) {
+        for c in self.columns.iter_mut() {
+            for note in c.iter_mut() {
+                note.set_alpha(settings.opacity)
+            }
+        }
+    }
 }
 
 
@@ -541,5 +568,60 @@ impl TimingBar {
         )));
 
         renderables
+    }
+}
+
+
+
+
+struct ManiaAutoHelper {
+    last_checked: Vec<usize>,
+    states: Vec<bool>,
+    timers: Vec<f32>,
+}
+impl ManiaAutoHelper {
+    fn new() -> Self {
+        Self {
+            last_checked: Vec::new(),
+            states: Vec::new(),
+            timers: Vec::new(),
+        }
+    }
+
+    fn get_keypress(col: usize) -> KeyPress {
+        let base_key = KeyPress::Mania1 as u8;
+        ((col + base_key as usize) as u8).into()
+    }
+
+    fn update(&mut self, columns: &Vec<Vec<Box<dyn ManiaHitObject>>>, column_indices: &mut Vec<usize>, time: f32, list: &mut Vec<ReplayFrame>) {
+        if self.last_checked.len() != columns.len() {
+            self.last_checked.resize(columns.len(), 0);
+            self.states.resize(columns.len(), false);
+            self.timers.resize(columns.len(), 0.0);
+        }
+
+        for c in 0..columns.len() {
+            // if self.last_checked[c] < columns[c].len() {
+            //     // let last_checked = &columns[c][self.last_checked[c]];
+            // }
+
+            if time > self.timers[c] {
+                list.push(ReplayFrame::Release(Self::get_keypress(c)))
+            }
+
+            if column_indices[c] >= columns[c].len() {continue}
+
+            let note = &columns[c][column_indices[c]];
+            if time >= note.time() && !note.was_hit() {
+                list.push(ReplayFrame::Press(Self::get_keypress(c)));
+                self.last_checked[c] = column_indices[c];
+                self.timers[c] = note.end_time(50.0);
+
+                // if note.note_type() == NoteType::Note {
+                //     list.push(ReplayFrame::Release(Self::get_keypress(c)));
+                // }
+            }
+
+        }
     }
 }

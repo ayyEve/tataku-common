@@ -39,7 +39,9 @@ pub struct CatchFruit {
     radius: f64,
 
     dash: bool,
-    dash_distance: f32
+    dash_distance: f32,
+
+    alpha_mult: f32,
 }
 impl CatchFruit {
     pub fn new(time:f32, speed:f32, radius:f64, x:f64) -> Self {
@@ -52,7 +54,8 @@ impl CatchFruit {
             pos: Vector2::new(x, 0.0),
 
             dash: true,
-            dash_distance: 0.0
+            dash_distance: 0.0,
+            alpha_mult: 1.0
         }
     }
 }
@@ -60,6 +63,8 @@ impl HitObject for CatchFruit {
     fn note_type(&self) -> NoteType {NoteType::Note}
     fn time(&self) -> f32 {self.time}
     fn end_time(&self, _:f32) -> f32 {self.time}
+    fn set_alpha(&mut self, alpha: f32) {self.alpha_mult = alpha}
+
     fn update(&mut self, beatmap_time: f32) {
         self.pos.y = self.y_at(beatmap_time);
     }
@@ -67,12 +72,12 @@ impl HitObject for CatchFruit {
         if self.pos.y + self.radius < 0.0 || self.pos.y - self.radius > args.window_size[1] as f64 || self.hit {return}
 
         let mut note = Circle::new(
-            Color::BLUE,
+            Color::BLUE.alpha(self.alpha_mult),
             -100.0,
             self.pos,
             self.radius
         );
-        note.border = Some(Border::new(if self.dash {Color::RED} else {Color::BLACK}, NOTE_BORDER_SIZE));
+        note.border = Some(Border::new((if self.dash {Color::RED} else {Color::BLACK}).alpha(self.alpha_mult), NOTE_BORDER_SIZE));
         list.push(Box::new(note));
     }
 
@@ -108,7 +113,9 @@ pub struct CatchDroplet {
     hit: bool,
     missed: bool,
     speed: f32,
-    radius: f64
+    radius: f64,
+
+    alpha_mult: f32
 }
 impl CatchDroplet {
     pub fn new(time:f32, speed:f32, radius:f64, x:f64) -> Self {
@@ -119,6 +126,7 @@ impl CatchDroplet {
             hit: false,
             missed: false,
             pos: Vector2::new(x, 0.0),
+            alpha_mult: 1.0
         }
     }
 }
@@ -126,6 +134,7 @@ impl HitObject for CatchDroplet {
     fn note_type(&self) -> NoteType {NoteType::Note}
     fn time(&self) -> f32 {self.time}
     fn end_time(&self, _:f32) -> f32 {self.time}
+    fn set_alpha(&mut self, alpha: f32) {self.alpha_mult = alpha}
     fn update(&mut self, beatmap_time: f32) {
         self.pos.y = self.y_at(beatmap_time);
     }
@@ -133,12 +142,12 @@ impl HitObject for CatchDroplet {
         if self.pos.y + self.radius < 0.0 || self.pos.y - self.radius > args.window_size[1] || self.hit {return}
 
         let mut note = Circle::new(
-            Color::BLUE,
+            Color::BLUE.alpha(self.alpha_mult),
             -100.0,
             self.pos,
             self.radius
         );
-        note.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
+        note.border = Some(Border::new(Color::BLACK.alpha(self.alpha_mult), NOTE_BORDER_SIZE));
         list.push(Box::new(note));
     }
 
@@ -166,7 +175,9 @@ pub struct CatchBanana {
     time: f32, // ms
     hit: bool,
     speed: f32,
-    radius: f64
+    radius: f64,
+
+    alpha_mult: f32
 }
 impl CatchBanana {
     pub fn new(time:f32, speed:f32, radius:f64, x:f64) -> Self {
@@ -176,6 +187,7 @@ impl CatchBanana {
             radius,
             hit: false,
             pos: Vector2::new(x, 0.0),
+            alpha_mult: 1.0
         }
     }
 }
@@ -183,6 +195,7 @@ impl HitObject for CatchBanana {
     fn note_type(&self) -> NoteType {NoteType::Spinner}
     fn time(&self) -> f32 {self.time}
     fn end_time(&self, _:f32) -> f32 {self.time}
+    fn set_alpha(&mut self, alpha: f32) {self.alpha_mult = alpha}
     fn update(&mut self, beatmap_time: f32) {
         self.pos.y = self.y_at(beatmap_time);
     }
@@ -190,12 +203,12 @@ impl HitObject for CatchBanana {
         if self.pos.y + self.radius < 0.0 || self.pos.y - self.radius > args.window_size[1] as f64 || self.hit {return}
 
         let mut note = Circle::new(
-            Color::YELLOW,
+            Color::YELLOW.alpha(self.alpha_mult),
             -100.0,
             self.pos,
             self.radius
         );
-        note.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
+        note.border = Some(Border::new(Color::BLACK.alpha(self.alpha_mult), NOTE_BORDER_SIZE));
         list.push(Box::new(note));
     }
 

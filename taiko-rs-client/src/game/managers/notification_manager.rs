@@ -196,6 +196,7 @@ impl ProcessedNotif {
 
 
 #[derive(Clone)]
+#[allow(unused, dead_code)]
 pub enum NotificationOnClick {
     None,
     Url(String),

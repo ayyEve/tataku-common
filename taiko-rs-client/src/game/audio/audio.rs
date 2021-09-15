@@ -14,11 +14,11 @@ use super::instance::AudioInstance;
 use super::queue::{AudioQueueController, AudioQueue};
 
 const SOUND_LIST:&[&'static str] = &[
-    "audio/don.wav",
-    "audio/kat.wav",
-    "audio/bigdon.wav",
-    "audio/bigkat.wav",
-    "audio/combobreak.mp3",
+    "resources/audio/don.wav",
+    "resources/audio/kat.wav",
+    "resources/audio/bigdon.wav",
+    "resources/audio/bigkat.wav",
+    "resources/audio/combobreak.mp3",
 ];
 
 lazy_static::lazy_static!(
@@ -62,7 +62,6 @@ impl Audio {
         // println!("Range Rate: {}-{}Hz", supported_config_range.min_sample_rate().0, supported_config_range.max_sample_rate().0);
 
         let buff_range = supported_config_range.buffer_size().clone();
-
         let supported_config = supported_config_range.with_max_sample_rate();
         let sample_rate = supported_config.sample_rate().0;
 
@@ -72,8 +71,10 @@ impl Audio {
             println!("setting buffer size to {}", min);
             config
         } else {
-            println!("unknown buffer size");
-            supported_config.config()
+            println!("unknown buffer size, praying to jesus");
+            let mut config = supported_config.config();
+            // config.buffer_size = cpal::BufferSize::Fixed(8192);
+            config
         };
 
         // println!("Sample Rate Stream: {}", sample_rate);
@@ -237,7 +238,7 @@ impl Audio {
         CURRENT_SONG.lock().clone()
     }
 
-    pub fn play(path: impl AsRef<str>) -> Weak<AudioHandle> {
+    pub fn _play(path: impl AsRef<str>) -> Weak<AudioHandle> {
         Audio::play_sound(Sound::load(path.as_ref()))
     }
 

@@ -212,10 +212,10 @@ fn length_squared(p:Vector2) -> f64 {
     p.x * p.x + p.y * p.y
 }
 
-fn lerp(value1: Vector2, value2: Vector2, amount:f64) -> Vector2 {
+pub fn lerp(target: Vector2, current: Vector2, amount:f64) -> Vector2 {
     Vector2::new(
-        value1.x + (value2.x - value1.x) * amount,
-        value1.y + (value2.y - value1.y) * amount
+        target.x + (current.x - target.x) * amount,
+        target.y + (current.y - target.y) * amount
     )
 }
 

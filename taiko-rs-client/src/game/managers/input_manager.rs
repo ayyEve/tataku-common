@@ -152,6 +152,7 @@ impl InputManager {
 
     /// get the input register delay average 
     /// (min,max,avg)
+    #[allow(unused)]
     pub fn get_register_delay(&mut self) -> (f32,f32,f32) {
         let mut sum = 0.0;
         let mut min = f32::MAX;

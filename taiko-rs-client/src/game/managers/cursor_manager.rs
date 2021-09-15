@@ -39,6 +39,7 @@ impl CursorManager {
 
     /// set replay mode.
     /// really just a helper
+    #[allow(unused)]
     pub fn set_replay_mode(&mut self, val:bool) {
         if val != self.replay_mode {
             self.replay_mode = val;

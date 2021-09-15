@@ -1,8 +1,6 @@
 use std::time::Instant;
 use opengl_graphics::{Texture, TextureSettings};
-use ayyeve_piston_ui::render::{Color, Image, Line, Rectangle, Renderable, Vector2};
-
-use crate::game::Settings;
+use ayyeve_piston_ui::render::{Color, Image, Line, Renderable, Vector2};
 
 use super::{FFTEntry, Visualization};
 

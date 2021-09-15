@@ -2655,6 +2655,7 @@ name = "taiko-rs-common"
 version = "0.1.0"
 dependencies = [
  "num_enum",
+ "serde",
 ]
 
 [[package]]

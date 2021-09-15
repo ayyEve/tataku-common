@@ -1,11 +1,8 @@
+
+
 use ayyeve_piston_ui::render::Vector2;
 
-
-
-
-
-
-
+#[allow(unused, dead_code)]
 pub struct StoryboardSpriteDef {
     /**
      * the layer the object appears on
@@ -34,6 +31,7 @@ pub struct StoryboardSpriteDef {
     pub pos: Vector2
 }
 
+#[allow(unused, dead_code)]
 pub struct StoryboardAnimationDef {
     /**
      * the layer the object appears on
@@ -77,20 +75,24 @@ pub struct StoryboardAnimationDef {
     pub loop_type: LoopType,
 }
 
+#[allow(unused, dead_code)]
 pub enum StoryboardElementDef {
     Sprite(StoryboardSpriteDef),
     Animation(StoryboardAnimationDef)
 }
 
+#[allow(unused, dead_code)]
 pub struct StoryboardElement {
     pub def: StoryboardElementDef
 }
 
 
+#[allow(unused, dead_code)]
 pub enum StoryboardTransform {
 
 }
 
+#[allow(unused, dead_code)]
 pub enum Origin {
     TopLeft = 0,
     Centre = 1,
@@ -104,11 +106,13 @@ pub enum Origin {
     BottomRight = 9
 }
 
+#[allow(unused, dead_code)]
 pub enum LoopType {
     LoopForever = 0,
     LoopOnce = 1
 }
 
+#[allow(unused, dead_code)]
 pub enum Layer {
     Background = 0,
     Fail = 1,

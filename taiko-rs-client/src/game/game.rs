@@ -36,6 +36,8 @@ pub struct Game {
 
     pub volume_controller: VolumeControl,
 
+    pub wallpapers: Vec<Image>,
+
     // fps
     fps_display: FpsDisplay,
     update_display: FpsDisplay,
@@ -72,7 +74,7 @@ impl Game {
 
 
         //TODO: make sure this file exists?
-        match image::open("./icon-small.png") {
+        match image::open("resources/icon-small.png") {
             Ok(img) => {
                 window.window.set_icon(vec![img.into_rgba8()]);
                 game_init_benchmark.log("window icon set", true);
@@ -101,6 +103,7 @@ impl Game {
             volume_controller:VolumeControl::new(),
             render_queue: Vec::new(),
             background_image: None,
+            wallpapers: Vec::new(),
 
             menus: HashMap::new(),
             current_state: GameState::None,
@@ -146,7 +149,6 @@ impl Game {
         // beatmap manager loop
         BeatmapManager::download_check_loop();
         
-        
         let mut loading_menu = LoadingMenu::new();
         loading_menu.load();
 
@@ -166,6 +168,25 @@ impl Game {
         let settings_menu = Arc::new(Mutex::new(SettingsMenu::new()));
         self.menus.insert("settings", settings_menu.clone());
         menu_init_benchmark.log("settings menu created", true);
+
+
+        // load background images
+        match std::fs::read_dir("resources/wallpapers") {
+            Ok(list) => {
+                for wall_file in list {
+                    if let Ok(file) = wall_file {
+                        if let Some(wallpaper) = load_image(file.path().to_str().unwrap()) {
+                            self.wallpapers.push(wallpaper)
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                NotificationManager::add_error_notification("Error loading wallpaper", e.into())
+            }
+        }
+
+
 
         self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(loading_menu))));
     }
@@ -664,38 +685,45 @@ impl Game {
     pub fn set_background_beatmap(&mut self, beatmap:&BeatmapMeta) {
         // let mut helper = BenchmarkHelper::new("loaad image");
 
-        let settings = opengl_graphics::TextureSettings::new();
-        // helper.log("settings made", true);
 
-        let buf: Vec<u8> = match std::fs::read(&beatmap.image_filename) {
-            Ok(buf) => buf,
-            Err(_) => {
-                self.background_image = None;
-                return;
-            }
-        };
+        self.background_image = load_image(&beatmap.image_filename);
 
-        // let buf = file.unwrap();
-        // helper.log("file read", true);
+        if self.background_image.is_none() && self.wallpapers.len() > 0 {
+            self.background_image = Some(self.wallpapers[0].clone());
+        }
 
-        let img = image::load_from_memory(&buf).unwrap();
-        // helper.log("image created", true);
-        let img = img.into_rgba8();
-        // helper.log("format converted", true);
+
+        // let settings = opengl_graphics::TextureSettings::new();
+        // // helper.log("settings made", true);
+        // let buf: Vec<u8> = match std::fs::read(&beatmap.image_filename) {
+        //     Ok(buf) => buf,
+        //     Err(_) => {
+        //         self.background_image = None;
+        //         return;
+        //     }
+        // };
+
+        // // let buf = file.unwrap();
+        // // helper.log("file read", true);
+
+        // let img = image::load_from_memory(&buf).unwrap();
+        // // helper.log("image created", true);
+        // let img = img.into_rgba8();
+        // // helper.log("format converted", true);
         
-        let tex = opengl_graphics::Texture::from_image(&img, &settings);
-        // helper.log("texture made", true);
+        // let tex = opengl_graphics::Texture::from_image(&img, &settings);
+        // // helper.log("texture made", true);
 
-        self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size()));
-        // helper.log("background set", true);
+        // self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size()));
+        // // helper.log("background set", true);
 
-        // match opengl_graphics::Texture::from_path(beatmap.image_filename.clone(), &settings) {
-        //     Ok(tex) => self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size())),
-        //     Err(e) => {
-        //         println!("Error loading beatmap texture: {}", e);
-        //         self.background_image = None; //TODO!: use a known good background image
-        //     },
-        // }
+        // // match opengl_graphics::Texture::from_path(beatmap.image_filename.clone(), &settings) {
+        // //     Ok(tex) => self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size())),
+        // //     Err(e) => {
+        // //         println!("Error loading beatmap texture: {}", e);
+        // //         self.background_image = None; //TODO!: use a known good background image
+        // //     },
+        // // }
     }
 }
 
@@ -720,4 +748,28 @@ pub enum SpectatorState {
     Watching, // host playing
     Paused, // host paused
     MapChanging, // host is changing map
+}
+
+pub fn load_image<T:AsRef<str>>(path: T) -> Option<Image> {
+    let settings = opengl_graphics::TextureSettings::new();
+    // helper.log("settings made", true);
+
+    let buf: Vec<u8> = match std::fs::read(path.as_ref()) {
+        Ok(buf) => buf,
+        Err(_) => return None,
+    };
+
+    match image::load_from_memory(&buf) {
+        Ok(img) => {
+            let img = img.into_rgba8();
+            let tex = opengl_graphics::Texture::from_image(&img, &settings);
+            Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size()))
+        }
+        Err(e) => {
+            
+            NotificationManager::add_error_notification(&format!("Error loading wallpaper: {}", path.as_ref()), e.into());
+            // println!("Error loading image {}: {}", path.as_ref(), e);
+            None
+        }
+    }
 }
