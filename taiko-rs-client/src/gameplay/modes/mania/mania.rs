@@ -28,7 +28,6 @@ const BAR_SPACING:f32 = 4.0; // how many beats between timing bars
 const BAR_DEPTH:f64 = -90.0;
 
 const SV_FACTOR:f32 = 700.0; // bc sv is bonked, divide it by this amount
-const COLUMN_COUNT:u8 = 4; //TODO!!
 
 pub struct ManiaGame {
     // lists
@@ -86,6 +85,7 @@ impl GameMode for ManiaGame {
     fn end_time(&self) -> f32 {self.end_time}
 
     fn new(beatmap:&Beatmap) -> Self {
+
         let mut s = Self {
             columns: Vec::new(),
             column_indices:Vec::new(),
@@ -99,7 +99,7 @@ impl GameMode for ManiaGame {
             hitwindow_300: 0.0,
             hitwindow_miss: 0.0,
 
-            column_count: COLUMN_COUNT,
+            column_count: beatmap.metadata.cs as u8,
             auto_helper: ManiaAutoHelper::new()
         };
 
