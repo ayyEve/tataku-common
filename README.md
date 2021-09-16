@@ -1,13 +1,6 @@
 My taiko sim made in rust. why? idk. enjoy!
+Join our Discord server! https://discord.gg/PGa6XY7mKC
 
-required files/folders: (in game root)
- - fonts/main.ttf (Roboto was used in dev)
- - audio
-    - don.wav
-    - kat.wav
-    - bigdon.wav
-    - bigkat.wav
-  
 required deps:
  - cmake
 
@@ -28,7 +21,6 @@ TODO:
  - handle headphones being unplugged (might require a dropdown to select the output device)
 
 - // Code
- - refactor code a bit to make it prettier
  - better error handling/messages
  - handle peppy direct download moment (might be best if notifs exist first)
  - depths that actually make sense
