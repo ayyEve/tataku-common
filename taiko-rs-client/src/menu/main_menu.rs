@@ -1,13 +1,12 @@
 use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::KeyModifiers;
+use taiko_rs_common::types::PlayMode;
 
-use crate::game::Settings;
-use crate::gameplay::IngameManager;
-use crate::gameplay::modes::manager_from_playmode;
-use crate::{window_size, Vector2, render::*, sync::*};
+use crate::{Vector2, window_size, render::*, sync::*};
 use crate::visualization::{MenuVisualization, Visualization};
+use crate::gameplay::{IngameManager, modes::manager_from_playmode};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
-use crate::game::{Audio, Game, GameState, get_font, managers::BEATMAP_MANAGER};
+use crate::game::{Audio, Game, GameState, Settings, get_font, managers::{BEATMAP_MANAGER, NotificationManager}};
 
 const BUTTON_SIZE: Vector2 = Vector2::new(100.0, 50.0);
 const Y_MARGIN: f64 = 20.0;
@@ -46,7 +45,6 @@ impl MainMenu {
             background_game: None
         }
     }
-
 
     fn setup_manager(&mut self) {
         let settings = Settings::get().background_game_settings;
@@ -176,36 +174,53 @@ impl Menu<Game> for MainMenu {
 
 
     fn on_key_press(&mut self, key:piston::Key, game:&mut Game, mods:KeyModifiers) {
-        if mods.alt {return}
+        use piston::Key::*;
 
         let mut needs_manager_setup = false;
 
-        use piston::Key::*;
-        match key {
-            Left => {
-                let mut manager = BEATMAP_MANAGER.lock();
 
-                if let Some(map) = manager.previous_beatmap() {
-                    manager.set_current_beatmap(game, &map, false, false);
-                    needs_manager_setup = true;
-                } else {
-                    println!("no prev")
+        if !mods.alt {
+            match key {
+                Left => {
+                    let mut manager = BEATMAP_MANAGER.lock();
+
+                    if let Some(map) = manager.previous_beatmap() {
+                        manager.set_current_beatmap(game, &map, false, false);
+                        needs_manager_setup = true;
+                    } else {
+                        println!("no prev")
+                    }
                 }
-            }
-            Right => {
-                let mut manager = BEATMAP_MANAGER.lock();
+                Right => {
+                    let mut manager = BEATMAP_MANAGER.lock();
 
-                if let Some(map) = manager.next_beatmap() {
-                    manager.set_current_beatmap(game, &map, false, false);
-                    needs_manager_setup = true;
-                } else {
-                    println!("no next")
+                    if let Some(map) = manager.next_beatmap() {
+                        manager.set_current_beatmap(game, &map, false, false);
+                        needs_manager_setup = true;
+                    } else {
+                        println!("no next")
+                    }
                 }
-            }
 
-            _ => {}
+                _ => {}
+            }
         }
+        
+        if mods.alt {
+            let new_mode = match key {
+                D1 => Some(PlayMode::Standard),
+                D2 => Some(PlayMode::Taiko),
+                D3 => Some(PlayMode::Catch),
+                D4 => Some(PlayMode::Mania),
+                _ => None
+            };
 
+            if let Some(new_mode) = new_mode {
+                needs_manager_setup = true;
+                Settings::get_mut().background_game_settings.mode = new_mode;
+                NotificationManager::add_text_notification(&format!("Menu mode changed to {:?}", new_mode), 1000.0, Color::BLUE);
+            }
+        }
 
         if needs_manager_setup {
             self.setup_manager();
