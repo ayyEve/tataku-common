@@ -157,7 +157,9 @@ impl GameMode for ManiaGame {
 
         for col in s.columns.iter_mut() {
             col.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
-            s.end_time = s.end_time.max(col.iter().last().unwrap().time());
+            if let Some(last_note) = col.iter().last() {
+                s.end_time = s.end_time.max(last_note.time());
+            }
         }
         
         s
@@ -575,14 +577,12 @@ impl TimingBar {
 
 
 struct ManiaAutoHelper {
-    last_checked: Vec<usize>,
     states: Vec<bool>,
-    timers: Vec<f32>,
+    timers: Vec<(f32, bool)>,
 }
 impl ManiaAutoHelper {
     fn new() -> Self {
         Self {
-            last_checked: Vec::new(),
             states: Vec::new(),
             timers: Vec::new(),
         }
@@ -594,34 +594,38 @@ impl ManiaAutoHelper {
     }
 
     fn update(&mut self, columns: &Vec<Vec<Box<dyn ManiaHitObject>>>, column_indices: &mut Vec<usize>, time: f32, list: &mut Vec<ReplayFrame>) {
-        if self.last_checked.len() != columns.len() {
-            self.last_checked.resize(columns.len(), 0);
-            self.states.resize(columns.len(), false);
-            self.timers.resize(columns.len(), 0.0);
+        if self.states.len() != columns.len() {
+            let new_len = columns.len();
+            self.states.resize(new_len, false);
+            self.timers.resize(new_len, (0.0, false));
+            // self.notes_hit.resize(new_len, Vec::new());
         }
 
         for c in 0..columns.len() {
-            // if self.last_checked[c] < columns[c].len() {
-            //     // let last_checked = &columns[c][self.last_checked[c]];
-            // }
-
-            if time > self.timers[c] {
-                list.push(ReplayFrame::Release(Self::get_keypress(c)))
+            let timer = &mut self.timers[c];
+            if time > timer.0 && timer.1 {
+                list.push(ReplayFrame::Release(Self::get_keypress(c)));
+                timer.1 = false;
             }
 
             if column_indices[c] >= columns[c].len() {continue}
+            for i in column_indices[c]..columns[c].len() {
+                let note = &columns[c][i];
+                if time > note.end_time(30.0) && !note.was_hit() {
+                    column_indices[c] += 1;
+                } else {
+                    break;
+                }
+            }
 
             let note = &columns[c][column_indices[c]];
             if time >= note.time() && !note.was_hit() {
+                if timer.0 == note.end_time(50.0) && timer.1 {continue}
+
                 list.push(ReplayFrame::Press(Self::get_keypress(c)));
-                self.last_checked[c] = column_indices[c];
-                self.timers[c] = note.end_time(50.0);
-
-                // if note.note_type() == NoteType::Note {
-                //     list.push(ReplayFrame::Release(Self::get_keypress(c)));
-                // }
+                timer.0 = note.end_time(50.0);
+                timer.1 = true;
             }
-
         }
     }
 }

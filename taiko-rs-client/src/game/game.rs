@@ -11,10 +11,8 @@ use taiko_rs_common::types::{SpectatorFrames, UserAction};
 use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
 use crate::helpers::{FpsDisplay, BenchmarkHelper, VolumeControl};
 use crate::{window_size, Vector2, DOWNLOADS_DIR, menu::*, sync::{Arc, Mutex}};
-use crate::game::{Settings, audio::Audio, online::{USER_ITEM_SIZE, OnlineManager}};
-use crate::game::managers::{InputManager, BeatmapManager, NotificationManager, NOTIFICATION_MANAGER};
+use crate::game::{Settings, audio::Audio, managers::*, online::{USER_ITEM_SIZE, OnlineManager}};
 
-use super::managers::CursorManager;
 
 /// background color
 const GFX_CLEAR_COLOR:Color = Color::WHITE;
@@ -73,7 +71,7 @@ impl Game {
         game_init_benchmark.log("window created", true);
 
 
-        //TODO: make sure this file exists?
+        // set window icon
         match image::open("resources/icon-small.png") {
             Ok(img) => {
                 window.window.set_icon(vec![img.into_rgba8()]);

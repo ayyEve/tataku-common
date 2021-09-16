@@ -623,10 +623,10 @@ impl TaikoAutoHelper {
                 if i as i64 == self.note_index {
                     match note.note_type() {
                         NoteType::Slider | NoteType::Spinner => {
-                            let time_between_hits = self.current_note_duration / (note.hits_to_complete() as f32); //TODO: 20.0 should be hits needed to complete the object
+                            let time_between_hits = self.current_note_duration / (note.hits_to_complete() as f32);
                             
                             // if its not time to do another hit yet
-                            if time - self.last_hit < time_between_hits {continue}
+                            if time - self.last_hit < time_between_hits {return}
                         }
 
                         // nothing to do for notes (they only need 1 hit) and holds dont exist

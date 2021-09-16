@@ -74,6 +74,7 @@ impl Curve {
 
     pub fn position_at_time(&self, time:f32) -> Vector2 {
         // if (this.sliderCurveSmoothLines == null) this.UpdateCalculations();
+        if self.cumulative_lengths.len() == 0 {return self.slider.pos}
         if time < self.slider.time {return self.slider.pos}
         if time > self.end_time {return self.position_at_length(self.length())}
 
