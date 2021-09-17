@@ -189,12 +189,12 @@ impl Game {
         self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(loading_menu))));
     }
     pub fn game_loop(mut self) {
-        // input and rendering thread
         let mut events = Events::new(EventSettings::new());
-        events.set_ups_reset(0);
+        // events.set_ups_reset(0);
 
         {
-            let settings = Settings::get();
+            // input and rendering thread times
+            let settings = Settings::get_mut();
             events.set_max_fps(settings.fps_target);
             events.set_ups(settings.update_target);
         }
