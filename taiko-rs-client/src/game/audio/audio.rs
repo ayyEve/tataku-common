@@ -65,14 +65,14 @@ impl Audio {
         let supported_config = supported_config_range.with_max_sample_rate();
         let sample_rate = supported_config.sample_rate().0;
 
-        let config = if let cpal::SupportedBufferSize::Range{min, ..} = buff_range {
+        let config = if let cpal::SupportedBufferSize::Range{min, max} = buff_range {
             let mut config = supported_config.config();
-            config.buffer_size = cpal::BufferSize::Fixed(min.max(8192));
+            config.buffer_size = cpal::BufferSize::Fixed(8192.clamp(min, max));
             println!("setting buffer size to {}", min);
             config
         } else {
             println!("unknown buffer size, praying to jesus");
-            let mut config = supported_config.config();
+            let config = supported_config.config();
             // config.buffer_size = cpal::BufferSize::Fixed(8192);
             config
         };
