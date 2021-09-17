@@ -276,10 +276,8 @@ pub struct StandardSlider {
     /// was the release checked?
     end_checked: bool,
 
-    /// hold start
-    hold_time: f32, 
-    /// hold end
-    release_time: f32,
+    /// if the mouse is being held
+    holding: bool,
     /// stored mouse pos
     mouse_pos: Vector2,
 
@@ -388,8 +386,7 @@ impl StandardSlider {
 
             start_checked: false,
             end_checked: false,
-            hold_time: 0.0,
-            release_time: 0.0,
+            holding: false,
             mouse_pos: Vector2::zero(),
 
             combo_text,
@@ -415,19 +412,19 @@ impl HitObject for StandardSlider {
         // check sliding ok
         self.slider_ball_pos = self.scaling_helper.scale_coords(self.curve.position_at_time(beatmap_time));
         let distance = ((self.slider_ball_pos.x - self.mouse_pos.x).powi(2) + (self.slider_ball_pos.y - self.mouse_pos.y).powi(2)).sqrt();
-        self.sliding_ok = self.hold_time > self.release_time && distance <= self.radius * 2.0;
+        self.sliding_ok = self.holding && distance <= self.radius * 2.0;
 
+        if self.time - beatmap_time > self.time_preempt || self.curve.end_time < beatmap_time {return}
 
         // find out if a slide has been completed
         let pos = (beatmap_time - self.time) / (self.curve.length() / self.def.slides as f32);
-        if self.time - beatmap_time > self.time_preempt || self.curve.end_time < beatmap_time {return}
 
         let current_moving_forwards = pos % 2.0 <= 1.0;
         if current_moving_forwards != self.moving_forward {
             // direction changed
             self.moving_forward = current_moving_forwards;
             self.slides_complete += 1;
-            // println!("repeat {} started", self.slides_complete);
+            println!("slide complete: {}", self.slides_complete);
 
             // increment index
             self.sound_index += 1;
@@ -497,7 +494,7 @@ impl HitObject for StandardSlider {
             list.push(Box::new(outer));
         }
 
-
+        // curve
         list.reserve(self.lines_cache.len() + self.circles_cache.len());
         for line in self.lines_cache.iter() {
             list.push(line.clone());
@@ -505,34 +502,11 @@ impl HitObject for StandardSlider {
         for circle in self.circles_cache.iter() {
             list.push(circle.clone());
         }
-
-        // // curves
-        // list.reserve(self.curve.path.len() * 2);
-        // for i in 0..self.curve.path.len() {
-        //     let line = self.curve.path[i];
-
-        //     let p1 = self.scaling_helper.scale_coords(line.p1);
-        //     let p2 = self.scaling_helper.scale_coords(line.p2);
-        //     list.push(Box::new(Line::new(
-        //         p1,
-        //         p2,
-        //         self.radius,
-        //         self.slider_depth,
-        //         color
-        //     )));
-
-        //     // add a circle to smooth out the corners
-        //     list.push(Box::new(Circle::new(
-        //         color,
-        //         self.slider_depth,
-        //         p2,
-        //         self.radius,
-        //     )))
-        // }
         
         // start and end circles
-        let repeats = self.def.slides - 1;
-        let repeats_remaining = repeats - self.slides_complete;
+        let slides_remaining = self.def.slides - self.slides_complete;
+        let end_repeat = slides_remaining > self.def.slides % 2 + 1;
+        let start_repeat = slides_remaining > 2 - self.def.slides % 2;
 
         // end pos
         let mut c = Circle::new(
@@ -542,7 +516,7 @@ impl HitObject for StandardSlider {
             self.radius
         );
         c.border = Some(Border::new(
-            if repeats_remaining > (repeats % 2) + 1 {Color::RED} else {Color::BLACK}.alpha(alpha),
+            if end_repeat {Color::RED} else {Color::BLACK}.alpha(alpha),
             NOTE_BORDER_SIZE
         ));
         list.push(Box::new(c));
@@ -555,7 +529,7 @@ impl HitObject for StandardSlider {
             self.radius
         );
         c.border = Some(Border::new(
-        if repeats_remaining > (repeats % 2) {Color::RED} else {Color::BLACK}.alpha(alpha),
+            if start_repeat {Color::RED} else {Color::BLACK}.alpha(alpha),
             NOTE_BORDER_SIZE
         ));
         list.push(Box::new(c));
@@ -573,8 +547,7 @@ impl HitObject for StandardSlider {
         self.sound_queue.clear();
 
         self.map_time = 0.0;
-        self.hold_time = 0.0;
-        self.release_time = 0.0;
+        self.holding = false;
         self.start_checked = false;
         self.end_checked = false;
         
@@ -605,8 +578,8 @@ impl StandardHitObject for StandardSlider {
         else {self.pos}
     }
     fn get_preempt(&self) -> f32 {self.time_preempt}
-    fn press(&mut self, time:f32) {self.hold_time = time}
-    fn release(&mut self, time:f32) {self.release_time = time}
+    fn press(&mut self, _:f32) {self.holding = true}
+    fn release(&mut self, _:f32) {self.holding = false}
     fn mouse_move(&mut self, pos:Vector2) {self.mouse_pos = pos}
 
     // called on hit and release
@@ -616,9 +589,9 @@ impl StandardHitObject for StandardSlider {
             let distance = ((self.time_end_pos.x - self.mouse_pos.x).powi(2) + (self.time_end_pos.y - self.mouse_pos.y).powi(2)).sqrt();
 
             if distance > self.radius * 2.0 {println!("slider end miss (out of radius)")}
-            if self.hold_time < self.release_time {println!("slider end miss (not held)")}
+            if !self.holding {println!("slider end miss (not held)")}
 
-            return if distance > self.radius * 2.0 || self.hold_time < self.release_time {
+            return if distance > self.radius * 2.0 || !self.holding {
                 ScoreHit::X100
             } else {
                 self.sound_index = self.def.edge_sounds.len() - 1;
@@ -764,6 +737,7 @@ impl SliderDot {
         // ]
     }
 }
+
 
 
 // spinner
