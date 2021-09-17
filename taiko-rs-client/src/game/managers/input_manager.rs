@@ -65,8 +65,19 @@ impl InputManager {
                     self.mouse_buttons.remove(&mb);
                     self.mouse_up.insert((mb, Instant::now()));
                 }
+
+                (Button::Controller(cb), ButtonState::Press) => {
+                    println!("got gamepad press: {:?}", cb);
+                }
+                (Button::Controller(cb), ButtonState::Release) => {
+                    println!("got gamepad release: {:?}", cb);
+                }
                 _ => {}
             }
+        }
+
+        if let Some(axis) = e.controller_axis_args() {
+            println!("got controller axis: {:?}", axis);
         }
 
         e.mouse_cursor(|pos| {
