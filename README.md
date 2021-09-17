@@ -2,8 +2,20 @@ My taiko sim made in rust. why? idk. enjoy!
 Join our Discord server! https://discord.gg/PGa6XY7mKC
 
 required deps:
- - cmake
+ - windows:
+   - cmake
 
+ - linux (some may be incorrect, i'll double check when i have time)
+   - gcc
+   - cmake
+   - libasound2-dev
+   - pkg-config
+   - libssl-dev
+   - xorg-dev
+   - libxcb-shape0
+   - libxcb-render0
+   - libxcb-fixes0
+   
 
 TODO:
 - // UI
