@@ -5,7 +5,6 @@ mod fonts;
 mod online;
 pub mod helpers;
 pub mod managers;
-pub mod graphics;
 
 pub use audio::*;
 pub use game::*;
