@@ -1,8 +1,8 @@
 use std::time::Instant;
 
-use crate::errors::TaikoError;
 use crate::sync::*;
 use crate::window_size;
+use crate::errors::TaikoError;
 use crate::game::{Game, get_font};
 use crate::render::{Border, Color, Rectangle, Renderable, Text, Vector2};
 
@@ -22,24 +22,17 @@ lazy_static::lazy_static! {
 
 
 pub struct NotificationManager {
-    processed_notifs: Vec<ProcessedNotif>
+    processed_notifs: Vec<ProcessedNotif>,
+    pending_notifs: Vec<Notification>
 }
 impl NotificationManager { // static
     pub fn add_notification(notif: Notification) {
-        let new = ProcessedNotif::new(notif);
-        let mut locked = NOTIFICATION_MANAGER.lock();
-
-        // move all the other notifs up
-        let offset = new.size.y + NOTIF_Y_MARGIN;
-        for n in locked.processed_notifs.iter_mut() {
-            n.pos.y -= offset;
-        }
-
-        // add the new one
-        locked.processed_notifs.push(new);
+        NOTIFICATION_MANAGER.lock().pending_notifs.push(notif);
     }
     pub fn add_text_notification(text: &str, duration: f32, color: Color) {
         let notif = Notification::new(text.to_owned(), color, duration, NotificationOnClick::None);
+        
+        println!("adding text notif");
         Self::add_notification(notif);
     }
     pub fn add_error_notification(msg:&str, error:TaikoError) {
@@ -57,16 +50,32 @@ impl NotificationManager { // non-static
     fn new() -> Self { // technically static but i dont care
         Self {
             processed_notifs: Vec::new(),
+            pending_notifs: Vec::new(),
         }
     }
 
     pub fn update(&mut self) {
+        for notif in std::mem::take(&mut self.pending_notifs) {
+            println!("adding notif");
+            let new = ProcessedNotif::new(notif);
+
+            // move all the other notifs up
+            let offset = new.size.y + NOTIF_Y_MARGIN;
+            for n in self.processed_notifs.iter_mut() {
+                n.pos.y -= offset;
+            }
+
+            // add the new one
+            self.processed_notifs.push(new);
+        }
+
         // let mut removed_height = 0.0;
         self.processed_notifs.retain(|n| {
             let keep = n.check_time();
             // if !keep {removed_height += n.size.y + NOTIF_Y_MARGIN}
             keep
         });
+
 
         // if removed_height > 0.0 {
         //     for i in self.processed_notifs.iter_mut() {
