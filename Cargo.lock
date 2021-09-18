@@ -2626,6 +2626,7 @@ dependencies = [
  "clipboard",
  "cpal",
  "futures-util",
+ "gl",
  "glfw",
  "image",
  "lazy_static",

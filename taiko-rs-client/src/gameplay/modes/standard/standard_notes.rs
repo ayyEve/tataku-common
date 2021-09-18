@@ -3,6 +3,7 @@ use std::f64::consts::PI;
 use graphics::CharacterCache;
 
 use taiko_rs_common::types::ScoreHit;
+use crate::helpers::math::VectorHelpers;
 use crate::{Vector2, helpers::curve::Curve};
 use crate::gameplay::{HitObject, map_difficulty, defs::*, modes::ScalingHelper};
 use crate::render::{Circle, Color, Renderable, Border, Line, Rectangle, Text, fonts::get_font};
@@ -14,6 +15,7 @@ const NOTE_BORDER_SIZE:f64 = 2.0;
 pub const CIRCLE_RADIUS_BASE:f64 = 64.0;
 const HITWINDOW_CIRCLE_RADIUS:f64 = CIRCLE_RADIUS_BASE * 2.0;
 const PREEMPT_MIN:f32 = 450.0;
+
 
 pub trait StandardHitObject: HitObject {
     /// return the window-scaled coords of this object at time
@@ -308,8 +310,10 @@ pub struct StandardSlider {
 
 
 
-    lines_cache: Vec<Box<Line>>,
-    circles_cache: Vec<Box<Circle>>
+    // lines_cache: Vec<Box<Line>>,
+    // circles_cache: Vec<Box<Circle>>
+    slider_draw: SliderPath,
+    // slider_draw2: SliderPath,
 }
 impl StandardSlider {
     pub fn new(def:SliderDef, curve:Curve, ar:f32, color:Color, combo_num: u16, scaling_helper:ScalingHelper, slider_depth:f64, circle_depth:f64) -> Self {
@@ -334,32 +338,91 @@ impl StandardSlider {
             Vector2::one() * radius,
         ));
 
-        
-        let mut lines_cache = Vec::new();
-        let mut circles_cache = Vec::new();
+        // let mut lines_cache = Vec::new();
+        // let mut circles_cache = Vec::new();
 
-        // curves
-        for i in 0..curve.path.len() {
-            let line = curve.path[i];
+        // // curves
+        // for i in 0..curve.path.len() {
+        //     let line = curve.path[i];
 
+        //     let p1 = scaling_helper.scale_coords(line.p1);
+        //     let p2 = scaling_helper.scale_coords(line.p2);
+        //     lines_cache.push(Box::new(Line::new(
+        //         p1,
+        //         p2,
+        //         radius,
+        //         slider_depth,
+        //         color
+        //     )));
+
+        //     // add a circle to smooth out the corners
+        //     circles_cache.push(Box::new(Circle::new(
+        //         color,
+        //         slider_depth,
+        //         p2,
+        //         radius,
+        //     )))
+        // }
+
+
+
+        let side1_angle = PI / 2.0;
+        let side2_angle = 3.0*PI / 2.0;
+
+        let mut side1 = vec![];
+        let mut side2 = vec![];
+
+        for (i, line) in curve.path.iter().enumerate() {
             let p1 = scaling_helper.scale_coords(line.p1);
             let p2 = scaling_helper.scale_coords(line.p2);
-            lines_cache.push(Box::new(Line::new(
-                p1,
-                p2,
-                radius,
-                slider_depth,
-                color
-            )));
 
-            // add a circle to smooth out the corners
-            circles_cache.push(Box::new(Circle::new(
-                color,
-                slider_depth,
-                p2,
-                radius,
-            )))
+            let direction = Vector2::normalize(p2 - p1);
+            let perpendicular1 = Vector2::new(direction.y, -direction.x);
+            let perpendicular2 = Vector2::new(-direction.y, direction.x);
+            side1.push(p1 + perpendicular1 * radius);
+            // side2.push(p1 + perpendicular2 * radius);
+            
+            side2.insert(0, p1 + perpendicular2 * radius);
+
+            // let theta = Vector2::atan2(p2 - p1);
+            // let s1 = p1 + Vector2::from_angle(theta + side1_angle) * radius;
+            // let s2 = p1 + Vector2::from_angle(theta + side2_angle) * radius;
+            // side1.push(s1);
+            // side2.push(s2);
+
+            if i == curve.path.len() - 1 {
+                // let theta = Vector2::atan2(p1 - p2);
+                // let s1 = p2 + Vector2::from_angle(theta + side1_angle) * radius;
+                // let s2 = p2 + Vector2::from_angle(theta + side2_angle) * radius;
+                // side1.push(s2);
+                // side2.push(s1);
+
+                let direction = Vector2::normalize(p2 - p1);
+                let perpendicular1 = Vector2::new(direction.y, -direction.x);
+                let perpendicular2 = Vector2::new(-direction.y, direction.x);
+                side1.push(p2 + perpendicular1 * radius);
+                // side2.push(p2 + perpendicular2 * radius);
+                side2.insert(0, p2 + perpendicular2 * radius);
+            }
         }
+
+
+        let mut full:Vec<Vector2> = Vec::new();
+        full.extend(side1.iter());
+        full.extend(side2.iter());
+
+        // close the loop
+        // full.push(full[0]);
+
+        // if let CurveType::Perfect = def.curve_type {
+        //     for i in full.iter() {
+        //         println!("{}, {}", i.x, i.y)
+        //     }
+        //     println!("\n\n")
+        //     // println!("{:?}", full.iter().map(|a|(a.x, a.y)).collect::<Vec<(f64, f64)>>());
+        //     // println!("{:?}\n\n", aids);
+        // }
+
 
         Self {
             def,
@@ -395,10 +458,13 @@ impl StandardSlider {
             scaling_helper,
             sliding_ok: false,
             slider_ball_pos: Vector2::zero(),
-            lines_cache,
-            circles_cache,
+            // lines_cache,
+            // circles_cache,
+            slider_draw: SliderPath::new(full, Color::BLUE, slider_depth),
+            // slider_draw2: SliderPath::new(side2, Color::GREEN, slider_depth)
         }
     }
+
 }
 impl HitObject for StandardSlider {
     fn note_type(&self) -> NoteType {NoteType::Slider}
@@ -494,19 +560,51 @@ impl HitObject for StandardSlider {
             list.push(Box::new(outer));
         }
 
+
+
         // curve
-        list.reserve(self.lines_cache.len() + self.circles_cache.len());
-        for line in self.lines_cache.iter() {
-            list.push(line.clone());
-        }
-        for circle in self.circles_cache.iter() {
-            list.push(circle.clone());
-        }
+        // self.slider_draw.color.a = alpha;
+        // list.push(Box::new(self.slider_draw.clone()));
+
+
         
+        // curve
+        for line in self.curve.path.iter() {
+            let p1 = self.scaling_helper.scale_coords(line.p1);
+            let p2 = self.scaling_helper.scale_coords(line.p2);
+            let l = Line::new(
+                p1,
+                p2,
+                self.radius,
+                self.slider_depth,
+                self.color
+            );
+            list.push(Box::new(l));
+
+            // let line = Line::new(
+            //     self.scaling_helper.scale_coords(line.p1),
+            //     p2,
+            //     5.0,
+            //     self.slider_depth - 1.0,
+            //     Color::YELLOW
+            // );
+            // list.push(Box::new(line));
+
+            // add a circle to smooth out the corners
+            list.push(Box::new(Circle::new(
+                color,
+                self.slider_depth,
+                p2,
+                self.radius,
+            )))
+        }
+
+
         // start and end circles
         let slides_remaining = self.def.slides - self.slides_complete;
         let end_repeat = slides_remaining > self.def.slides % 2 + 1;
         let start_repeat = slides_remaining > 2 - self.def.slides % 2;
+
 
         // end pos
         let mut c = Circle::new(
@@ -533,7 +631,6 @@ impl HitObject for StandardSlider {
             NOTE_BORDER_SIZE
         ));
         list.push(Box::new(c));
-
 
         // draw hit dots
         // for dot in self.hit_dots.as_slice() {
@@ -619,6 +716,8 @@ impl StandardHitObject for StandardSlider {
             
             // set the judgement time to our start time
             judgement_time = self.time;
+
+            println!("{:?}", self.def.curve_type);
         } else 
 
         // check release
@@ -946,4 +1045,47 @@ fn center_combo_text(text:&mut Box<Text>, rect:Rectangle) {
 
     text.pos = rect.pos + (rect.size - text_size)/2.0
          + Vector2::new(0.0, text_size.y);
+}
+
+
+
+
+#[derive(Clone)]
+pub struct SliderPath {
+    path: Vec<[f64; 2]>,
+    color: Color,
+    depth: f64
+}
+impl SliderPath {
+    fn new(path: Vec<Vector2>, color: Color, depth: f64) -> Self {
+        let path = path.iter().map(|a|(*a).into()).collect();
+        Self {path, color, depth}
+    }
+}
+impl Renderable for SliderPath {
+    fn get_depth(&self) -> f64 {self.depth}
+
+    fn get_lifetime(&self) -> u64 {0}
+
+    fn set_lifetime(&mut self, _lifetime:u64) {}
+
+    fn get_spawn_time(&self) -> u64 {0}
+    fn set_spawn_time(&mut self, _time:u64) {}
+
+    fn draw(&mut self, g: &mut opengl_graphics::GlGraphics, c:graphics::Context) {
+        graphics::polygon(self.color.into(), &self.path, c.transform, g);
+
+        for i in 0..self.path.len() - 2 {
+            graphics::line(
+                Color::BLACK.into(),
+                1.0,
+                [
+                    self.path[i][0], self.path[i][1],
+                    self.path[i+1][0], self.path[i+1][1],
+                ],
+                c.transform,
+                g
+            )
+        }
+    }
 }

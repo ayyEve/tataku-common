@@ -6,15 +6,17 @@ use piston::{MouseButton, RenderArgs};
 use crate::{Vector2, window_size};
 use crate::game::{Settings, StandardSettings};
 use crate::gameplay::modes::{ScalingHelper, standard::*};
-use crate::helpers::{curve::get_curve, key_counter::KeyCounter};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
+use crate::helpers::{curve::get_curve, key_counter::KeyCounter, math::Lerp};
 use crate::gameplay::{DURATION_HEIGHT, GameMode, Beatmap, IngameManager, map_difficulty, defs::{NoteType, NoteDef}};
 
 const POINTS_DRAW_DURATION:f32 = 200.0;
 const POINTS_DRAW_FADE_DURATION:f32 = 60.0;
 
 const NOTE_DEPTH:Range<f64> = 100.0..200.0;
-const SLIDER_DEPTH:Range<f64> = 200.0..300.0;
+pub const SLIDER_DEPTH:Range<f64> = 200.0..300.0;
+
+
 
 pub struct StandardGame {
     // lists
@@ -47,7 +49,7 @@ pub struct StandardGame {
     /// cached settings, saves on locking
     settings: StandardSettings,
 
-
+    /// autoplay helper
     auto_helper: StandardAutoHelper
 }
 impl StandardGame {
@@ -634,7 +636,6 @@ impl GameMode for StandardGame {
 
 
 
-
 struct StandardAutoHelper {
     // point_trail_angle: Vector2,
     point_trail_start_time: f32,
@@ -643,6 +644,9 @@ struct StandardAutoHelper {
     point_trail_end_pos: Vector2,
 
     current_note_index: usize,
+
+    // /// list of notes currently being held
+    // holding: Vec<usize>
 }
 impl StandardAutoHelper {
     fn new() -> Self {
@@ -653,6 +657,8 @@ impl StandardAutoHelper {
             current_note_index: 0,
             point_trail_start_pos: Vector2::zero(),
             point_trail_end_pos: Vector2::zero(),
+
+            // holding: Vec::new()
         }
     }
 
@@ -664,10 +670,13 @@ impl StandardAutoHelper {
 
             if time >= note.time() && !note.was_hit() {
                 let pos = scaling_helper.descale_coords(note.pos_at(time, &scaling_helper));
+                // move the mouse to the pos
                 frames.push(ReplayFrame::MousePos(
                     pos.x as f32,
                     pos.y as f32
                 ));
+
+
 
                 if i == self.current_note_index {
                     if note.note_type() != NoteType::Note {
@@ -680,6 +689,7 @@ impl StandardAutoHelper {
                     frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
                 }
 
+                // if this was the last note
                 if i + 1 >= notes.len() {
                     self.point_trail_start_pos = pos;
                     self.point_trail_end_pos = scaling_helper.descale_coords(scaling_helper.window_size / 2.0);
@@ -709,7 +719,7 @@ impl StandardAutoHelper {
         let current = time - self.point_trail_start_time;
         let len = current / duration;
         
-        let new_pos = crate::helpers::math::lerp(self.point_trail_start_pos, self.point_trail_end_pos, len as f64);
+        let new_pos = Vector2::lerp(self.point_trail_start_pos, self.point_trail_end_pos, len as f64);
         frames.push(ReplayFrame::MousePos(
             new_pos.x as f32,
             new_pos.y as f32

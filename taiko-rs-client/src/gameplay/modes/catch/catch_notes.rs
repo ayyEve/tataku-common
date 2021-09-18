@@ -2,6 +2,7 @@ use piston::RenderArgs;
 
 use super::hit_y;
 use crate::Vector2;
+use crate::gameplay::modes::ScalingHelper;
 use taiko_rs_common::types::ScoreHit;
 use crate::gameplay::{HitObject, defs::NoteType};
 use crate::render::{Circle, Color, Renderable, Border};
@@ -26,6 +27,9 @@ pub trait CatchHitObject: HitObject {
 
     fn set_dash(&mut self, _next: &Box<dyn CatchHitObject>) {}
     fn reset_dash(&mut self) {}
+
+    fn was_hit(&self) -> bool;
+    fn pos_at(&self, time:f32, scaling_helper: &ScalingHelper) -> f64;
 }
 
 // normal note
@@ -88,6 +92,8 @@ impl HitObject for CatchFruit {
     }
 }
 impl CatchHitObject for CatchFruit {
+    fn was_hit(&self) -> bool {self.hit||self.missed}
+    fn pos_at(&self, time:f32, scaling_helper: &ScalingHelper) -> f64 {self.pos.x}
     fn x(&self) -> f64 {self.pos.x}
     fn speed(&self) -> f32 {self.speed}
     fn radius(&self) -> f64 {self.radius}
@@ -158,6 +164,8 @@ impl HitObject for CatchDroplet {
     }
 }
 impl CatchHitObject for CatchDroplet {
+    fn was_hit(&self) -> bool {self.hit||self.missed}
+    fn pos_at(&self, time:f32, scaling_helper: &ScalingHelper) -> f64 {self.pos.x}
     fn x(&self) -> f64 {self.pos.x}
     fn speed(&self) -> f32 {self.speed}
     fn radius(&self) -> f64 {self.radius}
@@ -174,6 +182,7 @@ pub struct CatchBanana {
     pos: Vector2,
     time: f32, // ms
     hit: bool,
+    missed: bool,
     speed: f32,
     radius: f64,
 
@@ -186,6 +195,7 @@ impl CatchBanana {
             speed,
             radius,
             hit: false,
+            missed: false,
             pos: Vector2::new(x, 0.0),
             alpha_mult: 1.0
         }
@@ -218,6 +228,8 @@ impl HitObject for CatchBanana {
     }
 }
 impl CatchHitObject for CatchBanana {
+    fn was_hit(&self) -> bool {self.hit||self.missed}
+    fn pos_at(&self, time:f32, scaling_helper: &ScalingHelper) -> f64 {self.pos.x}
     fn x(&self) -> f64 {self.pos.x}
     fn speed(&self) -> f32 {self.speed}
     fn radius(&self) -> f64 {self.radius}

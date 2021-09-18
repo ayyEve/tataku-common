@@ -3,8 +3,9 @@ use ayyeve_piston_ui::render::*;
 
 use super::*;
 use crate::game::{Audio, Settings};
-use crate::{window_size, Vector2, helpers::curve::get_curve};
+use crate::gameplay::modes::ScalingHelper;
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
+use crate::{window_size, Vector2, helpers::{curve::get_curve, math::Lerp}};
 use crate::gameplay::{Beatmap, GameMode, IngameManager, map_difficulty, defs::*, modes::FIELD_SIZE};
 
 // const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
@@ -41,6 +42,14 @@ pub struct CatchGame {
     /// when was the last update
     last_update: f32,
     catcher: Catcher,
+
+    
+    /// scaling helper to help with scaling
+    scaling_helper: ScalingHelper,
+    /// needed for scaling recalc
+    cs: f32,
+    /// autoplay helper
+    auto_helper: CatchAutoHelper
 }
 impl CatchGame {
     pub fn next_note(&mut self) {self.note_index += 1}
@@ -59,6 +68,10 @@ impl GameMode for CatchGame {
 
             hitwindow: 0.0,
             catcher: Catcher::new(&beatmap),
+
+            scaling_helper: ScalingHelper::new(beatmap.metadata.cs, PlayMode::Catch),
+            cs: beatmap.metadata.cs,
+            auto_helper: CatchAutoHelper::new()
         };
 
         let x_offset = x_offset(); // (window_size().x - FIELD_SIZE.x) / 2.0;
@@ -475,5 +488,90 @@ impl Catcher {
         let note_width = note.radius() * 2.0;
 
         note_x + note_width > self.pos.x && note_x < self.pos.x + self.width
+    }
+}
+
+
+
+struct CatchAutoHelper {
+    // point_trail_angle: Vector2,
+    point_trail_start_time: f32,
+    point_trail_end_time: f32,
+    point_trail_start_pos: f64,
+    point_trail_end_pos: f64,
+
+    current_note_index: usize,
+}
+impl CatchAutoHelper {
+
+    fn new() -> Self {
+        Self {
+            // point_trail_angle: Vector2::zero(),
+            point_trail_start_time: 0.0,
+            point_trail_end_time: 0.0,
+            current_note_index: 0,
+            point_trail_start_pos: 0.0,
+            point_trail_end_pos: 0.0,
+        }
+    }
+
+    fn update(&mut self, time:f32, notes: &mut Vec<Box<dyn CatchHitObject>>, scaling_helper: &ScalingHelper, frames: &mut Vec<ReplayFrame>) {
+        let mut any_checked = false;
+
+        for i in 0..notes.len() {
+            let note = &notes[i];
+
+            if time >= note.time() && !note.was_hit() {
+                let pos = scaling_helper.descale_coords(Vector2::new(note.pos_at(time, &scaling_helper), 0.0)).x;
+                frames.push(ReplayFrame::MousePos(
+                    pos as f32,
+                    0.0
+                ));
+
+                if i == self.current_note_index {
+                    if note.note_type() != NoteType::Note {
+                        if time <= note.end_time(0.0) {
+                            frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
+                        }
+                    }
+                } else {
+                    frames.push(ReplayFrame::Press(KeyPress::LeftMouse));
+                    frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
+                }
+
+                if i + 1 >= notes.len() {
+                    self.point_trail_start_pos = pos;
+                    self.point_trail_end_pos = scaling_helper.descale_coords(scaling_helper.window_size / 2.0).x;
+                    
+                    self.point_trail_start_time = 0.0;
+                    self.point_trail_end_time = 1.0;
+                    continue;
+                }
+
+                // draw a line to the next note
+                let next_note = &notes[i + 1];
+
+                self.point_trail_start_pos = pos;
+                self.point_trail_end_pos = scaling_helper.descale_coords(Vector2::new(next_note.pos_at(self.point_trail_end_time, scaling_helper), 0.0)).x;
+                
+                self.point_trail_start_time = time;
+                self.point_trail_end_time = next_note.time();
+
+                any_checked = true;
+            }
+        }
+        if any_checked {return}
+
+        // if we got here no notes were updated
+        // follow the point_trail
+        let duration = self.point_trail_end_time - self.point_trail_start_time;
+        let current = time - self.point_trail_start_time;
+        let len = current / duration;
+        
+        let new_pos = Lerp::lerp(self.point_trail_start_pos, self.point_trail_end_pos, len as f64);
+        frames.push(ReplayFrame::MousePos(
+            new_pos as f32,
+            0.0
+        ));
     }
 }
