@@ -49,7 +49,12 @@ pub struct Settings {
     /// should the game pause when focus is lost?
     pub pause_on_focus_lost: bool,
 
-    pub cursor_color: String
+    pub cursor_color: String,
+
+
+    // misc keybinds
+    pub key_offset_up: Key,
+    pub key_offset_down: Key,
 }
 impl Settings {
     fn load() -> Settings {
@@ -124,7 +129,11 @@ impl Default for Settings {
             cursor_scale: 1.0,
             pause_on_focus_lost: true,
 
-            cursor_color: "#cc0099".to_owned()
+            cursor_color: "#cc0099".to_owned(),
+
+            // keys
+            key_offset_up: Key::Equals,
+            key_offset_down: Key::Minus,
         }
     }
 }

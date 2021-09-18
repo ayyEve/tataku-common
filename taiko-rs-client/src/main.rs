@@ -43,6 +43,13 @@ pub const REQUIRED_FILES:&[&str] = &[
     "fonts/main.ttf",
 ];
 
+const FIRST_MAPS: &[u32] = &[
+    75, // disco prince
+    905576, // triumph and regret
+    1605148, // mayday
+    727903, // galaxy collapse
+];
+
 // main fn
 #[tokio::main]
 async fn main() {
@@ -69,6 +76,15 @@ async fn main() {
         for hitsound in ["normal", "whistle", "clap", "finish"] {
             let file = &format!("resources/audio/{}-hit{}.wav", sample_set, hitsound);
             check_file(file, &format!("https://cdn.ayyeve.xyz/taiko-rs/{}", file));
+        }
+    }
+
+    
+    // check if songs folder is empty
+    if std::fs::read_dir(SONGS_DIR).unwrap().count() == 0 {
+        // no songs, download some
+        for id in FIRST_MAPS {
+            check_file(&format!("{}/{}.osz", DOWNLOADS_DIR, id), &format!("https://cdn.ayyeve.xyz/taiko-rs/maps/{}.osz", id));
         }
     }
 

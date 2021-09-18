@@ -303,17 +303,18 @@ impl Game {
         match current_state {
             GameState::Ingame(ref manager) => {
                 let mut lock = manager.lock();
+                let settings =  Settings::get();
                 
                 // pause button, or focus lost, only if not replaying
-                if !lock.replaying && (matches!(window_focus_changed, Some(false)) && Settings::get_mut().pause_on_focus_lost) || keys_down.contains(&Key::Escape) {
+                if !lock.replaying && (matches!(window_focus_changed, Some(false)) && settings.pause_on_focus_lost) || keys_down.contains(&Key::Escape) {
                     lock.pause();
                     let menu = PauseMenu::new(manager.clone());
                     self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
                 }
 
                 // offset adjust
-                if keys_down.contains(&Key::Equals) {lock.increment_offset(5.0)}
-                if keys_down.contains(&Key::Minus) {lock.increment_offset(-5.0)}
+                if keys_down.contains(&settings.key_offset_up) {lock.increment_offset(5.0)}
+                if keys_down.contains(&settings.key_offset_up) {lock.increment_offset(-5.0)}
 
                 // inputs
                 if mouse_moved {lock.mouse_move(mouse_pos)}

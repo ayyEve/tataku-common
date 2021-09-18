@@ -470,22 +470,25 @@ impl IngameManager {
         let mut m = m.lock();
         m.draw(args, self, list);
 
-        if self.menu_background {return}
 
         // draw offset
         if self.offset_changed_time > 0.0 && time - self.offset_changed_time < OFFSET_DRAW_TIME {
+            let rect = Rectangle::bounds_only(Vector2::new((window_size.x - 200.0) / 2.0, window_size.y * 1.0/3.0), Vector2::new(200.0, 64.0));
             let mut offset_text = Text::new(
                 Color::BLACK,
                 -20.0,
-                Vector2::new(0.0,0.0), // centered anyways
+                Vector2::new(0.0, 0.0), // centered anyways
                 32,
                 format!("Offset: {}", self.offset),
                 font.clone()
             );
-            offset_text.center_text(Rectangle::bounds_only(Vector2::zero(), Vector2::new(window_size.x , window_size.y * 2.0/3.0)));
+            offset_text.center_text(rect);
+            list.push(visibility_bg(rect.pos, rect.size - Vector2::new(0.0, 30.0)));
             list.push(Box::new(offset_text));
         }
 
+
+        if self.menu_background {return}
         // gamemode things
 
         // score bg

@@ -179,6 +179,14 @@ impl Menu<Game> for MainMenu {
         let mut needs_manager_setup = false;
 
 
+        // check offset keys
+        if let Some(manager) = self.background_game.as_mut() {
+            let settings = Settings::get();
+            if key == settings.key_offset_up {manager.increment_offset(5.0)}
+            if key == settings.key_offset_down {manager.increment_offset(-5.0)}
+        }
+
+
         if !mods.alt {
             match key {
                 Left => {
@@ -221,6 +229,7 @@ impl Menu<Game> for MainMenu {
                 NotificationManager::add_text_notification(&format!("Menu mode changed to {:?}", new_mode), 1000.0, Color::BLUE);
             }
         }
+
 
         if needs_manager_setup {
             self.setup_manager();
