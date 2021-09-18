@@ -383,11 +383,11 @@ impl GameMode for StandardGame {
 
             // check if note is in hitwindow
             if time - end_time >= 0.0 && !note.was_hit() {
-                println!("note missed: {}-{}", time, end_time);
 
                 // check if we missed the current note
                 match note.note_type() {
                     NoteType::Note if end_time < time => {
+                        println!("note missed: {}-{}", time, end_time);
                         manager.combo_break();
                         manager.score.hit_miss(time, end_time);
                         self.draw_points.push((time, note.point_draw_pos(), ScoreHit::Miss));
@@ -645,8 +645,8 @@ struct StandardAutoHelper {
 
     current_note_index: usize,
 
-    // /// list of notes currently being held
-    // holding: Vec<usize>
+    /// list of notes currently being held
+    holding: Vec<usize>
 }
 impl StandardAutoHelper {
     fn new() -> Self {
@@ -658,7 +658,7 @@ impl StandardAutoHelper {
             point_trail_start_pos: Vector2::zero(),
             point_trail_end_pos: Vector2::zero(),
 
-            // holding: Vec::new()
+            holding: Vec::new()
         }
     }
 
@@ -676,16 +676,16 @@ impl StandardAutoHelper {
                     pos.y as f32
                 ));
 
-
-
-                if i == self.current_note_index {
-                    if note.note_type() != NoteType::Note {
-                        if time <= note.end_time(0.0) {
-                            frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
-                        }
+                if self.holding.contains(&i) {
+                    if time <= note.end_time(0.0) {
+                        frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
                     }
-                } else {
-                    frames.push(ReplayFrame::Press(KeyPress::LeftMouse));
+                    continue;
+                }
+                
+                frames.push(ReplayFrame::Press(KeyPress::LeftMouse));
+
+                if note.note_type() == NoteType::Note {
                     frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
                 }
 
