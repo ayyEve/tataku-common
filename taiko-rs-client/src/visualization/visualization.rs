@@ -1,6 +1,7 @@
 // use dft::c32;
 use std::time::Instant;
 
+use crate::game::fft::FFT;
 use crate::render::{Renderable, Vector2};
 
 
@@ -23,10 +24,31 @@ pub trait Visualization {
         // get the audio being fed to the sound card
         let audio_data = crate::game::audio::CURRENT_DATA.clone();
         let mut audio_data = audio_data.lock().clone();
+        // println!("{}", audio_data.len());
+
+        let len = audio_data.len();
+        let size:FFT = if len > 8192 {
+            FFT::F8192
+        } else if len > 4096 {
+            FFT::F4096
+        } else if len > 2048 {
+            FFT::F2048
+        } else if len > 1024 {
+            FFT::F1024
+        } else if len > 512 {
+            FFT::F512
+        } else if len > 128 {
+            FFT::F128
+        } else if len > 64 {
+            FFT::F64
+        } else {
+            FFT::F32
+        };
+        println!("{} -> {:?}", len, size);
 
         let mut audio_data = crate::game::audio::fft::fft(
             &mut audio_data, 
-            crate::game::audio::fft::FFT::F8192
+            size
         );
 
         audio_data.retain(|(freq, _amp)| *freq < 7_000.0);

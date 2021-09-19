@@ -111,7 +111,7 @@ impl Audio {
                     }
 
                     // println!("len: {}", current_data.len());
-                    current_data.resize(8192, 0.0);
+                    // current_data.resize(8192, 0.0);
                     // {
                     //     let mut current_data = CURRENT_DATA.lock();
                     //     current_data.fill(0.0)

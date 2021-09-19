@@ -2,6 +2,7 @@
 // https://github.com/WeirdConstructor/HexoDSP/blob/master/tests/common/mod.rs#L735-L783
 
 #[allow(unused)]
+#[derive(Clone, Copy, Debug)]
 pub enum FFT {
     F16,
     F32,
