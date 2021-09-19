@@ -27,24 +27,21 @@ pub trait Visualization {
         // println!("{}", audio_data.len());
 
         let len = audio_data.len();
-        let size:FFT = if len > 8192 {
-            FFT::F8192
-        } else if len > 4096 {
-            FFT::F4096
-        } else if len > 2048 {
-            FFT::F2048
-        } else if len > 1024 {
-            FFT::F1024
-        } else if len > 512 {
-            FFT::F512
-        } else if len > 128 {
-            FFT::F128
-        } else if len > 64 {
-            FFT::F64
+
+        let size;
+
+        if !cfg!(linux) {
+            let scale = (1024.0 / len as f32) * 8.0;
+            for sample in audio_data.iter_mut() {
+                *sample *= scale;
+            }
+            audio_data.resize(1024, 0.0);
+            size = FFT::F1024;
         } else {
-            FFT::F32
-        };
-        println!("{} -> {:?}", len, size);
+            audio_data.resize(8192, 0.0);
+            size = FFT::F8192;
+        }
+        // println!("{} -> {:?}", len, size);
 
         let mut audio_data = crate::game::audio::fft::fft(
             &mut audio_data, 
