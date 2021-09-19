@@ -29,7 +29,7 @@ pub trait Visualization {
         let len = audio_data.len();
         let size;
 
-        if !cfg!(linux) {
+        if !cfg!(target_os = "linux") {
             let scale = (1024.0 / len as f32) * 8.0;
             for sample in audio_data.iter_mut() {
                 *sample *= scale;
