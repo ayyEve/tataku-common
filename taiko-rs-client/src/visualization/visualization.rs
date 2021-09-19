@@ -40,7 +40,6 @@ pub trait Visualization {
             audio_data.resize(8192, 0.0);
             size = FFT::F8192;
         }
-        println!("{} -> {:?}", len, size);
 
         let mut audio_data = crate::game::audio::fft::fft(
             &mut audio_data, 
