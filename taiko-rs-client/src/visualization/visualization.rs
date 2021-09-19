@@ -27,7 +27,6 @@ pub trait Visualization {
         // println!("{}", audio_data.len());
 
         let len = audio_data.len();
-
         let size;
 
         if !cfg!(linux) {
@@ -41,7 +40,7 @@ pub trait Visualization {
             audio_data.resize(8192, 0.0);
             size = FFT::F8192;
         }
-        // println!("{} -> {:?}", len, size);
+        println!("{} -> {:?}", len, size);
 
         let mut audio_data = crate::game::audio::fft::fft(
             &mut audio_data, 
