@@ -1,11 +1,10 @@
 use piston::Key;
+use tokio::sync::OnceCell;
 use serde::{Serialize, Deserialize};
 use taiko_rs_common::types::PlayMode;
-use tokio::sync::OnceCell;
 
 use crate::sync::*;
 use crate::Vector2;
-
 use super::managers::NotificationManager;
 
 const SETTINGS_FILE:&str = "settings.json";

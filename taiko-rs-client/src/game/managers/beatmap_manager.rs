@@ -105,7 +105,8 @@ impl BeatmapManager {
                 // so we should add it
                 {
                     let lock = crate::databases::DATABASE.lock();
-                    let res = lock.prepare(&insert_metadata(&map)).unwrap().execute([]);
+                    let statement = insert_metadata(&map);
+                    let res = lock.prepare(&statement).expect(&statement).execute([]);
                     if let Err(e) = res {
                         println!("error inserting metadata: {}", e);
                     }
@@ -238,9 +239,9 @@ fn insert_metadata(map: &BeatmapMeta) -> String {
     map.file_path, map.beatmap_hash, 
 
     map.mode as u8, map.beatmap_version,
-    map.artist, map.artist_unicode,
-    map.title, map.title_unicode,
-    map.creator, map.version,
+    map.artist.replace("\"", "\"\""), map.artist_unicode.replace("\"", "\"\""),
+    map.title.replace("\"", "\"\""), map.title_unicode.replace("\"", "\"\""),
+    map.creator.replace("\"", "\"\""), map.version.replace("\"", "\"\""),
     
     map.audio_filename, map.image_filename,
     map.audio_preview, map.duration,
