@@ -215,15 +215,18 @@ impl Default for ManiaSettings {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct StandardSettings {
-    // keys
+    // input
     pub left_key: Key,
     pub right_key: Key,
+    pub ignore_mouse_buttons: bool,
 
+    // playfield
     pub playfield_x_offset: f64,
     pub playfield_y_offset: f64,
     pub playfield_scale: f64,
 
-    pub ignore_mouse_buttons: bool
+    // display
+    pub draw_follow_points: bool
 }
 impl StandardSettings {
     pub fn get_playfield(&self) -> (f64, Vector2) {
@@ -236,10 +239,13 @@ impl Default for StandardSettings {
             // keys
             left_key: Key::S,
             right_key: Key::D,
+            ignore_mouse_buttons: false,
+
             playfield_x_offset: 0.0,
             playfield_y_offset: 0.0,
             playfield_scale: 0.8,
-            ignore_mouse_buttons: false
+
+            draw_follow_points: true
         }
     }
 }

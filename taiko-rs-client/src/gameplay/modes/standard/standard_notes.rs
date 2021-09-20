@@ -182,10 +182,7 @@ impl StandardHitObject for StandardNote {
         
         // make sure the cursor is in the radius
         let distance = ((self.pos.x - self.mouse_pos.x).powi(2) + (self.pos.y - self.mouse_pos.y).powi(2)).sqrt();
-        if distance > self.radius {
-            println!("mouse too far: {} > {}", distance, self.radius);
-            return ScoreHit::None
-        }
+        if distance > self.radius {return ScoreHit::None}
 
         if diff < hitwindow_300 {
             self.hit = true;
@@ -757,7 +754,6 @@ impl StandardHitObject for StandardSlider {
         }
 
         let judgement_time: f32;
-
         // check press
         if time > self.time - h_miss && time < self.time + h_miss {
             // within starting time frame
@@ -766,6 +762,7 @@ impl StandardHitObject for StandardSlider {
             let distance = ((self.pos.x - self.mouse_pos.x).powi(2) + (self.pos.y - self.mouse_pos.y).powi(2)).sqrt();
 
             // if already hit, or this is a release, return None
+            if distance > self.radius * 2.0 {println!("slider end miss (out of radius)")}
             if self.start_checked || !is_press || distance > self.radius {return ScoreHit::None}
             
             // start wasnt hit yet, set it to true

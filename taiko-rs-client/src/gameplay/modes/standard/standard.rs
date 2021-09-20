@@ -51,7 +51,10 @@ pub struct StandardGame {
     settings: StandardSettings,
 
     /// autoplay helper
-    auto_helper: StandardAutoHelper
+    auto_helper: StandardAutoHelper,
+
+    /// list of note_indices which are new_combos
+    new_combos: Vec<usize>
 }
 impl StandardGame {
     fn playfield_changed(&mut self) {
@@ -103,7 +106,8 @@ impl GameMode for StandardGame {
             ),
 
             settings,
-            auto_helper: StandardAutoHelper::new()
+            auto_helper: StandardAutoHelper::new(),
+            new_combos: Vec::new()
         };
 
         // join notes and sliders into a single array
@@ -159,13 +163,19 @@ impl GameMode for StandardGame {
 
         let end_time = s.end_time as f64;
 
+        let mut counter = 0;
+
         for (note, slider, spinner) in all_items {
             // check for new combo
             if let Some(note) = note {if note.new_combo {combo_num = 0}}
             if let Some(slider) = slider {if slider.new_combo {combo_num = 0}}
             if let Some(spinner) = spinner {if spinner.new_combo {combo_num = 0}}
+
             // if new combo, increment new combo counter
-            if combo_num == 0 {combo_change += 1}
+            if combo_num == 0 {
+                combo_change += 1;
+                s.new_combos.push(counter);
+            }
             // get color
             let color = combo_colors[(combo_change - 1) % combo_colors.len()];
             // update combo number
@@ -230,6 +240,7 @@ impl GameMode for StandardGame {
                 )))
             }
 
+            counter += 1;
         }
 
         // get the end time
@@ -486,7 +497,33 @@ impl GameMode for StandardGame {
         }
 
         // draw notes
-        for note in self.notes.iter_mut() {note.draw(args, list)}
+        for note in self.notes.iter_mut() {
+            note.draw(args, list);
+        }
+
+        // draw follow
+        if self.settings.draw_follow_points {
+            for i in 0..self.notes.len() - 1 {
+                if !self.new_combos.contains(&(i + 1)) {
+                    let n1 = &self.notes[i];
+                    let n2 = &self.notes[i + 1];
+
+                    let preempt = n2.get_preempt();
+                    // if time < n1.time() || time > n1.end_time(0.0) {continue}
+
+                    let alpha = (1.0 - ((n2.time() - (preempt * (2.0/3.0))) - time) / (preempt * (1.0/3.0))).clamp(0.0, 1.0);
+                    if alpha <= 0.0 || time >= n2.time() {continue}
+
+                    list.push(Box::new(Line::new(
+                        n1.pos_at(n1.end_time(0.0), &self.scaling_helper),
+                        n2.pos_at(n2.time(), &self.scaling_helper),
+                        2.0 * self.scaling_helper.scale,
+                        100_000.0,
+                        Color::WHITE.alpha(alpha)
+                    )));
+                }
+            }
+        }
     }
 
     
