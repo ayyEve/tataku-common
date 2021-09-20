@@ -22,10 +22,6 @@ mod sync {
     pub use parking_lot::{Mutex, MutexGuard};
 }
 
-/// TODO: move this to settings or something, its dumb having this here
-pub fn window_size() -> Vector2 {
-    Settings::get_mut().window_size.into()
-}
 
 // folders
 pub const DOWNLOADS_DIR:&str = "downloads";

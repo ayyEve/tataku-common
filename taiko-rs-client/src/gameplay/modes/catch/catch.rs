@@ -4,8 +4,8 @@ use ayyeve_piston_ui::render::*;
 use super::*;
 use crate::game::{Audio, Settings};
 use crate::gameplay::modes::ScalingHelper;
+use crate::{Vector2, helpers::{curve::get_curve, math::Lerp}};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
-use crate::{window_size, Vector2, helpers::{curve::get_curve, math::Lerp}};
 use crate::gameplay::{Beatmap, GameMode, IngameManager, map_difficulty, defs::*, modes::FIELD_SIZE};
 
 // const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
@@ -16,12 +16,12 @@ pub const CATCHER_WIDTH_BASE:f64 = 106.75;
 pub const CATCHER_BASE_SPEED:f64 = 1.0;
 
 pub fn hit_y() -> f64 {
-    window_size().y - 100.0
+    Settings::window_size().y - 100.0
 }
 // pub const HIT_Y:f64 = window_size().y - 100.0
 
 fn x_offset() -> f64 {
-    (window_size().x - FIELD_SIZE.x) / 2.0
+    (Settings::window_size().x - FIELD_SIZE.x) / 2.0
 }
 // const X_OFFSET:f64 = (window_size().x - FIELD_SIZE.x) / 2.0;
 
@@ -406,9 +406,10 @@ impl GameMode for CatchGame {
         (vec![], (0.0, Color::RED))
     }
     fn combo_bounds(&self) -> Rectangle {
+        let window_size = Settings::window_size();
         Rectangle::bounds_only(
-            Vector2::new(0.0, window_size().y * (1.0/3.0)),
-            Vector2::new(window_size().x, 30.0)
+            Vector2::new(0.0, window_size.y * (1.0/3.0)),
+            Vector2::new(window_size.x, 30.0)
         )
     }
 
@@ -437,7 +438,7 @@ impl Catcher {
         Self {
             width,
             move_speed: 0.5, // should calc this somehow
-            pos: Vector2::new((window_size().x - width) / 2.0, hit_y()),
+            pos: Vector2::new((Settings::window_size().x - width) / 2.0, hit_y()),
             left_held: false,
             right_held: false,
             dash_held: false,

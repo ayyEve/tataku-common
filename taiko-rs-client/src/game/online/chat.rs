@@ -2,9 +2,8 @@
 use std::collections::HashMap;
 
 use crate::game::Game;
-use crate::menu::ScrollableItem;
-use crate::{Vector2, window_size};
-use crate::menu::{Menu, ScrollableArea, dialog::Dialog};
+use crate::{Vector2, Settings};
+use crate::menu::{Menu, ScrollableArea, ScrollableItem, dialog::Dialog};
 
 const CHANNEL_LIST_WIDTH:f64 = 100.0;
 // const CHAT_SIZE:Vector2 = Vector2::new(window_size().x - CHANNEL_LIST_WIDTH, 300.0);
@@ -20,9 +19,10 @@ pub struct Chat {
 }
 impl Chat {
     pub fn new() -> Self {
+        let window_size = Settings::window_size();
 
-        let CHAT_SIZE:Vector2 = Vector2::new(window_size().x - CHANNEL_LIST_WIDTH, 300.0);
-        let CHAT_POS:Vector2 = Vector2::new(0.0, window_size().y - CHAT_SIZE.y);
+        let CHAT_SIZE:Vector2 = Vector2::new(window_size.x - CHANNEL_LIST_WIDTH, 300.0);
+        let CHAT_POS:Vector2 = Vector2::new(0.0, window_size.y - CHAT_SIZE.y);
         let CHANNEL_LIST_SIZE:Vector2 = Vector2::new(CHANNEL_LIST_WIDTH, CHAT_SIZE.y);
                 
         Self {

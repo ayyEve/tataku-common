@@ -3,8 +3,8 @@ use std::u8;
 use piston::RenderArgs;
 use taiko_rs_common::types::{KeyPress, ReplayFrame, PlayMode};
 
+use crate::Vector2;
 use crate::render::*;
-use crate::{window_size, Vector2};
 use crate::game::{Audio, Settings};
 use super::{ManiaHold, ManiaNote, ManiaHitObject};
 use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint, map_difficulty, defs::*};
@@ -18,7 +18,7 @@ const HIT_AREA_DEPTH: f64 = 99.9;
 
 // pub const HIT_Y:f64 = window_size().y - 100.0;
 pub fn hit_y() -> f64 {
-    window_size().y - 100.0
+    Settings::window_size().y - 100.0
 }
 
 
@@ -53,7 +53,7 @@ impl ManiaGame {
     /// get the x_pos for `col`
     pub fn col_pos(&self, col:u8) -> f64{
         let total_width = self.column_count as f64 * COLUMN_WIDTH;
-        let x_offset = (window_size().x - total_width) / 2.0;
+        let x_offset = (Settings::window_size().x - total_width) / 2.0;
 
         x_offset + col as f64 * COLUMN_WIDTH
     }
@@ -342,6 +342,8 @@ impl GameMode for ManiaGame {
         self.hitwindow_100 = map_difficulty(od, 120.0, 80.0, 50.0);
         self.hitwindow_300 = map_difficulty(od, 50.0, 35.0, 20.0);
 
+        let window_size = Settings::window_size();
+
         // setup timing bars
         //TODO: it would be cool if we didnt actually need timing bar objects, and could just draw them
         if self.timing_bars.len() == 0 {
@@ -353,7 +355,7 @@ impl GameMode for ManiaGame {
             time %= step; // get the earliest bar line possible
 
             let bar_width = self.column_count as f64 * COLUMN_WIDTH;
-            let x = (window_size().x - bar_width) / 2.0;
+            let x = (window_size.x - bar_width) / 2.0;
 
             loop {
                 // if theres a bpm change, adjust the current time to that of the bpm change
@@ -437,13 +439,14 @@ impl GameMode for ManiaGame {
         }
     }
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
+        let window_size = Settings::window_size();
 
         // playfield
         list.push(Box::new(Rectangle::new(
             Color::new(0.0, 0.0, 0.0, 0.8),
             FIELD_DEPTH + 1.0,
             Vector2::new(self.col_pos(0), 0.0),
-            Vector2::new(self.col_pos(self.column_count) - self.col_pos(0), window_size().y),
+            Vector2::new(self.col_pos(self.column_count) - self.col_pos(0), window_size.y),
             Some(Border::new(if manager.current_timing_point().kiai {Color::YELLOW} else {Color::BLACK}, 1.2))
         )));
 
@@ -456,7 +459,7 @@ impl GameMode for ManiaGame {
                 Color::new(0.1, 0.1, 0.1, 0.8),
                 FIELD_DEPTH,
                 Vector2::new(x, 0.0),
-                Vector2::new(COLUMN_WIDTH, window_size().y),
+                Vector2::new(COLUMN_WIDTH, window_size.y),
                 Some(Border::new(Color::GREEN, 1.2))
             )));
 
@@ -505,9 +508,10 @@ impl GameMode for ManiaGame {
     }
 
     fn combo_bounds(&self) -> Rectangle {
+        let window_size = Settings::window_size();
         Rectangle::bounds_only(
-            Vector2::new(0.0, window_size().y * (1.0/3.0)),
-            Vector2::new(window_size().x, 30.0)
+            Vector2::new(0.0, window_size.y * (1.0/3.0)),
+            Vector2::new(window_size.x, 30.0)
         )
     }
 
@@ -559,7 +563,7 @@ impl TimingBar {
 
     fn draw(&mut self, _args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        if self.pos.y < 0.0 || self.pos.y > window_size().y {return renderables}
+        if self.pos.y < 0.0 || self.pos.y > Settings::window_size().y {return renderables}
 
         renderables.push(Box::new(Rectangle::new(
             BAR_COLOR,

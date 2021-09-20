@@ -6,10 +6,10 @@ use ayyeve_piston_ui::menu::menu_elements::TextInput;
 use crate::render::*;
 use taiko_rs_common::types::{Score, PlayMode};
 use crate::game::managers::NotificationManager;
+use crate::{Vector2, databases::get_scores, sync::*};
 use crate::gameplay::{BeatmapMeta, modes::manager_from_playmode};
-use crate::{window_size, Vector2, databases::get_scores, sync::*};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
-use crate::game::{Game, GameState, KeyModifiers, get_font, Audio, managers::BEATMAP_MANAGER};
+use crate::game::{Settings, Game, GameState, KeyModifiers, get_font, Audio, managers::BEATMAP_MANAGER};
 
 
 // constants
@@ -45,7 +45,7 @@ pub struct BeatmapSelectMenu {
 }
 impl BeatmapSelectMenu {
     pub fn new() -> BeatmapSelectMenu {
-        let window_size = window_size();
+        let window_size = Settings::window_size();
         BeatmapSelectMenu {
             mode: PlayMode::Standard,
 
@@ -381,7 +381,7 @@ impl BeatmapsetItem {
         //     a.partial_cmp(&b).unwrap()
         // });
 
-        let x = window_size().x - (BEATMAPSET_ITEM_SIZE.x + BEATMAPSET_PAD_RIGHT + LEADERBOARD_POS.x + LEADERBOARD_ITEM_SIZE.x);
+        let x = Settings::window_size().x - (BEATMAPSET_ITEM_SIZE.x + BEATMAPSET_PAD_RIGHT + LEADERBOARD_POS.x + LEADERBOARD_ITEM_SIZE.x);
 
         BeatmapsetItem {
             beatmaps: beatmaps.clone(), 

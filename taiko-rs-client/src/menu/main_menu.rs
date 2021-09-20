@@ -2,7 +2,7 @@ use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::KeyModifiers;
 use taiko_rs_common::types::PlayMode;
 
-use crate::{Vector2, window_size, render::*, sync::*};
+use crate::{Vector2, render::*, sync::*};
 use crate::visualization::{MenuVisualization, Visualization};
 use crate::gameplay::{IngameManager, modes::manager_from_playmode};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
@@ -24,7 +24,7 @@ pub struct MainMenu {
 }
 impl MainMenu {
     pub fn new() -> MainMenu {
-        let middle = window_size().x /2.0 - BUTTON_SIZE.x/2.0;
+        let middle = Settings::window_size().x /2.0 - BUTTON_SIZE.x/2.0;
         let mut counter = 1.0;
         
         let play_button = MenuButton::new(Vector2::new(middle, (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Play");
@@ -104,6 +104,7 @@ impl Menu<Game> for MainMenu {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let pos_offset = Vector2::zero();
         let depth = 0.0;
+        let window_size = Settings::window_size();
 
         // draw welcome text
         let mut welcome_text = Text::new(
@@ -114,7 +115,7 @@ impl Menu<Game> for MainMenu {
             "Welcome to Taiko.rs".to_owned(),
             get_font("main")
         );
-        welcome_text.center_text(Rectangle::bounds_only(Vector2::new(0.0, 30.0), Vector2::new(window_size().x , 50.0)));
+        welcome_text.center_text(Rectangle::bounds_only(Vector2::new(0.0, 30.0), Vector2::new(window_size.x , 50.0)));
         
         list.push(crate::helpers::visibility_bg(welcome_text.pos - Vector2::new(0.0, 40.0), Vector2::new(welcome_text.measure_text().x , 50.0)));
         list.push(Box::new(welcome_text));
@@ -126,7 +127,7 @@ impl Menu<Game> for MainMenu {
         list.extend(self.exit_button.draw(args, pos_offset, depth));
 
         // visualization
-        let mid = window_size() / 2.0;
+        let mid = window_size / 2.0;
         self.visualization.draw(args, mid, depth + 10.0, &mut list);
 
         if let Some(manager) = self.background_game.as_mut() {

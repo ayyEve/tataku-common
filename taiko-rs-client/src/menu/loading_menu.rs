@@ -2,8 +2,8 @@ use std::fs::read_dir;
 
 use crate::gameplay::BeatmapMeta;
 use crate::render::{Color, Rectangle, Text};
-use crate::game::{Game, Audio, managers::BEATMAP_MANAGER};
-use crate::{SONGS_DIR, window_size, Vector2, menu::Menu, sync::*};
+use crate::{SONGS_DIR, Vector2, menu::Menu, sync::*};
+use crate::game::{Settings, Game, Audio, managers::BEATMAP_MANAGER};
 
 /// helper for when starting the game. will load beatmaps, settings, etc from storage
 /// all while providing the user with its progress (relatively anyways)
@@ -224,7 +224,7 @@ impl Menu<Game> for LoadingMenu {
             },
         }
 
-        text.center_text(Rectangle::bounds_only(Vector2::zero(), window_size()));
+        text.center_text(Rectangle::bounds_only(Vector2::zero(), Settings::window_size()));
         list.push(Box::new(text));
         list
     }

@@ -1,10 +1,10 @@
 use piston::{MouseButton, RenderArgs};
 
 use crate::sync::*;
+use crate::{Vector2, render::*};
 use crate::gameplay::IngameManager;
-use crate::{window_size, Vector2, render::*};
-use crate::game::{Game, GameState, KeyModifiers};
 use crate::menu::{Menu, MenuButton, ScrollableItem};
+use crate::game::{Settings, Game, GameState, KeyModifiers};
 
 const BUTTON_SIZE:Vector2 = Vector2::new(100.0, 50.0);
 const Y_MARGIN:f64 = 20.0;
@@ -19,7 +19,7 @@ pub struct PauseMenu {
 }
 impl PauseMenu {
     pub fn new(manager:Arc<Mutex<IngameManager>>) -> PauseMenu {
-        let middle = window_size().x /2.0 - BUTTON_SIZE.x/2.0;
+        let middle = Settings::window_size().x /2.0 - BUTTON_SIZE.x/2.0;
 
         PauseMenu {
             manager,

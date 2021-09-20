@@ -5,8 +5,8 @@ use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
 
 
 use super::*;
+use crate::Vector2;
 use crate::render::*;
-use crate::{window_size, Vector2};
 use crate::game::{Audio, Settings};
 use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint, map_difficulty, defs::*};
 
@@ -486,7 +486,7 @@ impl GameMode for TaikoGame {
     fn skip_intro(&mut self, manager: &mut IngameManager) {
         if self.note_index > 0 {return}
 
-        let x_needed = window_size().x as f32;
+        let x_needed = Settings::window_size().x as f32;
         let mut time = manager.time();
 
         loop {
@@ -550,7 +550,7 @@ impl TimingBar {
     }
 
     fn draw(&mut self, _args:RenderArgs, list:&mut Vec<Box<dyn Renderable>>){
-        if self.pos.x + BAR_WIDTH < 0.0 || self.pos.x - BAR_WIDTH > window_size().x as f64 {return}
+        if self.pos.x + BAR_WIDTH < 0.0 || self.pos.x - BAR_WIDTH > Settings::window_size().x as f64 {return}
 
         const SIZE:Vector2 = Vector2::new(BAR_WIDTH, PLAYFIELD_RADIUS*2.0);
         const DEPTH:f64 = f64::MAX-5.0;

@@ -1,6 +1,7 @@
 use piston::Key;
 use serde::{Serialize, Deserialize};
 use taiko_rs_common::types::PlayMode;
+use tokio::sync::OnceCell;
 
 use crate::sync::*;
 use crate::Vector2;
@@ -11,6 +12,8 @@ const SETTINGS_FILE:&str = "settings.json";
 
 lazy_static::lazy_static! {
     static ref SETTINGS: Arc<Mutex<Settings>> = Arc::new(Mutex::new(Settings::load()));
+
+    pub static ref WINDOW_SIZE: OnceCell<Vector2> = OnceCell::new_with(Some(Settings::get_mut().window_size.into()));
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -90,6 +93,8 @@ impl Settings {
     /// relatively slow, if you need a more performant get, use get_mut
     pub fn get() -> Settings {SETTINGS.lock().clone()}
     pub fn get_mut<'a>() -> MutexGuard<'a, Settings> {SETTINGS.lock()}
+
+    pub fn window_size() -> Vector2 {*WINDOW_SIZE.get().unwrap()}
 
     pub fn get_effect_vol(&self) -> f32 {self.effect_vol * self.master_vol}
     pub fn get_music_vol(&self) -> f32 {self.music_vol * self.master_vol}

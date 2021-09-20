@@ -10,7 +10,7 @@ use crate::render::{Color, Image, Rectangle, Renderable};
 use taiko_rs_common::types::{SpectatorFrames, UserAction};
 use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
 use crate::helpers::{FpsDisplay, BenchmarkHelper, VolumeControl};
-use crate::{window_size, Vector2, DOWNLOADS_DIR, menu::*, sync::{Arc, Mutex}};
+use crate::{Vector2, DOWNLOADS_DIR, menu::*, sync::{Arc, Mutex}};
 use crate::game::{Settings, audio::Audio, managers::*, online::{USER_ITEM_SIZE, OnlineManager}};
 
 
@@ -61,8 +61,10 @@ impl Game {
     pub fn new() -> Game {
         let mut game_init_benchmark = BenchmarkHelper::new("Game::new");
 
+        let window_size = Settings::window_size();
+
         let opengl = OpenGL::V3_2;
-        let mut window: AppWindow = WindowSettings::new("Taiko-rs", [window_size().x, window_size().y])
+        let mut window: AppWindow = WindowSettings::new("Taiko-rs", [window_size.x, window_size.y])
             .graphics_api(opengl)
             .resizable(false)
             .build()
@@ -565,7 +567,7 @@ impl Game {
             color,
             f64::MAX - 1.0,
             Vector2::zero(),
-            window_size(),
+            Settings::window_size(),
             None
         )));
 
@@ -591,7 +593,7 @@ impl Game {
                 [0.0, 0.0, 0.0, alpha as f32].into(),
                 -f64::MAX,
                 Vector2::zero(),
-                window_size(),
+                Settings::window_size(),
                 None
             )));
 
@@ -762,7 +764,7 @@ pub fn load_image<T:AsRef<str>>(path: T) -> Option<Image> {
         Ok(img) => {
             let img = img.into_rgba8();
             let tex = opengl_graphics::Texture::from_image(&img, &settings);
-            Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size()))
+            Some(Image::new(Vector2::zero(), f64::MAX, tex, Settings::window_size()))
         }
         Err(e) => {
             

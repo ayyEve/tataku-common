@@ -2,7 +2,7 @@ use piston::{MouseButton, RenderArgs};
 
 use crate::menu::*;
 use crate::render::*;
-use crate::{window_size, Vector2, helpers::visibility_bg};
+use crate::{Vector2, helpers::visibility_bg};
 use crate::game::{Game, GameState, KeyModifiers, Settings};
 
 const BUTTON_SIZE:Vector2 = Vector2::new(100.0, 50.0);
@@ -20,10 +20,11 @@ impl SettingsMenu {
     pub fn new() -> SettingsMenu {
         let settings = Settings::get();
         let p = Vector2::new(10.0 + SECTION_XOFFSET, 0.0); // scroll area edits the y
+        let window_size = Settings::window_size();
 
         let taiko_settings = settings.taiko_settings;
         // setup items
-        let mut scroll_area = ScrollableArea::new(Vector2::new(10.0, SCROLLABLE_YOFFSET), Vector2::new(window_size().x - 20.0, window_size().y - SCROLLABLE_YOFFSET*2.0), true);
+        let mut scroll_area = ScrollableArea::new(Vector2::new(10.0, SCROLLABLE_YOFFSET), Vector2::new(window_size.x - 20.0, window_size.y - SCROLLABLE_YOFFSET*2.0), true);
         // osu
         let mut username_input = TextInput::new(p, Vector2::new(600.0, 50.0), "Username", &settings.osu_username);
         let mut password_input = PasswordInput::new(p, Vector2::new(600.0, 50.0), "Password", &settings.osu_password);
@@ -121,9 +122,10 @@ impl Menu<Game> for SettingsMenu {
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         list.extend(self.scroll_area.draw(args, Vector2::zero(), 0.0));
+        let window_size = Settings::window_size();
 
         // background
-        list.push(visibility_bg(Vector2::new(10.0, SCROLLABLE_YOFFSET), Vector2::new(window_size().x - 20.0, window_size().y - SCROLLABLE_YOFFSET*2.0)));
+        list.push(visibility_bg(Vector2::new(10.0, SCROLLABLE_YOFFSET), Vector2::new(window_size.x - 20.0, window_size.y - SCROLLABLE_YOFFSET*2.0)));
 
         list
     }

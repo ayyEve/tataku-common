@@ -3,7 +3,7 @@ use std::ops::Range;
 use ayyeve_piston_ui::render::*;
 use piston::{MouseButton, RenderArgs};
 
-use crate::{Vector2, window_size};
+use crate::Vector2;
 use crate::game::{Settings, StandardSettings};
 use crate::gameplay::modes::{ScalingHelper, standard::*};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
@@ -621,7 +621,7 @@ impl GameMode for StandardGame {
     fn combo_bounds(&self) -> Rectangle {
         let size = Vector2::new(100.0, 30.0);
         Rectangle::bounds_only(
-            Vector2::new(0.0, window_size().y - (size.y + DURATION_HEIGHT)),
+            Vector2::new(0.0, Settings::window_size().y - (size.y + DURATION_HEIGHT)),
             size
         )
     }

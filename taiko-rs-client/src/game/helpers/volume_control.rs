@@ -1,7 +1,7 @@
 use std::time::Instant;
 use piston::{Key, RenderArgs};
 
-use crate::{Vector2, window_size};
+use crate::Vector2;
 use crate::game::{Audio, Settings, KeyModifiers};
 use crate::render::{Rectangle, Renderable, Border, Color, Text};
 
@@ -192,7 +192,7 @@ impl VolumeControl {
 
     pub fn on_mouse_move(&mut self, mouse_pos: Vector2) {
         let elapsed = self.elapsed();
-        let window_size = window_size();
+        let window_size = Settings::window_size();
 
         let master_pos:Vector2 = Vector2::new(window_size.x - 300.0, window_size.y - 90.0);
         let effect_pos:Vector2 = Vector2::new(window_size.x - 300.0, window_size.y - 60.0);

@@ -2,9 +2,8 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 use taiko_rs_common::types::PlayMode;
 
+use crate::game::Settings;
 use crate::render::{Rectangle, Vector2};
-use crate::{game::Settings, window_size};
-
 use super::{Beatmap, BeatmapMeta, GameMode, IngameManager};
 
 pub mod taiko;
@@ -85,7 +84,7 @@ pub struct ScalingHelper {
 }
 impl ScalingHelper {
     pub fn new(cs:f32, mode:PlayMode) -> Self {
-        let window_size = window_size();
+        let window_size = Settings::window_size();
 
         let circle_size;
         let settings_scale;

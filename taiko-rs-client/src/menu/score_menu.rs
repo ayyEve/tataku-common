@@ -1,5 +1,6 @@
 use piston::{MouseButton, RenderArgs};
 
+use crate::game::Settings;
 use crate::sync::*;
 use crate::render::*;
 use crate::gameplay::BeatmapMeta;
@@ -7,7 +8,7 @@ use taiko_rs_common::types::{Score, HitError};
 use crate::gameplay::modes::manager_from_playmode;
 use crate::menu::{Menu, MenuButton, ScrollableItem, Graph};
 use crate::game::{Game, GameState, KeyModifiers, get_font};
-use crate::{window_size, databases, format, Vector2, helpers::visibility_bg};
+use crate::{databases, format, Vector2, helpers::visibility_bg};
 
 const GRAPH_SIZE:Vector2 = Vector2::new(400.0, 200.0);
 const GRAPH_PADDING:Vector2 = Vector2::new(10.0,10.0);
@@ -24,11 +25,12 @@ pub struct ScoreMenu {
 }
 impl ScoreMenu {
     pub fn new(score:&Score, beatmap: BeatmapMeta) -> ScoreMenu {
+        let window_size = Settings::window_size();
         let hit_error = score.hit_error();
-        let back_button = MenuButton::back_button(window_size());
+        let back_button = MenuButton::back_button(window_size);
 
         let graph = Graph::new(
-            Vector2::new(window_size().x * 2.0/3.0, window_size().y) - (GRAPH_SIZE + GRAPH_PADDING), //window_size() - (GRAPH_SIZE + GRAPH_PADDING),
+            Vector2::new(window_size.x * 2.0/3.0, window_size.y) - (GRAPH_SIZE + GRAPH_PADDING), //window_size() - (GRAPH_SIZE + GRAPH_PADDING),
             GRAPH_SIZE,
             score.hit_timings.iter().map(|e|*e as f32).collect(),
             -50.0,
@@ -49,6 +51,8 @@ impl Menu<Game> for ScoreMenu {
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
+
+        let window_size = Settings::window_size();
 
         let depth = 0.0;
         list.reserve(9);
@@ -133,7 +137,7 @@ impl Menu<Game> for ScoreMenu {
         list.extend(self.graph.draw(args, Vector2::zero(), depth));
         
         // draw background so score info is readable
-        list.push(visibility_bg(Vector2::one() * 5.0, Vector2::new(window_size().x * 2.0/3.0, window_size().y - 5.0)));
+        list.push(visibility_bg(Vector2::one() * 5.0, Vector2::new(window_size.x * 2.0/3.0, window_size.y - 5.0)));
 
         list
     }

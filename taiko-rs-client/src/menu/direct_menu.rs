@@ -3,9 +3,9 @@ use std::{fs::File, io::Write};
 
 use piston::{Key, MouseButton};
 
-use crate::game::managers::NotificationManager;
 use crate::sync::Arc;
-use crate::{window_size, DOWNLOADS_DIR, Vector2};
+use crate::{DOWNLOADS_DIR, Vector2};
+use crate::game::managers::NotificationManager;
 use crate::render::{Text, Renderable, Rectangle, Color, Border};
 use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
 use crate::game::{Audio, Game, GameState, KeyModifiers, Settings, get_font};
@@ -37,13 +37,16 @@ pub struct OsuDirectMenu {
 }
 impl OsuDirectMenu {
     pub fn new() -> OsuDirectMenu {
+
+        let window_size = Settings::window_size();
+
         let mut x = OsuDirectMenu {
-            scroll_area: ScrollableArea::new(Vector2::new(0.0, SEARCH_BAR_HEIGHT+5.0), Vector2::new(DIRECT_ITEM_SIZE.x, window_size().y - SEARCH_BAR_HEIGHT+5.0), true),
+            scroll_area: ScrollableArea::new(Vector2::new(0.0, SEARCH_BAR_HEIGHT+5.0), Vector2::new(DIRECT_ITEM_SIZE.x, window_size.y - SEARCH_BAR_HEIGHT+5.0), true),
             downloading: Vec::new(),
             queue: Vec::new(),
             items: HashMap::new(),
             selected: None,
-            search_bar: TextInput::new(Vector2::zero(), Vector2::new(window_size().x , SEARCH_BAR_HEIGHT), "Search", ""),
+            search_bar: TextInput::new(Vector2::zero(), Vector2::new(window_size.x , SEARCH_BAR_HEIGHT), "Search", ""),
             old_audio: None
         };
         // TODO: [audio] pause playing music, store song and pos. on close, put it back how it was

@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use crate::sync::*;
-use crate::window_size;
+use crate::Settings;
 use crate::errors::TaikoError;
 use crate::game::{Game, get_font};
 use crate::render::{Border, Color, Rectangle, Renderable, Text, Vector2};
@@ -147,6 +147,7 @@ struct ProcessedNotif {
 impl ProcessedNotif {
     fn new(notification: Notification) -> Self {
         let font = get_font("main");
+        let window_size = Settings::window_size();
 
         let mut lines = Vec::new();
         let split = notification.text.split('\n').collect::<Vec<&str>>();
@@ -163,7 +164,7 @@ impl ProcessedNotif {
         }
 
         let size = Vector2::new(NOTIF_WIDTH, NOTIF_TEXT_HEIGHT * lines.len() as f64);
-        let pos = Vector2::new(window_size().x - NOTIF_WIDTH, window_size().y - (NOTIF_Y_OFFSET + size.y));
+        let pos = Vector2::new(window_size.x - NOTIF_WIDTH, window_size.y - (NOTIF_Y_OFFSET + size.y));
 
         Self {
             pos,
