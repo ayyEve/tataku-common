@@ -35,6 +35,7 @@ pub const REQUIRED_FILES:&[&str] = &[
     "resources/audio/bigdon.wav",
     "resources/audio/bigkat.wav",
     "resources/audio/combobreak.mp3",
+    "resources/audio/slidertick.wav",
     "resources/icon-small.png",
     "fonts/main.ttf",
 ];
@@ -69,8 +70,8 @@ async fn main() {
 
     // hitsounds
     for sample_set in ["normal", "soft", "drum"] {
-        for hitsound in ["normal", "whistle", "clap", "finish"] {
-            let file = &format!("resources/audio/{}-hit{}.wav", sample_set, hitsound);
+        for hitsound in ["hitnormal", "hitwhistle", "hitclap", "hitfinish", "slidertick"] {
+            let file = &format!("resources/audio/{}-{}.wav", sample_set, hitsound);
             check_file(file, &format!("https://cdn.ayyeve.xyz/taiko-rs/{}", file));
         }
     }

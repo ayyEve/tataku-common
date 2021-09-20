@@ -10,6 +10,7 @@ use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
 use crate::helpers::{curve::get_curve, key_counter::KeyCounter, math::Lerp};
 use crate::gameplay::{DURATION_HEIGHT, GameMode, Beatmap, IngameManager, map_difficulty, defs::{NoteType, NoteDef}};
 
+
 const POINTS_DRAW_DURATION:f32 = 200.0;
 const POINTS_DRAW_FADE_DURATION:f32 = 60.0;
 
@@ -274,7 +275,7 @@ impl GameMode for StandardGame {
                 let note = &mut check_notes[0];
                 let note_time = note.time();
                 let pts = note.get_points(true, time, (self.hitwindow_miss, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
-                self.draw_points.push((time, note.point_draw_pos(), pts.clone()));
+                self.draw_points.push((time, note.point_draw_pos(time), pts.clone()));
 
                 match &pts {
                     ScoreHit::None | ScoreHit::Other(_,_) => {}
@@ -390,14 +391,14 @@ impl GameMode for StandardGame {
                         println!("note missed: {}-{}", time, end_time);
                         manager.combo_break();
                         manager.score.hit_miss(time, end_time);
-                        self.draw_points.push((time, note.point_draw_pos(), ScoreHit::Miss));
+                        self.draw_points.push((time, note.point_draw_pos(time), ScoreHit::Miss));
                     }
                     NoteType::Slider if end_time <= time => {
                         let note_time = note.end_time(0.0);
                         // check slider release points
                         // -1.0 for miss hitwindow to indidate it was held to the end (ie, no hitwindow to check)
                         let pts = note.get_points(false, time, (-1.0, self.hitwindow_50, self.hitwindow_100, self.hitwindow_300));
-                        self.draw_points.push((time, note.point_draw_pos(), pts));
+                        self.draw_points.push((time, note.point_draw_pos(time), pts));
                         match pts {
                             ScoreHit::Other(_, _) => {}
                             ScoreHit::None | ScoreHit::Miss => {
@@ -643,8 +644,6 @@ struct StandardAutoHelper {
     point_trail_start_pos: Vector2,
     point_trail_end_pos: Vector2,
 
-    current_note_index: usize,
-
     /// list of notes currently being held
     holding: Vec<usize>
 }
@@ -654,7 +653,6 @@ impl StandardAutoHelper {
             // point_trail_angle: Vector2::zero(),
             point_trail_start_time: 0.0,
             point_trail_end_time: 0.0,
-            current_note_index: 0,
             point_trail_start_pos: Vector2::zero(),
             point_trail_end_pos: Vector2::zero(),
 

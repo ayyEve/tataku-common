@@ -5,6 +5,7 @@ use piston::RenderArgs;
 use opengl_graphics::GlyphCache;
 
 use crate::gameplay::hitobject_defs::HitSamples;
+use crate::helpers::io::exists;
 use crate::render::{Renderable, Rectangle, Text, Color, Border};
 use crate::{Vector2, gameplay::*, sync::*, helpers::visibility_bg};
 use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
@@ -300,11 +301,12 @@ impl IngameManager {
         let play_whistle = (note_hitsound & 2) > 0; // 1: Whistle
         let play_finish = (note_hitsound & 4) > 0; // 2: Finish
         let play_clap = (note_hitsound & 8) > 0; // 3: Clap
-
-        // if !(play_normal || play_whistle || play_finish || play_clap) {
-        //     play_normal = true
-        // }
         let play_normal = true;
+
+        // get volume
+        let mut vol = (if note_hitsamples.volume == 0 {timing_point.volume} else {note_hitsamples.volume} as f32 / 100.0) * Settings::get_mut().get_effect_vol();
+        if self.menu_background {vol *= self.background_game_settings.hitsound_volume};
+
 
         // https://osu.ppy.sh/wiki/en/osu%21_File_Formats/Osu_%28file_format%29#hitsounds
 
@@ -320,49 +322,64 @@ impl IngameManager {
 
         // sampleSet is normal, soft, or drum, determined by either normalSet or additionSet depending on which hitsound is playing
         const SAMPLE_SETS:&[&str] = &["normal", "normal", "soft", "drum"];
-
         // hitSound is normal, whistle, finish, or clap
         // index is the same index as above, except it is not written if the value is 0 or 1
 
-
+        // (filename, index)
         let mut play_list = Vec::new();
 
+        // if the hitsound is being overridden
+        if let Some(name) = note_hitsamples.filename {
+            if name.len() > 0 {
+                let sample_set = SAMPLE_SETS[note_hitsamples.addition_set as usize];
+                let hitsound = format!("{}-{}", sample_set, name);
+                println!("got custom sound: {}", name);
+
+                if exists(format!("resources/audio/{}", hitsound)) {
+                    play_list.push((name, 0))
+                } else {
+                    println!("doesnt exist");
+                }
+            }
+        }
+
+
         if play_normal {
-            let hitsound = "normal";
-            let sample_set = note_hitsamples.normal_set;
+            let sample_set = SAMPLE_SETS[note_hitsamples.addition_set as usize];
+            let hitsound = format!("{}-hitnormal.wav", sample_set);
             let index = note_hitsamples.index;
             // if sample_set == 0 {sample_set = timing_point.sample_set}
             // if index == 1 {} //idk wtf 
 
-            play_list.push((hitsound, SAMPLE_SETS[sample_set as usize], index))
+            play_list.push((hitsound, index))
         }
 
         if play_whistle {
-            let hitsound = "whistle";
-            let sample_set = note_hitsamples.addition_set;
+            let sample_set = SAMPLE_SETS[note_hitsamples.addition_set as usize];
+            let hitsound = format!("{}-hitwhistle.wav", sample_set);
             let index = note_hitsamples.index;
             // if sample_set == 0 {sample_set = timing_point.sample_set}
             // if index == 1 {} //idk wtf 
 
-            play_list.push((hitsound, SAMPLE_SETS[sample_set as usize], index))
+            play_list.push((hitsound, index))
         }
         if play_finish {
-            let hitsound = "finish";
-            let sample_set = note_hitsamples.addition_set;
+            let sample_set = SAMPLE_SETS[note_hitsamples.addition_set as usize];
+            let hitsound = format!("{}-hitfinish.wav", sample_set);
             let index = note_hitsamples.index;
             // if sample_set == 0 {sample_set = timing_point.sample_set}
             // if index == 1 {} //idk wtf 
 
-            play_list.push((hitsound, SAMPLE_SETS[sample_set as usize], index))
+            play_list.push((hitsound, index))
         }
         if play_clap {
-            let hitsound = "clap";
-            let sample_set = note_hitsamples.addition_set;
+            let sample_set = SAMPLE_SETS[note_hitsamples.addition_set as usize];
+            let hitsound = format!("{}-hitclap.wav", sample_set);
             let index = note_hitsamples.index;
             // if sample_set == 0 {sample_set = timing_point.sample_set}
             // if index == 1 {} //idk wtf 
 
-            play_list.push((hitsound, SAMPLE_SETS[sample_set as usize], index))
+            play_list.push((hitsound, index))
         }
 
 
@@ -374,22 +391,15 @@ impl IngameManager {
 
         // println!("{}, {} | {}", timing_point.volume, note_hitsamples.volume, );
 
-        let mut vol = (if note_hitsamples.volume == 0 {timing_point.volume} else {note_hitsamples.volume} as f32 / 100.0) * Settings::get_mut().get_effect_vol();
-        if self.menu_background {vol *= self.background_game_settings.hitsound_volume};
 
-        for (hitsound, sample_set, _index) in play_list.iter() {
-            let sound_file = format!("{}-hit{}", sample_set, hitsound);
-
-            if !self.hitsound_cache.contains_key(&sound_file) {
+        for (sound_file, _index) in play_list.iter() {
+            if !self.hitsound_cache.contains_key(sound_file) {
                 println!("not cached");
-                let sound = Sound::load(format!("resources/audio/{}.wav", sound_file));
+                let sound = Sound::load(format!("resources/audio/{}", sound_file));
                 self.hitsound_cache.insert(sound_file.clone(), sound);
-
-                // println!("playing sound {}", sound_file);
-                // let sound = Audio::play(sound_file);
             }
 
-            let sound = self.hitsound_cache.get(&sound_file).unwrap();
+            let sound = self.hitsound_cache.get(sound_file).unwrap();
             let sound = Audio::play_sound(sound.clone());
 
             if let Some(sound) = sound.upgrade() {

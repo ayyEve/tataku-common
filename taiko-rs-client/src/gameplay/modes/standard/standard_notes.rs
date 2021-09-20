@@ -10,8 +10,8 @@ use crate::render::{Circle, Color, Renderable, Border, Line, Rectangle, Text, fo
 
 const SPINNER_RADIUS:f64 = 200.0;
 const SLIDER_DOT_RADIUS:f64 = 8.0;
-const NOTE_BORDER_SIZE:f64 = 2.0;
 
+pub const NOTE_BORDER_SIZE:f64 = 2.0;
 pub const CIRCLE_RADIUS_BASE:f64 = 64.0;
 const HITWINDOW_CIRCLE_RADIUS:f64 = CIRCLE_RADIUS_BASE * 2.0;
 const PREEMPT_MIN:f32 = 450.0;
@@ -33,7 +33,7 @@ pub trait StandardHitObject: HitObject {
     fn mouse_move(&mut self, pos:Vector2);
 
     fn get_preempt(&self) -> f32;
-    fn point_draw_pos(&self) -> Vector2;
+    fn point_draw_pos(&self, time: f32) -> Vector2;
 
     fn was_hit(&self) -> bool;
 
@@ -158,7 +158,7 @@ impl HitObject for StandardNote {
             self.pos,
             self.radius
         );
-        note.border = Some(Border::new(Color::BLACK.alpha(alpha), NOTE_BORDER_SIZE));
+        note.border = Some(Border::new(Color::BLACK.alpha(alpha), NOTE_BORDER_SIZE * self.scaling_scale));
         list.push(Box::new(note));
     }
 
@@ -172,7 +172,7 @@ impl StandardHitObject for StandardNote {
     fn was_hit(&self) -> bool {self.hit || self.missed}
     fn get_hitsamples(&self) -> HitSamples {self.def.hitsamples.clone()}
     fn get_hitsound(&self) -> u8 {self.def.hitsound}
-    fn point_draw_pos(&self) -> Vector2 {self.pos}
+    fn point_draw_pos(&self, _: f32) -> Vector2 {self.pos}
     fn causes_miss(&self) -> bool {true}
     fn mouse_move(&mut self, pos:Vector2) {self.mouse_pos = pos}
     fn get_preempt(&self) -> f32 {self.time_preempt}
@@ -309,7 +309,6 @@ pub struct StandardSlider {
     slider_ball_pos: Vector2,
 
 
-
     // lines_cache: Vec<Box<Line>>,
     // circles_cache: Vec<Box<Circle>>
     slider_draw: SliderPath,
@@ -337,6 +336,22 @@ impl StandardSlider {
             pos - Vector2::one() * radius / 2.0,
             Vector2::one() * radius,
         ));
+
+
+        // create hit dots
+        let mut hit_dots = Vec::new();
+        for t in curve.score_times.iter() {
+            let pos = scaling_helper.scale_coords(curve.position_at_time(*t));
+
+            let dot = SliderDot::new(
+                *t,
+                pos,
+                circle_depth - 0.000001,
+                scaling_helper.scale
+            );
+            hit_dots.push(dot);
+        }
+
 
         // let mut lines_cache = Vec::new();
         // let mut circles_cache = Vec::new();
@@ -366,8 +381,8 @@ impl StandardSlider {
 
 
 
-        let side1_angle = PI / 2.0;
-        let side2_angle = 3.0*PI / 2.0;
+        // let side1_angle = PI / 2.0;
+        // let side2_angle = 3.0*PI / 2.0;
 
         let mut side1 = vec![];
         let mut side2 = vec![];
@@ -440,11 +455,11 @@ impl StandardSlider {
             alpha_mult: 1.0,
 
             time, 
+            hit_dots,
             pending_combo: 0,
             sound_index: 0,
             slides_complete: 0,
             moving_forward: true,
-            hit_dots: Vec::new(),
             map_time: 0.0,
 
             start_checked: false,
@@ -465,6 +480,18 @@ impl StandardSlider {
         }
     }
 
+    fn slider_dots(&mut self) {
+        self.hit_dots.clear();
+        for t in self.curve.score_times.iter() {
+            let dot = SliderDot::new(
+                *t,
+                self.scaling_helper.scale_coords(self.curve.position_at_time(*t)),
+                self.circle_depth - 0.000001,
+                self.scaling_helper.scale
+            );
+            self.hit_dots.push(dot);
+        }
+    }
 }
 impl HitObject for StandardSlider {
     fn note_type(&self) -> NoteType {NoteType::Slider}
@@ -509,7 +536,20 @@ impl HitObject for StandardSlider {
                 // set it to negative, we broke combo
                 self.pending_combo = -1;
             }
+        }
 
+        let hitsound = self.get_hitsound();
+        let hitsamples = self.get_hitsamples();
+
+        for dot in self.hit_dots.iter_mut() {
+            if dot.update(beatmap_time, self.holding) {
+                self.sound_queue.push((
+                    beatmap_time,
+                    hitsound,
+                    hitsamples.clone(),
+                    Some("slidertick.wav".to_owned())
+                ));
+            }
         }
     }
 
@@ -615,7 +655,7 @@ impl HitObject for StandardSlider {
         );
         c.border = Some(Border::new(
             if end_repeat {Color::RED} else {Color::BLACK}.alpha(alpha),
-            NOTE_BORDER_SIZE
+            self.scaling_helper.border_scaled
         ));
         list.push(Box::new(c));
 
@@ -628,7 +668,7 @@ impl HitObject for StandardSlider {
         );
         c.border = Some(Border::new(
             if start_repeat {Color::RED} else {Color::BLACK}.alpha(alpha),
-            NOTE_BORDER_SIZE
+            self.scaling_helper.border_scaled
         ));
         list.push(Box::new(c));
 
@@ -637,10 +677,29 @@ impl HitObject for StandardSlider {
         //     if dot.done {continue}
         //     renderables.extend(dot.draw());
         // }
+
+        for dot in self.hit_dots.iter_mut() {
+            dot.draw(list)
+        }
+
+        // for t in self.curve.score_times.iter() {
+        //     let pos = self.scaling_helper.scale_coords(self.curve.position_at_time(*t));
+
+        //     let mut c = Circle::new(
+        //         Color::WHITE.alpha(alpha),
+        //         self.circle_depth, // should be above curves but below slider ball
+        //         pos,
+        //         SLIDER_DOT_RADIUS * self.scaling_helper.scale
+        //     );
+        //     c.border = Some(Border::new(
+        //         Color::BLACK.alpha(alpha),
+        //         self.scaling_helper.border_scaled / 2.0
+        //     ));
+        //     list.push(Box::new(c))
+        // }
     }
 
     fn reset(&mut self) {
-        self.hit_dots.clear();
         self.sound_queue.clear();
 
         self.map_time = 0.0;
@@ -652,6 +711,8 @@ impl HitObject for StandardSlider {
         self.sound_index = 0;
         self.slides_complete = 0;
         self.moving_forward = true;
+        
+        self.slider_dots();
     }
 }
 impl StandardHitObject for StandardSlider {
@@ -670,9 +731,8 @@ impl StandardHitObject for StandardSlider {
         self.def.edge_sounds[self.sound_index.min(self.def.edge_sounds.len() - 1)]
     }
     fn causes_miss(&self) -> bool {false}
-    fn point_draw_pos(&self) -> Vector2 {
-        if self.end_checked {self.time_end_pos}
-        else {self.pos}
+    fn point_draw_pos(&self, time: f32) -> Vector2 {
+        self.pos_at(time, &self.scaling_helper)
     }
     fn get_preempt(&self) -> f32 {self.time_preempt}
     fn press(&mut self, _:f32) {self.holding = true}
@@ -696,19 +756,17 @@ impl StandardHitObject for StandardSlider {
             }
         }
 
-        // make sure the cursor is in the radius
-        let distance = ((self.pos.x - self.mouse_pos.x).powi(2) + (self.pos.y - self.mouse_pos.y).powi(2)).sqrt();
-        // outside the radius, but we dont want it to consume the object
-        if distance > self.radius {return ScoreHit::None}
-        
         let judgement_time: f32;
 
         // check press
         if time > self.time - h_miss && time < self.time + h_miss {
             // within starting time frame
 
+            // make sure the cursor is in the radius
+            let distance = ((self.pos.x - self.mouse_pos.x).powi(2) + (self.pos.y - self.mouse_pos.y).powi(2)).sqrt();
+
             // if already hit, or this is a release, return None
-            if self.start_checked || !is_press {return ScoreHit::None}
+            if self.start_checked || !is_press || distance > self.radius {return ScoreHit::None}
             
             // start wasnt hit yet, set it to true
             self.start_checked = true;
@@ -724,8 +782,11 @@ impl StandardHitObject for StandardSlider {
         if time > self.curve.end_time - h_miss && time < self.curve.end_time + h_miss {
             // within ending time frame
 
+            // make sure the cursor is in the radius
+            let distance = ((self.time_end_pos.x - self.mouse_pos.x).powi(2) + (self.time_end_pos.y - self.mouse_pos.y).powi(2)).sqrt();
+
             // if already hit, return None
-            if self.end_checked {return ScoreHit::None}
+            if self.end_checked || distance > self.radius * 2.0 {return ScoreHit::None}
             
             // start wasnt hit yet, set it to true
             self.end_checked = true;
@@ -789,6 +850,7 @@ impl StandardHitObject for StandardSlider {
         ));
 
         self.combo_text = combo_text;
+        self.slider_dots();
     }
 
     fn pos_at(&self, time: f32, scaling_helper:&ScalingHelper) -> Vector2 {
@@ -803,37 +865,46 @@ impl StandardHitObject for StandardSlider {
 /// helper struct for drawing hit slider points
 #[derive(Clone, Copy)]
 struct SliderDot {
-    time: f64,
-    pos: Vector2
+    time: f32,
+    pos: Vector2,
+    checked: bool,
+    hit: bool,
+    depth: f64,
+    scale: f64
 }
 impl SliderDot {
-    pub fn new(time:f64, pos:Vector2) -> SliderDot {
+    pub fn new(time:f32, pos:Vector2, depth: f64, scale: f64) -> SliderDot {
         SliderDot {
             time,
-            pos
+            pos,
+            depth,
+            scale,
+
+            hit: false,
+            checked: false
         }
     }
-    pub fn update(&mut self, _beatmap_time:f64) {}
+    /// returns true if the hitsound should play
+    pub fn update(&mut self, beatmap_time:f32, mouse_down: bool) -> bool {
+        if beatmap_time >= self.time && !self.checked {
+            self.checked = true;
+            self.hit = mouse_down;
+            self.hit
+        } else {
+            false
+        }
+    }
     pub fn draw(&self, list:&mut Vec<Box<dyn Renderable>>) {
-        let mut c = Circle::new(
-            Color::YELLOW,
-            -100.0,
-            self.pos,
-            SLIDER_DOT_RADIUS
-        );
-        c.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE/2.0));
+        if self.hit {return}
 
+        let mut c = Circle::new(
+            Color::WHITE,
+            self.depth,
+            self.pos,
+            SLIDER_DOT_RADIUS * self.scale
+        );
+        c.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE * self.scale));
         list.push(Box::new(c));
-        // [
-        //     Box::new(c),
-        //     // "hole punch"
-        //     Box::new(Circle::new(
-        //         BAR_COLOR,
-        //         0.0,
-        //         Vector2::new(self.pos.x, HIT_POSITION.y),
-        //         SLIDER_DOT_RADIUS
-        //     )),
-        // ]
     }
 }
 
@@ -909,7 +980,7 @@ impl HitObject for StandardSpinner {
                 diff = self.last_rotation_val - mouse_angle;
             }
             if diff.abs() > PI {diff = 0.0}
-            self.rotation_velocity = lerp(-diff, self.rotation_velocity, 0.005 * (beatmap_time - self.last_update) as f64);
+            self.rotation_velocity = crate::helpers::math::Lerp::lerp(-diff, self.rotation_velocity, 0.005 * (beatmap_time - self.last_update) as f64);
             self.rotation += self.rotation_velocity * (beatmap_time - self.last_update) as f64;
 
             // println!("rotation: {}, diff: {}", self.rotation, diff);
@@ -985,7 +1056,7 @@ impl StandardHitObject for StandardSpinner {
     fn get_hitsamples(&self) -> HitSamples {self.def.hitsamples.clone()}
     fn get_hitsound(&self) -> u8 {self.def.hitsound}
     fn get_preempt(&self) -> f32 {0.0}
-    fn point_draw_pos(&self) -> Vector2 {Vector2::zero()} //TODO
+    fn point_draw_pos(&self, _: f32) -> Vector2 {Vector2::zero()} //TODO
     fn causes_miss(&self) -> bool {self.rotations_completed < self.rotations_required} // if the spinner wasnt completed in time, cause a miss
 
     fn get_points(&mut self, _is_press:bool, _:f32, _:(f32,f32,f32,f32)) -> ScoreHit {
@@ -1003,7 +1074,7 @@ impl StandardHitObject for StandardSpinner {
     }
 
     fn playfield_changed(&mut self, new_scale: &ScalingHelper) {
-        self.pos = new_scale.descale_coords(new_scale.window_size / 2.0)
+        self.pos = new_scale.window_size / 2.0
     } 
 
     fn pos_at(&self, time: f32, scaling_helper:&ScalingHelper) -> Vector2 {
@@ -1015,11 +1086,6 @@ impl StandardHitObject for StandardSpinner {
     }
 }
 
-
-
-fn lerp(target:f64, current: f64, factor:f64) -> f64 {
-    current + (target - current) * factor
-}
 
 fn approach_circle(pos:Vector2, radius:f64, time_diff:f32, time_preempt:f32, depth:f64, scale:f64, alpha: f32) -> Box<Circle> {
 

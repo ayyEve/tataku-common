@@ -635,9 +635,7 @@ impl Game {
         self.update_display.draw(&mut self.render_queue);
         self.input_update_display.draw(&mut self.render_queue);
 
-        // draw notifications
-        
-        // update the notification manager
+        // draw the notification manager
         NOTIFICATION_MANAGER.lock().draw(&mut self.render_queue);
 
         // draw cursor

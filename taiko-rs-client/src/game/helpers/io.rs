@@ -35,3 +35,7 @@ pub fn get_file_hash<P:AsRef<Path>>(file_path:P) -> std::io::Result<String> {
     let body = std::fs::read(file_path)?;
     Ok(format!("{:x}", md5::compute(body).to_owned()))
 }
+
+pub fn exists<P: AsRef<Path>>(path: P) -> bool {
+    path.as_ref().exists()
+}

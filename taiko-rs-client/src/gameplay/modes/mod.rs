@@ -77,6 +77,9 @@ pub struct ScalingHelper {
     /// cs size scaled
     pub scaled_cs: f64,
 
+    /// border size scaled
+    pub border_scaled: f64,
+
     // /// scaled playfield
     // playfield_scaled: Rectangle,
     /// scaled playfield
@@ -86,6 +89,8 @@ impl ScalingHelper {
     pub fn new(cs:f32, mode:PlayMode) -> Self {
         let window_size = Settings::window_size();
 
+
+        let border_size;
         let circle_size;
         let settings_scale;
         let settings_offset;
@@ -96,12 +101,15 @@ impl ScalingHelper {
                 settings_scale = things.0;
                 settings_offset = things.1;
                 circle_size = standard::CIRCLE_RADIUS_BASE;
+
+                border_size = standard::NOTE_BORDER_SIZE;
             },
 
             _ => {
                 settings_scale = 0.0;
                 settings_offset = Vector2::zero();
                 circle_size = 0.0;
+                border_size = 0.0;
             }
         };
             
@@ -112,6 +120,8 @@ impl ScalingHelper {
         let scaled_cs = cs_base * scale;
 
         let circle_size = Vector2::one() * circle_size * scaled_cs;
+
+        let border_scaled = border_size * scale;
 
         // let playfield_scaled = Rectangle::new(
         //     [0.2, 0.2, 0.2, 0.5].into(),
@@ -136,6 +146,7 @@ impl ScalingHelper {
             window_size,
             scaled_pos_offset,
             scaled_cs,
+            border_scaled,
 
             // playfield_scaled,
             playfield_scaled_with_cs_border
