@@ -18,8 +18,7 @@ const SOUND_LIST:&[&'static str] = &[
     "resources/audio/kat.wav",
     "resources/audio/bigdon.wav",
     "resources/audio/bigkat.wav",
-    "resources/audio/combobreak.mp3",
-    "resources/audio/slidertick.wav"
+    "resources/audio/combobreak.mp3"
 ];
 
 lazy_static::lazy_static!(
