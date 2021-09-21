@@ -10,6 +10,7 @@ use cpal::traits::{HostTrait, DeviceTrait, StreamTrait};
 use super::AudioHandle;
 use super::sound::Sound;
 use crate::game::Settings;
+use crate::game::managers::NotificationManager;
 use super::instance::AudioInstance;
 use super::queue::{AudioQueueController, AudioQueue};
 
@@ -32,9 +33,12 @@ lazy_static::lazy_static!(
             let sound_name = Path::new(sound).file_stem().unwrap().to_str().unwrap();
             println!("loading audio file {}", sound_name);
 
-            let sound = Sound::load(sound);
-
-            sounds.insert(sound_name.to_owned(), sound);
+            match Sound::load(sound) {
+                Ok(sound) => {sounds.insert(sound_name.to_owned(), sound);},
+                Err(e) => {
+                    println!("error loading sound: {}", e);
+                }
+            }
         }
 
         sounds
@@ -164,7 +168,13 @@ impl Audio {
         *PLAY_PENDING.lock() = id.clone();
 
         // load the audio data (this is what takes a million years)
-        let sound = Sound::load(path.as_ref());
+        let sound = match Sound::load(path.as_ref()) {
+            Ok(sound) => sound,
+            Err(e) => {
+                NotificationManager::add_error_notification("Error loading music file", e);
+                return Weak::new()
+            }
+        };
 
         // if the pending song is no longer us, return a fake pointer
         if *PLAY_PENDING.lock() != id {
@@ -239,11 +249,23 @@ impl Audio {
     }
 
     pub fn _play(path: impl AsRef<str>) -> Weak<AudioHandle> {
-        Audio::play_sound(Sound::load(path.as_ref()))
+        match Sound::load(path.as_ref()) {
+            Ok(sound) => Audio::play_sound(sound),
+            Err(e) => {
+                NotificationManager::add_error_notification("Error playing music file", e);
+                return Weak::new()
+            }
+        }
     }
 
     pub fn play_raw(bytes: Vec<u8>) -> Weak<AudioHandle> {
-        Audio::play_sound(Sound::load_raw(bytes))
+        match Sound::load_raw(bytes) {
+            Ok(sound) => Audio::play_sound(sound),
+            Err(e) => {
+                NotificationManager::add_error_notification("Error playing music file", e);
+                return Weak::new()
+            }
+        }
     }
 
     pub fn play_preloaded(name: impl AsRef<str>) -> Weak<AudioHandle> {

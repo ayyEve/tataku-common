@@ -46,7 +46,7 @@ pub struct IngameManager {
     pub song: Weak<AudioHandle>,
 
 
-    pub hitsound_cache: HashMap<String, Sound>,
+    pub hitsound_cache: HashMap<String, Option<Sound>>,
 
     // offset things
     offset: f32,
@@ -297,11 +297,10 @@ impl IngameManager {
     pub fn play_note_sound(&mut self, note_time:f32, note_hitsound: u8, note_hitsamples:HitSamples) {
         let timing_point = self.beatmap.control_point_at(note_time);
         
-        // let mut play_normal = (note_hitsound & 1) > 0; // 0: Normal
+        let mut play_normal = true; //(note_hitsound & 1) > 0; // 0: Normal
         let play_whistle = (note_hitsound & 2) > 0; // 1: Whistle
         let play_finish = (note_hitsound & 4) > 0; // 2: Finish
         let play_clap = (note_hitsound & 8) > 0; // 3: Clap
-        let play_normal = true;
 
         // get volume
         let mut vol = (if note_hitsamples.volume == 0 {timing_point.volume} else {note_hitsamples.volume} as f32 / 100.0) * Settings::get_mut().get_effect_vol();
@@ -332,10 +331,10 @@ impl IngameManager {
         if let Some(name) = note_hitsamples.filename {
             if name.len() > 0 {
                 let sample_set = SAMPLE_SETS[note_hitsamples.addition_set as usize];
-                let hitsound = format!("{}-{}", sample_set, name);
                 println!("got custom sound: {}", name);
 
-                if exists(format!("resources/audio/{}", hitsound)) {
+                if exists(format!("resources/audio/{}", name)) {
+                    play_normal = (note_hitsound & 1) > 0;
                     play_list.push((name, 0))
                 } else {
                     println!("doesnt exist");
@@ -395,12 +394,19 @@ impl IngameManager {
         for (sound_file, _index) in play_list.iter() {
             if !self.hitsound_cache.contains_key(sound_file) {
                 println!("not cached");
+
                 let sound = Sound::load(format!("resources/audio/{}", sound_file));
-                self.hitsound_cache.insert(sound_file.clone(), sound);
+                if let Err(e) = &sound {
+                    println!("error loading: {:?}", e);
+                }
+                
+                self.hitsound_cache.insert(sound_file.clone(), sound.ok());
             }
 
             let sound = self.hitsound_cache.get(sound_file).unwrap();
-            let sound = Audio::play_sound(sound.clone());
+            if sound.is_none() {continue};
+
+            let sound = Audio::play_sound(sound.clone().unwrap());
 
             if let Some(sound) = sound.upgrade() {
                 sound.set_volume(vol);
@@ -408,7 +414,6 @@ impl IngameManager {
                 sound.play();
             }
         }
-
     }
 
     pub fn combo_break(&mut self) {
@@ -651,3 +656,13 @@ pub trait GameMode {
 
 
 //TODO: make a sound effect manager, sound effects are cancer
+
+
+struct HitsoundManager {
+    sounds: HashMap<String, Option<Sound>>,
+    /// sound, index
+    beatmap_sounds: HashMap<String, HashMap<u8, Sound>>
+}
+impl HitsoundManager {
+
+}

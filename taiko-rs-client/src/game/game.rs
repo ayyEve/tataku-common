@@ -9,8 +9,8 @@ use crate::databases::{save_replay, save_score};
 use crate::render::{Color, Image, Rectangle, Renderable};
 use taiko_rs_common::types::{SpectatorFrames, UserAction};
 use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
-use crate::helpers::{FpsDisplay, BenchmarkHelper, VolumeControl};
 use crate::{Vector2, DOWNLOADS_DIR, menu::*, sync::{Arc, Mutex}};
+use crate::helpers::{FpsDisplay, BenchmarkHelper, VolumeControl, io::*};
 use crate::game::{Settings, audio::Audio, managers::*, online::{USER_ITEM_SIZE, OnlineManager}};
 
 
@@ -185,8 +185,6 @@ impl Game {
                 NotificationManager::add_error_notification("Error loading wallpaper", e.into())
             }
         }
-
-
 
         self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(loading_menu))));
     }
@@ -747,28 +745,4 @@ pub enum SpectatorState {
     Watching, // host playing
     Paused, // host paused
     MapChanging, // host is changing map
-}
-
-pub fn load_image<T:AsRef<str>>(path: T) -> Option<Image> {
-    let settings = opengl_graphics::TextureSettings::new();
-    // helper.log("settings made", true);
-
-    let buf: Vec<u8> = match std::fs::read(path.as_ref()) {
-        Ok(buf) => buf,
-        Err(_) => return None,
-    };
-
-    match image::load_from_memory(&buf) {
-        Ok(img) => {
-            let img = img.into_rgba8();
-            let tex = opengl_graphics::Texture::from_image(&img, &settings);
-            Some(Image::new(Vector2::zero(), f64::MAX, tex, Settings::window_size()))
-        }
-        Err(e) => {
-            
-            NotificationManager::add_error_notification(&format!("Error loading wallpaper: {}", path.as_ref()), e.into());
-            // println!("Error loading image {}: {}", path.as_ref(), e);
-            None
-        }
-    }
 }
