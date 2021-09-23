@@ -133,7 +133,7 @@ impl Default for Settings {
             cursor_scale: 1.0,
             pause_on_focus_lost: true,
 
-            cursor_color: "#cc0099".to_owned(),
+            cursor_color: "#ffff32".to_owned(),
 
             // keys
             key_offset_up: Key::Equals,
