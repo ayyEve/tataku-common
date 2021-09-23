@@ -169,7 +169,7 @@ impl GameMode for StandardGame {
             // check for new combo
             if let Some(note) = note {if note.new_combo {combo_num = 0}}
             if let Some(slider) = slider {if slider.new_combo {combo_num = 0}}
-            if let Some(spinner) = spinner {if spinner.new_combo {combo_num = 0}}
+            if let Some(_spinner) = spinner {combo_num = 0}
 
             // if new combo, increment new combo counter
             if combo_num == 0 {
@@ -372,8 +372,7 @@ impl GameMode for StandardGame {
             note.update(time);
 
             // play queued sounds
-            for (time, hitsound, mut samples, override_name) in note.get_sound_queue() {
-                samples.filename = override_name;
+            for (time, hitsound, samples) in note.get_sound_queue() {
                 manager.play_note_sound(time, hitsound, samples);
             }
 

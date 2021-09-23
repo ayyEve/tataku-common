@@ -1,6 +1,10 @@
 use std::{fs::File, path::Path};
 use std::io::{self, BufRead, BufReader, Lines};
 
+use crate::{Vector2, render::Image};
+use crate::game::{Settings, managers::NotificationManager};
+
+
 /// check if folder exists, creating it if it doesnt
 pub fn check_folder(dir:&str) {
     if !Path::new(dir).exists() {
@@ -30,12 +34,38 @@ pub fn read_lines<P: AsRef<Path>>(filename: P) -> io::Result<Lines<BufReader<Fil
     Ok(BufReader::new(file).lines())
 }
 
-
+/// get a file's hash
 pub fn get_file_hash<P:AsRef<Path>>(file_path:P) -> std::io::Result<String> {
     let body = std::fs::read(file_path)?;
     Ok(format!("{:x}", md5::compute(body).to_owned()))
 }
 
+// check if file or folder exists
 pub fn exists<P: AsRef<Path>>(path: P) -> bool {
     path.as_ref().exists()
+}
+
+
+/// load an image file to an image struct
+pub fn load_image<T:AsRef<str>>(path: T) -> Option<Image> {
+    let settings = opengl_graphics::TextureSettings::new();
+    // helper.log("settings made", true);
+
+    let buf: Vec<u8> = match std::fs::read(path.as_ref()) {
+        Ok(buf) => buf,
+        Err(_) => return None,
+    };
+
+    match image::load_from_memory(&buf) {
+        Ok(img) => {
+            let img = img.into_rgba8();
+            let tex = opengl_graphics::Texture::from_image(&img, &settings);
+            Some(Image::new(Vector2::zero(), f64::MAX, tex, Settings::window_size()))
+        }
+        Err(e) => {
+            NotificationManager::add_error_notification(&format!("Error loading wallpaper: {}", path.as_ref()), e.into());
+            // println!("Error loading image {}: {}", path.as_ref(), e);
+            None
+        }
+    }
 }

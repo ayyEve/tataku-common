@@ -35,7 +35,6 @@ pub const REQUIRED_FILES:&[&str] = &[
     "resources/audio/bigdon.wav",
     "resources/audio/bigkat.wav",
     "resources/audio/combobreak.mp3",
-    "resources/audio/slidertick.wav",
     "resources/icon-small.png",
     "fonts/main.ttf",
 ];

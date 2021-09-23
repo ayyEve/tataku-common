@@ -293,15 +293,6 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
 
     let mut curve = Curve::new(slider.clone(), path, beatmap);
 
-    let slider_scoring_point_distance = 100.0 * (beatmap.metadata.slider_multiplier / beatmap.metadata.slider_tick_rate);
-    let tick_distance;
-    if beatmap.metadata.beatmap_version < 8 {
-        tick_distance = slider_scoring_point_distance;
-    } else {
-        tick_distance = slider_scoring_point_distance / beatmap.bpm_multiplier_at(curve.slider.time);
-    }
-    println!("scoring distance: {}, {}", slider_scoring_point_distance, tick_distance);
-
     let path_count = curve.path.len();
     let mut total = 0.0;
     if path_count > 0 {

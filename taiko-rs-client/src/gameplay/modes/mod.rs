@@ -105,6 +105,15 @@ impl ScalingHelper {
                 border_size = standard::NOTE_BORDER_SIZE;
             },
 
+            PlayMode::Catch => {
+                let things = Settings::get_mut().standard_settings.get_playfield();
+                settings_scale = things.0;
+                settings_offset = things.1;
+                circle_size = standard::CIRCLE_RADIUS_BASE;
+
+                border_size = standard::NOTE_BORDER_SIZE;
+            },
+
             _ => {
                 settings_scale = 0.0;
                 settings_offset = Vector2::zero();
