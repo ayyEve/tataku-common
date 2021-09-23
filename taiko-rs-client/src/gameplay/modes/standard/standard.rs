@@ -169,7 +169,7 @@ impl GameMode for StandardGame {
             // check for new combo
             if let Some(note) = note {if note.new_combo {combo_num = 0}}
             if let Some(slider) = slider {if slider.new_combo {combo_num = 0}}
-            if let Some(spinner) = spinner {combo_num = 0}
+            if let Some(_spinner) = spinner {combo_num = 0}
 
             // if new combo, increment new combo counter
             if combo_num == 0 {

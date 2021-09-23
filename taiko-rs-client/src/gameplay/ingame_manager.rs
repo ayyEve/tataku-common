@@ -330,9 +330,7 @@ impl IngameManager {
         // if the hitsound is being overridden
         if let Some(name) = note_hitsamples.filename {
             if name.len() > 0 {
-                let sample_set = SAMPLE_SETS[note_hitsamples.addition_set as usize];
                 println!("got custom sound: {}", name);
-
                 if exists(format!("resources/audio/{}", name)) {
                     play_normal = (note_hitsound & 1) > 0;
                     play_list.push((name, 0))
@@ -341,7 +339,6 @@ impl IngameManager {
                 }
             }
         }
-
 
         if play_normal {
             let sample_set = SAMPLE_SETS[note_hitsamples.addition_set as usize];
@@ -654,8 +651,6 @@ pub trait GameMode {
     fn reset(&mut self, beatmap:&Beatmap);
 }
 
-
-//TODO: make a sound effect manager, sound effects are cancer
 
 
 struct HitsoundManager {

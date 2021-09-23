@@ -9,6 +9,7 @@ use crate::render::{Circle, Color, Renderable, Border};
 
 const NOTE_BORDER_SIZE:f64 = 2.0;
 
+
 pub trait CatchHitObject: HitObject {
     /// does this object count as a miss if it is not hit?
     fn causes_miss(&self) -> bool;
@@ -31,6 +32,7 @@ pub trait CatchHitObject: HitObject {
     fn was_hit(&self) -> bool;
     fn pos_at(&self, time:f32, scaling_helper: &ScalingHelper) -> f64;
 }
+
 
 // normal note
 #[derive(Clone, Copy)]
@@ -93,7 +95,7 @@ impl HitObject for CatchFruit {
 }
 impl CatchHitObject for CatchFruit {
     fn was_hit(&self) -> bool {self.hit||self.missed}
-    fn pos_at(&self, time:f32, scaling_helper: &ScalingHelper) -> f64 {self.pos.x}
+    fn pos_at(&self, _time:f32, _scaling_helper: &ScalingHelper) -> f64 {self.pos.x}
     fn x(&self) -> f64 {self.pos.x}
     fn speed(&self) -> f32 {self.speed}
     fn radius(&self) -> f64 {self.radius}
@@ -104,7 +106,7 @@ impl CatchHitObject for CatchFruit {
     }
 
     fn set_dash(&mut self, next: &Box<dyn CatchHitObject>) {
-        let distance_to = (self.pos.x - next.x()).abs();
+        let _distance_to = (self.pos.x - next.x()).abs();
 
         // if distance_to
     }
@@ -165,7 +167,7 @@ impl HitObject for CatchDroplet {
 }
 impl CatchHitObject for CatchDroplet {
     fn was_hit(&self) -> bool {self.hit||self.missed}
-    fn pos_at(&self, time:f32, scaling_helper: &ScalingHelper) -> f64 {self.pos.x}
+    fn pos_at(&self, _time:f32, _scaling_helper: &ScalingHelper) -> f64 {self.pos.x}
     fn x(&self) -> f64 {self.pos.x}
     fn speed(&self) -> f32 {self.speed}
     fn radius(&self) -> f64 {self.radius}
@@ -175,6 +177,7 @@ impl CatchHitObject for CatchDroplet {
         ScoreHit::X100
     }
 }
+
 
 // spinner banana
 #[derive(Clone, Copy)]
@@ -229,7 +232,7 @@ impl HitObject for CatchBanana {
 }
 impl CatchHitObject for CatchBanana {
     fn was_hit(&self) -> bool {self.hit||self.missed}
-    fn pos_at(&self, time:f32, scaling_helper: &ScalingHelper) -> f64 {self.pos.x}
+    fn pos_at(&self, _time:f32, _scaling_helper: &ScalingHelper) -> f64 {self.pos.x}
     fn x(&self) -> f64 {self.pos.x}
     fn speed(&self) -> f32 {self.speed}
     fn radius(&self) -> f64 {self.radius}
