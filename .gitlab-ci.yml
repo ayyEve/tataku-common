@@ -1,5 +1,11 @@
+
+variables:
+  CARGO_HOME: $CI_PROJECT_DIR/.cargo
+
+
 stages:
   - build-client
+  
 
 rust-latest:
   stage: build-client
@@ -9,6 +15,10 @@ rust-latest:
     - apt install libasound2-dev cmake xorg-dev libxcb-shape0-dev libxcb-xfixes0-dev -y
     - cargo build --bin taiko-rs-client --verbose
     - cargo test --bin taiko-rs-client --verbose
+  cache:
+    paths:
+      - .cargo
+
 
 rust-nightly:
   stage: build-client
@@ -19,4 +29,6 @@ rust-nightly:
     - cargo build --bin taiko-rs-client --verbose
     - cargo test --bin taiko-rs-client --verbose
   allow_failure: true
-
+  cache:
+    paths:
+      - .cargo
