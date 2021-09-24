@@ -17,7 +17,6 @@ pub struct VolumeControl {
     vol_selected_time: u64,
     timer: Instant
 }
-
 impl VolumeControl {
     pub fn new() -> Self {
         Self {
