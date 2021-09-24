@@ -40,10 +40,10 @@ pub const REQUIRED_FILES:&[&str] = &[
 ];
 
 const FIRST_MAPS: &[u32] = &[
-    75, // disco prince
-    905576, // triumph and regret
-    1605148, // mayday
-    727903, // galaxy collapse
+    75, // disco prince (std)
+    905576, // triumph and regret (mania)
+    1605148, // mayday (std)
+    727903, // galaxy collapse (taiko)
 ];
 
 // main fn

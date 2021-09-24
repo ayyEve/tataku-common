@@ -3,13 +3,13 @@ use std::collections::HashMap;
 use piston::{Key, MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::menu_elements::TextInput;
 
-use crate::render::*;
+use crate::render::{*, fonts::get_font};
 use taiko_rs_common::types::{Score, PlayMode};
-use crate::game::managers::NotificationManager;
 use crate::{Vector2, databases::get_scores, sync::*};
 use crate::gameplay::{BeatmapMeta, modes::manager_from_playmode};
+use crate::game::managers::{NotificationManager, BEATMAP_MANAGER};
+use crate::game::{Settings, Game, GameState, KeyModifiers, Audio};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
-use crate::game::{Settings, Game, GameState, KeyModifiers, get_font, Audio, managers::BEATMAP_MANAGER};
 
 
 // constants

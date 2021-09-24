@@ -1,6 +1,5 @@
 use piston::{MouseButton, RenderArgs};
 
-use crate::sync::*;
 use crate::{Vector2, render::*};
 use crate::gameplay::IngameManager;
 use crate::menu::{Menu, MenuButton, ScrollableItem};

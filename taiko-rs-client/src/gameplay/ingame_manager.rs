@@ -5,10 +5,10 @@ use piston::RenderArgs;
 use opengl_graphics::GlyphCache;
 
 use crate::gameplay::hitobject_defs::HitSamples;
-use crate::render::{Renderable, Rectangle, Text, Color, Border};
 use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
+use crate::game::{Audio, AudioHandle, BackgroundGameSettings, Settings, Sound};
+use crate::render::{Renderable, Rectangle, Text, Color, Border, fonts::get_font};
 use crate::{Vector2, gameplay::*, sync::*, helpers::{visibility_bg, io::exists}};
-use crate::game::{Audio, AudioHandle, BackgroundGameSettings, Settings, Sound, get_font};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
 const OFFSET_DRAW_TIME:f32 = 2_000.0; // how long should the offset be drawn for?
@@ -55,7 +55,7 @@ pub struct IngameManager {
     pub hitbar_timings: Vec<(f32, f32)>,
 
     // draw helpers
-    pub font: Arc<Mutex< GlyphCache<'static>>>,
+    pub font: Arc<Mutex<GlyphCache<'static>>>,
     combo_text_bounds: Rectangle,
     timing_bar_things: (Vec<(f32,Color)>, (f32,Color)),
 

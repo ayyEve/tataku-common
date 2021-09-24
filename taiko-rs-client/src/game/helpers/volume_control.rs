@@ -3,7 +3,7 @@ use piston::{Key, RenderArgs};
 
 use crate::Vector2;
 use crate::game::{Audio, Settings, KeyModifiers};
-use crate::render::{Rectangle, Renderable, Border, Color, Text};
+use crate::render::{Rectangle, Renderable, Border, Color, Text, fonts::get_font};
 
 
 /// how long should the volume thing be displayed when changed
@@ -62,7 +62,7 @@ impl VolumeControl {
 
         // draw the volume things if needed
         if self.vol_selected_time > 0 && elapsed - self.vol_selected_time < VOLUME_CHANGE_DISPLAY_TIME {
-            let font = crate::game::get_font("main");
+            let font = get_font("main");
             let settings = Settings::get();
             let window_size:Vector2 = settings.window_size.into();
 

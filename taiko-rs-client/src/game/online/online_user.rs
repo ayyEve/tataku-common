@@ -1,8 +1,8 @@
 
-use crate::render::*;
+use crate::Vector2;
 use crate::menu::ScrollableItem;
-use crate::{game::get_font, Vector2};
 use taiko_rs_common::types::UserAction;
+use crate::render::{*, fonts::get_font};
 use ayyeve_piston_ui::menu::KeyModifiers;
 
 pub const USER_ITEM_SIZE:Vector2 = Vector2::new(200.0, 100.0);

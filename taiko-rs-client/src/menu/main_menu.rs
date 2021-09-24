@@ -2,11 +2,12 @@ use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::KeyModifiers;
 use taiko_rs_common::types::PlayMode;
 
-use crate::{Vector2, render::*, sync::*};
+use crate::{Vector2, sync::*};
+use crate::render::{*, fonts::get_font};
 use crate::visualization::{MenuVisualization, Visualization};
 use crate::gameplay::{IngameManager, modes::manager_from_playmode};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
-use crate::game::{Audio, Game, GameState, Settings, get_font, managers::{BEATMAP_MANAGER, NotificationManager}};
+use crate::game::{Audio, Game, GameState, Settings, managers::{BEATMAP_MANAGER, NotificationManager}};
 
 const BUTTON_SIZE: Vector2 = Vector2::new(100.0, 50.0);
 const Y_MARGIN: f64 = 20.0;

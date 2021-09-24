@@ -2,9 +2,9 @@ use std::time::Instant;
 
 use crate::sync::*;
 use crate::Settings;
+use crate::game::Game;
 use crate::errors::TaikoError;
-use crate::game::{Game, get_font};
-use crate::render::{Border, Color, Rectangle, Renderable, Text, Vector2};
+use crate::render::{Border, Color, Rectangle, Renderable, Text, Vector2, fonts::get_font};
 
 
 const NOTIF_WIDTH:f64 = 200.0;

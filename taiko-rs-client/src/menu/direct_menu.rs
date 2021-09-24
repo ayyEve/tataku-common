@@ -1,14 +1,13 @@
 use std::collections::HashMap;
 use std::{fs::File, io::Write};
-
 use piston::{Key, MouseButton};
 
 use crate::sync::Arc;
 use crate::{DOWNLOADS_DIR, Vector2};
 use crate::game::managers::NotificationManager;
-use crate::render::{Text, Renderable, Rectangle, Color, Border};
+use crate::game::{Audio, Game, GameState, KeyModifiers, Settings};
 use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
-use crate::game::{Audio, Game, GameState, KeyModifiers, Settings, get_font};
+use crate::render::{Text, Renderable, Rectangle, Color, Border, fonts::get_font};
 
 const DOWNLOAD_ITEM_SIZE:Vector2 = Vector2::new(300.0, 40.0);
 const DOWNLOAD_ITEM_YMARGIN:f64 = 30.0;
