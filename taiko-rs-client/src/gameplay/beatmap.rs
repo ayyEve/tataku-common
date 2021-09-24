@@ -7,7 +7,7 @@ use crate::gameplay::{beatmap_structs::*, defs::*};
 /// timing bar color
 pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0);
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Beatmap {
     pub hash: String,
     
@@ -334,8 +334,9 @@ impl Beatmap {
     }
 }
 
+
 // contains beatmap info unrelated to notes and timing points, etc
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct BeatmapMeta {
     pub file_path: String,
     pub beatmap_hash: String,

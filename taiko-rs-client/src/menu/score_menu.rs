@@ -155,7 +155,7 @@ impl Menu<Game> for ScoreMenu {
                     let mut manager = manager_from_playmode(self.score.playmode, &self.beatmap);
                     manager.replaying = true;
                     manager.replay = replay.clone();
-                    game.queue_state_change(GameState::Ingame(Arc::new(Mutex::new(manager))));
+                    game.queue_state_change(GameState::Ingame(manager));
                 },
                 Err(e) => println!("error loading replay: {}", e),
             }

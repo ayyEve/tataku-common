@@ -1,5 +1,3 @@
-use std::sync::Arc;
-use parking_lot::Mutex;
 use taiko_rs_common::types::PlayMode;
 
 use crate::game::Settings;
@@ -23,11 +21,11 @@ pub fn manager_from_playmode(mut playmode: PlayMode, beatmap: &BeatmapMeta) -> I
     }
 
     let beatmap = Beatmap::from_metadata(beatmap);
-    let gamemode:Arc<Mutex<dyn GameMode>> = match playmode {
-        Standard => Arc::new(Mutex::new(standard::StandardGame::new(&beatmap))),
-        Taiko => Arc::new(Mutex::new(taiko::TaikoGame::new(&beatmap))),
-        Catch => Arc::new(Mutex::new(catch::CatchGame::new(&beatmap))),
-        Mania => Arc::new(Mutex::new(mania::ManiaGame::new(&beatmap)))
+    let gamemode:Box<dyn GameMode> = match playmode {
+        Standard => Box::new(standard::StandardGame::new(&beatmap)),
+        Taiko => Box::new(taiko::TaikoGame::new(&beatmap)),
+        Catch => Box::new(catch::CatchGame::new(&beatmap)),
+        Mania => Box::new(mania::ManiaGame::new(&beatmap))
     };
 
     IngameManager::new(beatmap, gamemode)

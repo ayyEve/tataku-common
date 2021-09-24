@@ -115,7 +115,7 @@ impl BeatmapSelectMenu {
     fn play_map(&self, game: &mut Game, map: &BeatmapMeta) {
         // Audio::stop_song();
         let manager = manager_from_playmode(self.mode, map);
-        game.queue_state_change(GameState::Ingame(Arc::new(Mutex::new(manager))));
+        game.queue_state_change(GameState::Ingame(manager));
     }
 }
 impl Menu<Game> for BeatmapSelectMenu {
