@@ -15,7 +15,7 @@ use crate::game::{Settings, audio::Audio, managers::*, online::{USER_ITEM_SIZE, 
 
 
 /// background color
-const GFX_CLEAR_COLOR:Color = Color::WHITE;
+const GFX_CLEAR_COLOR:Color = Color::BLACK;
 /// how long do transitions between gamemodes last?
 const TRANSITION_TIME:u64 = 500;
 
@@ -182,7 +182,7 @@ impl Game {
                 }
             }
             Err(e) => {
-                NotificationManager::add_error_notification("Error loading wallpaper", e.into())
+                NotificationManager::add_error_notification("Error loading wallpaper", e)
             }
         }
 
@@ -243,11 +243,7 @@ impl Game {
         // let timer = Instant::now();
         let elapsed = self.game_start.elapsed().as_millis() as u64;
         self.update_display.increment();
-
-        let mut current_state = GameState::None;
-        std::mem::swap(&mut self.current_state, &mut current_state);
-
-
+        let mut current_state = std::mem::take(&mut self.current_state);
 
         // read input events
         let mouse_pos = self.input_manager.mouse_pos;
@@ -312,8 +308,7 @@ impl Game {
                 if !manager.replaying && (matches!(window_focus_changed, Some(false)) && settings.pause_on_focus_lost) || keys_down.contains(&Key::Escape) {
                     manager.pause();
                     
-                    let mut manager2:IngameManager = Default::default();
-                    std::mem::swap(manager, &mut manager2);
+                    let mut manager2 = std::mem::take(manager);
 
                     let menu = PauseMenu::new(manager2);
                     self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
@@ -344,13 +339,8 @@ impl Game {
                         save_score(&score);
                         match save_replay(&replay, &score) {
                             Ok(_)=> println!("replay saved ok"),
-                            Err(e) => println!("error saving replay: {}", e),
+                            Err(e) => NotificationManager::add_error_notification("error saving replay", e),
                         }
-                        // match save_all_scores() {
-                        //     Ok(_) => println!("Scores saved successfully"),
-                        //     Err(e) => println!("Failed to save scores! {}", e),
-                        // }
-                        println!("all scores saved");
 
                         // submit score
                         #[cfg(feature = "online_scores")] 
@@ -424,7 +414,7 @@ impl Game {
                 menu.update(self);
             }
 
-            GameState::Spectating(ref data, ref state, ref _beatmap) => {
+            GameState::Spectating(ref data, ref state, ref _beatmap) => {   
                 let mut data = data.lock();
 
                 // (try to) read pending data from the online manager

@@ -63,7 +63,7 @@ pub fn load_image<T:AsRef<str>>(path: T) -> Option<Image> {
             Some(Image::new(Vector2::zero(), f64::MAX, tex, Settings::window_size()))
         }
         Err(e) => {
-            NotificationManager::add_error_notification(&format!("Error loading wallpaper: {}", path.as_ref()), e.into());
+            NotificationManager::add_error_notification(&format!("Error loading wallpaper: {}", path.as_ref()), e);
             // println!("Error loading image {}: {}", path.as_ref(), e);
             None
         }
