@@ -1,8 +1,10 @@
 use taiko_rs_common::types::PlayMode;
 
+use crate::beatmaps::Beatmap;
+use crate::beatmaps::common::BeatmapMeta;
 use crate::game::Settings;
 use crate::render::{Rectangle, Vector2};
-use super::{Beatmap, BeatmapMeta, GameMode, IngameManager};
+use super::{GameMode, IngameManager};
 
 pub mod taiko;
 pub mod mania;
@@ -21,14 +23,23 @@ pub fn manager_from_playmode(mut playmode: PlayMode, beatmap: &BeatmapMeta) -> I
     }
 
     let beatmap = Beatmap::from_metadata(beatmap);
-    let gamemode:Box<dyn GameMode> = match playmode {
-        Standard => Box::new(standard::StandardGame::new(&beatmap)),
-        Taiko => Box::new(taiko::TaikoGame::new(&beatmap)),
-        Catch => Box::new(catch::CatchGame::new(&beatmap)),
-        Mania => Box::new(mania::ManiaGame::new(&beatmap))
-    };
 
-    IngameManager::new(beatmap, gamemode)
+    match beatmap {
+        Ok(beatmap) => {
+            let gamemode:Box<dyn GameMode> = match playmode {
+                Standard => Box::new(standard::StandardGame::new(&beatmap)),
+                Taiko => Box::new(taiko::TaikoGame::new(&beatmap)),
+                Catch => Box::new(catch::CatchGame::new(&beatmap)),
+                Mania => Box::new(mania::ManiaGame::new(&beatmap)),
+
+                Adofai => todo!(),
+            };
+            IngameManager::new(beatmap, gamemode)
+        },
+        Err(e) => {
+            panic!("error loading map: {}", e);
+        }
+    }
 }
 
 

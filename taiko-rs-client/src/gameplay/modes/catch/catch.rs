@@ -2,11 +2,14 @@ use piston::RenderArgs;
 use ayyeve_piston_ui::render::*;
 
 use super::*;
+use crate::beatmaps::Beatmap;
+use crate::beatmaps::common::{TaikoRsBeatmap, map_difficulty};
 use crate::game::{Audio, Settings};
-use crate::gameplay::modes::ScalingHelper;
+use crate::gameplay::modes::{FIELD_SIZE, ScalingHelper};
+use crate::gameplay::{GameMode, IngameManager};
 use crate::{Vector2, helpers::{curve::get_curve, math::Lerp}};
+use crate::beatmaps::osu::hitobject_defs::{SliderDef, SpinnerDef};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
-use crate::gameplay::{Beatmap, GameMode, IngameManager, map_difficulty, defs::*, modes::FIELD_SIZE};
 
 // const SV_FACTOR:f64 = 700.0; // bc sv is bonked, divide it by this amount
 
@@ -52,161 +55,169 @@ impl CatchGame {
 impl GameMode for CatchGame {
     fn playmode(&self) -> PlayMode {PlayMode::Catch}
     fn end_time(&self) -> f32 {self.end_time}
-    fn new(beatmap:&Beatmap) -> Self {
+    fn new(map:&Beatmap) -> Self {
+        let metadata = map.get_beatmap_meta();
 
-        let scaling_helper = ScalingHelper::new(beatmap.metadata.cs, PlayMode::Catch);
-        let mut s = Self {
-            notes: Vec::new(),
-            note_index: 0,
+        match map {
+            Beatmap::Osu(beatmap) => {
+                let scaling_helper = ScalingHelper::new(metadata.cs, PlayMode::Catch);
+                let mut s = Self {
+                    notes: Vec::new(),
+                    note_index: 0,
 
-            timing_point_index: 0,
-            end_time: 0.0,
-            last_update: 0.0,
+                    timing_point_index: 0,
+                    end_time: 0.0,
+                    last_update: 0.0,
 
-            hitwindow: 0.0,
-            catcher: Catcher::new(&beatmap, scaling_helper.clone()),
+                    hitwindow: 0.0,
+                    catcher: Catcher::new(&map, scaling_helper.clone()),
 
-            scaling_helper,
-            cs: beatmap.metadata.cs,
-            auto_helper: CatchAutoHelper::new()
-        };
+                    scaling_helper,
+                    cs: metadata.cs,
+                    auto_helper: CatchAutoHelper::new()
+                };
 
-        // add notes
-        for note in beatmap.notes.iter() {
-            //TODO!
-            s.notes.push(Box::new(CatchFruit::new(
-                note.time,
-                1.0,
-                FRUIT_RADIUS_BASE, 
-                s.scaling_helper.scale_coords(note.pos).x
-            )));
-        }
-        for slider in beatmap.sliders.iter() {
-            let SliderDef {time, slides, length, ..} = slider.to_owned();
-
-            let curve = get_curve(&slider, &beatmap);
-
-            let l = (length * 1.4) * slides as f32;
-            let v2 = 100.0 * (beatmap.metadata.slider_multiplier * 1.4);
-            let bl = beatmap.beat_length_at(time, true);
-            let end_time = time + (l / v2 * bl);
-            // let end_time = curve.end_time;
-            
-            let bl = beatmap.beat_length_at(time, beatmap.metadata.beatmap_version < 8);
-            let skip_period = (bl / beatmap.metadata.slider_tick_rate).min((end_time - time) / slides as f32);
-
-            let mut j = time;
-
-            // // load sounds
-            // // let sound_list_raw = if let Some(list) = split.next() {list.split("|")} else {"".split("")};
-
-            // // when loading, if unified just have it as sound_types with 1 index
-            // // let mut sound_types:Vec<(HitType, bool)> = Vec::new();
-
-            // // for i in sound_list_raw {
-            // //     if let Ok(hitsound) = i.parse::<u32>() {
-            // //         let hit_type = if (hitsound & (2 | 8)) > 0 {super::HitType::Kat} else {super::HitType::Don};
-            // //         let finisher = (hitsound & 4) > 0;
-            // //         sound_types.push((hit_type, finisher));
-            // //     }
-            // // }
-            
-            // // let unified_sound_addition = sound_types.len() == 0;
-            // // if unified_sound_addition {
-            // //     sound_types.push((HitType::Don, false));
-            // // }
-            // // println!("{:?}", points);
-
-
-            let mut counter = 0;
-            loop {
-                // let sound_type = sound_types[i];
-                if counter % 4 == 0 {
+                // add notes
+                for note in beatmap.notes.iter() {
+                    //TODO!
                     s.notes.push(Box::new(CatchFruit::new(
-                        j,
-                        1.0,//beatmap.slider_velocity_at(j as u64),
-                        FRUIT_RADIUS_BASE,
-                        s.scaling_helper.scale_coords(curve.position_at_time(j)).x
-                    )));
-                } else {
-                    s.notes.push(Box::new(CatchDroplet::new(
-                        j,
-                        1.0,//beatmap.slider_velocity_at(j as u64),
-                        DROPLET_RADIUS_BASE,
-                        s.scaling_helper.scale_coords(curve.position_at_time(j)).x
+                        note.time,
+                        1.0,
+                        FRUIT_RADIUS_BASE, 
+                        s.scaling_helper.scale_coords(note.pos).x
                     )));
                 }
+                for slider in beatmap.sliders.iter() {
+                    let SliderDef {time, slides, length, ..} = slider.to_owned();
 
-                // if !unified_sound_addition {i = (i + 1) % sound_types.len()}
-                j += skip_period;
-                counter += 1;
-                if !(j < end_time + skip_period / 8.0) {break}
-            }
+                    let curve = get_curve(&slider, &map);
+
+                    let l = (length * 1.4) * slides as f32;
+                    let v2 = 100.0 * (metadata.slider_multiplier * 1.4);
+                    let bl = beatmap.beat_length_at(time, true);
+                    let end_time = time + (l / v2 * bl);
+                    // let end_time = curve.end_time;
+                    
+                    let bl = beatmap.beat_length_at(time, metadata.beatmap_version < 8);
+                    let skip_period = (bl / metadata.slider_tick_rate).min((end_time - time) / slides as f32);
+
+                    let mut j = time;
+
+                    // // load sounds
+                    // // let sound_list_raw = if let Some(list) = split.next() {list.split("|")} else {"".split("")};
+
+                    // // when loading, if unified just have it as sound_types with 1 index
+                    // // let mut sound_types:Vec<(HitType, bool)> = Vec::new();
+
+                    // // for i in sound_list_raw {
+                    // //     if let Ok(hitsound) = i.parse::<u32>() {
+                    // //         let hit_type = if (hitsound & (2 | 8)) > 0 {super::HitType::Kat} else {super::HitType::Don};
+                    // //         let finisher = (hitsound & 4) > 0;
+                    // //         sound_types.push((hit_type, finisher));
+                    // //     }
+                    // // }
+                    
+                    // // let unified_sound_addition = sound_types.len() == 0;
+                    // // if unified_sound_addition {
+                    // //     sound_types.push((HitType::Don, false));
+                    // // }
+                    // // println!("{:?}", points);
+
+
+                    let mut counter = 0;
+                    loop {
+                        // let sound_type = sound_types[i];
+                        if counter % 4 == 0 {
+                            s.notes.push(Box::new(CatchFruit::new(
+                                j,
+                                1.0,//beatmap.slider_velocity_at(j as u64),
+                                FRUIT_RADIUS_BASE,
+                                s.scaling_helper.scale_coords(curve.position_at_time(j)).x
+                            )));
+                        } else {
+                            s.notes.push(Box::new(CatchDroplet::new(
+                                j,
+                                1.0,//beatmap.slider_velocity_at(j as u64),
+                                DROPLET_RADIUS_BASE,
+                                s.scaling_helper.scale_coords(curve.position_at_time(j)).x
+                            )));
+                        }
+
+                        // if !unified_sound_addition {i = (i + 1) % sound_types.len()}
+                        j += skip_period;
+                        counter += 1;
+                        if !(j < end_time + skip_period / 8.0) {break}
+                    }
+                }
+                for spinner in beatmap.spinners.iter() {
+                    let SpinnerDef {time, end_time, ..} = spinner;
+                    let length = end_time - time;
+                    for i in (0..length as i32).step_by(50) {
+                        s.notes.push(Box::new(CatchBanana::new(
+                            time + i as f32,
+                            1.0,
+                            5.0,
+                            s.scaling_helper.scale_coords(Vector2::new(i as f64 % FIELD_SIZE.x, 0.0)).x
+                        )))
+                    }
+                }
+
+                s.notes.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
+
+
+
+
+                // // set dashes
+                // // from lazer CatchBeatmapProcessor:214
+                // let half_catcher = s.catcher.width / 2.0;
+                // let mut last_direction = 0;
+                // let mut last_excess = half_catcher;
+
+                // let mut i = 0;
+                // let notes = &mut s.notes;
+                // 'dash_loop: while i < notes.len() - 1 {
+                //     while notes[i].note_type() == NoteType::Spinner {
+                //         i += 1;
+                //         if i >= notes.len() - 1 {
+                //             break 'dash_loop;
+                //         }
+                //     }
+                //     let current = i;
+                //     let mut next = i + 1;
+                //     while notes[next].note_type() == NoteType::Spinner {
+                //         next += 1;
+                //         if next >= notes.len() - 1 {
+                //             break 'dash_loop;
+                //         }
+                //     }
+
+                //     // reset dash values
+                //     notes[current].reset_dash();
+                //     let this_direction = if notes[next].x() > notes[current].x() {-1} else {1};
+                //     let time_to_next = notes[next].time() as f64 - notes[current].time() as f64 - 1000.0 / 60.0 / 4.0;
+                //     let distance_to_next = 
+                //         (notes[next].x() - notes[current].x()) 
+                //         - (if last_direction == this_direction {last_excess} else {half_catcher});
+                    
+                //     let distance_to_hyper = time_to_next * CATCHER_BASE_SPEED - distance_to_next;
+
+                //     // if distance_to_hyper < 0.0 {
+                //     //     notes[current].set_dash(&notes[next]);
+                //     // } else {
+                //     //     notes[current].set_hyper_distance()
+                //     // }
+
+                //     i += 1;
+                // };
+
+
+                s.end_time = s.notes.iter().last().unwrap().time();
+                s
+            },
+            Beatmap::Quaver(_) => todo!(),
+            Beatmap::Adofai(_) => todo!(),
+            Beatmap::None => todo!(),
         }
-        for spinner in beatmap.spinners.iter() {
-            let SpinnerDef {time, end_time, ..} = spinner;
-            let length = end_time - time;
-            for i in (0..length as i32).step_by(50) {
-                s.notes.push(Box::new(CatchBanana::new(
-                    time + i as f32,
-                    1.0,
-                    5.0,
-                    s.scaling_helper.scale_coords(Vector2::new(i as f64 % FIELD_SIZE.x, 0.0)).x
-                )))
-            }
-        }
-
-        s.notes.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
-
-
-
-
-        // // set dashes
-        // // from lazer CatchBeatmapProcessor:214
-        // let half_catcher = s.catcher.width / 2.0;
-        // let mut last_direction = 0;
-        // let mut last_excess = half_catcher;
-
-        // let mut i = 0;
-        // let notes = &mut s.notes;
-        // 'dash_loop: while i < notes.len() - 1 {
-        //     while notes[i].note_type() == NoteType::Spinner {
-        //         i += 1;
-        //         if i >= notes.len() - 1 {
-        //             break 'dash_loop;
-        //         }
-        //     }
-        //     let current = i;
-        //     let mut next = i + 1;
-        //     while notes[next].note_type() == NoteType::Spinner {
-        //         next += 1;
-        //         if next >= notes.len() - 1 {
-        //             break 'dash_loop;
-        //         }
-        //     }
-
-        //     // reset dash values
-        //     notes[current].reset_dash();
-        //     let this_direction = if notes[next].x() > notes[current].x() {-1} else {1};
-        //     let time_to_next = notes[next].time() as f64 - notes[current].time() as f64 - 1000.0 / 60.0 / 4.0;
-        //     let distance_to_next = 
-        //         (notes[next].x() - notes[current].x()) 
-        //         - (if last_direction == this_direction {last_excess} else {half_catcher});
-            
-        //     let distance_to_hyper = time_to_next * CATCHER_BASE_SPEED - distance_to_next;
-
-        //     // if distance_to_hyper < 0.0 {
-        //     //     notes[current].set_dash(&notes[next]);
-        //     // } else {
-        //     //     notes[current].set_hyper_distance()
-        //     // }
-
-        //     i += 1;
-        // };
-
-
-        s.end_time = s.notes.iter().last().unwrap().time();
-        s
     }
 
     fn update(&mut self, manager:&mut IngameManager, time: f32) {
@@ -279,7 +290,7 @@ impl GameMode for CatchGame {
             }
         }
 
-        let timing_points = &manager.beatmap.timing_points;
+        let timing_points = &manager.timing_points;
         // check timing point
         if self.timing_point_index + 1 < timing_points.len() && timing_points[self.timing_point_index + 1].time <= time {
             self.timing_point_index += 1;
@@ -388,7 +399,7 @@ impl GameMode for CatchGame {
         self.note_index = 0;
         self.timing_point_index = 0;
 
-        let od = beatmap.metadata.od;
+        let od = beatmap.get_beatmap_meta().od;
         self.hitwindow = map_difficulty(od, 50.0, 35.0, 20.0);
     }
 

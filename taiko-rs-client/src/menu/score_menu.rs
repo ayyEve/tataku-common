@@ -1,12 +1,11 @@
 use piston::{MouseButton, RenderArgs};
 
-use crate::game::Settings;
-use crate::gameplay::BeatmapMeta;
 use crate::render::{*, fonts::get_font};
+use crate::beatmaps::common::BeatmapMeta;
 use taiko_rs_common::types::{Score, HitError};
-use crate::game::{Game, GameState, KeyModifiers};
 use crate::gameplay::modes::manager_from_playmode;
 use crate::menu::{Menu, MenuButton, ScrollableItem, Graph};
+use crate::game::{Game, GameState, KeyModifiers, Settings};
 use crate::{databases, format, Vector2, helpers::visibility_bg};
 
 const GRAPH_SIZE:Vector2 = Vector2::new(400.0, 200.0);

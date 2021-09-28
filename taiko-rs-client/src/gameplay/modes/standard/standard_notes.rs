@@ -3,9 +3,11 @@ use std::f64::consts::PI;
 use graphics::CharacterCache;
 
 use taiko_rs_common::types::ScoreHit;
+use crate::beatmaps::common::{NoteType, map_difficulty};
 use crate::helpers::math::VectorHelpers;
 use crate::{Vector2, helpers::curve::Curve};
-use crate::gameplay::{HitObject, map_difficulty, defs::*, modes::ScalingHelper};
+use crate::beatmaps::osu::hitobject_defs::{HitSamples, NoteDef, SliderDef, SpinnerDef};
+use crate::gameplay::{HitObject, modes::ScalingHelper};
 use crate::render::{Circle, Color, Renderable, Border, Line, Rectangle, Text, fonts::get_font};
 
 const SPINNER_RADIUS:f64 = 200.0;

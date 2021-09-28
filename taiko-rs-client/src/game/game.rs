@@ -5,10 +5,12 @@ use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
 
+use crate::beatmaps::Beatmap;
+use crate::beatmaps::common::{BeatmapMeta, TaikoRsBeatmap};
+use crate::gameplay::IngameManager;
 use crate::databases::{save_replay, save_score};
 use crate::render::{Color, Image, Rectangle, Renderable};
 use taiko_rs_common::types::{SpectatorFrames, UserAction};
-use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
 use crate::{Vector2, DOWNLOADS_DIR, menu::*, sync::{Arc, Mutex}};
 use crate::helpers::{FpsDisplay, BenchmarkHelper, VolumeControl, io::*};
 use crate::game::{Settings, audio::Audio, managers::*, online::{USER_ITEM_SIZE, OnlineManager}};
@@ -378,7 +380,7 @@ impl Game {
                         self.queue_state_change(GameState::InMenu(menu));
                     } else {
                         // show score menu
-                        let menu = ScoreMenu::new(&score, manager.beatmap.metadata.clone());
+                        let menu = ScoreMenu::new(&score, manager.metadata.clone());
                         self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
                     }
                 }
@@ -468,7 +470,7 @@ impl Game {
                     GameState::Ingame(manager) => {
                         let (m, h) = {
                             manager.start();
-                            (manager.beatmap.metadata.clone(), manager.beatmap.hash.clone())
+                            (manager.metadata.clone(), manager.beatmap.hash())
                         };
 
                         self.set_background_beatmap(&m);

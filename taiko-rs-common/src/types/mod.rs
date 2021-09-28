@@ -17,7 +17,8 @@ pub enum PlayMode {
     Standard,
     Taiko,
     Catch,
-    Mania
+    Mania,
+    Adofai,
 }
 impl Into<PlayMode> for u8 {
     fn into(self) -> PlayMode {
@@ -26,6 +27,7 @@ impl Into<PlayMode> for u8 {
             1 => Taiko,
             2 => Catch,
             3 => Mania,
+            4 => Adofai,
             _ => Standard
         }
     }
@@ -36,7 +38,8 @@ impl Into<u8> for PlayMode {
             Standard => 0,
             Taiko => 1,
             Catch => 2,
-            Mania => 3
+            Mania => 3,
+            Adofai => 4
         }
     }
 }

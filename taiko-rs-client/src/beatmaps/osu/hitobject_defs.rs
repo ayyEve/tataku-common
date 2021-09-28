@@ -74,18 +74,6 @@ pub enum CurveType {
 }
 
 
-/// only used for diff calc
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum NoteType {
-    Note,
-    Slider,
-    Spinner,
-    /// mania only
-    Hold
-}
-
-
-
 #[derive(Clone, Debug)]
 pub struct HitSamples {
     // Hit sample syntax: normalSet:additionSet:index:volume:filename

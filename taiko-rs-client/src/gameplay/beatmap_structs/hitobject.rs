@@ -1,6 +1,5 @@
 use piston::RenderArgs;
-use crate::render::Renderable;
-use super::hitobject_defs::NoteType;
+use crate::{beatmaps::common::NoteType, render::Renderable};
 
 // hitobject trait, implemented by anything that should be hit
 pub trait HitObject: Send {

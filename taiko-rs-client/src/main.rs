@@ -12,6 +12,7 @@ use game::{Game, Settings, helpers::BenchmarkHelper};
 mod game;
 mod menu;
 mod errors;
+mod beatmaps;
 mod gameplay;
 mod databases;
 mod visualization;

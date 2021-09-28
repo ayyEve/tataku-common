@@ -1,9 +1,8 @@
 use std::{collections::HashMap, fs::{DirEntry, read_dir}, path::Path, time::Duration};
 
 use rand::Rng;
-use crate::sync::*;
+use crate::{beatmaps::{Beatmap, common::{BeatmapMeta, TaikoRsBeatmap}}, sync::*};
 use crate::game::{Audio, Game};
-use crate::gameplay::{Beatmap, BeatmapMeta};
 use crate::{DOWNLOADS_DIR, SONGS_DIR, get_file_hash};
 
 
@@ -81,7 +80,6 @@ impl BeatmapManager {
             let file = file.to_str().unwrap();
 
             if file.ends_with(".osu") {
-
                 // check file paths first
                 for i in self.beatmaps.iter() {
                     if i.file_path == file {
@@ -97,18 +95,25 @@ impl BeatmapManager {
                     }
                 }
 
-                let map = Beatmap::load(file.to_owned()).metadata;
-                self.add_beatmap(&map);
+                match Beatmap::load(file.to_owned()) {
+                    Ok(map) => {
+                        let map = map.get_beatmap_meta();
+                        self.add_beatmap(&map);
 
 
-                // if it got here, it shouldnt be in the database
-                // so we should add it
-                {
-                    let lock = crate::databases::DATABASE.lock();
-                    let statement = insert_metadata(&map);
-                    let res = lock.prepare(&statement).expect(&statement).execute([]);
-                    if let Err(e) = res {
-                        println!("error inserting metadata: {}", e);
+                        // if it got here, it shouldnt be in the database
+                        // so we should add it
+                        {
+                            let lock = crate::databases::DATABASE.lock();
+                            let statement = insert_metadata(&map);
+                            let res = lock.prepare(&statement).expect(&statement).execute([]);
+                            if let Err(e) = res {
+                                println!("error inserting metadata: {}", e);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        println!("error loading beatmap: {}", e);
                     }
                 }
             }

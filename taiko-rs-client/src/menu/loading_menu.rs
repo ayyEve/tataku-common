@@ -1,6 +1,6 @@
 use std::fs::read_dir;
 
-use crate::gameplay::BeatmapMeta;
+use crate::beatmaps::common::BeatmapMeta;
 use crate::{SONGS_DIR, Vector2, menu::Menu, sync::*};
 use crate::render::{Color, Rectangle, Text, fonts::get_font};
 use crate::game::{Settings, Game, Audio, managers::BEATMAP_MANAGER};

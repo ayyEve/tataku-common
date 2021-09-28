@@ -4,11 +4,14 @@ use ayyeve_piston_ui::render::*;
 use piston::{MouseButton, RenderArgs};
 
 use crate::Vector2;
+use crate::beatmaps::Beatmap;
+use crate::beatmaps::common::{NoteType, TaikoRsBeatmap, map_difficulty};
+use crate::beatmaps::osu::hitobject_defs::NoteDef;
 use crate::game::{Settings, StandardSettings};
 use crate::gameplay::modes::{ScalingHelper, standard::*};
+use crate::gameplay::{DURATION_HEIGHT, GameMode, IngameManager};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
 use crate::helpers::{curve::get_curve, key_counter::KeyCounter, math::Lerp};
-use crate::gameplay::{DURATION_HEIGHT, GameMode, Beatmap, IngameManager, map_difficulty, defs::{NoteType, NoteDef}};
 
 
 const POINTS_DRAW_DURATION:f32 = 200.0;
@@ -71,185 +74,193 @@ impl StandardGame {
 impl GameMode for StandardGame {
     fn playmode(&self) -> PlayMode {PlayMode::Standard}
     fn end_time(&self) -> f32 {self.end_time}
-    fn new(beatmap:&Beatmap) -> Self {
-        let ar = beatmap.metadata.ar;
+    fn new(map:&Beatmap) -> Self {
+        let metadata = map.get_beatmap_meta();
+        let ar = metadata.ar;
         let settings = Settings::get_mut().standard_settings.clone();
-        let scaling_helper = ScalingHelper::new(beatmap.metadata.cs, PlayMode::Standard);
+        let scaling_helper = ScalingHelper::new(metadata.cs, PlayMode::Standard);
 
-        let mut s = Self {
-            notes: Vec::new(),
-            mouse_pos:Vector2::zero(),
-            window_mouse_pos:Vector2::zero(),
-
-            hold_count: 0,
-            // note_index: 0,
-            end_time: 0.0,
-
-            hitwindow_50: 0.0,
-            hitwindow_100: 0.0,
-            hitwindow_300: 0.0,
-            hitwindow_miss: 0.0,
-            draw_points: Vec::new(),
-
-            move_playfield: None,
-            scaling_helper,
-            cs: beatmap.metadata.cs,
-
-            key_counter: KeyCounter::new(
-                vec![
-                    (KeyPress::Left, "L".to_owned()),
-                    (KeyPress::Right, "R".to_owned()),
-                    (KeyPress::LeftMouse, "M1".to_owned()),
-                    (KeyPress::RightMouse, "M2".to_owned()),
-                ],
-                Vector2::zero()
-            ),
-
-            settings,
-            auto_helper: StandardAutoHelper::new(),
-            new_combos: Vec::new()
-        };
-
-        // join notes and sliders into a single array
-        // needed because of combo counts
-        let mut all_items = Vec::new();
-        for note in beatmap.notes.iter() {
-            all_items.push((Some(note), None, None));
-            s.end_time = s.end_time.max(note.time);
-        }
-        for slider in beatmap.sliders.iter() {
-            all_items.push((None, Some(slider), None));
-
-            // can this be improved somehow?
-            if slider.curve_points.len() == 0 || slider.length == 0.0 {
-                s.end_time = s.end_time.max(slider.time);
-            } else {
-                let curve = get_curve(slider, &beatmap);
-                s.end_time = s.end_time.max(curve.end_time);
-            }
-        }
-        for spinner in beatmap.spinners.iter() {
-            all_items.push((None, None, Some(spinner)));
-            s.end_time = s.end_time.max(spinner.end_time);
-        }
-        // sort
-        all_items.sort_by(|a, b| {
-            let a_time = match a {
-                (Some(note), None, None) => note.time,
-                (None, Some(slider), None) => slider.time,
-                (None, None, Some(spinner)) => spinner.time,
-                _ => 0.0
-            };
-            let b_time = match b {
-                (Some(note), None, None) => note.time,
-                (None, Some(slider), None) => slider.time,
-                (None, None, Some(spinner)) => spinner.time,
-                _ => 0.0
-            };
-
-            a_time.partial_cmp(&b_time).unwrap()
-        });
-
-
-        // add notes
-        let mut combo_num = 0;
-        let mut combo_change = 0;
-        let combo_colors = [
-            Color::new(0.8, 0.0, 0.0, 1.0),
-            Color::new(0.8, 0.8, 0.0, 1.0),
-            Color::new(0.0, 0.8, 0.8, 1.0),
-            Color::new(0.0, 0.0, 0.8, 1.0)
-        ];
-
-        let end_time = s.end_time as f64;
-
-        let mut counter = 0;
-
-        for (note, slider, spinner) in all_items {
-            // check for new combo
-            if let Some(note) = note {if note.new_combo {combo_num = 0}}
-            if let Some(slider) = slider {if slider.new_combo {combo_num = 0}}
-            if let Some(_spinner) = spinner {combo_num = 0}
-
-            // if new combo, increment new combo counter
-            if combo_num == 0 {
-                combo_change += 1;
-                s.new_combos.push(counter);
-            }
-            // get color
-            let color = combo_colors[(combo_change - 1) % combo_colors.len()];
-            // update combo number
-            combo_num += 1;
-
-            if let Some(note) = note {
-                let depth = NOTE_DEPTH.start + (note.time as f64 / end_time) * NOTE_DEPTH.end;
-
-                s.notes.push(Box::new(StandardNote::new(
-                    note.clone(),
-                    ar,
-                    color,
-                    combo_num as u16,
-                    &scaling_helper,
-                    depth
-                )));
-            }
-            if let Some(slider) = slider {
-                
-                // invisible note
-                if slider.curve_points.len() == 0 || slider.length == 0.0 {
-                    let note = &NoteDef {
-                        pos: slider.pos,
-                        time: slider.time,
-                        hitsound: slider.hitsound,
-                        hitsamples: slider.hitsamples.clone(),
-                        new_combo: slider.new_combo,
-                        color_skip: slider.color_skip
-                    };
-
-                    let depth = NOTE_DEPTH.start + (note.time as f64 / end_time) * NOTE_DEPTH.end;
-                    s.notes.push(Box::new(StandardNote::new(
-                        note.clone(),
-                        ar,
-                        Color::new(0.0, 0.0, 0.0, 1.0),
-                        combo_num as u16,
-                        &scaling_helper,
-                        depth
-                    )));
-                } else {
-                    let slider_depth = SLIDER_DEPTH.start + (slider.time as f64 / end_time) * SLIDER_DEPTH.end;
-                    let depth = NOTE_DEPTH.start + (slider.time as f64 / end_time) * NOTE_DEPTH.end;
-
-                    let curve = get_curve(slider, &beatmap);
-                    s.notes.push(Box::new(StandardSlider::new(
-                        slider.clone(),
-                        curve,
-                        ar,
-                        color,
-                        combo_num as u16,
-                        scaling_helper.clone(),
-                        slider_depth,
-                        depth
-                    )))
+        match map {
+            Beatmap::None => todo!(),
+            Beatmap::Osu(beatmap) => {
+                let mut s = Self {
+                    notes: Vec::new(),
+                    mouse_pos:Vector2::zero(),
+                    window_mouse_pos:Vector2::zero(),
+        
+                    hold_count: 0,
+                    // note_index: 0,
+                    end_time: 0.0,
+        
+                    hitwindow_50: 0.0,
+                    hitwindow_100: 0.0,
+                    hitwindow_300: 0.0,
+                    hitwindow_miss: 0.0,
+                    draw_points: Vec::new(),
+        
+                    move_playfield: None,
+                    scaling_helper,
+                    cs: beatmap.metadata.cs,
+        
+                    key_counter: KeyCounter::new(
+                        vec![
+                            (KeyPress::Left, "L".to_owned()),
+                            (KeyPress::Right, "R".to_owned()),
+                            (KeyPress::LeftMouse, "M1".to_owned()),
+                            (KeyPress::RightMouse, "M2".to_owned()),
+                        ],
+                        Vector2::zero()
+                    ),
+        
+                    settings,
+                    auto_helper: StandardAutoHelper::new(),
+                    new_combos: Vec::new()
+                };
+        
+                // join notes and sliders into a single array
+                // needed because of combo counts
+                let mut all_items = Vec::new();
+                for note in beatmap.notes.iter() {
+                    all_items.push((Some(note), None, None));
+                    s.end_time = s.end_time.max(note.time);
                 }
-
-            }
-            if let Some(spinner) = spinner {
-                s.notes.push(Box::new(StandardSpinner::new(
-                    spinner.clone(),
-                    &scaling_helper
-                )))
-            }
-
-            counter += 1;
+                for slider in beatmap.sliders.iter() {
+                    all_items.push((None, Some(slider), None));
+        
+                    // can this be improved somehow?
+                    if slider.curve_points.len() == 0 || slider.length == 0.0 {
+                        s.end_time = s.end_time.max(slider.time);
+                    } else {
+                        let curve = get_curve(slider, &map);
+                        s.end_time = s.end_time.max(curve.end_time);
+                    }
+                }
+                for spinner in beatmap.spinners.iter() {
+                    all_items.push((None, None, Some(spinner)));
+                    s.end_time = s.end_time.max(spinner.end_time);
+                }
+                // sort
+                all_items.sort_by(|a, b| {
+                    let a_time = match a {
+                        (Some(note), None, None) => note.time,
+                        (None, Some(slider), None) => slider.time,
+                        (None, None, Some(spinner)) => spinner.time,
+                        _ => 0.0
+                    };
+                    let b_time = match b {
+                        (Some(note), None, None) => note.time,
+                        (None, Some(slider), None) => slider.time,
+                        (None, None, Some(spinner)) => spinner.time,
+                        _ => 0.0
+                    };
+        
+                    a_time.partial_cmp(&b_time).unwrap()
+                });
+        
+        
+                // add notes
+                let mut combo_num = 0;
+                let mut combo_change = 0;
+                let combo_colors = [
+                    Color::new(0.8, 0.0, 0.0, 1.0),
+                    Color::new(0.8, 0.8, 0.0, 1.0),
+                    Color::new(0.0, 0.8, 0.8, 1.0),
+                    Color::new(0.0, 0.0, 0.8, 1.0)
+                ];
+        
+                let end_time = s.end_time as f64;
+        
+                let mut counter = 0;
+        
+                for (note, slider, spinner) in all_items {
+                    // check for new combo
+                    if let Some(note) = note {if note.new_combo {combo_num = 0}}
+                    if let Some(slider) = slider {if slider.new_combo {combo_num = 0}}
+                    if let Some(_spinner) = spinner {combo_num = 0}
+        
+                    // if new combo, increment new combo counter
+                    if combo_num == 0 {
+                        combo_change += 1;
+                        s.new_combos.push(counter);
+                    }
+                    // get color
+                    let color = combo_colors[(combo_change - 1) % combo_colors.len()];
+                    // update combo number
+                    combo_num += 1;
+        
+                    if let Some(note) = note {
+                        let depth = NOTE_DEPTH.start + (note.time as f64 / end_time) * NOTE_DEPTH.end;
+        
+                        s.notes.push(Box::new(StandardNote::new(
+                            note.clone(),
+                            ar,
+                            color,
+                            combo_num as u16,
+                            &scaling_helper,
+                            depth
+                        )));
+                    }
+                    if let Some(slider) = slider {
+                        
+                        // invisible note
+                        if slider.curve_points.len() == 0 || slider.length == 0.0 {
+                            let note = &NoteDef {
+                                pos: slider.pos,
+                                time: slider.time,
+                                hitsound: slider.hitsound,
+                                hitsamples: slider.hitsamples.clone(),
+                                new_combo: slider.new_combo,
+                                color_skip: slider.color_skip
+                            };
+        
+                            let depth = NOTE_DEPTH.start + (note.time as f64 / end_time) * NOTE_DEPTH.end;
+                            s.notes.push(Box::new(StandardNote::new(
+                                note.clone(),
+                                ar,
+                                Color::new(0.0, 0.0, 0.0, 1.0),
+                                combo_num as u16,
+                                &scaling_helper,
+                                depth
+                            )));
+                        } else {
+                            let slider_depth = SLIDER_DEPTH.start + (slider.time as f64 / end_time) * SLIDER_DEPTH.end;
+                            let depth = NOTE_DEPTH.start + (slider.time as f64 / end_time) * NOTE_DEPTH.end;
+        
+                            let curve = get_curve(slider, &map);
+                            s.notes.push(Box::new(StandardSlider::new(
+                                slider.clone(),
+                                curve,
+                                ar,
+                                color,
+                                combo_num as u16,
+                                scaling_helper.clone(),
+                                slider_depth,
+                                depth
+                            )))
+                        }
+        
+                    }
+                    if let Some(spinner) = spinner {
+                        s.notes.push(Box::new(StandardSpinner::new(
+                            spinner.clone(),
+                            &scaling_helper
+                        )))
+                    }
+        
+                    counter += 1;
+                }
+        
+                // get the end time
+                // for n in s.notes.iter() {
+                //     s.end_time = s.end_time.max(n.end_time(0.0));
+                // }
+                s.end_time += 1000.0;
+        
+                s
+            },
+            Beatmap::Quaver(_) => todo!(),
+            Beatmap::Adofai(_) => todo!(),
         }
-
-        // get the end time
-        // for n in s.notes.iter() {
-        //     s.end_time = s.end_time.max(n.end_time(0.0));
-        // }
-        s.end_time += 1000.0;
-
-        s
     }
 
     fn handle_replay_frame(&mut self, frame:ReplayFrame, time:f32, manager:&mut IngameManager) {
@@ -628,7 +639,7 @@ impl GameMode for StandardGame {
         }
         
         // setup hitwindows
-        let od = beatmap.metadata.od;
+        let od = beatmap.get_beatmap_meta().od;
         self.hitwindow_miss = map_difficulty(od, 225.0, 175.0, 125.0); // idk
         self.hitwindow_50   = map_difficulty(od, 200.0, 150.0, 100.0);
         self.hitwindow_100  = map_difficulty(od, 140.0, 100.0, 60.0);
