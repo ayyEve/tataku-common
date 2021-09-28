@@ -1,11 +1,8 @@
 use std::{path::Path};
 
-use crate::{Vector2, beatmaps::common::{BeatmapMeta, TaikoRsBeatmap, TimingPoint}, render::Color};
 use super::hitobject_defs::*;
 use taiko_rs_common::types::PlayMode;
-
-/// timing bar color
-pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0);
+use crate::{Vector2, beatmaps::common::{BeatmapMeta, TaikoRsBeatmap, TimingPoint}};
 
 #[derive(Clone, Default)]
 pub struct OsuBeatmap {

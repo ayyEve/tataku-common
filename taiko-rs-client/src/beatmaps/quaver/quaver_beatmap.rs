@@ -69,6 +69,8 @@ impl TaikoRsBeatmap for QuaverBeatmap {
     }
 
     fn get_beatmap_meta(&self) -> crate::beatmaps::common::BeatmapMeta {
+        let cs:u8 = self.mode.into();
+        let cs = cs as f32;
         crate::beatmaps::common::BeatmapMeta { 
             file_path: self.path.clone(), 
             beatmap_hash: self.hash.clone(), 
@@ -88,7 +90,7 @@ impl TaikoRsBeatmap for QuaverBeatmap {
             secs: 0, 
             hp: 0.0, 
             od: 0.0, 
-            cs: 0.0, 
+            cs, 
             ar: 0.0, 
             slider_multiplier: 1.0, 
             slider_tick_rate: 1.0

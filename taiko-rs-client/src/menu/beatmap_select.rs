@@ -244,6 +244,14 @@ impl Menu<Game> for BeatmapSelectMenu {
     fn on_change(&mut self, into:bool) {
         if !into {return}
 
+        // play song if it exists
+        if let Some(song) = Audio::get_song() {
+            // reset any time mods
+            song.set_playback_speed(1.0);
+            // play
+            song.play();
+        }
+
         // load maps
         self.refresh_maps();
         self.beatmap_scroll.refresh_layout();
