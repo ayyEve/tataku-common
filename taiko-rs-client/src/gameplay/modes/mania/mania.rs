@@ -171,7 +171,61 @@ impl GameMode for ManiaGame {
                 
                 s
             },
-            Beatmap::Quaver(_) => todo!(),
+            Beatmap::Quaver(beatmap) => {
+                let mut s = Self {
+                    columns: Vec::new(),
+                    column_indices:Vec::new(),
+                    column_states: Vec::new(),
+        
+                    timing_bars: Vec::new(),
+                    timing_point_index: 0,
+                    end_time: 0.0,
+        
+                    hitwindow_100: 0.0,
+                    hitwindow_300: 0.0,
+                    hitwindow_miss: 0.0,
+        
+                    column_count: beatmap.mode.into(),
+                    auto_helper: ManiaAutoHelper::new()
+                };
+                println!("got {} columns", s.column_count);
+                
+                // init defaults for the columsn
+                for _col in 0..s.column_count {
+                    s.columns.push(Vec::new());
+                    s.column_indices.push(0);
+                    s.column_states.push(false);
+                }
+
+                // add notes
+                for note in beatmap.hit_objects.iter() {
+                    let column = note.lane - 1;
+                    let time = note.start_time;
+                    let x = s.col_pos(column);
+
+                    if let Some(end_time) = note.end_time {
+                        s.columns[column as usize].push(Box::new(ManiaHold::new(
+                            time,
+                            end_time,
+                            x
+                        )));
+                    } else {
+                        s.columns[column as usize].push(Box::new(ManiaNote::new(
+                            time,
+                            x
+                        )));
+                    }
+                }
+        
+                for col in s.columns.iter_mut() {
+                    col.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
+                    if let Some(last_note) = col.iter().last() {
+                        s.end_time = s.end_time.max(last_note.time());
+                    }
+                }
+                
+                s
+            },
             Beatmap::Adofai(_) => todo!(),
             Beatmap::None => todo!(),
         }

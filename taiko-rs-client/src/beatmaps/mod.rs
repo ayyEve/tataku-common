@@ -1,15 +1,12 @@
 use std::path::Path;
 
 use crate::errors::{BeatmapError, TaikoError, TaikoResult};
-
-use self::{common::{BeatmapMeta, TaikoRsBeatmap, TimingPoint}, osu::OsuBeatmap};
+use self::{common::{BeatmapMeta, TaikoRsBeatmap, TimingPoint}, osu::OsuBeatmap, quaver::QuaverBeatmap};
 
 pub mod osu;
 pub mod quaver;
 pub mod common;
 pub mod adofai;
-
-
 
 
 pub enum Beatmap {
@@ -27,9 +24,9 @@ impl Beatmap {
         let path = path.as_ref();
         if path.extension().is_none() {return Err(TaikoError::Beatmap(BeatmapError::InvalidFile))}
         
-        
         match path.extension().unwrap().to_str().unwrap() {
             "osu" => Ok(Beatmap::Osu(OsuBeatmap::load(path.to_str().unwrap().to_owned()))),
+            "qua" => Ok(Beatmap::Quaver(QuaverBeatmap::load(path.to_str().unwrap().to_owned()))),
             
             _ => Err(TaikoError::Beatmap(BeatmapError::InvalidFile)),
         }
@@ -42,16 +39,13 @@ impl Beatmap {
 impl Default for Beatmap {
     fn default() -> Self {Beatmap::None}
 }
-
-
-
 impl TaikoRsBeatmap for Beatmap {
     fn hash(&self) -> String {
         match self {
             Beatmap::None => todo!(),
             Beatmap::Osu(map) => map.hash(),
-            Beatmap::Quaver(_) => todo!(),
-            Beatmap::Adofai(_) => todo!(),
+            Beatmap::Quaver(map) => map.hash(),
+            Beatmap::Adofai(_map) => todo!(),
         }
     }
 
@@ -59,8 +53,8 @@ impl TaikoRsBeatmap for Beatmap {
         match self {
             Beatmap::None => todo!(),
             Beatmap::Osu(map) => map.get_timing_points(),
-            Beatmap::Quaver(_) => todo!(),
-            Beatmap::Adofai(_) => todo!(),
+            Beatmap::Quaver(map) => map.get_timing_points(),
+            Beatmap::Adofai(_map) => todo!(),
         }
     }
 
@@ -68,8 +62,8 @@ impl TaikoRsBeatmap for Beatmap {
         match self {
             Beatmap::None => todo!(),
             Beatmap::Osu(map) => map.get_beatmap_meta(),
-            Beatmap::Quaver(_) => todo!(),
-            Beatmap::Adofai(_) => todo!(),
+            Beatmap::Quaver(map) => map.get_beatmap_meta(),
+            Beatmap::Adofai(_map) => todo!(),
         }
     }
 
@@ -77,8 +71,8 @@ impl TaikoRsBeatmap for Beatmap {
         match self {
             Beatmap::None => todo!(),
             Beatmap::Osu(map) => map.playmode(incoming),
-            Beatmap::Quaver(_) => todo!(),
-            Beatmap::Adofai(_) => todo!(),
+            Beatmap::Quaver(map) => map.playmode(incoming),
+            Beatmap::Adofai(_map) => todo!(),
         }
     }
 
@@ -86,8 +80,8 @@ impl TaikoRsBeatmap for Beatmap {
         match self {
             Beatmap::None => todo!(),
             Beatmap::Osu(map) => map.slider_velocity_at(time),
-            Beatmap::Quaver(_) => todo!(),
-            Beatmap::Adofai(_) => todo!(),
+            Beatmap::Quaver(map) => map.slider_velocity_at(time),
+            Beatmap::Adofai(_map) => todo!(),
         }
     }
 
@@ -95,8 +89,8 @@ impl TaikoRsBeatmap for Beatmap {
         match self {
             Beatmap::None => todo!(),
             Beatmap::Osu(map) => map.beat_length_at(time, allow_multiplier),
-            Beatmap::Quaver(_) => todo!(),
-            Beatmap::Adofai(_) => todo!(),
+            Beatmap::Quaver(map) => map.beat_length_at(time, allow_multiplier),
+            Beatmap::Adofai(_map) => todo!(),
         }
     }
 
@@ -104,8 +98,8 @@ impl TaikoRsBeatmap for Beatmap {
         match self {
             Beatmap::None => todo!(),
             Beatmap::Osu(map) => map.control_point_at(time),
-            Beatmap::Quaver(_) => todo!(),
-            Beatmap::Adofai(_) => todo!(),
+            Beatmap::Quaver(map) => map.control_point_at(time),
+            Beatmap::Adofai(_map) => todo!(),
         }
     }
 }

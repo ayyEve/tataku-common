@@ -288,8 +288,7 @@ impl OsuBeatmap {
 impl TaikoRsBeatmap for OsuBeatmap {
     fn hash(&self) -> String {self.hash.clone()}
     fn get_timing_points(&self) -> Vec<crate::beatmaps::common::TimingPoint> {
-        self
-            .timing_points
+        self.timing_points
             .iter()
             .map(|t|t.clone().into())
             .collect()
@@ -423,8 +422,8 @@ impl OsuTimingPoint {
     }
     
     pub fn bpm_multiplier(&self) -> f32 {
-        if self.beat_length > 0.0 {1.0}
-        else {(-self.beat_length as f32).clamp(10.0, 1000.0) / 100.0}
+        if !self.is_inherited() {1.0}
+        else {self.beat_length.abs().clamp(10.0, 1000.0) / 100.0}
     }
 }
 impl Into<crate::beatmaps::common::TimingPoint> for OsuTimingPoint {
