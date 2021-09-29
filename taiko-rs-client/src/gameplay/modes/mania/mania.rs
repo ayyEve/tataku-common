@@ -92,7 +92,6 @@ impl GameMode for ManiaGame {
 
         match beatmap {
             Beatmap::Osu(beatmap) => {
-
                 let mut s = Self {
                     columns: Vec::new(),
                     column_indices:Vec::new(),
@@ -188,7 +187,6 @@ impl GameMode for ManiaGame {
                     column_count: beatmap.mode.into(),
                     auto_helper: ManiaAutoHelper::new()
                 };
-                println!("got {} columns", s.column_count);
                 
                 // init defaults for the columsn
                 for _col in 0..s.column_count {
