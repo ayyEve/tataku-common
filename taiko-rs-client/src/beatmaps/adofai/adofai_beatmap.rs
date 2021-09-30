@@ -62,20 +62,6 @@ impl AdofaiBeatmap {
             let prev_len = char2beat(last_char);
             let note_len = char2beat(*char);
 
-            let diff = match current_direction {
-                Clockwise => note_len - prev_len, 
-                CounterClockwise => prev_len - note_len
-            };
-            let beat = current_beatlength * ((3.0 + diff) % 2.0);
-            current_time += beat;
-
-            // println!("line: {} -> {}, {} -> {} = {}/{}/{} ",  last_char, char, prev_len, note_len, diff, (1.0 + diff) % 2.0, beat);
-
-            let note = AdofaiNoteDef {
-                time: current_time,
-                direction: *char
-            };
-
             // look through events to find bpm change or direciton change
             for a in map.actions.iter() {
                 if a.floor != num as u8 {continue}
@@ -87,6 +73,22 @@ impl AdofaiBeatmap {
                     };
                 }
             }
+            
+            let diff = match current_direction {
+                Clockwise => note_len - prev_len, 
+                CounterClockwise => prev_len - note_len
+            };
+            let beat = current_beatlength * ((3.0 + diff) % 2.0);
+            current_time += beat;
+
+            println!("{:?}: {} -> {}, {} -> {} = {}/{}/{} ", current_direction, last_char, char, prev_len, note_len, diff, (1.0 + diff) % 2.0, beat);
+
+
+            // add note
+            let note = AdofaiNoteDef {
+                time: current_time,
+                direction: *char
+            };
 
             last_char = *char;
             map.notes.push(note)
@@ -220,6 +222,8 @@ pub struct AdofaiNoteDef {
     pub direction: char
 }
 
+
+#[derive(Copy, Clone, Debug)]
 pub enum AdofaiRotation {
     Clockwise,
     CounterClockwise
