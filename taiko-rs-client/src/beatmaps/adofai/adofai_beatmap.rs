@@ -64,16 +64,15 @@ impl AdofaiBeatmap {
 
             // look through events to find bpm change or direciton change
             for a in map.actions.iter() {
-                if a.floor != num as u8 {continue}
+                if a.floor != num as u32 {continue}
                 if let AdofaiEventType::Twirl = a.event_type {
-                    println!("got twirl tile: {}", num);
                     current_direction = match current_direction {
                         Clockwise => CounterClockwise, 
                         CounterClockwise => Clockwise
                     };
                 }
             }
-            
+
             let diff = match current_direction {
                 Clockwise => note_len - prev_len, 
                 CounterClockwise => prev_len - note_len
@@ -309,7 +308,7 @@ pub struct AdofaiMapSettings {
 #[derive(Deserialize)]
 #[serde(rename_all="camelCase")]
 pub struct AdofaiAction {
-    floor: u8,
+    floor: u32,
     event_type: AdofaiEventType,
 
     // for RepeatEvents event
@@ -335,7 +334,9 @@ pub enum AdofaiEventType {
     SetPlanetRotation,
     SetSpeed,
     MoveCamera,
-    MoveTrack
+    MoveTrack,
+    RecolorTrack,
+    Flash,
 }
 
 
