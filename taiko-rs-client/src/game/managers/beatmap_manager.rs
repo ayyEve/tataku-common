@@ -79,7 +79,7 @@ impl BeatmapManager {
             let file = file.unwrap().path();
             let file = file.to_str().unwrap();
 
-            if file.ends_with(".osu") || file.ends_with(".qua") {
+            if file.ends_with(".osu") || file.ends_with(".qua") || file.ends_with(".adofai") {
                 // check file paths first
                 for i in self.beatmaps.iter() {
                     if i.file_path == file {

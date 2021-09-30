@@ -32,7 +32,8 @@ pub fn manager_from_playmode(mut playmode: PlayMode, beatmap: &BeatmapMeta) -> I
                 Catch => Box::new(catch::CatchGame::new(&beatmap)),
                 Mania => Box::new(mania::ManiaGame::new(&beatmap)),
 
-                Adofai => todo!(),
+                //TODO
+                Adofai => Box::new(taiko::TaikoGame::new(&beatmap)),
             };
             IngameManager::new(beatmap, gamemode)
         },

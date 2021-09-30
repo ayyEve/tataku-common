@@ -59,8 +59,8 @@ impl GameMode for TaikoGame {
 
         match beatmap {
             Beatmap::None => todo!(),
+            Beatmap::Quaver(_) => todo!(),
             Beatmap::Osu(beatmap) => {
-                        
                 let mut s = Self {
                     notes: Vec::new(),
                     note_index: 0,
@@ -162,8 +162,41 @@ impl GameMode for TaikoGame {
 
                 s
             },
-            Beatmap::Quaver(_) => todo!(),
-            Beatmap::Adofai(_) => todo!(),
+            Beatmap::Adofai(beatmap) => {
+                
+                let mut s = Self {
+                    notes: Vec::new(),
+                    note_index: 0,
+
+                    timing_bars: Vec::new(),
+                    timing_point_index: 0,
+                    end_time: 0.0,
+
+                    hitwindow_100: 0.0,
+                    hitwindow_300: 0.0,
+                    hitwindow_miss: 0.0,
+
+                    render_queue: Vec::new(),
+                    auto_helper: TaikoAutoHelper::new()
+                };
+
+                // add notes
+                for note in beatmap.notes.iter() {
+                    let hit_type = super::HitType::Don;
+
+                    let note = Box::new(TaikoNote::new(
+                        note.time,
+                        hit_type,
+                        false
+                    ));
+                    s.notes.push(note);
+                }
+
+                s.notes.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
+                s.end_time = s.notes.iter().last().unwrap().time();
+
+                s
+            },
         }
     }
 
