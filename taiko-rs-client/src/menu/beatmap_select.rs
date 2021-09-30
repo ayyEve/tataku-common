@@ -285,7 +285,6 @@ impl Menu<Game> for BeatmapSelectMenu {
         // check if beatmap item was clicked
         if let Some(clicked_hash) = self.beatmap_scroll.on_click_tagged(pos, button, mods) {
             let mut lock = BEATMAP_MANAGER.lock();
-            println!("clicked: {}", clicked_hash);
 
             // compare last clicked map hash with the new hash.
             // if the hashes are the same, the same map was clicked twice in a row.
