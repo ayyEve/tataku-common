@@ -33,7 +33,7 @@ impl AdofaiBeatmap {
         let file_contents = std::fs::read_to_string(&path).unwrap();
 
         let allowed_chars = [
-            '"', '[',']', ':', '{', '}', '\\', '/', '\'', ',', '\n', ' ', '_', '.', '-'
+            '"', '[',']', ':', '{', '}', '\\', '/', '\'', ',', '\n', ' ', '_', '.', '-', '!'
         ];
 
         let file_contents:String = file_contents.chars().filter(|c|c.is_alphanumeric() || allowed_chars.contains(&c)).collect();
@@ -80,17 +80,20 @@ impl AdofaiBeatmap {
             let beat = current_beatlength * ((3.0 + diff) % 2.0);
             current_time += beat;
 
-            println!("{:?}: {} -> {}, {} -> {} = {}/{}/{} ", current_direction, last_char, char, prev_len, note_len, diff, (1.0 + diff) % 2.0, beat);
+            // println!("{:?}: {} -> {}, {} -> {} = {}/{}/{} ", current_direction, last_char, char, prev_len, note_len, diff, (1.0 + diff) % 2.0, beat);
 
+            if *char == '!' {
+                continue;
+            }
 
             // add note
             let note = AdofaiNoteDef {
                 time: current_time,
                 direction: *char
             };
+            map.notes.push(note);
 
             last_char = *char;
-            map.notes.push(note)
         }
 
 
@@ -199,18 +202,28 @@ impl TaikoRsBeatmap for AdofaiBeatmap {
 
 fn char2beat(c:char) -> f32 {
     match c {
-        'R' => 0.0, // 1/1
-        'C' => 0.25, // 1/4
-        'D' => 0.5, // 1/2
-        'Z' => 0.75, // 3/4
-        'L' => 1.0, // 1/1 but backwards
-        'Q' => 1.25, // 
-        'U' => 1.5, 
-        'E' => 1.75,
-        // more directions here
+        '!' => -1.0, // hold, 8/8
+        'R' => 0.0, // 8/8
+        'M' => 0.128, // 1/8
+        'C' => 0.25, // 2/8
+        'B' => 0.375, // 3/8
+        'D' => 0.5, // 4/8
+        'V' => 0.625, // 5/8
+        'Z' => 0.75, // 6/8
+        'N' => 0.875, // 7/8
+        'L' => 1.0, // 8/8 but backwards
+        'H' => 1.125, // 9/8
+        'Q' => 1.25, // 10/8
+        'T' => 1.375, // 11/8
+        'U' => 1.5, // 12/8
+        'Y' => 1.625, // 13/8
+        'E' => 1.75, // 14/8
+        'J' => 1.875, // 15/8
 
-        'B' => 3.0/8.0, // 3 8ths
-        _ => 0.0
+        _ => {
+            println!("unknown char '{}'", &c);
+            0.0
+        }
     }
 }
 
@@ -302,9 +315,6 @@ pub struct AdofaiMapSettings {
     legacy_flash: bool
 }
 
-
-
-
 #[derive(Deserialize)]
 #[serde(rename_all="camelCase")]
 pub struct AdofaiAction {
@@ -323,7 +333,6 @@ pub struct AdofaiAction {
     bpm_multiplier: Option<f32>
 }
 
-
 #[derive(Deserialize, Copy, Clone)]
 pub enum AdofaiEventType {
     Twirl,
@@ -335,10 +344,19 @@ pub enum AdofaiEventType {
     SetSpeed,
     MoveCamera,
     MoveTrack,
-    RecolorTrack,
     Flash,
-}
+    SetFilter,
+    Bloom,
+    PositionTrack,
+    ShakeScreen,
 
+    AddDecoration,
+    MoveDecorations,
+
+    ColorTrack,
+    RecolorTrack,
+    AnimateTrack,
+}
 
 #[derive(Deserialize)]
 pub enum Enabled {
