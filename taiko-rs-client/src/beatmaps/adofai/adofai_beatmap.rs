@@ -37,7 +37,11 @@ impl AdofaiBeatmap {
         ];
 
         let file_contents:String = file_contents.chars().filter(|c|c.is_alphanumeric() || allowed_chars.contains(&c)).collect();
-        let mut map:AdofaiBeatmap = serde_json::from_str(&file_contents).unwrap();
+
+        let mut map:AdofaiBeatmap = match serde_json::from_str(&file_contents) {
+            Ok(m) => m,
+            Err(e) => panic!("error reading adofai map '{}': {}", path, e),
+        };
 
         map.hash = crate::helpers::io::get_file_hash(&path).unwrap();
         map.file_path = path.clone();
