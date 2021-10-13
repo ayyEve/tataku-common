@@ -22,8 +22,6 @@ pub enum PacketId {
     // chat
     Client_SendMessage, // sender_id, channel_id, message
     Server_SendMessage, // sender_id, channel_id, message
-    Client_PrivateMessage, // receiver_id, message
-    Server_PrivateMessage, // sender_id, message
 
     // spectator?
     Client_Spectate, // user_id to spectate

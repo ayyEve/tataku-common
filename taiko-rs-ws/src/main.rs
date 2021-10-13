@@ -138,6 +138,9 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
             PacketId::Client_StatusUpdate => {
                 let action: UserAction = reader.read();
                 let action_text = reader.read_string();
+
+                println!("Got Status: {0} : {1}", u16::from(action), action_text);
+
                 let user_id = user_connection.user_id;
                 
                 // update everyone
@@ -154,10 +157,31 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
             }
 
             // chat messages
-            // todo!
+            PacketId::Client_SendMessage => {
+                let userid = user_connection.user_id.clone();
+                let message = reader.read_string();
+                let channel = reader.read_string();
+
+                println!("Got message {} from {} in channel {}", message, user_connection.username, channel);
+
+                let p = Message::Binary(SimpleWriter::new()
+                    .write(PacketId::Server_SendMessage)
+                    .write(userid)
+                    .write(message)
+                    .write(channel).done());
+
+                for (i_addr, user) in peer_map.lock().await.iter() {
+                    if i_addr == addr {
+                        let _ = writer.send(p.clone()).await;
+                    
+                        continue
+                    }
+
+                    let _ = user.writer.lock().await.send(p.clone()).await;
+                }
+            }
 
             // spectator?
-            
 
             // multiplayer?
 
