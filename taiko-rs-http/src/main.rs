@@ -5,7 +5,7 @@ use taiko_rs_common::{serialization::SerializationReader, types::Score};
 
 #[get("/")]
 fn index() -> &'static str {
-    "Hello, world!"
+    "How did you get here?"
 }
 
 #[post("/score_submit", data = "<data>")]
