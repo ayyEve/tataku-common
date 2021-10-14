@@ -13,7 +13,7 @@ use tokio_tungstenite::{WebSocketStream, accept_async, tungstenite::protocol::Me
 
 use taiko_rs_common::serialization::*;
 use taiko_rs_common::packets::PacketId;
-use taiko_rs_common::types::UserAction;
+use taiko_rs_common::types::{PlayMode, UserAction};
 
 type WsWriter = SplitSink<WebSocketStream<TcpStream>, Message>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, UserConnection>>>;
@@ -138,6 +138,7 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
             PacketId::Client_StatusUpdate => {
                 let action: UserAction = reader.read();
                 let action_text = reader.read_string();
+                let mode: PlayMode = reader.read();
 
                 println!("Got Status: {0} : {1}", u16::from(action), action_text);
 
@@ -149,6 +150,7 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                     .write(user_id)
                     .write(action)
                     .write(action_text)
+                    .write(mode)
                     .done());
                 for (i_addr, user) in peer_map.lock().await.iter() {
                     if i_addr == addr {continue}
