@@ -9,3 +9,4 @@ edition = "2018"
 taiko-rs-common = {path="../taiko-rs-common"}
 
 rocket = "0.5.0-rc.1"
+lazy_static = "1.4.0"
