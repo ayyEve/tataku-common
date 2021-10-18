@@ -11,3 +11,4 @@ taiko-rs-common = {path="../taiko-rs-common"}
 futures-util = { version = "0.3", default-features = false, features = ["async-await", "sink", "std"] }
 tokio = { version = "1.7.1", features = ["full"] }
 tokio-tungstenite = "0.15.0"
+sea-orm = { version = "0.2", features = [ "sqlx-postgres", "runtime-tokio-rustls" ] }

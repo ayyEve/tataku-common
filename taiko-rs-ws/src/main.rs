@@ -7,9 +7,10 @@ use std::{
     sync::Arc,
 };
 
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, OnceCell};
 use tokio::net::{TcpListener, TcpStream};
 use futures_util::{SinkExt, StreamExt, stream::SplitSink};
+use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, Set, Statement, Unset, Value, FromQueryResult};
 use tokio_tungstenite::{WebSocketStream, accept_async, tungstenite::protocol::Message};
 
 use taiko_rs_common::serialization::*;
@@ -19,6 +20,13 @@ use taiko_rs_common::types::{PlayMode, UserAction};
 type WsWriter = SplitSink<WebSocketStream<TcpStream>, Message>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, UserConnection>>>;
 
+mod message_history_table;
+
+pub use message_history_table::Entity as MessageHistory;
+pub use message_history_table::Model as MessageHistoryModel;
+pub use message_history_table::ActiveModel as MessageHistoryActiveModel;
+
+pub static DATABASE:OnceCell<DatabaseConnection> = OnceCell::const_new();
 
 #[tokio::main]
 async fn main() -> Result<(), IoError> {
@@ -31,6 +39,7 @@ async fn main() -> Result<(), IoError> {
     let listener = try_socket.expect("Failed to bind");
     println!("Listening on: {}", addr);
 
+    //#region bot account
     //Create a new bot account
     let bot = UserConnection::new_bot("Bot".to_owned());
     let bot = Arc::new(Mutex::new(bot));
@@ -40,6 +49,15 @@ async fn main() -> Result<(), IoError> {
         .lock()
         .await
         .insert(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 0)), bot.lock().await.to_owned());
+    //#endregion
+
+    //#region database connection
+    let db = sea_orm::Database::connect("postgres://taiko-rs:uwu@192.168.0.201:5434/taiko-rs")
+        .await
+        .expect("Error connecting to database");
+
+    DATABASE.set(db).unwrap();
+    //#endregion
 
     // Let's spawn the handling of each connection in a separate task.
     while let Ok((stream, addr)) = listener.accept().await {
@@ -178,9 +196,9 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 let user_id = user_connection.user_id;
                 println!("user logging out: {}", user_id);
                 
-                
                 // tell everyone we left
                 let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserLeft).write(user_id).done());
+
                 for (i_addr, user) in peer_map.lock().await.iter() {
                     if i_addr == addr {continue}
                     
@@ -211,11 +229,12 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                     .write(action_text)
                     .write(mode)
                     .done());
+
                 for (i_addr, user) in peer_map.lock().await.iter() {
                     if i_addr == addr {continue}
 
                     match &user.writer {
-                        Some(writer) => { 
+                        Some(writer) => {
                             let _ = writer.lock().await.send(p.clone()).await; 
                         },
                         
@@ -282,6 +301,20 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                         "That user/channel is not online or does not exist".to_owned(),
                         user_connection.username.clone()
                     )).await;
+                } else {
+                    //Add to the message history
+                    if channel.starts_with("#") {
+                        let message_history_entry: MessageHistoryActiveModel = MessageHistoryActiveModel {
+                            userid: Set(userid as i64),
+                            channel: Set(channel.clone()),
+                            contents: Set(message.clone()),
+                            ..Default::default()
+                        };
+
+                        let _ = message_history_entry.insert(DATABASE.get().unwrap()).await.unwrap();
+                    }
+
+                    println!("[{}] {}: {}", channel, user_connection.username, message);
                 }
             }
 
