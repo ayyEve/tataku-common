@@ -108,6 +108,14 @@ async fn handle_connection(bot_account: Arc<Mutex<UserConnection>>, peer_map: Pe
     }
 }
 
+fn create_server_send_message_packet(id: u32, message: String, channel: String) -> Message {
+    Message::Binary(SimpleWriter::new()
+        .write(PacketId::Server_SendMessage)
+        .write(id)
+        .write(message)
+        .write(channel).done())
+}
+
 async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &PeerMap, addr: &SocketAddr) {
     let user_connection = peer_map.lock().await.get(addr).unwrap().clone();
     let mut reader = SerializationReader::new(data);
@@ -222,36 +230,33 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 let message = reader.read_string();
                 let channel = reader.read_string();
 
-                //Makes sure we dont send a message to ourselves
+                //Makes sure we dont send a message to ourselves, that would be silly
                 if channel == user_connection.username {
-                    let p = Message::Binary(SimpleWriter::new()
-                        .write(PacketId::Server_SendMessage)
-                        .write(bot_account.user_id)
-                        .write("You cant send a message to yourself silly!".to_owned())
-                        .write(user_connection.username.clone()).done());
-
-                    let _ = writer.send(p.clone()).await;
+                    let _ = writer.send(create_server_send_message_packet(
+                        bot_account.user_id,
+                        "You cant send a message to yourself silly!".to_owned(),
+                        user_connection.username.clone()
+                    )).await;
 
                     return
                 }
 
-                println!("Got message {} from {} in channel {}", message, user_connection.username, channel);
-
-                let p = Message::Binary(SimpleWriter::new()
-                    .write(PacketId::Server_SendMessage)
-                    .write(userid)
-                    .write(message)
-                    .write(channel.clone()).done());
+                //Create the packet to send to all clients
+                let p = create_server_send_message_packet(
+                    userid, message.clone(), channel.clone()
+                );
 
                 let mut did_send = false;
 
                 for (i_addr, user) in peer_map.lock().await.iter() {
+                    //Send the message to ourselves without any more checks
                     if i_addr == addr {
                         let _ = writer.send(p.clone()).await;
                     
                         continue
                     }
 
+                    //If this is a DM and the current iter user is not the recipient, then skip
                     if !channel.starts_with("#") {
                         if user.username != channel {
                             continue;
@@ -260,23 +265,23 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
 
                     did_send = true;
 
+                    //Send the message to all clients
                     match &user.writer {
                         Some(writer) => { 
-                            let _ = writer.lock().await.send(p.clone()).await; 
+                            let _ = writer.lock().await.send(p.clone()).await;
                         },
                         
                         None => ()
                     };
                 }
 
+                //Tell the user that the message was not delivered
                 if !did_send {
-                    let p = Message::Binary(SimpleWriter::new()
-                        .write(PacketId::Server_SendMessage)
-                        .write(bot_account.user_id)
-                        .write("That user/channel is not online or does not exist".to_owned())
-                        .write(user_connection.username.clone()).done());
-
-                    let _ = writer.send(p.clone()).await;
+                    let _ = writer.send(create_server_send_message_packet(
+                        bot_account.user_id,
+                        "That user/channel is not online or does not exist".to_owned(),
+                        user_connection.username.clone()
+                    )).await;
                 }
             }
 
