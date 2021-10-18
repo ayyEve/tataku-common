@@ -1,3 +1,4 @@
+use std::net::{Ipv4Addr, SocketAddrV4};
 use std::{
     collections::HashMap,
     env,
@@ -30,6 +31,15 @@ async fn main() -> Result<(), IoError> {
     let listener = try_socket.expect("Failed to bind");
     println!("Listening on: {}", addr);
 
+    //Create a new bot account
+    let bot = UserConnection::new_bot("Bot".to_owned());
+
+    //Add the bot account
+    state
+        .lock()
+        .await
+        .insert(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 0)), bot);
+
     // Let's spawn the handling of each connection in a separate task.
     while let Ok((stream, addr)) = listener.accept().await {
         tokio::spawn(handle_connection(state.clone(), stream, addr));
@@ -51,6 +61,20 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
             while let Some(message) = reader.next().await {
                 match message {
                     Ok(Message::Binary(data)) => handle_packet(data, &peer_map, &addr).await,
+                    Ok(Message::Close(close_frame)) => {
+                        let close_reason;
+
+                        match close_frame {
+                            Some(close_frame) => {
+                                close_reason = close_frame.reason.to_string();
+                            },
+                            None => {
+                                close_reason = "Close frame not found".to_owned();
+                            }
+                        }
+
+                        println!("Connection closed: {}", close_reason);
+                    }
                     Ok(message) => println!("got something else: {:?}", message),
 
                     Err(oof) => {
@@ -63,7 +87,13 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
                         
                         for (_, other) in peer_map.lock().await.iter() {
                             if user.user_id == other.user_id {continue}
-                            let _ = other.writer.lock().await.send(p.clone()).await;
+                            match &other.writer {
+                                Some(writer) => { 
+                                    let _ = writer.lock().await.send(p.clone()).await; 
+                                },
+                                
+                                None => ()
+                            }
                         }
 
                         peer_map.lock().await.remove(&addr);
@@ -80,7 +110,9 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
 async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
     let user_connection = peer_map.lock().await.get(addr).unwrap().clone();
     let mut reader = SerializationReader::new(data);
-    let mut writer = user_connection.writer.lock().await;
+
+    let writer = user_connection.writer.expect("We are somehow a bot? this socket doesnt even exist");
+    let mut writer = writer.lock().await;
 
     while reader.can_read() {
         let raw_id:u16 = reader.read();
@@ -105,17 +137,27 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                     u.username = username.clone();
                 }
 
-                // send response
-                writer.send(Message::Binary(SimpleWriter::new().write(PacketId::Server_LoginResponse).write(user_id as i32).done())).await.expect("poop");
+                // Send the login response packet
+                writer.send(
+                    Message::Binary(SimpleWriter::new().write(PacketId::Server_LoginResponse).write(user_id as i32).done()
+                )).await.expect("poop");
                 
                 // tell everyone we joined
                 let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserJoined).write(user_id as i32).write(username.clone()).done());
                 
                 for (i_addr, user) in peer_map.lock().await.iter() {
                     if i_addr == addr {continue}
-                    let _ = user.writer.lock().await.send(p.clone()).await;
 
-                    // tell the new user this user exists
+                    //Send all the existing users about the new user
+                    match &user.writer {
+                        Some(writer) => { 
+                            let _ = writer.lock().await.send(p.clone()).await; 
+                        },
+                        
+                        None => ()
+                    };
+
+                    // Tell the user that just joined about all the other users
                     let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserJoined).write(user.user_id).write(user.username.clone()).done());
                     writer.send(p).await.expect("ono");
                 }
@@ -123,15 +165,23 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
 
             // client statuses
             PacketId::Client_LogOut => {
+                //userid
                 let user_id = user_connection.user_id;
                 println!("user logging out: {}", user_id);
                 
+                
                 // tell everyone we left
                 let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserLeft).write(user_id).done());
-                
                 for (i_addr, user) in peer_map.lock().await.iter() {
                     if i_addr == addr {continue}
-                    let _ = user.writer.lock().await.send(p.clone()).await;
+                    
+                    match &user.writer {
+                        Some(writer) => { 
+                            let _ = writer.lock().await.send(p.clone()).await; 
+                        },
+                        
+                        None => ()
+                    };
                 }
             }   
 
@@ -144,7 +194,7 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
 
                 let user_id = user_connection.user_id;
                 
-                // update everyone
+                // update everyone with the new user info
                 let p = Message::Binary(SimpleWriter::new()
                     .write(PacketId::Server_UserStatusUpdate)
                     .write(user_id)
@@ -154,7 +204,14 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                     .done());
                 for (i_addr, user) in peer_map.lock().await.iter() {
                     if i_addr == addr {continue}
-                    let _ = user.writer.lock().await.send(p.clone()).await;
+
+                    match &user.writer {
+                        Some(writer) => { 
+                            let _ = writer.lock().await.send(p.clone()).await; 
+                        },
+                        
+                        None => ()
+                    };
                 }
             }
 
@@ -170,7 +227,7 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                     .write(PacketId::Server_SendMessage)
                     .write(userid)
                     .write(message)
-                    .write(channel).done());
+                    .write(channel.clone()).done());
 
                 for (i_addr, user) in peer_map.lock().await.iter() {
                     if i_addr == addr {
@@ -179,7 +236,19 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                         continue
                     }
 
-                    let _ = user.writer.lock().await.send(p.clone()).await;
+                    if !channel.starts_with("#") {
+                        if user.username != channel {
+                            continue;
+                        }
+                    }
+
+                    match &user.writer {
+                        Some(writer) => { 
+                            let _ = writer.lock().await.send(p.clone()).await; 
+                        },
+                        
+                        None => ()
+                    };
                 }
             }
 
@@ -202,40 +271,30 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
 
 #[derive(Clone)]
 struct UserConnection {
+    pub bot: bool,
     pub user_id: u32,
     pub username: String,
 
-    pub writer: Arc<Mutex<WsWriter>>,
+    pub writer: Option<Arc<Mutex<WsWriter>>>,
 }
 impl UserConnection {
-    pub fn new(writer:Arc<Mutex<WsWriter>>) -> Self {
-
+    pub fn new_bot(bot: String) -> Self {
         Self {
+            bot: true,
+            user_id: u32::MAX,
+            username: bot,
+
+            writer: None
+        }
+    }
+
+    pub fn new(writer:Arc<Mutex<WsWriter>>) -> Self {
+        Self {
+            bot: false,
             user_id: 0,
             username: String::new(),
 
-            writer
+            writer: Some(writer)
         }
     }
 }
-
-// use std::{io::prelude::*, net::{TcpListener, TcpStream}};
-
-// fn main_tcp() {
-//     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
-//     listener.set_nonblocking(true).expect("oof");
-//     let mut list = Vec::new();
-
-//     for stream in listener.incoming() {
-//         match stream {
-//             Ok(stream) => {
-//                 list.push(stream);
-//             }
-//             Err(e) => {}
-//         }
-
-//         for i in list.as_mut_slice() {
-//             i.write("tacos are yum".as_bytes()).expect("oof2");
-//         }
-//     }
-// }
