@@ -33,22 +33,23 @@ async fn main() -> Result<(), IoError> {
 
     //Create a new bot account
     let bot = UserConnection::new_bot("Bot".to_owned());
+    let bot = Arc::new(Mutex::new(bot));
 
     //Add the bot account
     state
         .lock()
         .await
-        .insert(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 0)), bot);
+        .insert(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 0)), bot.lock().await.to_owned());
 
     // Let's spawn the handling of each connection in a separate task.
     while let Ok((stream, addr)) = listener.accept().await {
-        tokio::spawn(handle_connection(state.clone(), stream, addr));
+        tokio::spawn(handle_connection(bot.clone(), state.clone(), stream, addr));
     }
 
     Ok(())
 }
 
-async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: SocketAddr) {
+async fn handle_connection(bot_account: Arc<Mutex<UserConnection>>, peer_map: PeerMap, raw_stream: TcpStream, addr: SocketAddr) {
     match accept_async(raw_stream).await {
         Ok(ws_stream) => {
 
@@ -60,7 +61,7 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
             
             while let Some(message) = reader.next().await {
                 match message {
-                    Ok(Message::Binary(data)) => handle_packet(data, &peer_map, &addr).await,
+                    Ok(Message::Binary(data)) => handle_packet(data, &bot_account.lock().await.to_owned(), &peer_map, &addr).await,
                     Ok(Message::Close(close_frame)) => {
                         let close_reason;
 
@@ -107,7 +108,7 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
     }
 }
 
-async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
+async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &PeerMap, addr: &SocketAddr) {
     let user_connection = peer_map.lock().await.get(addr).unwrap().clone();
     let mut reader = SerializationReader::new(data);
 
@@ -221,6 +222,19 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                 let message = reader.read_string();
                 let channel = reader.read_string();
 
+                //Makes sure we dont send a message to ourselves
+                if channel == user_connection.username {
+                    let p = Message::Binary(SimpleWriter::new()
+                        .write(PacketId::Server_SendMessage)
+                        .write(bot_account.user_id)
+                        .write("You cant send a message to yourself silly!".to_owned())
+                        .write(user_connection.username.clone()).done());
+
+                    let _ = writer.send(p.clone()).await;
+
+                    return
+                }
+
                 println!("Got message {} from {} in channel {}", message, user_connection.username, channel);
 
                 let p = Message::Binary(SimpleWriter::new()
@@ -228,6 +242,8 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                     .write(userid)
                     .write(message)
                     .write(channel.clone()).done());
+
+                let mut did_send = false;
 
                 for (i_addr, user) in peer_map.lock().await.iter() {
                     if i_addr == addr {
@@ -242,6 +258,8 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                         }
                     }
 
+                    did_send = true;
+
                     match &user.writer {
                         Some(writer) => { 
                             let _ = writer.lock().await.send(p.clone()).await; 
@@ -249,6 +267,16 @@ async fn handle_packet(data:Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                         
                         None => ()
                     };
+                }
+
+                if !did_send {
+                    let p = Message::Binary(SimpleWriter::new()
+                        .write(PacketId::Server_SendMessage)
+                        .write(bot_account.user_id)
+                        .write("That user/channel is not online or does not exist".to_owned())
+                        .write(user_connection.username.clone()).done());
+
+                    let _ = writer.send(p.clone()).await;
                 }
             }
 
