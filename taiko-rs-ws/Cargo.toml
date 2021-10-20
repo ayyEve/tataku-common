@@ -12,3 +12,6 @@ futures-util = { version = "0.3", default-features = false, features = ["async-a
 tokio = { version = "1.7.1", features = ["full"] }
 tokio-tungstenite = "0.15.0"
 sea-orm = { version = "0.2", features = [ "sqlx-postgres", "runtime-tokio-rustls" ] }
+
+argon2 = "0.2"
+rand_core = { version = "0.6", features = ["std"] }

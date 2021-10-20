@@ -15,6 +15,8 @@ pub enum PacketId {
     // status updates
     Client_StatusUpdate,
     Server_UserStatusUpdate,
+    Client_NotifyScoreUpdate,
+    Server_ScoreUpdate,
     Client_LogOut,
     Server_UserJoined,
     Server_UserLeft,
@@ -30,7 +32,6 @@ pub enum PacketId {
     Server_SpectatorFrames, // sender_id, frame_count, [SpectatorFrame]
 
     // multiplayer?
-
 }
 impl PacketId {
     pub fn from(n:u16) -> PacketId {

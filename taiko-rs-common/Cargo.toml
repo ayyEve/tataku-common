@@ -7,3 +7,4 @@ edition = "2018"
 
 [dependencies]
 num_enum = "0.5.1"
+sea-orm = { version = "0.2", features = [ "sqlx-postgres", "runtime-tokio-rustls" ] }

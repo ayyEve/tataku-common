@@ -17,14 +17,21 @@ use taiko_rs_common::serialization::*;
 use taiko_rs_common::packets::PacketId;
 use taiko_rs_common::types::{PlayMode, UserAction};
 
+use argon2::{
+    password_hash::{
+        rand_core::OsRng,
+        PasswordHash, PasswordHasher, PasswordVerifier, SaltString
+    },
+    Argon2
+};
+
 type WsWriter = SplitSink<WebSocketStream<TcpStream>, Message>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, UserConnection>>>;
 
 mod message_history_table;
 
-pub use message_history_table::Entity as MessageHistory;
-pub use message_history_table::Model as MessageHistoryModel;
-pub use message_history_table::ActiveModel as MessageHistoryActiveModel;
+use taiko_rs_common::tables::{users_table};
+use taiko_rs_common::tables::users_table::Model;
 
 pub static DATABASE:OnceCell<DatabaseConnection> = OnceCell::const_new();
 
@@ -97,7 +104,7 @@ async fn handle_connection(bot_account: Arc<Mutex<UserConnection>>, peer_map: Pe
                     Ok(message) => println!("got something else: {:?}", message),
 
                     Err(oof) => {
-                        println!("oof: {}", oof);
+                        println!("oof: {:?}", oof);
 
                         let user = peer_map.lock().await.get(&addr).unwrap().clone();
 
@@ -122,7 +129,7 @@ async fn handle_connection(bot_account: Arc<Mutex<UserConnection>>, peer_map: Pe
                 }
             }
         },
-        Err(oof) => println!("could not accept connection: {}", oof),
+        Err(oof) => println!("could not accept connection: {:?}", oof),
     }
 }
 
@@ -134,11 +141,53 @@ fn create_server_send_message_packet(id: u32, message: String, channel: String) 
         .write(channel).done())
 }
 
+fn create_server_score_update_packet(user_id: u32) -> Message {
+    let user_total_score: i64 = get_user_total_score(user_id);
+    let user_ranked_score: i64 = get_user_ranked_score(user_id);
+    let user_accuracy: f64 = get_user_accuracy(user_id);
+    let play_count: i32 = get_user_play_count(user_id);
+
+    Message::Binary(SimpleWriter::new()
+        .write(PacketId::Server_ScoreUpdate)
+        .write(user_id)
+        .write(user_total_score)
+        .write(user_ranked_score)
+        .write(user_accuracy)
+        .write(play_count)
+        .done())
+}
+
+fn create_server_status_update_packet (user: &UserConnection) -> Message {
+    Message::Binary(SimpleWriter::new()
+        .write(PacketId::Server_UserStatusUpdate)
+        .write(user.user_id)
+        .write(user.action)
+        .write(user.action_text.clone())
+        .write(user.mode)
+        .done())
+}
+
+fn get_user_total_score(id: u32) -> i64 {
+    1
+}
+
+fn get_user_ranked_score(id: u32) -> i64 {
+    1
+}
+
+fn get_user_accuracy(id: u32) -> f64 {
+    0.5 as f64
+}
+
+fn get_user_play_count(id: u32) -> i32 {
+    1
+}
+
 async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &PeerMap, addr: &SocketAddr) {
-    let user_connection = peer_map.lock().await.get(addr).unwrap().clone();
+    let mut user_connection = peer_map.lock().await.get(addr).unwrap().clone();
     let mut reader = SerializationReader::new(data);
 
-    let writer = user_connection.writer.expect("We are somehow a bot? this socket doesnt even exist");
+    let writer = user_connection.writer.clone().expect("We are somehow a bot? this socket doesnt even exist");
     let mut writer = writer.lock().await;
 
     while reader.can_read() {
@@ -153,10 +202,46 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 // get userid from database
                 // return userid if good, 0 if bad
                 let username:String = reader.read();
-                let _password:String = reader.read();
+                let password:String = reader.read();
 
                 // verify username and password
-                let user_id = peer_map.lock().await.len() as i32; //TODO
+                // let user_id = peer_map.lock().await.len() as i32; //TODO
+
+                let mut user_id = -1;
+
+                let user: Option<users_table::Model> = users_table::Entity::find()
+                    .filter(users_table::Column::Username.eq(username.clone()))
+                    .one(DATABASE.get().unwrap())
+                    .await
+                    .unwrap();
+
+                match user {
+                    None => {
+                        // Send the user not found response
+                        writer.send(
+                            Message::Binary(SimpleWriter::new().write(PacketId::Server_LoginResponse).write(-1 as i32).done()
+                            )).await.expect("poop");
+
+                        return;
+                    }
+                    Some(user) => {
+                        user_id = user.id;
+
+                        let argon2 = Argon2::default();
+
+                        let parsed_hash = PasswordHash::new(&user.password).unwrap();
+                        if !argon2.verify_password(password.as_ref(), &parsed_hash).is_ok() {
+                            // Send the password incorrect response
+                            writer.send(
+                                Message::Binary(SimpleWriter::new().write(PacketId::Server_LoginResponse).write(-2 as i32).done()
+                                )).await.expect("poop");
+
+                            return;
+                        }
+                    }
+                }
+
+
                 {
                     let mut u = peer_map.lock().await;
                     let mut u = u.get_mut(addr).unwrap();
@@ -173,7 +258,13 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserJoined).write(user_id as i32).write(username.clone()).done());
                 
                 for (i_addr, user) in peer_map.lock().await.iter() {
-                    if i_addr == addr {continue}
+                    if i_addr == addr {
+                        // Tell the user about their own score
+                        let p = create_server_score_update_packet(user.user_id);
+                        writer.send(p).await.expect("ono");
+
+                        continue
+                    }
 
                     //Send all the existing users about the new user
                     match &user.writer {
@@ -186,6 +277,14 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
 
                     // Tell the user that just joined about all the other users
                     let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserJoined).write(user.user_id).write(user.username.clone()).done());
+                    writer.send(p).await.expect("ono");
+
+                    // Tell the user that just joined about all the other users score values
+                    let p = create_server_score_update_packet(user.user_id);
+                    writer.send(p).await.expect("ono");
+
+                    // Update the statuses for all the users
+                    let p = create_server_status_update_packet(user);
                     writer.send(p).await.expect("ono");
                 }
             }
@@ -210,28 +309,63 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                         None => ()
                     };
                 }
-            }   
+            }
+
+            //Sent by a client to notify the server to update their score for everyone
+            PacketId::Client_NotifyScoreUpdate => {
+                println!("Received score update request from {}", user_connection.username);
+
+                let user_id = user_connection.user_id;
+
+                let p = create_server_score_update_packet(user_id);
+
+                // Send all users the new score info
+                for (i_addr, user) in peer_map.lock().await.iter() {
+                    if i_addr == addr {
+                        let _ = writer.send(p.clone()).await;
+
+                        continue
+                    }
+
+                    match &user.writer {
+                        Some(writer) => {
+                            let _ = writer.lock().await.send(p.clone()).await;
+                        },
+
+                        None => ()
+                    };
+                }
+            }
 
             PacketId::Client_StatusUpdate => {
                 let action: UserAction = reader.read();
                 let action_text = reader.read_string();
                 let mode: PlayMode = reader.read();
 
-                println!("Got Status: {0} : {1}", u16::from(action), action_text);
+                println!("Got Action: {:?} {}", action, action_text);
 
-                let user_id = user_connection.user_id;
+                {
+                    let mut u = peer_map.lock().await;
+                    let mut u = u.get_mut(addr).unwrap();
+
+                    u.action = action;
+                    u.action_text = action_text;
+                    u.mode = mode;
+
+                    user_connection = u.clone();
+                }
+
+                println!("Action: {:?} {}", user_connection.action, user_connection.action_text);
                 
                 // update everyone with the new user info
-                let p = Message::Binary(SimpleWriter::new()
-                    .write(PacketId::Server_UserStatusUpdate)
-                    .write(user_id)
-                    .write(action)
-                    .write(action_text)
-                    .write(mode)
-                    .done());
+                let p = create_server_status_update_packet(&user_connection);
 
                 for (i_addr, user) in peer_map.lock().await.iter() {
-                    if i_addr == addr {continue}
+                    if i_addr == addr {
+                        let _ = writer.send(p.clone()).await;
+
+                        continue
+                    }
 
                     match &user.writer {
                         Some(writer) => {
@@ -304,7 +438,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 } else {
                     //Add to the message history
                     if channel.starts_with("#") {
-                        let message_history_entry: MessageHistoryActiveModel = MessageHistoryActiveModel {
+                        let message_history_entry: message_history_table::ActiveModel = message_history_table::ActiveModel {
                             userid: Set(userid as i64),
                             channel: Set(channel.clone()),
                             contents: Set(message.clone()),
@@ -340,6 +474,9 @@ struct UserConnection {
     pub bot: bool,
     pub user_id: u32,
     pub username: String,
+    pub action: UserAction,
+    pub action_text: String,
+    pub mode: PlayMode,
 
     pub writer: Option<Arc<Mutex<WsWriter>>>,
 }
@@ -349,6 +486,9 @@ impl UserConnection {
             bot: true,
             user_id: u32::MAX,
             username: bot,
+            action: UserAction::Idle,
+            action_text: "Idling!".to_owned(),
+            mode: PlayMode::Standard,
 
             writer: None
         }
@@ -359,6 +499,9 @@ impl UserConnection {
             bot: false,
             user_id: 0,
             username: String::new(),
+            action: UserAction::Idle,
+            action_text: String::new(),
+            mode: PlayMode::Standard,
 
             writer: Some(writer)
         }
