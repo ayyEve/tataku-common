@@ -31,7 +31,7 @@ type PeerMap = Arc<Mutex<HashMap<SocketAddr, UserConnection>>>;
 mod message_history_table;
 
 use taiko_rs_common::tables::{users_table};
-use taiko_rs_common::tables::users_table::Model;
+use taiko_rs_common::tables::{user_data_table};
 
 pub static DATABASE:OnceCell<DatabaseConnection> = OnceCell::const_new();
 
@@ -141,11 +141,13 @@ fn create_server_send_message_packet(id: u32, message: String, channel: String) 
         .write(channel).done())
 }
 
-fn create_server_score_update_packet(user_id: u32) -> Message {
-    let user_total_score: i64 = get_user_total_score(user_id);
-    let user_ranked_score: i64 = get_user_ranked_score(user_id);
-    let user_accuracy: f64 = get_user_accuracy(user_id);
-    let play_count: i32 = get_user_play_count(user_id);
+async fn create_server_score_update_packet(user_id: u32) -> Message {
+    let user_data = get_user_score_info(user_id).await;
+
+    let user_ranked_score: i64 = user_data.0;
+    let user_total_score: i64 = user_data.1;
+    let user_accuracy: f64 = user_data.2;
+    let play_count: i32 = user_data.3;
 
     Message::Binary(SimpleWriter::new()
         .write(PacketId::Server_ScoreUpdate)
@@ -167,20 +169,35 @@ fn create_server_status_update_packet (user: &UserConnection) -> Message {
         .done())
 }
 
-fn get_user_total_score(id: u32) -> i64 {
-    1
-}
+async fn get_user_score_info(user_id: u32) -> (i64, i64, f64, i32) {
+    let mut ranked_score = 0 as i64;
+    let mut total_score = 0 as i64;
+    let mut accuracy = 0.0;
+    let mut playcount = 0;
 
-fn get_user_ranked_score(id: u32) -> i64 {
-    1
-}
+    match user_data_table::Entity::find().filter(user_data_table::Column::Userid.eq(user_id)).one(DATABASE.get().unwrap()).await {
+        Ok(user_data) => {
+            match user_data {
+                Some(user_data) => {
+                    ranked_score = user_data.rankedscore;
+                    total_score = user_data.totalscore;
+                    accuracy = user_data.accuracy;
+                    playcount = user_data.playcount;
+                }
+                None => {
+                    println!("Nothing found! id:{}", user_id);
+                }
+            };
+        },
+        Err(e) => {
+            println!("error: {}", e);
+            panic!();
+        }
+    }
 
-fn get_user_accuracy(id: u32) -> f64 {
-    0.5 as f64
-}
+    println!("{} {} {} {}", ranked_score, total_score, accuracy, playcount);
 
-fn get_user_play_count(id: u32) -> i32 {
-    1
+    (ranked_score, total_score, accuracy, playcount)
 }
 
 async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &PeerMap, addr: &SocketAddr) {
@@ -205,7 +222,6 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 let password:String = reader.read();
 
                 // verify username and password
-                // let user_id = peer_map.lock().await.len() as i32; //TODO
 
                 let mut user_id = -1;
 
@@ -260,7 +276,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 for (i_addr, user) in peer_map.lock().await.iter() {
                     if i_addr == addr {
                         // Tell the user about their own score
-                        let p = create_server_score_update_packet(user.user_id);
+                        let p = create_server_score_update_packet(user.user_id).await;
                         writer.send(p).await.expect("ono");
 
                         continue
@@ -280,7 +296,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                     writer.send(p).await.expect("ono");
 
                     // Tell the user that just joined about all the other users score values
-                    let p = create_server_score_update_packet(user.user_id);
+                    let p = create_server_score_update_packet(user.user_id).await;
                     writer.send(p).await.expect("ono");
 
                     // Update the statuses for all the users
@@ -317,7 +333,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
 
                 let user_id = user_connection.user_id;
 
-                let p = create_server_score_update_packet(user_id);
+                let p = create_server_score_update_packet(user_id).await;
 
                 // Send all users the new score info
                 for (i_addr, user) in peer_map.lock().await.iter() {
@@ -487,7 +503,7 @@ impl UserConnection {
             user_id: u32::MAX,
             username: bot,
             action: UserAction::Idle,
-            action_text: "Idling!".to_owned(),
+            action_text: "Moderating the world!".to_owned(),
             mode: PlayMode::Standard,
 
             writer: None

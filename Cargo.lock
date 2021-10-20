@@ -3214,6 +3214,8 @@ dependencies = [
 name = "taiko-rs-http"
 version = "0.1.0"
 dependencies = [
+ "argon2",
+ "rand_core",
  "rocket",
  "sea-orm",
  "taiko-rs-common",
