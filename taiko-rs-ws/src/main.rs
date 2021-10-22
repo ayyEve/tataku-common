@@ -184,18 +184,11 @@ async fn get_user_score_info(user_id: u32) -> (i64, i64, f64, i32) {
                     accuracy = user_data.accuracy;
                     playcount = user_data.playcount;
                 }
-                None => {
-                    println!("Nothing found! id:{}", user_id);
-                }
+                None => { }
             };
         },
-        Err(e) => {
-            println!("error: {}", e);
-            panic!();
-        }
+        Err(e) => { }
     }
-
-    println!("{} {} {} {}", ranked_score, total_score, accuracy, playcount);
 
     (ranked_score, total_score, accuracy, playcount)
 }
@@ -309,7 +302,6 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
             PacketId::Client_LogOut => {
                 //userid
                 let user_id = user_connection.user_id;
-                println!("user logging out: {}", user_id);
                 
                 // tell everyone we left
                 let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserLeft).write(user_id).done());
@@ -329,8 +321,6 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
 
             //Sent by a client to notify the server to update their score for everyone
             PacketId::Client_NotifyScoreUpdate => {
-                println!("Received score update request from {}", user_connection.username);
-
                 let user_id = user_connection.user_id;
 
                 let p = create_server_score_update_packet(user_id).await;
@@ -358,8 +348,6 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 let action_text = reader.read_string();
                 let mode: PlayMode = reader.read();
 
-                println!("Got Action: {:?} {}", action, action_text);
-
                 {
                     let mut u = peer_map.lock().await;
                     let mut u = u.get_mut(addr).unwrap();
@@ -370,8 +358,6 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
 
                     user_connection = u.clone();
                 }
-
-                println!("Action: {:?} {}", user_connection.action, user_connection.action_text);
                 
                 // update everyone with the new user info
                 let p = create_server_status_update_packet(&user_connection);
