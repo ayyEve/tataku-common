@@ -9,7 +9,8 @@ pub struct Model {
     pub rankedscore: i64,
     pub totalscore: i64,
     pub accuracy: f64,
-    pub playcount: i32
+    pub playcount: i32,
+    pub mode: i16
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

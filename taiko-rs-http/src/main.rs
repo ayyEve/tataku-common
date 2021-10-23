@@ -32,6 +32,7 @@ pub use scores_table::ActiveModel as ScoresActiveModel;
 use taiko_rs_common::tables::{users_table};
 use taiko_rs_common::tables::{user_data_table};
 use taiko_rs_common::tables::user_data_table::Model;
+use taiko_rs_common::types::PlayMode;
 
 pub static DATABASE:OnceCell<DatabaseConnection> = OnceCell::const_new();
 
@@ -100,14 +101,14 @@ async fn score_submit(data:Data<'_>) -> std::io::Result<()> {
 
     let _ = new_score.insert(DATABASE.get().unwrap()).await.unwrap();
 
-    recalc_user(score.username, user_id).await;
+    recalc_user(score.username, user_id, score.playmode).await;
 
     Ok(())
 }
 
-async fn recalc_user(username: String, user_id: i64) {
+async fn recalc_user(username: String, user_id: i64, mode: PlayMode) {
     println!("Recalcing user!");
-    let scores: Vec<ScoresModel> = Scores::find().filter(scores_table::Column::Username.eq(username)).all(DATABASE.get().unwrap()).await.unwrap();
+    let scores: Vec<ScoresModel> = Scores::find().filter(scores_table::Column::Playmode.eq(mode as i16)).filter(scores_table::Column::Username.eq(username)).all(DATABASE.get().unwrap()).await.unwrap();
 
     let mut ranked_score = 0;
     let mut total_score = 0;
@@ -137,7 +138,7 @@ async fn recalc_user(username: String, user_id: i64) {
 
     let mut user_data: Option<user_data_table::Model>;
 
-    match user_data_table::Entity::find().filter(user_data_table::Column::Userid.eq(user_id)).one(DATABASE.get().unwrap()).await {
+    match user_data_table::Entity::find().filter(user_data_table::Column::Mode.eq(mode as i16)).filter(user_data_table::Column::Userid.eq(user_id)).one(DATABASE.get().unwrap()).await {
         Ok(user_data_a) => {
             println!("query ok");
             user_data = user_data_a;
@@ -155,6 +156,7 @@ async fn recalc_user(username: String, user_id: i64) {
             user_data.rankedscore = Set(ranked_score);
             user_data.accuracy = Set(accuracy);
             user_data.playcount = Set(play_count);
+            user_data.mode = Set(mode as i16);
 
             match user_data.update(DATABASE.get().unwrap()).await {
                 Ok(_) => println!("update ok"),
@@ -168,6 +170,7 @@ async fn recalc_user(username: String, user_id: i64) {
                 totalscore: Set(total_score),
                 accuracy: Set(accuracy),
                 playcount: Set(play_count),
+                mode: Set(mode as i16),
                 ..Default::default()
             };
 
@@ -195,11 +198,12 @@ async fn get_scores(data:Data<'_>) -> std::io::Result<Vec<u8>> {
 
     let mut reader = SerializationReader::new(bytes);
     let hash: String = reader.read();
+    let mode: PlayMode = reader.read();
     println!("got hash: {}", hash);
 
     let mut writer = SerializationWriter::new();
     
-    let scores: Vec<ScoresModel> = Scores::find().filter(scores_table::Column::Beatmaphash.eq(hash)).all(DATABASE.get().unwrap()).await.unwrap();
+    let scores: Vec<ScoresModel> = Scores::find().filter(scores_table::Column::Playmode.eq(mode as i16)).filter(scores_table::Column::Beatmaphash.eq(hash)).all(DATABASE.get().unwrap()).await.unwrap();
 
     let new_scores: Vec<Score> = scores.iter().map(|score| {
         let mut new_score: Score = Score::new(score.beatmaphash.clone(), score.username.clone(), (score.playmode as u8).into());

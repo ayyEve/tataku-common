@@ -141,13 +141,14 @@ fn create_server_send_message_packet(id: u32, message: String, channel: String) 
         .write(channel).done())
 }
 
-async fn create_server_score_update_packet(user_id: u32) -> Message {
-    let user_data = get_user_score_info(user_id).await;
+async fn create_server_score_update_packet(user_id: u32, mode: PlayMode) -> Message {
+    let user_data = get_user_score_info(user_id, mode).await;
 
     let user_ranked_score: i64 = user_data.0;
     let user_total_score: i64 = user_data.1;
     let user_accuracy: f64 = user_data.2;
     let play_count: i32 = user_data.3;
+    let rank: i32 = user_data.4;
 
     Message::Binary(SimpleWriter::new()
         .write(PacketId::Server_ScoreUpdate)
@@ -156,6 +157,7 @@ async fn create_server_score_update_packet(user_id: u32) -> Message {
         .write(user_ranked_score)
         .write(user_accuracy)
         .write(play_count)
+        .write(rank)
         .done())
 }
 
@@ -169,13 +171,15 @@ fn create_server_status_update_packet (user: &UserConnection) -> Message {
         .done())
 }
 
-async fn get_user_score_info(user_id: u32) -> (i64, i64, f64, i32) {
+async fn get_user_score_info(user_id: u32, mode: PlayMode) -> (i64, i64, f64, i32, i32) {
     let mut ranked_score = 0 as i64;
     let mut total_score = 0 as i64;
     let mut accuracy = 0.0;
     let mut playcount = 0;
 
-    match user_data_table::Entity::find().filter(user_data_table::Column::Userid.eq(user_id)).one(DATABASE.get().unwrap()).await {
+    let mut rank = 0;
+
+    match user_data_table::Entity::find().filter(user_data_table::Column::Mode.eq(mode as i16)).filter(user_data_table::Column::Userid.eq(user_id)).one(DATABASE.get().unwrap()).await {
         Ok(user_data) => {
             match user_data {
                 Some(user_data) => {
@@ -190,7 +194,7 @@ async fn get_user_score_info(user_id: u32) -> (i64, i64, f64, i32) {
         Err(e) => { }
     }
 
-    (ranked_score, total_score, accuracy, playcount)
+    (ranked_score, total_score, accuracy, playcount, rank)
 }
 
 async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &PeerMap, addr: &SocketAddr) {
@@ -269,7 +273,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 for (i_addr, user) in peer_map.lock().await.iter() {
                     if i_addr == addr {
                         // Tell the user about their own score
-                        let p = create_server_score_update_packet(user.user_id).await;
+                        let p = create_server_score_update_packet(user.user_id, user.mode).await;
                         writer.send(p).await.expect("ono");
 
                         continue
@@ -289,7 +293,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                     writer.send(p).await.expect("ono");
 
                     // Tell the user that just joined about all the other users score values
-                    let p = create_server_score_update_packet(user.user_id).await;
+                    let p = create_server_score_update_packet(user.user_id, user.mode).await;
                     writer.send(p).await.expect("ono");
 
                     // Update the statuses for all the users
@@ -323,7 +327,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
             PacketId::Client_NotifyScoreUpdate => {
                 let user_id = user_connection.user_id;
 
-                let p = create_server_score_update_packet(user_id).await;
+                let p = create_server_score_update_packet(user_id, user_connection.mode).await;
 
                 // Send all users the new score info
                 for (i_addr, user) in peer_map.lock().await.iter() {
