@@ -10,7 +10,7 @@ use std::{
 use tokio::sync::{Mutex, OnceCell};
 use tokio::net::{TcpListener, TcpStream};
 use futures_util::{SinkExt, StreamExt, stream::SplitSink};
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, Set, Statement, Unset, Value, FromQueryResult};
+use sea_orm::{DbBackend, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, Set, Statement, Unset, Value, FromQueryResult};
 use tokio_tungstenite::{WebSocketStream, accept_async, tungstenite::protocol::Message};
 
 use taiko_rs_common::serialization::*;
@@ -194,7 +194,27 @@ async fn get_user_score_info(user_id: u32, mode: PlayMode) -> (i64, i64, f64, i3
         Err(e) => { }
     }
 
-    (ranked_score, total_score, accuracy, playcount, rank)
+    #[derive(Debug, FromQueryResult)]
+    struct RankThing {
+        rank: i64
+    }
+
+    let things: Vec<RankThing> = RankThing::find_by_statement(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        r#"SELECT rank FROM (SELECT userid, ROW_NUMBER() OVER(ORDER BY rankedscore DESC) AS rank FROM user_data WHERE mode=$1) t WHERE userid=$2"#,
+        vec![(mode as i32).into(), (user_id as i32).into()],
+    ))
+        .all(DATABASE.get().unwrap())
+        .await.unwrap();
+
+    match things.first() {
+        Some(thing) => {
+            rank = thing.rank;
+        }
+        None => { }
+    };
+
+    (ranked_score, total_score, accuracy, playcount, rank as i32)
 }
 
 async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &PeerMap, addr: &SocketAddr) {
