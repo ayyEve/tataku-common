@@ -218,7 +218,25 @@ async fn get_scores(data:Data<'_>) -> std::io::Result<Vec<u8>> {
         return new_score;
     }).collect();
 
-    writer.write(new_scores);
+    let mut filtered_scores: HashMap<String, Score> = HashMap::new();
+
+    for score in new_scores {
+        if let Some(best) = filtered_scores.get(&*score.username.clone()) {
+            if best.score < score.score {
+                filtered_scores.insert(score.username.clone(), score.clone());
+            }
+        } else {
+            filtered_scores.insert(score.username.clone(), score.clone());
+        }
+    }
+
+    let mut filtered_scores_vec: Vec<Score> = Vec::new();
+
+    for (username, score) in filtered_scores {
+        filtered_scores_vec.push(score);
+    }
+
+    writer.write(filtered_scores_vec);
 
     Ok(writer.data())
 }
