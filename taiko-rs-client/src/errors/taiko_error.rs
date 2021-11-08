@@ -43,3 +43,7 @@ impl From<ImageError> for TaikoError {
 impl From<AudioError> for TaikoError {
     fn from(e: AudioError) -> Self {TaikoError::Audio(e)}
 }
+
+impl From<BeatmapError> for TaikoError {
+    fn from(e: BeatmapError) -> Self {TaikoError::Beatmap(e)}
+}

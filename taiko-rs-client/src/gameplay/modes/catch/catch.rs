@@ -52,7 +52,7 @@ impl CatchGame {
 impl GameMode for CatchGame {
     fn playmode(&self) -> PlayMode {PlayMode::Catch}
     fn end_time(&self) -> f32 {self.end_time}
-    fn new(beatmap:&Beatmap) -> Self {
+    fn new(beatmap:&Beatmap) -> Result<Self, crate::errors::BeatmapError> {
 
         let scaling_helper = ScalingHelper::new(beatmap.metadata.cs, PlayMode::Catch);
         let mut s = Self {
@@ -206,7 +206,7 @@ impl GameMode for CatchGame {
 
 
         s.end_time = s.notes.iter().last().unwrap().time();
-        s
+        Ok(s)
     }
 
     fn update(&mut self, manager:&mut IngameManager, time: f32) {

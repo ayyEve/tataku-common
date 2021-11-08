@@ -114,8 +114,10 @@ impl BeatmapSelectMenu {
 
     fn play_map(&self, game: &mut Game, map: &BeatmapMeta) {
         // Audio::stop_song();
-        let manager = manager_from_playmode(self.mode, map);
-        game.queue_state_change(GameState::Ingame(manager));
+        match manager_from_playmode(self.mode, map) {
+            Ok(manager) => game.queue_state_change(GameState::Ingame(manager)),
+            Err(e) => NotificationManager::add_error_notification("Error loading beatmap", e)
+        }
     }
 }
 impl Menu<Game> for BeatmapSelectMenu {

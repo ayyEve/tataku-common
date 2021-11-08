@@ -84,7 +84,7 @@ impl GameMode for ManiaGame {
     fn playmode(&self) -> PlayMode {PlayMode::Mania}
     fn end_time(&self) -> f32 {self.end_time}
 
-    fn new(beatmap:&Beatmap) -> Self {
+    fn new(beatmap:&Beatmap) -> Result<Self, crate::errors::BeatmapError> {
 
         let mut s = Self {
             columns: Vec::new(),
@@ -162,7 +162,7 @@ impl GameMode for ManiaGame {
             }
         }
         
-        s
+        Ok(s)
     }
 
     fn handle_replay_frame(&mut self, frame:ReplayFrame, time:f32, manager:&mut IngameManager) {

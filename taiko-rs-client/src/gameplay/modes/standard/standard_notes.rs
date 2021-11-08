@@ -558,22 +558,6 @@ impl HitObject for StandardSlider {
 
     fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         if self.time - self.map_time > self.time_preempt || self.curve.end_time < self.map_time {return}
-        
-        let (show_reverse_arrow, reverse_circle_index) = {
-            if self.def.slides == 1 {
-                (false, -1) 
-            } else {
-                let unit = *self.curve.cumulative_lengths.last().unwrap() as u64;
-                let length = self.curve.get_non_normalized_length_required(self.map_time) as u64;
-                let index = length / unit;
-                
-                if index != self.def.slides - 1 {
-                    (true, (index % 2) as i8)
-                } else {
-                    (false, -1) 
-                }
-            }
-        };
 
         // let alpha = (self.time_preempt / 4.0) / ((self.time - self.time_preempt / 4.0) - self.map_time).clamp(0.0, 1.0);
         let alpha = (1.0 - ((self.time - (self.time_preempt * (2.0/3.0))) - self.map_time) / (self.time_preempt * (1.0/3.0))).clamp(0.0, 1.0);
@@ -589,7 +573,6 @@ impl HitObject for StandardSlider {
             self.combo_text.color.a = alpha;
             list.push(self.combo_text.clone());
         } else {
-            println!("{} ", show_reverse_arrow);
 
             // slider ball
             let mut inner = Circle::new(

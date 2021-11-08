@@ -52,7 +52,7 @@ impl TaikoGame {
 impl GameMode for TaikoGame {
     fn playmode(&self) -> PlayMode {PlayMode::Taiko}
     fn end_time(&self) -> f32 {self.end_time}
-    fn new(beatmap:&Beatmap) -> Self {
+    fn new(beatmap:&Beatmap) -> Result<Self, crate::errors::BeatmapError> {
         let mut s = Self {
             notes: Vec::new(),
             note_index: 0,
@@ -152,7 +152,7 @@ impl GameMode for TaikoGame {
         s.notes.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
         s.end_time = s.notes.iter().last().unwrap().time();
 
-        s
+        Ok(s)
     }
 
     fn handle_replay_frame(&mut self, frame:ReplayFrame, time:f32, manager:&mut IngameManager) {
@@ -243,7 +243,7 @@ impl GameMode for TaikoGame {
                     manager.score.add_pts(points as u64, false);
                     return;
                 },
-                ScoreHit::None | ScoreHit::X50 => {},
+                ScoreHit::None => {},
             }
         }
 

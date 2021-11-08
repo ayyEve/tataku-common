@@ -1,6 +1,7 @@
 use piston::{MouseButton, RenderArgs};
 
 use crate::game::Settings;
+use crate::game::managers::NotificationManager;
 use crate::gameplay::BeatmapMeta;
 use crate::render::{*, fonts::get_font};
 use taiko_rs_common::types::{Score, HitError};
@@ -151,10 +152,16 @@ impl Menu<Game> for ScoreMenu {
                 Ok(replay) => {
                     // game.menus.get("beatmap").unwrap().lock().on_change(false);
                     // game.queue_mode_change(GameMode::Replaying(self.beatmap.clone(), replay.clone(), 0));
-                    let mut manager = manager_from_playmode(self.score.playmode, &self.beatmap);
-                    manager.replaying = true;
-                    manager.replay = replay.clone();
-                    game.queue_state_change(GameState::Ingame(manager));
+                    match manager_from_playmode(self.score.playmode, &self.beatmap) {
+                        Ok(mut manager) => {
+                            manager.replaying = true;
+                            manager.replay = replay.clone();
+                            game.queue_state_change(GameState::Ingame(manager));
+                        },
+                        Err(e) => {
+                            NotificationManager::add_error_notification("Error loading beatmap", e)
+                        }
+                    }
                 },
                 Err(e) => println!("error loading replay: {}", e),
             }

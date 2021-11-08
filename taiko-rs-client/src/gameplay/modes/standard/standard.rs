@@ -71,7 +71,7 @@ impl StandardGame {
 impl GameMode for StandardGame {
     fn playmode(&self) -> PlayMode {PlayMode::Standard}
     fn end_time(&self) -> f32 {self.end_time}
-    fn new(beatmap:&Beatmap) -> Self {
+    fn new(beatmap:&Beatmap) -> Result<Self, crate::errors::BeatmapError> {
         let ar = beatmap.metadata.ar;
         let settings = Settings::get_mut().standard_settings.clone();
         let scaling_helper = ScalingHelper::new(beatmap.metadata.cs, PlayMode::Standard);
@@ -249,7 +249,7 @@ impl GameMode for StandardGame {
         // }
         s.end_time += 1000.0;
 
-        s
+        Ok(s)
     }
 
     fn handle_replay_frame(&mut self, frame:ReplayFrame, time:f32, manager:&mut IngameManager) {
