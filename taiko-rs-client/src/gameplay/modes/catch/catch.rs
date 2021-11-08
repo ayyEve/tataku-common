@@ -3,7 +3,8 @@ use ayyeve_piston_ui::render::*;
 
 use super::*;
 use crate::game::{Audio, Settings};
-use crate::{window_size, Vector2, helpers::curve::get_curve};
+use crate::gameplay::modes::ScalingHelper;
+use crate::{Vector2, helpers::{curve::get_curve, math::Lerp}};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
 use crate::gameplay::{Beatmap, GameMode, IngameManager, map_difficulty, defs::*, modes::FIELD_SIZE};
 
@@ -15,14 +16,9 @@ pub const CATCHER_WIDTH_BASE:f64 = 106.75;
 pub const CATCHER_BASE_SPEED:f64 = 1.0;
 
 pub fn hit_y() -> f64 {
-    window_size().y - 100.0
+    Settings::window_size().y - 100.0
 }
 // pub const HIT_Y:f64 = window_size().y - 100.0
-
-fn x_offset() -> f64 {
-    (window_size().x - FIELD_SIZE.x) / 2.0
-}
-// const X_OFFSET:f64 = (window_size().x - FIELD_SIZE.x) / 2.0;
 
 
 pub struct CatchGame {
@@ -41,6 +37,14 @@ pub struct CatchGame {
     /// when was the last update
     last_update: f32,
     catcher: Catcher,
+
+    
+    /// scaling helper to help with scaling
+    scaling_helper: ScalingHelper,
+    /// needed for scaling recalc
+    cs: f32,
+    /// autoplay helper
+    auto_helper: CatchAutoHelper
 }
 impl CatchGame {
     pub fn next_note(&mut self) {self.note_index += 1}
@@ -49,6 +53,8 @@ impl GameMode for CatchGame {
     fn playmode(&self) -> PlayMode {PlayMode::Catch}
     fn end_time(&self) -> f32 {self.end_time}
     fn new(beatmap:&Beatmap) -> Self {
+
+        let scaling_helper = ScalingHelper::new(beatmap.metadata.cs, PlayMode::Catch);
         let mut s = Self {
             notes: Vec::new(),
             note_index: 0,
@@ -58,10 +64,12 @@ impl GameMode for CatchGame {
             last_update: 0.0,
 
             hitwindow: 0.0,
-            catcher: Catcher::new(&beatmap),
-        };
+            catcher: Catcher::new(&beatmap, scaling_helper.clone()),
 
-        let x_offset = x_offset(); // (window_size().x - FIELD_SIZE.x) / 2.0;
+            scaling_helper,
+            cs: beatmap.metadata.cs,
+            auto_helper: CatchAutoHelper::new()
+        };
 
         // add notes
         for note in beatmap.notes.iter() {
@@ -70,7 +78,7 @@ impl GameMode for CatchGame {
                 note.time,
                 1.0,
                 FRUIT_RADIUS_BASE, 
-                note.pos.x + x_offset
+                s.scaling_helper.scale_coords(note.pos).x
             )));
         }
         for slider in beatmap.sliders.iter() {
@@ -118,14 +126,14 @@ impl GameMode for CatchGame {
                         j,
                         1.0,//beatmap.slider_velocity_at(j as u64),
                         FRUIT_RADIUS_BASE,
-                        curve.position_at_time(j).x + x_offset
+                        s.scaling_helper.scale_coords(curve.position_at_time(j)).x
                     )));
                 } else {
                     s.notes.push(Box::new(CatchDroplet::new(
                         j,
                         1.0,//beatmap.slider_velocity_at(j as u64),
                         DROPLET_RADIUS_BASE,
-                        curve.position_at_time(j).x + x_offset
+                        s.scaling_helper.scale_coords(curve.position_at_time(j)).x
                     )));
                 }
 
@@ -143,7 +151,7 @@ impl GameMode for CatchGame {
                     time + i as f32,
                     1.0,
                     5.0,
-                    i as f64 % FIELD_SIZE.x + x_offset
+                    s.scaling_helper.scale_coords(Vector2::new(i as f64 % FIELD_SIZE.x, 0.0)).x
                 )))
             }
         }
@@ -202,6 +210,22 @@ impl GameMode for CatchGame {
     }
 
     fn update(&mut self, manager:&mut IngameManager, time: f32) {
+
+        if manager.autoplay {
+            let mut frames = Vec::new();
+            self.auto_helper.update(
+                time, 
+                &mut self.catcher, 
+                &mut self.notes, 
+                &self.scaling_helper, 
+                &mut frames
+            );
+            for frame in frames {
+                self.handle_replay_frame(frame, time, manager)
+            }
+        }
+
+
         self.catcher.update(time as f64);
 
         // update notes
@@ -263,18 +287,21 @@ impl GameMode for CatchGame {
 
         self.last_update = time;
     }
-    fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
+    fn draw(&mut self, args:RenderArgs, _manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
         // draw the playfield
-        let playfield = Rectangle::new(
-            [0.2, 0.2, 0.2, 1.0].into(),
-            f64::MAX-4.0,
-            Vector2::new(x_offset(), 0.0),
-            Vector2::new(FIELD_SIZE.x, args.window_size[1]),
-            if manager.beatmap.timing_points[self.timing_point_index].kiai {
-                Some(Border::new(Color::YELLOW, 2.0))
-            } else {None}
-        );
-        list.push(Box::new(playfield));
+
+        list.push(Box::new(self.scaling_helper.playfield_scaled_with_cs_border.clone()));
+        
+        // let playfield = Rectangle::new(
+        //     [0.2, 0.2, 0.2, 1.0].into(),
+        //     f64::MAX-4.0,
+        //     Vector2::new(x_offset(), 0.0),
+        //     Vector2::new(FIELD_SIZE.x, args.window_size[1]),
+        //     if manager.beatmap.timing_points[self.timing_point_index].kiai {
+        //         Some(Border::new(Color::YELLOW, 2.0))
+        //     } else {None}
+        // );
+        // list.push(Box::new(playfield));
         self.catcher.draw(list);
 
         // for curve in self.curves.iter() {
@@ -294,8 +321,7 @@ impl GameMode for CatchGame {
     }
 
 
-    fn handle_replay_frame(&mut self, frame:ReplayFrame, manager:&mut IngameManager) {
-        let time = manager.time();
+    fn handle_replay_frame(&mut self, frame:ReplayFrame, time:f32, manager:&mut IngameManager) {
         if !manager.replaying {
             manager.replay.frames.push((time, frame.clone()));
         }
@@ -323,31 +349,33 @@ impl GameMode for CatchGame {
     }
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
         let settings = Settings::get().catch_settings;
+        let time = manager.time();
 
         if !manager.replaying {
             if key == settings.left_key {
-                self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), manager);
+                self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), time, manager);
             }
             if key == settings.right_key {
-                self.handle_replay_frame(ReplayFrame::Press(KeyPress::Right), manager);
+                self.handle_replay_frame(ReplayFrame::Press(KeyPress::Right), time, manager);
             }
             if key == settings.dash_key { 
-                self.handle_replay_frame(ReplayFrame::Press(KeyPress::Dash), manager);
+                self.handle_replay_frame(ReplayFrame::Press(KeyPress::Dash), time, manager);
             }
         }
     }
     fn key_up(&mut self, key:piston::Key, manager:&mut IngameManager) {
         let settings = Settings::get().catch_settings;
+        let time = manager.time();
 
         if !manager.replaying {
             if key == settings.left_key {
-                self.handle_replay_frame(ReplayFrame::Release(KeyPress::Left), manager);
+                self.handle_replay_frame(ReplayFrame::Release(KeyPress::Left), time, manager);
             }
             if key == settings.right_key {
-                self.handle_replay_frame(ReplayFrame::Release(KeyPress::Right), manager);
+                self.handle_replay_frame(ReplayFrame::Release(KeyPress::Right), time, manager);
             }
             if key == settings.dash_key { 
-                self.handle_replay_frame(ReplayFrame::Release(KeyPress::Dash), manager);
+                self.handle_replay_frame(ReplayFrame::Release(KeyPress::Dash), time, manager);
             }
         }
     }
@@ -392,10 +420,18 @@ impl GameMode for CatchGame {
         (vec![], (0.0, Color::RED))
     }
     fn combo_bounds(&self) -> Rectangle {
+        let window_size = Settings::window_size();
         Rectangle::bounds_only(
-            Vector2::new(0.0, window_size().y * (1.0/3.0)),
-            Vector2::new(window_size().x, 30.0)
+            Vector2::new(0.0, window_size.y * (1.0/3.0)),
+            Vector2::new(window_size.x, 30.0)
         )
+    }
+
+    
+    fn apply_auto(&mut self, settings: &crate::game::BackgroundGameSettings) {
+        for note in self.notes.iter_mut() {
+            note.set_alpha(settings.opacity)
+        }
     }
 }
 
@@ -408,15 +444,18 @@ struct Catcher {
     pub dash_held: bool,
 
     last_update: f64,
-    move_speed: f64
+    move_speed: f64,
+    scaling_helper: ScalingHelper
 }
 impl Catcher {
-    fn new(_beatmap:&Beatmap) -> Self {
-        let width = 100.0;
+    fn new(_beatmap:&Beatmap, scaling_helper: ScalingHelper) -> Self {
+        let width = 100.0 * scaling_helper.scale;
         Self {
             width,
+
             move_speed: 0.5, // should calc this somehow
-            pos: Vector2::new((window_size().x - width) / 2.0, hit_y()),
+            pos: Vector2::new(scaling_helper.scale_coords(FIELD_SIZE / 2.0).x, hit_y()),
+            scaling_helper,
             left_held: false,
             right_held: false,
             dash_held: false,
@@ -435,14 +474,10 @@ impl Catcher {
             self.pos.x += self.move_speed() * delta;
         }
 
-        let x_offset = x_offset();
+        let bounds = self.scaling_helper.playfield_scaled_with_cs_border;
+
         // check bounds
-        if self.pos.x < x_offset {
-            self.pos.x = x_offset;
-        }
-        if self.pos.x + self.width > x_offset + FIELD_SIZE.x {
-            self.pos.x = x_offset + FIELD_SIZE.x - self.width;
-        }
+        self.pos.x = self.pos.x.clamp(bounds.pos.x, bounds.pos.x + bounds.size.x);
         self.last_update = time;
     }
     fn move_speed(&self) -> f64 {
@@ -467,5 +502,108 @@ impl Catcher {
         let note_width = note.radius() * 2.0;
 
         note_x + note_width > self.pos.x && note_x < self.pos.x + self.width
+    }
+}
+
+
+
+struct CatchAutoHelper {
+    // point_trail_angle: Vector2,
+    point_trail_start_time: f32,
+    point_trail_end_time: f32,
+    point_trail_start_pos: f64,
+    point_trail_end_pos: f64,
+
+    current_note_index: usize,
+}
+impl CatchAutoHelper {
+
+    fn new() -> Self {
+        Self {
+            // point_trail_angle: Vector2::zero(),
+            point_trail_start_time: 0.0,
+            point_trail_end_time: 0.0,
+            current_note_index: 0,
+            point_trail_start_pos: 0.0,
+            point_trail_end_pos: 0.0,
+        }
+    }
+
+    fn update(
+        &mut self, 
+        time:f32, 
+        catcher: &mut Catcher,
+        notes: &mut Vec<Box<dyn CatchHitObject>>, 
+        scaling_helper: &ScalingHelper, 
+        frames: &mut Vec<ReplayFrame>
+    ) {
+        let mut any_checked = false;
+
+        for i in 0..notes.len() {
+            let note = &notes[i];
+
+            if time >= note.time() && !note.was_hit() {
+                let pos = Vector2::new(note.pos_at(time, &scaling_helper), 0.0).x;
+                // if pos < catcher.pos.x {
+                //     frames.push(ReplayFrame::Press(KeyPress::Left));
+                //     frames.push(ReplayFrame::Release(KeyPress::Left));
+                // } else {
+                //     frames.push(ReplayFrame::Press(KeyPress::Right));
+                //     frames.push(ReplayFrame::Release(KeyPress::Right));
+                // }
+                catcher.pos.x = pos - catcher.width / 2.0;
+                println!("new pos: {}, index: {}", catcher.pos.x, i);
+                return;
+                
+                // frames.push(ReplayFrame::MousePos(
+                //     pos as f32,
+                //     0.0
+                // ));
+
+                // if i == self.current_note_index {
+                //     if note.note_type() != NoteType::Note {
+                //         if time <= note.end_time(0.0) {
+                //             frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
+                //         }
+                //     }
+                // } else {
+                //     frames.push(ReplayFrame::Press(KeyPress::LeftMouse));
+                //     frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
+                // }
+
+                if i + 1 >= notes.len() {
+                    self.point_trail_start_pos = pos;
+                    self.point_trail_end_pos = scaling_helper.descale_coords(scaling_helper.window_size / 2.0).x;
+                    
+                    self.point_trail_start_time = 0.0;
+                    self.point_trail_end_time = 1.0;
+                    continue;
+                }
+
+                // draw a line to the next note
+                let next_note = &notes[i + 1];
+
+                self.point_trail_start_pos = pos;
+                self.point_trail_end_pos = scaling_helper.descale_coords(Vector2::new(next_note.pos_at(self.point_trail_end_time, scaling_helper), 0.0)).x;
+                
+                self.point_trail_start_time = time;
+                self.point_trail_end_time = next_note.time();
+
+                any_checked = true;
+            }
+        }
+        if any_checked {return}
+
+        // if we got here no notes were updated
+        // follow the point_trail
+        let duration = self.point_trail_end_time - self.point_trail_start_time;
+        let current = time - self.point_trail_start_time;
+        let len = current / duration;
+        
+        let new_pos = Lerp::lerp(self.point_trail_start_pos, self.point_trail_end_pos, len as f64);
+        frames.push(ReplayFrame::MousePos(
+            new_pos as f32,
+            0.0
+        ));
     }
 }

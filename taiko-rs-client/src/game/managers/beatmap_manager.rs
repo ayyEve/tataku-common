@@ -1,8 +1,11 @@
-use std::{collections::HashMap, fs::{DirEntry, read_dir}, path::Path, sync::Arc, time::Duration};
+use std::{collections::HashMap, fs::{DirEntry, read_dir}, path::Path, time::Duration};
 
 use rand::Rng;
-use parking_lot::Mutex;
-use crate::{DOWNLOADS_DIR, SONGS_DIR, game::{Audio, Game}, gameplay::{Beatmap, BeatmapMeta}, get_file_hash};
+use crate::sync::*;
+use crate::game::{Audio, Game};
+use crate::gameplay::{Beatmap, BeatmapMeta};
+use crate::{DOWNLOADS_DIR, SONGS_DIR, get_file_hash};
+
 
 const DOWNLOAD_CHECK_INTERVAL:u64 = 10_000;
 
@@ -43,9 +46,9 @@ impl BeatmapManager {
     pub fn get_new_maps(&mut self) -> Vec<BeatmapMeta> {
         std::mem::take(&mut self.new_maps)
     }
-    fn check_downloads(runtime:&tokio::runtime::Runtime) {
+    fn check_downloads() {
         if read_dir(DOWNLOADS_DIR).unwrap().count() > 0 {
-            extract_all(runtime);
+            extract_all();
 
             let mut folders = Vec::new();
             read_dir(SONGS_DIR)
@@ -59,15 +62,11 @@ impl BeatmapManager {
         }
 
     }
-    pub fn download_check_loop(game:&Game) {
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        game.threading.spawn(async move {
+    pub fn download_check_loop() {
+        tokio::spawn(async move {
             loop {
                 tokio::time::sleep(Duration::from_millis(DOWNLOAD_CHECK_INTERVAL)).await;
-                BeatmapManager::check_downloads(&runtime);
+                BeatmapManager::check_downloads();
             }
         });
     }
@@ -106,7 +105,8 @@ impl BeatmapManager {
                 // so we should add it
                 {
                     let lock = crate::databases::DATABASE.lock();
-                    let res = lock.prepare(&insert_metadata(&map)).unwrap().execute([]);
+                    let statement = insert_metadata(&map);
+                    let res = lock.prepare(&statement).expect(&statement).execute([]);
                     if let Err(e) = res {
                         println!("error inserting metadata: {}", e);
                     }
@@ -137,7 +137,7 @@ impl BeatmapManager {
         let audio_filename = beatmap.audio_filename.clone();
         let time = if use_preview_time {beatmap.audio_preview} else {0.0};
         if do_async {
-            game.threading.spawn(async move {
+            tokio::spawn(async move {
                 Audio::play_song(audio_filename, false, time);
             });
         } else {
@@ -239,9 +239,9 @@ fn insert_metadata(map: &BeatmapMeta) -> String {
     map.file_path, map.beatmap_hash, 
 
     map.mode as u8, map.beatmap_version,
-    map.artist, map.artist_unicode,
-    map.title, map.title_unicode,
-    map.creator, map.version,
+    map.artist.replace("\"", "\"\""), map.artist_unicode.replace("\"", "\"\""),
+    map.title.replace("\"", "\"\""), map.title_unicode.replace("\"", "\"\""),
+    map.creator.replace("\"", "\"\""), map.version.replace("\"", "\"\""),
     
     map.audio_filename, map.image_filename,
     map.audio_preview, map.duration,
@@ -254,24 +254,24 @@ fn insert_metadata(map: &BeatmapMeta) -> String {
 
 
 
-pub fn extract_all(runtime:&tokio::runtime::Runtime) {
+pub fn extract_all() {
 
     // check for new maps
     if let Ok(files) = std::fs::read_dir(crate::DOWNLOADS_DIR) {
-        let completed = Arc::new(Mutex::new(0));
+        // let completed = Arc::new(Mutex::new(0));
 
         let files:Vec<std::io::Result<DirEntry>> = files.collect();
-        let len = files.len();
+        // let len = files.len();
         println!("[extract] files: {:?}", files);
 
         for file in files {
             println!("[extract] looping file {:?}", file);
-            let completed = completed.clone();
+            // let completed = completed.clone();
 
             match file {
                 Ok(filename) => {
                     println!("[extract] file ok");
-                    runtime.spawn(async move {
+                    // tokio::spawn(async move {
                         println!("[extract] reading file {:?}", filename);
 
                         let mut error_counter = 0;
@@ -286,7 +286,7 @@ pub fn extract_all(runtime:&tokio::runtime::Runtime) {
                                 return;
                             }
 
-                            tokio::time::sleep(Duration::from_millis(1000)).await;
+                            // tokio::time::sleep(Duration::from_millis(1000)).await;
                         }
 
                         let file = std::fs::File::open(filename.path().to_str().unwrap()).unwrap();
@@ -331,8 +331,8 @@ pub fn extract_all(runtime:&tokio::runtime::Runtime) {
                         }
                         
                         println!("[extract] done");
-                        *completed.lock() += 1;
-                    });
+                        // *completed.lock() += 1;
+                    // });
                 }
                 Err(e) => {
                     println!("error with file: {}", e);
@@ -341,9 +341,9 @@ pub fn extract_all(runtime:&tokio::runtime::Runtime) {
         }
     
         
-        while *completed.lock() < len {
-            println!("waiting for downloads {} of {}", *completed.lock(), len);
-            std::thread::sleep(Duration::from_millis(500));
-        }
+        // while *completed.lock() < len {
+        //     println!("waiting for downloads {} of {}", *completed.lock(), len);
+        //     std::thread::sleep(Duration::from_millis(500));
+        // }
     }
 }

@@ -6,6 +6,8 @@ use crate::render::{Color, Rectangle, Renderable, Border};
 
 use super::{NOTE_BORDER_SIZE, NOTE_SIZE, COLUMN_WIDTH, hit_y};
 
+const MANIA_NOTE_DEPTH: f64 = 100.0;
+const MANIA_SLIDER_DEPTH: f64 = 100.1;
 
 pub trait ManiaHitObject: HitObject {
     fn hit(&mut self, time:f32);
@@ -26,7 +28,9 @@ pub struct ManiaNote {
     hit_time: f32,
     hit: bool,
     missed: bool,
-    speed: f32
+    speed: f32,
+
+    alpha_mult: f32,
 }
 impl ManiaNote {
     pub fn new(time:f32, x:f64) -> Self {
@@ -38,17 +42,19 @@ impl ManiaNote {
             hit: false,
             missed: false,
             pos: Vector2::new(x, 0.0),
+            alpha_mult: 1.0
         }
     }
 
     fn get_color(&mut self) -> Color {
-        Color::WHITE
+        Color::WHITE.alpha(self.alpha_mult)
     }
 }
 impl HitObject for ManiaNote {
     fn note_type(&self) -> NoteType {NoteType::Note}
     fn time(&self) -> f32 {self.time}
     fn end_time(&self, hw_miss:f32) -> f32 {self.time + hw_miss}
+    fn set_alpha(&mut self, alpha: f32) {self.alpha_mult = alpha}
 
     fn update(&mut self, beatmap_time: f32) {
         // let y = 
@@ -60,12 +66,11 @@ impl HitObject for ManiaNote {
     }
     fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         if self.pos.y + NOTE_SIZE.y < 0.0 || self.pos.y > args.window_size[1] as f64 {return}
-
         if self.hit {return}
 
         let note = Rectangle::new(
             self.get_color(),
-            -100.0,
+            MANIA_NOTE_DEPTH,
             self.pos,
             NOTE_SIZE,
             Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
@@ -113,7 +118,9 @@ pub struct ManiaHold {
 
     speed: f32,
     //TODO: figure out how to pre-calc this
-    end_y: f64
+    end_y: f64,
+
+    alpha_mult: f32,
 }
 impl ManiaHold {
     pub fn new(time:f32, end_time:f32, x:f64) -> Self {
@@ -127,6 +134,7 @@ impl ManiaHold {
             hold_starts: Vec::new(),
             hold_ends: Vec::new(),
             end_y: 0.0,
+            alpha_mult: 1.0
         }
     }
 }
@@ -134,6 +142,7 @@ impl HitObject for ManiaHold {
     fn note_type(&self) -> NoteType {NoteType::Hold}
     fn time(&self) -> f32 {self.time}
     fn end_time(&self,hw_miss:f32) -> f32 {self.end_time + hw_miss}
+    fn set_alpha(&mut self, alpha: f32) {self.alpha_mult = alpha}
 
     fn update(&mut self, beatmap_time: f32) {
         // self.pos.x = HIT_POSITION.x + (self.time as f64 - beatmap_time as f64) * self.speed;
@@ -143,25 +152,28 @@ impl HitObject for ManiaHold {
     fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         if self.pos.y < 0.0 || self.end_y > args.window_size[1] as f64 {return}
 
+        let border = Some(Border::new(Color::BLACK.alpha(self.alpha_mult), NOTE_BORDER_SIZE));
+        let color = Color::YELLOW.alpha(self.alpha_mult);
+
         // start
         if self.pos.y < hit_y() {
             list.push(Box::new(Rectangle::new(
-                Color::YELLOW,
-                -100.1,
+                color,
+                MANIA_NOTE_DEPTH,
                 self.pos,
                 NOTE_SIZE,
-                Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
+                border.clone()
             )));
         }
 
         // end
         if self.end_y < hit_y() {
             list.push(Box::new(Rectangle::new(
-                Color::YELLOW,
-                -100.1,
+                color,
+                MANIA_NOTE_DEPTH,
                 Vector2::new(self.pos.x, self.end_y),
                 NOTE_SIZE,
-                Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
+                border.clone()
             )));
         }
 
@@ -184,11 +196,11 @@ impl HitObject for ManiaHold {
         if self.end_y < hit_y() {
             let y = if self.holding {hit_y()} else {self.pos.y};
             list.push(Box::new(Rectangle::new(
-                Color::YELLOW,
-                -100.0,
+                color,
+                MANIA_SLIDER_DEPTH,
                 Vector2::new(self.pos.x, y),
                 Vector2::new(COLUMN_WIDTH, self.end_y - y),
-                Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
+                border.clone()
             )));
         }
     }

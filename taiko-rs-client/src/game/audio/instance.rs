@@ -25,6 +25,8 @@ pub struct AudioInstance {
 
 impl AudioInstance {
     pub fn new(sound: Sound, stream_sample_rate: u32, playback_speed: f64) -> Self {
+        // let now = Instant::now();
+
         let interleaved = if sound.channels == 1 {
             let mut vec = sound.samples.as_ref().clone();
 
@@ -40,8 +42,9 @@ impl AudioInstance {
 
         let current_frame = temp_iter.by_ref().take(sound.channels).cloned().collect();
         let next_frame = temp_iter.take(sound.channels).cloned().collect();
-
         let handle = Arc::new(AudioHandle::new());
+
+        // println!("took {:2}ms to interleave", now.elapsed().as_secs_f32() * 1000.0);
 
         Self {
             sound,
@@ -83,6 +86,12 @@ impl AudioInstance {
             self.volume = self.handle.volume.lock().clone();
 
             self.handle.volume_changed.store(false, Ordering::SeqCst);
+        }
+
+        if self.handle.playback_speed_changed.load(Ordering::SeqCst) {
+            self.playback_speed = self.handle.playback_speed.lock().clone();
+
+            self.handle.playback_speed_changed.store(false, Ordering::SeqCst);
         }
 
         if self.handle.position_changed.load(Ordering::SeqCst) {
@@ -153,7 +162,7 @@ impl Iterator for AudioInstance {
             return Some((sample, sample * self.volume));
         }
 
-        let effective_stream_rate = self.stream_sample_rate as f64 * self.playback_speed;
+        let effective_stream_rate = self.stream_sample_rate as f64 / self.playback_speed;
         let ratio = self.sound.sample_rate as f64 / effective_stream_rate;
         while self.interpolation_value >= 1.0 {
             self.next_frame();

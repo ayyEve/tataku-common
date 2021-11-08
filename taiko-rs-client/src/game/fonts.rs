@@ -1,8 +1,6 @@
-use std::sync::Arc;
+use crate::sync::*;
 use std::{path::Path};
 use std::collections::hash_map::HashMap;
-
-use parking_lot::Mutex;
 use opengl_graphics::{GlyphCache, TextureSettings};
 
 const FONT_LIST:[&'static str; 1] = [

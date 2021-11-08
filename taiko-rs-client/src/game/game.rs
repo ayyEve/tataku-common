@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use ayyeve_piston_ui::render::Circle;
-use tokio::runtime::{Builder, Runtime};
 use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
@@ -11,9 +9,10 @@ use crate::databases::{save_replay, save_score};
 use crate::render::{Color, Image, Rectangle, Renderable};
 use taiko_rs_common::types::{SpectatorFrames, UserAction};
 use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
-use crate::helpers::{FpsDisplay, BenchmarkHelper, VolumeControl};
-use crate::{window_size, Vector2, DOWNLOADS_DIR, menu::*, sync::{Arc, Mutex}};
-use crate::game::{Settings, audio::Audio, online::{USER_ITEM_SIZE, OnlineManager}, managers::{InputManager, BeatmapManager, NotificationManager, NOTIFICATION_MANAGER}};
+use crate::{Vector2, DOWNLOADS_DIR, menu::*, sync::{Arc, Mutex}};
+use crate::helpers::{FpsDisplay, BenchmarkHelper, VolumeControl, io::*};
+use crate::game::{Settings, audio::Audio, managers::*, online::{USER_ITEM_SIZE, OnlineManager}};
+
 
 /// background color
 const GFX_CLEAR_COLOR:Color = Color::WHITE;
@@ -28,13 +27,14 @@ pub struct Game {
     pub graphics: GlGraphics,
     pub input_manager: InputManager,
     pub online_manager: Arc<tokio::sync::Mutex<OnlineManager>>,
-    pub threading: Runtime,
     
     pub menus: HashMap<&'static str, Arc<Mutex<dyn Menu<Game>>>>,
     pub current_state: GameState,
     pub queued_state: GameState,
 
     pub volume_controller: VolumeControl,
+
+    pub wallpapers: Vec<Image>,
 
     // fps
     fps_display: FpsDisplay,
@@ -49,6 +49,9 @@ pub struct Game {
     // user list
     show_user_list: bool,
 
+    // cursor
+    cursor_manager: CursorManager,
+
     // misc
     pub game_start: Instant,
     pub background_image: Option<Image>,
@@ -56,10 +59,12 @@ pub struct Game {
 }
 impl Game {
     pub fn new() -> Game {
-        let mut game_init_benchmark = BenchmarkHelper::new("game::new");
+        let mut game_init_benchmark = BenchmarkHelper::new("Game::new");
+
+        let window_size = Settings::window_size();
 
         let opengl = OpenGL::V3_2;
-        let mut window: AppWindow = WindowSettings::new("Taiko-rs", [window_size().x, window_size().y])
+        let mut window: AppWindow = WindowSettings::new("Taiko-rs", [window_size.x, window_size.y])
             .graphics_api(opengl)
             .resizable(false)
             .build()
@@ -67,19 +72,18 @@ impl Game {
         window.window.set_cursor_mode(glfw::CursorMode::Hidden);
         game_init_benchmark.log("window created", true);
 
-        {
-            //TODO: somehow make sure this file exists?
-            match image::open("./icon-small.png") {
-                Ok(img) => {
-                    window.window.set_icon(vec![img.into_rgba8()]);
-                    game_init_benchmark.log("window icon set", true);
-                }
-                Err(e) => {
-                    game_init_benchmark.log(&format!("error setting window icon: {}", e), true);
-                }
+
+        // set window icon
+        match image::open("resources/icon-small.png") {
+            Ok(img) => {
+                window.window.set_icon(vec![img.into_rgba8()]);
+                game_init_benchmark.log("window icon set", true);
+            }
+            Err(e) => {
+                game_init_benchmark.log(&format!("error setting window icon: {}", e), true);
             }
         }
-        
+
 
         let graphics = GlGraphics::new(opengl);
         game_init_benchmark.log("graphics created", true);
@@ -90,22 +94,16 @@ impl Game {
         let online_manager = Arc::new(tokio::sync::Mutex::new(OnlineManager::new()));
         game_init_benchmark.log("online manager created", true);
 
-        let threading = Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        game_init_benchmark.log("threading created", true);
-
         let mut g = Game {
             // engine
             window,
             graphics,
-            threading,
             input_manager,
             online_manager,
             volume_controller:VolumeControl::new(),
             render_queue: Vec::new(),
             background_image: None,
+            wallpapers: Vec::new(),
 
             menus: HashMap::new(),
             current_state: GameState::None,
@@ -120,6 +118,9 @@ impl Game {
             transition: None,
             transition_last: None,
             transition_timer: 0,
+
+            // cursor
+            cursor_manager: CursorManager::new(),
 
             // misc
             show_user_list: false,
@@ -138,7 +139,7 @@ impl Game {
         let clone = self.online_manager.clone();
 
         // online loop
-        self.threading.spawn(async move {
+        tokio::spawn(async move {
             loop {
                 OnlineManager::start(clone.clone()).await;
                 tokio::time::sleep(Duration::from_millis(1_000)).await;
@@ -146,14 +147,13 @@ impl Game {
         });
 
         // beatmap manager loop
-        BeatmapManager::download_check_loop(self);
-        
+        BeatmapManager::download_check_loop();
         
         let mut loading_menu = LoadingMenu::new();
-        loading_menu.load(self);
+        loading_menu.load();
 
         //region == menu setup ==
-        let mut menu_init_benchmark = BenchmarkHelper::new("game::new");
+        let mut menu_init_benchmark = BenchmarkHelper::new("Game::init");
         // main menu
         let main_menu = Arc::new(Mutex::new(MainMenu::new()));
         self.menus.insert("main", main_menu.clone());
@@ -169,14 +169,32 @@ impl Game {
         self.menus.insert("settings", settings_menu.clone());
         menu_init_benchmark.log("settings menu created", true);
 
+
+        // load background images
+        match std::fs::read_dir("resources/wallpapers") {
+            Ok(list) => {
+                for wall_file in list {
+                    if let Ok(file) = wall_file {
+                        if let Some(wallpaper) = load_image(file.path().to_str().unwrap()) {
+                            self.wallpapers.push(wallpaper)
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                NotificationManager::add_error_notification("Error loading wallpaper", e.into())
+            }
+        }
+
         self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(loading_menu))));
     }
     pub fn game_loop(mut self) {
-        // input and rendering thread
         let mut events = Events::new(EventSettings::new());
+        // events.set_ups_reset(0);
 
         {
-            let settings = Settings::get();
+            // input and rendering thread times
+            let settings = Settings::get_mut();
             events.set_max_fps(settings.fps_target);
             events.set_ups(settings.update_target);
         }
@@ -244,6 +262,13 @@ impl Game {
         //     self.register_timings = self.input_manager.get_register_delay();
         //     println!("register times: min:{}, max: {}, avg:{}", self.register_timings.0,self.register_timings.1,self.register_timings.2);
         // }
+        if !self.cursor_manager.replay_mode {
+            self.cursor_manager.set_cursor_pos(mouse_pos);
+        } else if self.cursor_manager.replay_mode_changed {
+            self.cursor_manager.replay_mode_changed = false;
+            use glfw::CursorMode::{Normal, Hidden};
+            self.window.window.set_cursor_mode(if self.cursor_manager.replay_mode {Normal} else {Hidden});
+        }
 
         if mouse_down.len() > 0 {
             // check notifs
@@ -278,37 +303,27 @@ impl Game {
         match current_state {
             GameState::Ingame(ref manager) => {
                 let mut lock = manager.lock();
+                let settings =  Settings::get();
                 
                 // pause button, or focus lost, only if not replaying
-                if !lock.replaying && matches!(window_focus_changed, Some(false)) || keys_down.contains(&Key::Escape) {
+                if !lock.replaying && (matches!(window_focus_changed, Some(false)) && settings.pause_on_focus_lost) || keys_down.contains(&Key::Escape) {
                     lock.pause();
                     let menu = PauseMenu::new(manager.clone());
                     self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
                 }
 
                 // offset adjust
-                if keys_down.contains(&Key::Equals) {lock.increment_offset(5.0)}
-                if keys_down.contains(&Key::Minus) {lock.increment_offset(-5.0)}
+                if keys_down.contains(&settings.key_offset_up) {lock.increment_offset(5.0)}
+                if keys_down.contains(&settings.key_offset_up) {lock.increment_offset(-5.0)}
 
-                if mouse_moved {
-                    lock.mouse_move(mouse_pos);
-                }
-                for btn in mouse_down {
-                    lock.mouse_down(btn);
-                }
-                for btn in mouse_up {
-                    lock.mouse_up(btn);
-                }
-                if scroll_delta != 0.0 {
-                    lock.mouse_scroll(scroll_delta);
-                }
+                // inputs
+                if mouse_moved {lock.mouse_move(mouse_pos)}
+                for btn in mouse_down {lock.mouse_down(btn)}
+                for btn in mouse_up {lock.mouse_up(btn)}
+                if scroll_delta != 0.0 {lock.mouse_scroll(scroll_delta)}
 
-                for k in keys_down.iter() {
-                    lock.key_down(*k);
-                }
-                for k in keys_up.iter() {
-                    lock.key_up(*k);
-                }
+                for k in keys_down.iter() {lock.key_down(*k)}
+                for k in keys_up.iter() {lock.key_up(*k)}
 
                 // update, then check if complete
                 lock.update();
@@ -469,7 +484,7 @@ impl Game {
                         // }
 
                         let text = format!("{}-{}[{}]\n{}", m.artist, m.title, m.version, h);
-                        self.threading.spawn(async move {
+                        tokio::spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Ingame, text).await;
                         });
                     },
@@ -482,13 +497,13 @@ impl Game {
                             }
                         }
 
-                        self.threading.spawn(async move {
+                        tokio::spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Idle, String::new()).await;
                         });
                     },
                     GameState::Closing => {
                         // send logoff
-                        self.threading.spawn(async move {
+                        tokio::spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Leaving, String::new()).await;
                         });
                     }
@@ -550,7 +565,7 @@ impl Game {
             color,
             f64::MAX - 1.0,
             Vector2::zero(),
-            window_size(),
+            Settings::window_size(),
             None
         )));
 
@@ -576,7 +591,7 @@ impl Game {
                 [0.0, 0.0, 0.0, alpha as f32].into(),
                 -f64::MAX,
                 Vector2::zero(),
-                window_size(),
+                Settings::window_size(),
                 None
             )));
 
@@ -618,21 +633,14 @@ impl Game {
         self.update_display.draw(&mut self.render_queue);
         self.input_update_display.draw(&mut self.render_queue);
 
-        // draw notifications
-        
-        // update the notification manager
+        // draw the notification manager
         NOTIFICATION_MANAGER.lock().draw(&mut self.render_queue);
 
         // draw cursor
-        let mouse_pressed = self.input_manager.mouse_buttons.len() > 0 
-            || self.input_manager.key_down(settings.standard_settings.left_key)
-            || self.input_manager.key_down(settings.standard_settings.right_key);
-        self.render_queue.push(Box::new(Circle::new(
-            Color::new(0.8, 0.0, 0.6, 1.0),
-            -f64::MAX,
-            self.input_manager.mouse_pos,
-            if mouse_pressed {10.0} else {5.0} * settings.cursor_scale
-        )));
+        // let mouse_pressed = self.input_manager.mouse_buttons.len() > 0 
+        //     || self.input_manager.key_down(settings.standard_settings.left_key)
+        //     || self.input_manager.key_down(settings.standard_settings.right_key);
+        self.cursor_manager.draw(&mut self.render_queue);
 
 
         // sort the queue here (so it only needs to be sorted once per frame, instead of every time a shape is added)
@@ -674,38 +682,45 @@ impl Game {
     pub fn set_background_beatmap(&mut self, beatmap:&BeatmapMeta) {
         // let mut helper = BenchmarkHelper::new("loaad image");
 
-        let settings = opengl_graphics::TextureSettings::new();
-        // helper.log("settings made", true);
 
-        let buf: Vec<u8> = match std::fs::read(&beatmap.image_filename) {
-            Ok(buf) => buf,
-            Err(_) => {
-                self.background_image = None;
-                return;
-            }
-        };
+        self.background_image = load_image(&beatmap.image_filename);
 
-        // let buf = file.unwrap();
-        // helper.log("file read", true);
+        if self.background_image.is_none() && self.wallpapers.len() > 0 {
+            self.background_image = Some(self.wallpapers[0].clone());
+        }
 
-        let img = image::load_from_memory(&buf).unwrap();
-        // helper.log("image created", true);
-        let img = img.into_rgba8();
-        // helper.log("format converted", true);
+
+        // let settings = opengl_graphics::TextureSettings::new();
+        // // helper.log("settings made", true);
+        // let buf: Vec<u8> = match std::fs::read(&beatmap.image_filename) {
+        //     Ok(buf) => buf,
+        //     Err(_) => {
+        //         self.background_image = None;
+        //         return;
+        //     }
+        // };
+
+        // // let buf = file.unwrap();
+        // // helper.log("file read", true);
+
+        // let img = image::load_from_memory(&buf).unwrap();
+        // // helper.log("image created", true);
+        // let img = img.into_rgba8();
+        // // helper.log("format converted", true);
         
-        let tex = opengl_graphics::Texture::from_image(&img, &settings);
-        // helper.log("texture made", true);
+        // let tex = opengl_graphics::Texture::from_image(&img, &settings);
+        // // helper.log("texture made", true);
 
-        self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size()));
-        // helper.log("background set", true);
+        // self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size()));
+        // // helper.log("background set", true);
 
-        // match opengl_graphics::Texture::from_path(beatmap.image_filename.clone(), &settings) {
-        //     Ok(tex) => self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size())),
-        //     Err(e) => {
-        //         println!("Error loading beatmap texture: {}", e);
-        //         self.background_image = None; //TODO!: use a known good background image
-        //     },
-        // }
+        // // match opengl_graphics::Texture::from_path(beatmap.image_filename.clone(), &settings) {
+        // //     Ok(tex) => self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size())),
+        // //     Err(e) => {
+        // //         println!("Error loading beatmap texture: {}", e);
+        // //         self.background_image = None; //TODO!: use a known good background image
+        // //     },
+        // // }
     }
 }
 

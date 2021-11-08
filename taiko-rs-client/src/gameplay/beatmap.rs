@@ -1,7 +1,8 @@
 use std::{path::Path};
 
+use crate::{Vector2, render::Color};
 use taiko_rs_common::types::PlayMode;
-use crate::{Vector2, render::Color, gameplay::{beatmap_structs::*, defs::*}};
+use crate::gameplay::{beatmap_structs::*, defs::*};
 
 /// timing bar color
 pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0);
@@ -132,9 +133,7 @@ impl Beatmap {
                         }
                     }
                     BeatmapSection::TimingPoints => {
-                        let tp = TimingPoint::from_str(&line);
-
-                        beatmap.timing_points.push(tp);
+                        beatmap.timing_points.push(TimingPoint::from_str(&line));
                     }
                     BeatmapSection::HitObjects => {
                         let mut split = line.split(",");
@@ -144,7 +143,13 @@ impl Beatmap {
                         let y = split.next().unwrap().parse::<f64>().unwrap();
                         let time = split.next().unwrap().parse::<f32>().unwrap();
                         let read_type = split.next().unwrap().parse::<u64>().unwrap_or(0); // see below
-                        let hitsound = split.next().unwrap().parse::<u32>().unwrap_or(0); // 0 = normal, 2 = whistle, 4 = finish, 8 = clap
+
+                        let hitsound = split.next().unwrap().parse::<u8>();
+                        if let Err(e) = &hitsound {
+                            println!("error parsing hitsound: {}", e)
+                        }
+                        
+                        let hitsound = hitsound.unwrap_or(0); // 0 = normal, 2 = whistle, 4 = finish, 8 = clap
 
                         // read type:
                         // abcdefgh
@@ -156,9 +161,9 @@ impl Beatmap {
                         // h = mania hold
                         let new_combo = (read_type & 4) > 0;
                         let color_skip = 
-                              if (read_type & 2u64.pow(4)) > 0 {1} else {0} 
-                            + if (read_type & 2u64.pow(5)) > 0 {2} else {0} 
-                            + if (read_type & 2u64.pow(6)) > 0 {4} else {0};
+                              if (read_type & 16) > 0 {1} else {0} 
+                            + if (read_type & 32) > 0 {2} else {0} 
+                            + if (read_type & 64) > 0 {4} else {0};
 
                         if (read_type & 2) > 0 { // slider
                             let curve_raw = split.next().unwrap();
@@ -167,14 +172,21 @@ impl Beatmap {
                             let length = split.next().unwrap().parse::<f32>().unwrap();
                             let edge_sounds = split
                                 .next()
-                                .unwrap_or("")
+                                .unwrap_or("0")
                                 .split("|")
                                 .map(|s|s.parse::<u8>().unwrap_or(0)).collect();
                             let edge_sets = split
                                 .next()
-                                .unwrap_or("0")
+                                .unwrap_or("0:0")
                                 .split("|")
-                                .map(|s|s.parse::<u8>().unwrap_or(0)).collect();
+                                .map(|s| {
+                                    let mut s2 = s.split(':');
+                                    [
+                                        s2.next().unwrap_or("0").parse::<u8>().unwrap_or(0),
+                                        s2.next().unwrap_or("0").parse::<u8>().unwrap_or(0),
+                                    ]
+                                })
+                                .collect();
 
 
                             let curve_type = match &*curve.next().unwrap() {
@@ -195,6 +207,7 @@ impl Beatmap {
                             }
 
                             beatmap.sliders.push(SliderDef {
+                                raw: line.clone(),
                                 pos: Vector2::new(x, y),
                                 time,
                                 curve_type,
@@ -202,7 +215,7 @@ impl Beatmap {
                                 slides,
                                 length,
                                 hitsound,
-                                hitsamples: Vec::new(),
+                                hitsamples: HitSamples::from_str(split.next()),
                                 edge_sounds,
                                 edge_sets,
                                 new_combo,
@@ -213,14 +226,13 @@ impl Beatmap {
                             // x,y,time,type,hitSound,...
                             // endTime,hitSample
                             let end_time = split.next().unwrap().parse::<f32>().unwrap();
-                            // let length = end_time as f64 - time as f64;
 
                             beatmap.spinners.push(SpinnerDef {
                                 pos: Vector2::new(x, y),
                                 time,
                                 end_time,
                                 hitsound,
-                                hitsamples: Vec::new(),
+                                hitsamples: HitSamples::from_str(split.next()),
                                 new_combo,
                                 color_skip
                             });
@@ -235,14 +247,14 @@ impl Beatmap {
                                 time,
                                 end_time,
                                 hitsound,
-                                hitsamples: Vec::new()
+                                hitsamples: HitSamples::from_str(split.next()),
                             });
                         } else { // note
                             beatmap.notes.push(NoteDef {
                                 pos: Vector2::new(x, y),
                                 time,
                                 hitsound,
-                                hitsamples: Vec::new(),
+                                hitsamples: HitSamples::from_str(split.next()),
                                 new_combo,
                                 color_skip
                             });
@@ -285,18 +297,18 @@ impl Beatmap {
             }
         }
 
-        let mut mult:f32 = 1.0;
+        let mut mult = 1.0;
         let p = point.unwrap();
 
         if allow_multiplier && inherited_point.is_some() {
             let ip = inherited_point.unwrap();
 
-            if p.time < ip.time && ip.beat_length < 0.0 {
-                mult = (-ip.beat_length as f32).clamp(10.0, 1000.0) / 100.0;
+            if p.time <= ip.time && ip.beat_length < 0.0 {
+                mult = (-ip.beat_length).clamp(10.0, 1000.0) / 100.0;
             }
         }
 
-        p.beat_length as f32 * mult
+        p.beat_length * mult
     }
     
     // something is fucked with this, it returns values wayyyyyyyyyyyyyyyyyyyyyy too high
@@ -413,6 +425,14 @@ impl BeatmapMeta {
         || self.title_unicode.to_ascii_lowercase().contains(filter_str) 
         || self.creator.to_ascii_lowercase().contains(filter_str) 
         || self.version.to_ascii_lowercase().contains(filter_str) 
+    }
+
+    pub fn check_mode_override(&self, override_mode:PlayMode) -> PlayMode {
+        if self.mode == PlayMode::Standard {
+            override_mode
+        } else {
+            self.mode
+        }
     }
 }
 

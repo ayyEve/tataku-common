@@ -14,7 +14,7 @@ pub fn get_scores(hash:&String) -> Vec<Score> {
             score: r.get("score")?,
             combo: r.get("combo")?,
             max_combo: r.get("max_combo")?,
-            x50: r.get("x100").unwrap_or_default(),
+            x50: r.get("x50").unwrap_or(0),
             x100: r.get("x100")?,
             x300: r.get("x300")?,
             xmiss: r.get("xmiss")?,
@@ -47,19 +47,19 @@ pub fn save_score(s:&Score) {
             username, playmode,
             score,
             combo, max_combo,
-            x100, x300, xmiss
+            x50, x100, x300, geki, katu, xmiss
         ) VALUES (
             '{}', '{}',
             '{}', {},
             {},
             {}, {},
-            {}, {}, {}
+            {}, {}, {}, {}, {}, {}
         )", 
         s.beatmap_hash, s.hash(),
         s.username, s.playmode as u8,
         s.score,
         s.combo, s.max_combo,
-        s.x100, s.x300, s.xmiss
+        s.x50, s.x100, s.x300, s.xgeki, s.xkatu, s.xmiss
     );
     let mut s = db.prepare(&sql).unwrap();
     s.execute([]).unwrap();

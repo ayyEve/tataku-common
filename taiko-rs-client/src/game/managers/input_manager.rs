@@ -19,7 +19,6 @@ pub struct InputManager {
     keys_down: HashSet<(Key, Instant)>,
     /// keys that were released but waiting to be registered
     keys_up: HashSet<(Key, Instant)>,
-
     
     text_cache: String,
     window_change_focus: Option<bool>,
@@ -66,8 +65,19 @@ impl InputManager {
                     self.mouse_buttons.remove(&mb);
                     self.mouse_up.insert((mb, Instant::now()));
                 }
+
+                (Button::Controller(cb), ButtonState::Press) => {
+                    println!("got gamepad press: {:?}", cb);
+                }
+                (Button::Controller(cb), ButtonState::Release) => {
+                    println!("got gamepad release: {:?}", cb);
+                }
                 _ => {}
             }
+        }
+
+        if let Some(axis) = e.controller_axis_args() {
+            println!("got controller axis: {:?}", axis);
         }
 
         e.mouse_cursor(|pos| {
@@ -153,6 +163,7 @@ impl InputManager {
 
     /// get the input register delay average 
     /// (min,max,avg)
+    #[allow(unused)]
     pub fn get_register_delay(&mut self) -> (f32,f32,f32) {
         let mut sum = 0.0;
         let mut min = f32::MAX;

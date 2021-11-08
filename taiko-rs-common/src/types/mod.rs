@@ -3,18 +3,18 @@ mod score;
 mod user_status;
 mod spectator;
 
-
 pub use score::*;
 pub use replay::*;
 pub use user_status::*;
 pub use spectator::*;
 
+use serde::{Serialize, Deserialize};
 use crate::serialization::Serializable;
 
-
 use PlayMode::*;
-#[derive(Debug,Clone,Copy,PartialEq)]
+
 #[repr(u8)]
+#[derive(Debug,Clone,Copy,PartialEq, Serialize, Deserialize)]
 pub enum PlayMode {
     Standard,
     Taiko,

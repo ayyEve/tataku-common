@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use ayyeve_piston_ui::render::Vector2;
+use crate::Vector2;
 
 // this is essentially osu's math helper
 
@@ -176,7 +176,7 @@ pub(crate) fn create_bezier_old(input: Vec<Vector2>) -> Vec<Vector2> {
         for i in 0..count {working[i] = input[i]}
         for level in 0..count {
             for i in 0..count - level - 1 {
-                working[i] = lerp(working[i], working[i+1], iteration as f64 / points as f64);
+                working[i] = Vector2::lerp(working[i], working[i+1], iteration as f64 / points as f64);
             }
         }
         output.push(working[0]);
@@ -198,7 +198,7 @@ pub(crate) fn create_bezier_wrong(input: Vec<Vector2>) -> Vec<Vector2> {
 
         for level in 0..count {
             for i in 0..count - level - 1 {
-                working[i] = lerp(working[i], working[i+1], iteration as f64 / points as f64);
+                working[i] = Vector2::lerp(working[i], working[i+1], iteration as f64 / points as f64);
             }
         }
         output.push(working[0]);
@@ -210,13 +210,6 @@ pub(crate) fn create_bezier_wrong(input: Vec<Vector2>) -> Vec<Vector2> {
 
 fn length_squared(p:Vector2) -> f64 {
     p.x * p.x + p.y * p.y
-}
-
-fn lerp(value1: Vector2, value2: Vector2, amount:f64) -> Vector2 {
-    Vector2::new(
-        value1.x + (value2.x - value1.x) * amount,
-        value1.y + (value2.y - value1.y) * amount
-    )
 }
 
 fn distance(p1:Vector2, p2:Vector2) -> f64 {
@@ -266,3 +259,35 @@ pub(crate) fn circle_point(center:Vector2, radius:f64, a:f64) -> Vector2 {
         a.sin() * radius
     ) + center
 }
+
+
+pub trait Lerp {
+    fn lerp(target: Self, current: Self, amount: f64) -> Self;
+}
+impl<T> Lerp for T where T: Copy + std::ops::Add<Output=T> + std::ops::Sub<Output=T> + std::ops::Mul<f64, Output=T> {
+    fn lerp(target: T, current: Self, amount: f64) -> T {
+        target + (current - target) * amount
+    }
+}
+
+
+pub trait VectorHelpers {
+    fn atan2(v:Vector2) -> f64 {
+        v.y.atan2(v.x)
+    }
+
+    fn from_angle(a:f64) -> Vector2 {
+        Vector2::new(a.cos(), a.sin())
+    }
+
+    fn magnitude(v: Vector2) -> f64 {
+        (v.x * v.x + v.y * v.y).sqrt()
+    }
+    
+    fn normalize(v: Vector2) -> Vector2 {
+        let magnitude = Vector2::magnitude(v);
+        if magnitude == 0.0 { v }
+        else { v / magnitude }
+    }
+}
+impl VectorHelpers for Vector2 {}

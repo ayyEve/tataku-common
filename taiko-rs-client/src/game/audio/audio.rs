@@ -10,18 +10,20 @@ use cpal::traits::{HostTrait, DeviceTrait, StreamTrait};
 use super::AudioHandle;
 use super::sound::Sound;
 use crate::game::Settings;
+use crate::game::managers::NotificationManager;
 use super::instance::AudioInstance;
 use super::queue::{AudioQueueController, AudioQueue};
 
-const SOUND_LIST:[&'static str; 4] = [
-    "audio/don.wav",
-    "audio/kat.wav",
-    "audio/bigdon.wav",
-    "audio/bigkat.wav",
+const SOUND_LIST:&[&'static str] = &[
+    "resources/audio/don.wav",
+    "resources/audio/kat.wav",
+    "resources/audio/bigdon.wav",
+    "resources/audio/bigkat.wav",
+    "resources/audio/combobreak.mp3"
 ];
 
 lazy_static::lazy_static!(
-    static ref AUDIO: Arc<Audio> = Arc::new(Audio::setup());
+    pub static ref AUDIO: Arc<Audio> = Arc::new(Audio::setup());
     static ref CURRENT_SONG: Arc<Mutex<Option<(String,Weak<AudioHandle>)>>> = Arc::new(Mutex::new(None));
 
     static ref PRELOADED_SOUNDS: HashMap<String, Sound> = {
@@ -31,9 +33,12 @@ lazy_static::lazy_static!(
             let sound_name = Path::new(sound).file_stem().unwrap().to_str().unwrap();
             println!("loading audio file {}", sound_name);
 
-            let sound = Sound::load(sound);
-
-            sounds.insert(sound_name.to_owned(), sound);
+            match Sound::load(sound) {
+                Ok(sound) => {sounds.insert(sound_name.to_owned(), sound);},
+                Err(e) => {
+                    println!("error loading sound: {}", e);
+                }
+            }
         }
 
         sounds
@@ -45,7 +50,7 @@ lazy_static::lazy_static!(
 
 pub struct Audio {
     queue: Arc<AudioQueueController>,
-    sample_rate: u32,
+    pub sample_rate: u32,
 }
 impl Audio {
     // todo: fix everything so nothing crashes and you can always change the device later etc
@@ -60,15 +65,28 @@ impl Audio {
 
         // println!("Range Rate: {}-{}Hz", supported_config_range.min_sample_rate().0, supported_config_range.max_sample_rate().0);
 
+        let buff_range = supported_config_range.buffer_size().clone();
         let supported_config = supported_config_range.with_max_sample_rate();
         let sample_rate = supported_config.sample_rate().0;
+
+        let config = if let cpal::SupportedBufferSize::Range{min, max} = buff_range {
+            let mut config = supported_config.config();
+            config.buffer_size = cpal::BufferSize::Fixed(8192.clamp(min, max));
+            println!("setting buffer size to {}", min);
+            config
+        } else {
+            println!("unknown buffer size, praying to jesus");
+            let config = supported_config.config();
+            // config.buffer_size = cpal::BufferSize::Fixed(8192);
+            config
+        };
 
         // println!("Sample Rate Stream: {}", sample_rate);
         let (controller, mut queue) = AudioQueue::new();
 
         std::thread::spawn(move || {
             let stream = device.build_output_stream(
-                &supported_config.into(),
+                &config,
                 move |data: &mut [f32], info: &cpal::OutputCallbackInfo| {
                     
                     // react to stream events and read or write stream data here.
@@ -92,12 +110,12 @@ impl Audio {
                         *sample = s;
 
                         // if raw != 0.0 {
-                            current_data.push(raw);
+                        current_data.push(raw);
                         // }
                     }
 
                     // println!("len: {}", current_data.len());
-                    current_data.resize(1024, 0.0);
+                    // current_data.resize(8192, 0.0);
                     // {
                     //     let mut current_data = CURRENT_DATA.lock();
                     //     current_data.fill(0.0)
@@ -150,7 +168,13 @@ impl Audio {
         *PLAY_PENDING.lock() = id.clone();
 
         // load the audio data (this is what takes a million years)
-        let sound = Sound::load(path.as_ref());
+        let sound = match Sound::load(path.as_ref()) {
+            Ok(sound) => sound,
+            Err(e) => {
+                NotificationManager::add_error_notification("Error loading music file", e);
+                return Weak::new()
+            }
+        };
 
         // if the pending song is no longer us, return a fake pointer
         if *PLAY_PENDING.lock() != id {
@@ -225,11 +249,23 @@ impl Audio {
     }
 
     pub fn _play(path: impl AsRef<str>) -> Weak<AudioHandle> {
-        Audio::play_sound(Sound::load(path.as_ref()))
+        match Sound::load(path.as_ref()) {
+            Ok(sound) => Audio::play_sound(sound),
+            Err(e) => {
+                NotificationManager::add_error_notification("Error playing music file", e);
+                return Weak::new()
+            }
+        }
     }
 
     pub fn play_raw(bytes: Vec<u8>) -> Weak<AudioHandle> {
-        Audio::play_sound(Sound::load_raw(bytes))
+        match Sound::load_raw(bytes) {
+            Ok(sound) => Audio::play_sound(sound),
+            Err(e) => {
+                NotificationManager::add_error_notification("Error playing music file", e);
+                return Weak::new()
+            }
+        }
     }
 
     pub fn play_preloaded(name: impl AsRef<str>) -> Weak<AudioHandle> {

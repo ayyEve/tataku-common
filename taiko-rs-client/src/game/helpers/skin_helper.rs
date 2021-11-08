@@ -1,7 +1,8 @@
+#[allow(unused, dead_code)]
+
 use std::collections::HashMap;
 use crate::game::audio::Sound;
-
-use ayyeve_piston_ui::render::{Color, Image, Vector2};
+use crate::render::{Color, Image, Vector2};
 
 const SKIN_FOLDER:&str = "./skins";
 const DEFAULT_SKIN:&str = "default";
@@ -60,7 +61,7 @@ impl SkinHelper {
 }
 
 
-
+#[allow(unused, dead_code)]
 pub struct SkinSettings {
     // general
     name: String,
@@ -83,6 +84,7 @@ pub struct SkinSettings {
     /// ???
     spinner_approach_circle: Color,
 }
+#[allow(unused, dead_code)]
 impl SkinSettings {
     fn from_file(path:String) -> Self {
         enum SkinSection {

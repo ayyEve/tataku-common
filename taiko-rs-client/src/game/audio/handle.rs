@@ -13,6 +13,10 @@ pub struct AudioHandle {
     /// New audio position from the start, in milliseconds.
     pub(super) new_position: Mutex<f32>,
 
+    pub(super) playback_speed_changed: AtomicBool,
+    /// New audio position from the start, in milliseconds.
+    pub(super) playback_speed: Mutex<f64>,
+
     pub(super) delay: Mutex<f32>,
     pub(super) time: Mutex<f32>,
     pub(super) last_time: Mutex<Instant>,
@@ -31,6 +35,9 @@ impl AudioHandle {
 
             position_changed: AtomicBool::new(false),
             new_position: Mutex::new(0.0),
+
+            playback_speed_changed: AtomicBool::new(false),
+            playback_speed: Mutex::new(0.0),
 
             delay: Mutex::new(0.0),
             time: Mutex::new(0.0),
@@ -70,6 +77,11 @@ impl AudioHandle {
     pub fn set_position(&self, position: f32) {
         *self.new_position.lock() = position;
         self.position_changed.store(true, Ordering::SeqCst);
+    }
+    /// Set the current time of the sound, relative to the start of the sound, in milliseconds.
+    pub fn set_playback_speed(&self, speed: f64) {
+        *self.playback_speed.lock() = speed;
+        self.playback_speed_changed.store(true, Ordering::SeqCst);
     }
 
     pub fn play(&self) {

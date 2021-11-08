@@ -1,13 +1,12 @@
-use std::sync::Arc;
-
-use parking_lot::Mutex;
 use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::KeyModifiers;
+use taiko_rs_common::types::PlayMode;
 
-use crate::{window_size, Vector2, render::*};
+use crate::{Vector2, render::*, sync::*};
 use crate::visualization::{MenuVisualization, Visualization};
+use crate::gameplay::{IngameManager, modes::manager_from_playmode};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
-use crate::game::{Audio, Game, GameState, get_font, managers::BEATMAP_MANAGER};
+use crate::game::{Audio, Game, GameState, Settings, get_font, managers::{BEATMAP_MANAGER, NotificationManager}};
 
 const BUTTON_SIZE: Vector2 = Vector2::new(100.0, 50.0);
 const Y_MARGIN: f64 = 20.0;
@@ -19,11 +18,13 @@ pub struct MainMenu {
     pub settings_button: MenuButton,
     pub exit_button: MenuButton,
 
-    visualization: MenuVisualization
+    visualization: MenuVisualization,
+
+    background_game: Option<IngameManager>,
 }
 impl MainMenu {
     pub fn new() -> MainMenu {
-        let middle = window_size().x /2.0 - BUTTON_SIZE.x/2.0;
+        let middle = Settings::window_size().x /2.0 - BUTTON_SIZE.x/2.0;
         let mut counter = 1.0;
         
         let play_button = MenuButton::new(Vector2::new(middle, (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Play");
@@ -40,13 +41,34 @@ impl MainMenu {
             settings_button,
             exit_button,
 
-            visualization: MenuVisualization::new()
+            visualization: MenuVisualization::new(),
+            background_game: None
         }
+    }
+
+    fn setup_manager(&mut self) {
+        let settings = Settings::get().background_game_settings;
+        if !settings.enabled {return}
+
+        let lock = BEATMAP_MANAGER.lock();
+        let map = match &lock.current_beatmap {
+            Some(map) => map,
+            None => return
+        };
+
+        let mut manager = manager_from_playmode(settings.mode, &map);
+        manager.autoplay = true;
+        manager.menu_background = true;
+        manager.start();
+
+        self.background_game = Some(manager);
     }
 }
 impl Menu<Game> for MainMenu {
     fn on_change(&mut self, _into:bool) {
         self.visualization.reset();
+
+        self.setup_manager();
     }
 
     fn update(&mut self, g:&mut Game) {
@@ -57,12 +79,24 @@ impl Menu<Game> for MainMenu {
             // it should?
             if let Some(map) = map {
                 BEATMAP_MANAGER.lock().set_current_beatmap(g, &map, false, false);
+                self.setup_manager();
             }
         }
 
         let maps = BEATMAP_MANAGER.lock().get_new_maps();
         if maps.len() > 0 {
             BEATMAP_MANAGER.lock().set_current_beatmap(g, &maps[maps.len() - 1], true, false);
+            self.setup_manager();
+        }
+
+        self.visualization.update();
+
+        if let Some(manager) = self.background_game.as_mut() {
+            manager.update();
+
+            if manager.completed {
+                self.background_game = None;
+            }
         }
     }
 
@@ -70,6 +104,7 @@ impl Menu<Game> for MainMenu {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let pos_offset = Vector2::zero();
         let depth = 0.0;
+        let window_size = Settings::window_size();
 
         // draw welcome text
         let mut welcome_text = Text::new(
@@ -80,7 +115,7 @@ impl Menu<Game> for MainMenu {
             "Welcome to Taiko.rs".to_owned(),
             get_font("main")
         );
-        welcome_text.center_text(Rectangle::bounds_only(Vector2::new(0.0, 30.0), Vector2::new(window_size().x , 50.0)));
+        welcome_text.center_text(Rectangle::bounds_only(Vector2::new(0.0, 30.0), Vector2::new(window_size.x , 50.0)));
         
         list.push(crate::helpers::visibility_bg(welcome_text.pos - Vector2::new(0.0, 40.0), Vector2::new(welcome_text.measure_text().x , 50.0)));
         list.push(Box::new(welcome_text));
@@ -92,78 +127,12 @@ impl Menu<Game> for MainMenu {
         list.extend(self.exit_button.draw(args, pos_offset, depth));
 
         // visualization
-        let mid = window_size() / 2.0;
+        let mid = window_size / 2.0;
         self.visualization.draw(args, mid, depth + 10.0, &mut list);
 
-
-        // slider drawing testing
-        
-        // use crate::gameplay::Beatmap;
-        // {
-        //     let mut map = Beatmap {
-        //         hash: "".to_owned(),
-        //         metadata: crate::gameplay::BeatmapMeta::new(),
-        //         timing_points: vec![
-        //             crate::gameplay::TimingPoint {
-        //                 time: 0.0,
-        //                 beat_length: 100.0,
-        //                 volume: 0,
-        //                 kiai: true
-        //             }
-        //         ],
-        //         notes: Vec::new(),
-        //         sliders: Vec::new(),
-        //         spinners: Vec::new(),
-        //         holds: Vec::new(),
-        //     };
-        //     map.metadata.beatmap_version = 9.0;
-
-        //     const N:f64 = 50.0;
-
-        //     let slider = crate::gameplay::hitobject_defs::SliderDef {
-        //         pos: Vector2::new(168.0, 208.0),
-        //         time: 0.0,
-        //         hitsound: 0,
-        //         curve_type: crate::gameplay::hitobject_defs::CurveType::Bézier,
-        //         curve_points: vec![
-        //             Vector2::new(240.0, 248.0),
-        //             Vector2::new(320.0, 192.0),
-        //             Vector2::new(296.0, 104.0),
-        //         ],
-        //         slides: 1,
-        //         length: 0.0,
-        //         edge_sets: vec![],
-        //         edge_sounds: vec![],
-        //         hitsamples: vec![],
-        //         raw_str: "".to_owned()
-        //     };
-
-        //     let curve = crate::helpers::slider::get_curve(&slider, &map);
-
-        //     let pos_offset = window_size() / 2.0;
-
-        //     for i in 0..curve.path.len() {
-        //         let color = [
-        //             Color::GREEN,
-        //             Color::RED
-        //         ][i % 2];
-        //         let depth = -1000.0;
-        //         let radius = 20.0;
-    
-        //         let line = curve.path[i];
-        //         list.push(Box::new(Line::new(
-        //             pos_offset + line.p1,
-        //             pos_offset + line.p2,
-        //             radius,
-        //             depth,
-        //             color
-        //         )));
-        //     }
-
-        // }
-
-
-
+        if let Some(manager) = self.background_game.as_mut() {
+            manager.draw(args, &mut list);
+        }
 
         list
     }
@@ -206,29 +175,65 @@ impl Menu<Game> for MainMenu {
 
 
     fn on_key_press(&mut self, key:piston::Key, game:&mut Game, mods:KeyModifiers) {
-        if mods.alt {return}
         use piston::Key::*;
-        match key {
-            Left => {
-                let mut manager = BEATMAP_MANAGER.lock();
 
-                if let Some(map) = manager.previous_beatmap() {
-                    manager.set_current_beatmap(game, &map, false, false);
-                } else {
-                    println!("no prev")
+        let mut needs_manager_setup = false;
+
+
+        // check offset keys
+        if let Some(manager) = self.background_game.as_mut() {
+            let settings = Settings::get();
+            if key == settings.key_offset_up {manager.increment_offset(5.0)}
+            if key == settings.key_offset_down {manager.increment_offset(-5.0)}
+        }
+
+
+        if !mods.alt {
+            match key {
+                Left => {
+                    let mut manager = BEATMAP_MANAGER.lock();
+
+                    if let Some(map) = manager.previous_beatmap() {
+                        manager.set_current_beatmap(game, &map, false, false);
+                        needs_manager_setup = true;
+                    } else {
+                        println!("no prev")
+                    }
                 }
-            }
-            Right => {
-                let mut manager = BEATMAP_MANAGER.lock();
+                Right => {
+                    let mut manager = BEATMAP_MANAGER.lock();
 
-                if let Some(map) = manager.next_beatmap() {
-                    manager.set_current_beatmap(game, &map, false, false);
-                } else {
-                    println!("no next")
+                    if let Some(map) = manager.next_beatmap() {
+                        manager.set_current_beatmap(game, &map, false, false);
+                        needs_manager_setup = true;
+                    } else {
+                        println!("no next")
+                    }
                 }
-            }
 
-            _ => {}
+                _ => {}
+            }
+        }
+        
+        if mods.alt {
+            let new_mode = match key {
+                D1 => Some(PlayMode::Standard),
+                D2 => Some(PlayMode::Taiko),
+                D3 => Some(PlayMode::Catch),
+                D4 => Some(PlayMode::Mania),
+                _ => None
+            };
+
+            if let Some(new_mode) = new_mode {
+                needs_manager_setup = true;
+                Settings::get_mut().background_game_settings.mode = new_mode;
+                NotificationManager::add_text_notification(&format!("Menu mode changed to {:?}", new_mode), 1000.0, Color::BLUE);
+            }
+        }
+
+
+        if needs_manager_setup {
+            self.setup_manager();
         }
     }
 }

@@ -1,14 +1,15 @@
 use std::collections::HashMap;
 
-use ayyeve_piston_ui::menu::menu_elements::TextInput;
-use ayyeve_piston_ui::render::*;
 use piston::{Key, MouseButton, RenderArgs};
+use ayyeve_piston_ui::menu::menu_elements::TextInput;
 
+use crate::render::*;
 use taiko_rs_common::types::{Score, PlayMode};
+use crate::game::managers::NotificationManager;
+use crate::{Vector2, databases::get_scores, sync::*};
 use crate::gameplay::{BeatmapMeta, modes::manager_from_playmode};
-use crate::{window_size, Vector2, databases::get_scores, sync::*};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
-use crate::game::{Game, GameState, KeyModifiers, get_font, Audio, managers::BEATMAP_MANAGER};
+use crate::game::{Settings, Game, GameState, KeyModifiers, get_font, Audio, managers::BEATMAP_MANAGER};
 
 
 // constants
@@ -44,7 +45,7 @@ pub struct BeatmapSelectMenu {
 }
 impl BeatmapSelectMenu {
     pub fn new() -> BeatmapSelectMenu {
-        let window_size = window_size();
+        let window_size = Settings::window_size();
         BeatmapSelectMenu {
             mode: PlayMode::Standard,
 
@@ -109,11 +110,10 @@ impl BeatmapSelectMenu {
                 self.leaderboard_scroll.add_item(Box::new(LeaderboardItem::new(s.to_owned())));
             }
         }
-
     }
 
     fn play_map(&self, game: &mut Game, map: &BeatmapMeta) {
-        Audio::stop_song();
+        // Audio::stop_song();
         let manager = manager_from_playmode(self.mode, map);
         game.queue_state_change(GameState::Ingame(Arc::new(Mutex::new(manager))));
     }
@@ -125,8 +125,8 @@ impl Menu<Game> for BeatmapSelectMenu {
 
         let maps = BEATMAP_MANAGER.lock().get_new_maps();
         if maps.len() > 0 {
-            self.refresh_maps();
             BEATMAP_MANAGER.lock().set_current_beatmap(game, &maps[maps.len() - 1], false, true);
+            self.refresh_maps();
         }
     
         self.map_changing.2 += 1;
@@ -152,7 +152,7 @@ impl Menu<Game> for BeatmapSelectMenu {
                 if Audio::get_song().is_none() {
                     // println!("song done");
                     self.map_changing = (true, false, 0);
-                    game.threading.spawn(async move {
+                    tokio::spawn(async move {
                         let lock = BEATMAP_MANAGER.lock();
                         let map = lock.current_beatmap.as_ref().unwrap();
                         Audio::play_song(map.audio_filename.clone(), true, map.audio_preview);
@@ -276,6 +276,7 @@ impl Menu<Game> for BeatmapSelectMenu {
         // check if beatmap item was clicked
         if let Some(clicked_hash) = self.beatmap_scroll.on_click_tagged(pos, button, mods) {
             let mut lock = BEATMAP_MANAGER.lock();
+            println!("clicked: {}", clicked_hash);
 
             // compare last clicked map hash with the new hash.
             // if the hashes are the same, the same map was clicked twice in a row.
@@ -283,7 +284,7 @@ impl Menu<Game> for BeatmapSelectMenu {
             if let Some(current) = &lock.current_beatmap {
                 if current.beatmap_hash == clicked_hash {
                     self.play_map(game, current);
-                    // self.map_changing = (true, false, 0);
+                    self.map_changing = (true, false, 0);
                     return;
                 }
             }
@@ -296,6 +297,7 @@ impl Menu<Game> for BeatmapSelectMenu {
 
             self.beatmap_scroll.refresh_layout();
             self.load_scores();
+            return;
         }
         
         // else {
@@ -305,7 +307,7 @@ impl Menu<Game> for BeatmapSelectMenu {
         //     self.leaderboard_scroll.clear();
         // }
 
-        self.beatmap_scroll.refresh_layout();
+        // self.beatmap_scroll.refresh_layout();
     }
     fn on_mouse_move(&mut self, pos:Vector2, _game:&mut Game) {
         self.back_button.on_mouse_move(pos);
@@ -328,13 +330,33 @@ impl Menu<Game> for BeatmapSelectMenu {
             return;
         }
 
+        if mods.alt {
+            let new_mode = match key {
+                piston::Key::D1 => Some(PlayMode::Standard),
+                piston::Key::D2 => Some(PlayMode::Taiko),
+                piston::Key::D3 => Some(PlayMode::Catch),
+                piston::Key::D4 => Some(PlayMode::Mania),
+                _ => None
+            };
+
+            if let Some(new_mode) = new_mode {
+                self.mode = new_mode;
+                NotificationManager::add_text_notification(&format!("Mode changed to {:?}", new_mode), 1000.0, Color::BLUE);
+            }
+        }
+
+        // only refresh if the text changed
+        let old_text = self.search_text.get_text();
         self.search_text.on_key_press(key, mods);
-        self.refresh_maps();
+        if self.search_text.get_text() != old_text {
+            self.refresh_maps();
+        }
     }
 
     //TODO: implement search (oh god)
     fn on_text(&mut self, text:String) {
         self.search_text.on_text(text);
+        self.refresh_maps();
     }
 }
 
@@ -359,7 +381,7 @@ impl BeatmapsetItem {
         //     a.partial_cmp(&b).unwrap()
         // });
 
-        let x = window_size().x - (BEATMAPSET_ITEM_SIZE.x + BEATMAPSET_PAD_RIGHT + LEADERBOARD_POS.x + LEADERBOARD_ITEM_SIZE.x);
+        let x = Settings::window_size().x - (BEATMAPSET_ITEM_SIZE.x + BEATMAPSET_PAD_RIGHT + LEADERBOARD_POS.x + LEADERBOARD_ITEM_SIZE.x);
 
         BeatmapsetItem {
             beatmaps: beatmaps.clone(), 

@@ -26,10 +26,10 @@ pub struct Score {
     pub hit_timings: Vec<f32>,
 }
 impl Score {
-    pub fn new(hash:String, username:String, playmode:PlayMode) -> Score {
+    pub fn new(beatmap_hash:String, username:String, playmode:PlayMode) -> Score {
         Score {
             username,
-            beatmap_hash: hash,
+            beatmap_hash,
             playmode,
             score: 0,
             combo: 0,
