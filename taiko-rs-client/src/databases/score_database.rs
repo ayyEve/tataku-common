@@ -17,9 +17,10 @@ pub fn get_scores(hash:&String) -> Vec<Score> {
             x50: r.get("x50").unwrap_or(0),
             x100: r.get("x100")?,
             x300: r.get("x300")?,
-            geki: r.get("geki").unwrap_or(0),
-            katu: r.get("katu").unwrap_or(0),
             xmiss: r.get("xmiss")?,
+            xgeki: r.get("xgeki").unwrap_or_default(),
+            xkatu: r.get("xkatu").unwrap_or_default(),
+            accuracy: r.get("accuracy").unwrap_or_default(),
             beatmap_hash: r.get("map_hash")?,
             hit_timings: Vec::new()
         };
@@ -58,7 +59,7 @@ pub fn save_score(s:&Score) {
         s.username, s.playmode as u8,
         s.score,
         s.combo, s.max_combo,
-        s.x50, s.x100, s.x300, s.geki, s.katu, s.xmiss
+        s.x50, s.x100, s.x300, s.xgeki, s.xkatu, s.xmiss
     );
     let mut s = db.prepare(&sql).unwrap();
     s.execute([]).unwrap();

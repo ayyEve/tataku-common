@@ -27,7 +27,8 @@ pub fn manager_from_playmode(mut playmode: PlayMode, beatmap: &BeatmapMeta) -> I
         Standard => Arc::new(Mutex::new(standard::StandardGame::new(&beatmap))),
         Taiko => Arc::new(Mutex::new(taiko::TaikoGame::new(&beatmap))),
         Catch => Arc::new(Mutex::new(catch::CatchGame::new(&beatmap))),
-        Mania => Arc::new(Mutex::new(mania::ManiaGame::new(&beatmap)))
+        Mania => Arc::new(Mutex::new(mania::ManiaGame::new(&beatmap))),
+        pTyping => todo!(),
     };
 
     IngameManager::new(beatmap, gamemode)

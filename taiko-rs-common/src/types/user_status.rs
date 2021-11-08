@@ -11,6 +11,7 @@ pub enum UserAction {
     Idle,
     Ingame,
     Leaving,
+    Editing
 }
 
 impl Serializable for UserAction {
