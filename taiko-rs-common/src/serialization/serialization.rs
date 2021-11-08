@@ -276,7 +276,7 @@ impl SerializationWriter {
 
     pub fn write_string(&mut self, s:String) {
         let bytes = s.as_bytes();
-        let len = bytes.len();
+        let len = bytes.len() as u64;
 
         self.write(len);
         self.data.extend(bytes.iter());

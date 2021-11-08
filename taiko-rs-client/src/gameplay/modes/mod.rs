@@ -25,36 +25,12 @@ pub fn manager_from_playmode(mut playmode: PlayMode, beatmap: &BeatmapMeta) -> I
         Standard => Box::new(standard::StandardGame::new(&beatmap)),
         Taiko => Box::new(taiko::TaikoGame::new(&beatmap)),
         Catch => Box::new(catch::CatchGame::new(&beatmap)),
-        Mania => Box::new(mania::ManiaGame::new(&beatmap))
+        Mania => Box::new(mania::ManiaGame::new(&beatmap)),
+        pTyping => todo!(),
     };
 
     IngameManager::new(beatmap, gamemode)
 }
-
-
-// fn scale_window() -> (f64, Vector2) {
-//     let (scale, offset) = Settings::get_mut().standard_settings.get_playfield();
-//     let window_size = window_size();
-//     let scale = (window_size.y / FIELD_SIZE.y) * scale;
-
-//     let offset = (window_size - FIELD_SIZE * scale) / 2.0 + offset;
-
-//     (scale, offset)
-// }
-
-// pub fn scale_coords(osu_coords:Vector2) -> Vector2 {
-//     let (scale, offset) = scale_window();
-//     offset + osu_coords * scale
-
-//     // osu_coords + Vector2::new((window_size.x - FIELD_SIZE.x) / 2.0, (window_size.y - FIELD_SIZE.y) / 2.0)
-// }
-
-// pub fn scale_cs(base:f64) -> f64 {
-//     let (scale, _) = scale_window();
-
-//     base * scale
-// }
-
 
 #[derive(Copy, Clone)]
 pub struct ScalingHelper {

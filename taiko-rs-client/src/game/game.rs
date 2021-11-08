@@ -543,7 +543,7 @@ impl Game {
     fn render(&mut self, args: RenderArgs) {
         // let timer = Instant::now();
         let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        let settings = Settings::get();
+        let settings = Settings::get(); 
         let elapsed = self.game_start.elapsed().as_millis() as u64;
 
         // draw background image here

@@ -16,9 +16,10 @@ pub struct Score {
     pub x50: u16,
     pub x100: u16,
     pub x300: u16,
-    pub geki: u16,
-    pub katu: u16,
+    pub xgeki: u16,
+    pub xkatu: u16,
     pub xmiss: u16,
+    pub accuracy: f64,
 
     /// time diff for actual note hits. if the note wasnt hit, it wont be here
     /// (user_hit_time - correct_time)
@@ -36,9 +37,10 @@ impl Score {
             x50: 0,
             x100: 0,
             x300: 0,
-            geki: 0,
-            katu: 0,
+            xgeki: 0,
+            xkatu: 0,
             xmiss: 0,
+            accuracy: 0.0,
             hit_timings: Vec::new()
         }
     }
@@ -101,8 +103,8 @@ impl Score {
     pub fn hit50(&mut self, hit_time:f32, note_time:f32) {
         self.combo += 1;
         self.max_combo = self.max_combo.max(self.combo);
-        self.x100 += 1;
-        self.add_pts(100, true);
+        self.x50 += 1;
+        self.add_pts(50, true);
         
         self.hit_timings.push(hit_time - note_time);
     }
@@ -114,11 +116,27 @@ impl Score {
         
         self.hit_timings.push(hit_time - note_time);
     }
+    pub fn hit_geki(&mut self, hit_time:f32, note_time:f32) {
+        self.combo += 1;
+        self.max_combo = self.max_combo.max(self.combo);
+        self.xgeki += 1;
+        self.add_pts(300, true);
+        
+        self.hit_timings.push(hit_time - note_time);
+    }
     pub fn hit300(&mut self, hit_time:f32, note_time:f32) {
         self.combo += 1;
         self.max_combo = self.max_combo.max(self.combo);
         self.x300 += 1;
         self.add_pts(300, true);
+
+        self.hit_timings.push(hit_time - note_time);
+    }
+    pub fn hit_katu(&mut self, hit_time:f32, note_time:f32) {
+        self.combo += 1;
+        self.max_combo = self.max_combo.max(self.combo);
+        self.xkatu += 1;
+        self.add_pts(100, true);
 
         self.hit_timings.push(hit_time - note_time);
     }
@@ -145,9 +163,10 @@ impl Serializable for Score {
             x50: sr.read(),
             x100: sr.read(),
             x300: sr.read(),
-            geki: sr.read(),
-            katu: sr.read(),
+            xgeki: sr.read(),
+            xkatu: sr.read(),
             xmiss: sr.read(),
+            accuracy: sr.read(),
             hit_timings: Vec::new()
         }
     }
@@ -163,14 +182,15 @@ impl Serializable for Score {
         sw.write(self.x50);
         sw.write(self.x100);
         sw.write(self.x300);
-        sw.write(self.geki);
-        sw.write(self.katu);
+        sw.write(self.xgeki);
+        sw.write(self.xkatu);
         sw.write(self.xmiss);
+        sw.write(self.accuracy);
     }
 }
 impl fmt::Display for Score {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{{ Score (h:{}, m:{:?}, score:{}, combo:{}. max_combo: {}, x50:{},x100:{},x300:{},geki:{},katu:{},xmiss:{}) }}", 
+        write!(f, "{{ Score (h:{}, m:{:?}, score:{}, combo:{}. max_combo: {}, x50:{},x100:{},x300:{},xgeki:{},xkatu{},xmiss:{},accuracy:{}) }}", 
             self.beatmap_hash, 
             self.playmode,
             self.score,
@@ -179,9 +199,10 @@ impl fmt::Display for Score {
             self.x50,
             self.x100,
             self.x300,
-            self.geki,
-            self.katu,
-            self.xmiss
+            self.xgeki,
+            self.xkatu,
+            self.xmiss,
+            self.accuracy
         )
     }
 }
@@ -194,6 +215,8 @@ pub enum ScoreHit {
     X50,
     X100,
     X300,
+    Xgeki,
+    Xkatu,
     /// score increment, consume the object
     Other(u32, bool)
 }
