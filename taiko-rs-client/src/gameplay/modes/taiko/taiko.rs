@@ -233,12 +233,12 @@ impl GameMode for TaikoGame {
             let last_note = self.notes.get_mut(self.note_index-1).unwrap();
 
             match last_note.check_finisher(hit_type, time) {
-                ScoreHit::Miss => {return},
-                ScoreHit::X100 => {
+                ScoreHit::Miss | ScoreHit::X50 => {return},
+                ScoreHit::X100 | ScoreHit::Xkatu => {
                     manager.score.add_pts(100, true);
                     return;
                 },
-                ScoreHit::X300 => {
+                ScoreHit::X300 | ScoreHit::Xgeki => {
                     manager.score.add_pts(300, true);
                     return;
                 },
@@ -253,7 +253,7 @@ impl GameMode for TaikoGame {
         let note = self.notes.get_mut(self.note_index).unwrap();
         let note_time = note.time();
         match note.get_points(hit_type, time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300)) {
-            ScoreHit::None => {
+            ScoreHit::None | ScoreHit::X50 => {
                 // play sound
                 // Audio::play_preloaded(sound);
             },
@@ -266,7 +266,7 @@ impl GameMode for TaikoGame {
                 //TODO: play miss sound
                 //TODO: indicate this was a miss
             },
-            ScoreHit::X100 => {
+            ScoreHit::X100 | ScoreHit::Xkatu => {
                 manager.score.hit100(time, note_time);
                 manager.hitbar_timings.push((time, time - note_time));
 
@@ -278,7 +278,7 @@ impl GameMode for TaikoGame {
 
                 self.next_note();
             },
-            ScoreHit::X300 => {
+            ScoreHit::X300 | ScoreHit::Xgeki => {
                 manager.score.hit300(time, note_time);
                 manager.hitbar_timings.push((time, time - note_time));
                 

@@ -167,7 +167,15 @@ impl GameMode for StandardGame {
                             self.next_note()
                         }
                     },
-                    ScoreHit::X100 => {
+                    ScoreHit::X50 => {
+                        Audio::play_preloaded("don");
+                        manager.score.hit50(time, note_time);
+                        manager.hitbar_timings.push((time, time - note_time));
+                        if self.notes[self.note_index].note_type() == NoteType::Note {
+                            self.next_note()
+                        }
+                    },
+                    ScoreHit::X100 | ScoreHit::Xkatu => {
                         Audio::play_preloaded("don");
                         manager.score.hit100(time, note_time);
                         manager.hitbar_timings.push((time, time - note_time));
@@ -175,7 +183,7 @@ impl GameMode for StandardGame {
                             self.next_note()
                         }
                     },
-                    ScoreHit::X300 => {
+                    ScoreHit::X300 | ScoreHit::Xgeki => {
                         Audio::play_preloaded("kat");
                         manager.score.hit300(time, note_time);
                         manager.hitbar_timings.push((time, time - note_time));
@@ -205,13 +213,19 @@ impl GameMode for StandardGame {
                             manager.hitbar_timings.push((time, time - note_time));
                             self.next_note()
                         },
-                        ScoreHit::X100 => {
+                        ScoreHit::X50 => {
+                            Audio::play_preloaded("don");
+                            manager.score.hit50(time, note_time);
+                            manager.hitbar_timings.push((time, time - note_time));
+                            self.next_note();
+                        },
+                        ScoreHit::X100 | ScoreHit::Xkatu => {
                             Audio::play_preloaded("don");
                             manager.score.hit100(time, note_time);
                             manager.hitbar_timings.push((time, time - note_time));
                             self.next_note();
                         },
-                        ScoreHit::X300 => {
+                        ScoreHit::X300 | ScoreHit::Xgeki=> {
                             Audio::play_preloaded("kat");
                             manager.score.hit300(time, note_time);
                             manager.hitbar_timings.push((time, time - note_time));
@@ -276,12 +290,17 @@ impl GameMode for StandardGame {
                             manager.score.hit_miss(time, note_time);
                             manager.hitbar_timings.push((time, time - note_time));
                         },
-                        ScoreHit::X100 => {
+                        ScoreHit::X50 => {
+                            Audio::play_preloaded("don");
+                            manager.score.hit50(time, note_time);
+                            manager.hitbar_timings.push((time, time - note_time));
+                        },
+                        ScoreHit::X100 | ScoreHit::Xkatu => {
                             Audio::play_preloaded("don");
                             manager.score.hit100(time, note_time);
                             manager.hitbar_timings.push((time, time - note_time));
                         },
-                        ScoreHit::X300 => {
+                        ScoreHit::X300 | ScoreHit::Xgeki => {
                             Audio::play_preloaded("kat");
                             manager.score.hit300(time, note_time);
                             manager.hitbar_timings.push((time, time - note_time));
@@ -321,8 +340,9 @@ impl GameMode for StandardGame {
             match pts {
                 ScoreHit::None => continue,
                 ScoreHit::Miss => color = Color::RED,
-                ScoreHit::X100 => color = Color::GREEN,
-                ScoreHit::X300 => color = Color::new(0.0, 0.7647, 1.0, 1.0),
+                ScoreHit::X50 => color = Color::YELLOW,
+                ScoreHit::X100 | ScoreHit::Xkatu => color = Color::GREEN,
+                ScoreHit::X300 | ScoreHit::Xgeki => color = Color::new(0.0, 0.7647, 1.0, 1.0),
                 ScoreHit::Other(_, _) => continue,
             }
             
