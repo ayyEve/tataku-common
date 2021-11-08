@@ -545,19 +545,18 @@ impl Game {
 
     fn render(&mut self, args: RenderArgs) {
         // let timer = Instant::now();
-        let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        let settings = Settings::get();
+        let settings = Settings::get(); 
         let elapsed = self.game_start.elapsed().as_millis() as u64;
 
         // draw background image here
         if let Some(img) = self.background_image.as_ref() {
             // dim
-            renderables.push(Box::new(img.clone()));
+            self.render_queue.push(Box::new(img.clone()));
             // println!("{} > {}", img.get_depth(), f64::MAX - 1.0);
         }
         let mut color = Color::BLACK;
         color.a = settings.background_dim;
-        renderables.push(Box::new(Rectangle::new(
+        self.render_queue.push(Box::new(Rectangle::new(
             color,
             f64::MAX - 1.0,
             Vector2::zero(),
@@ -567,8 +566,8 @@ impl Game {
 
         // mode
         match &mut self.current_state {
-            GameState::Ingame(manager) => manager.draw(args, &mut renderables),
-            GameState::InMenu(menu) => renderables.extend(menu.lock().draw(args)),
+            GameState::Ingame(manager) => manager.draw(args, &mut self.render_queue),
+            GameState::InMenu(menu) => self.render_queue.extend(menu.lock().draw(args)),
             
             _ => {}
         }
@@ -583,7 +582,7 @@ impl Game {
             let mut alpha = diff / (TRANSITION_TIME as f64 / 2.0);
             if self.transition.is_none() {alpha = 1.0 - diff / TRANSITION_TIME as f64}
 
-            renderables.push(Box::new(Rectangle::new(
+            self.render_queue.push(Box::new(Rectangle::new(
                 [0.0, 0.0, 0.0, alpha as f32].into(),
                 -f64::MAX,
                 Vector2::zero(),
@@ -593,7 +592,7 @@ impl Game {
 
             // draw old mode
             match (&self.current_state, &self.transition_last) {
-                (GameState::None, Some(GameState::InMenu(menu))) => renderables.extend(menu.lock().draw(args)),
+                (GameState::None, Some(GameState::InMenu(menu))) => self.render_queue.extend(menu.lock().draw(args)),
                 _ => {}
             }
         }
@@ -612,7 +611,7 @@ impl Game {
                         u.set_pos(Vector2::new(x,y));
 
                         counter += 1;
-                        renderables.extend(u.draw(args, Vector2::zero(), -100.0));
+                        self.render_queue.extend(u.draw(args, Vector2::zero(), -100.0));
                     }
                 }
             }
@@ -620,9 +619,6 @@ impl Game {
 
         // volume control
         self.render_queue.extend(self.volume_controller.draw(args));
-
-        // add the things we just made to the render queue
-        self.render_queue.extend(renderables);
 
         // draw fps's
         self.fps_display.draw(&mut self.render_queue);
@@ -638,7 +634,6 @@ impl Game {
         //     || self.input_manager.key_down(settings.standard_settings.right_key);
         self.cursor_manager.draw(&mut self.render_queue);
 
-
         // sort the queue here (so it only needs to be sorted once per frame, instead of every time a shape is added)
         self.render_queue.sort_by(|a, b| b.get_depth().partial_cmp(&a.get_depth()).unwrap());
 
@@ -647,7 +642,7 @@ impl Game {
         self.graphics.draw(args.viewport(), |c, g| {
             graphics::clear(GFX_CLEAR_COLOR.into(), g);
             for i in queue.as_mut() {
-                if i.get_spawn_time() == 0 {i.set_spawn_time(elapsed);}
+                if i.get_spawn_time() == 0 {i.set_spawn_time(elapsed)}
                 i.draw(g, c);
             }
         });
@@ -677,7 +672,6 @@ impl Game {
     /// shortcut for setting the game's background texture to a beatmap's image
     pub fn set_background_beatmap(&mut self, beatmap:&BeatmapMeta) {
         // let mut helper = BenchmarkHelper::new("loaad image");
-
 
         self.background_image = load_image(&beatmap.image_filename);
 

@@ -74,7 +74,7 @@ impl StandardGame {
 impl GameMode for StandardGame {
     fn playmode(&self) -> PlayMode {PlayMode::Standard}
     fn end_time(&self) -> f32 {self.end_time}
-    fn new(map:&Beatmap) -> Self {
+    fn new(map:&Beatmap) -> Result<Self, crate::errors::TaikoError> {
         let metadata = map.get_beatmap_meta();
         let ar = metadata.ar;
         let settings = Settings::get_mut().standard_settings.clone();
@@ -256,7 +256,7 @@ impl GameMode for StandardGame {
                 // }
                 s.end_time += 1000.0;
         
-                s
+                Ok(s)
             },
             Beatmap::Quaver(_) => todo!(),
             Beatmap::Adofai(_) => todo!(),
@@ -315,8 +315,8 @@ impl GameMode for StandardGame {
 
                         match pts {
                             ScoreHit::X50 => manager.score.hit50(time, note_time),
-                            ScoreHit::X100 => manager.score.hit100(time, note_time),
-                            ScoreHit::X300 => manager.score.hit300(time, note_time),
+                            ScoreHit::X100 | ScoreHit::Xkatu => manager.score.hit100(time, note_time),
+                            ScoreHit::X300 | ScoreHit::Xgeki => manager.score.hit300(time, note_time),
                             _ => {}
                         }
 
@@ -429,8 +429,8 @@ impl GameMode for StandardGame {
                             }
                             pts => {
                                 match pts {
-                                    ScoreHit::X300 => manager.score.hit300(time, note_time),
-                                    ScoreHit::X100 => {
+                                    ScoreHit::X300 | ScoreHit::Xgeki => manager.score.hit300(time, note_time),
+                                    ScoreHit::X100 | ScoreHit::Xkatu => {
                                         manager.score.hit100(time, note_time);
                                         manager.combo_break();
                                     },
@@ -492,8 +492,8 @@ impl GameMode for StandardGame {
             match pts {
                 ScoreHit::Miss => color = Color::RED,
                 ScoreHit::X50  => color = Color::YELLOW,
-                ScoreHit::X100 => color = Color::GREEN,
-                ScoreHit::X300 => color = Color::new(0.0, 0.7647, 1.0, 1.0),
+                ScoreHit::X100 | ScoreHit::Xkatu => color = Color::GREEN,
+                ScoreHit::X300 | ScoreHit::Xgeki => color = Color::new(0.0, 0.7647, 1.0, 1.0),
                 ScoreHit::None | ScoreHit::Other(_, _) => continue,
             }
             

@@ -55,7 +55,7 @@ impl CatchGame {
 impl GameMode for CatchGame {
     fn playmode(&self) -> PlayMode {PlayMode::Catch}
     fn end_time(&self) -> f32 {self.end_time}
-    fn new(map:&Beatmap) -> Self {
+    fn new(map:&Beatmap) -> Result<Self, crate::errors::TaikoError> {
         let metadata = map.get_beatmap_meta();
 
         match map {
@@ -212,7 +212,7 @@ impl GameMode for CatchGame {
 
 
                 s.end_time = s.notes.iter().last().unwrap().time();
-                s
+                Ok(s)
             },
             Beatmap::Quaver(_) => todo!(),
             Beatmap::Adofai(_) => todo!(),

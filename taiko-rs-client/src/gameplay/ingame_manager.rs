@@ -4,7 +4,8 @@ use std::collections::HashMap;
 use piston::RenderArgs;
 use opengl_graphics::GlyphCache;
 
-use crate::beatmaps::Beatmap;
+use crate::{beatmaps::Beatmap, errors::TaikoError};
+use crate::errors::BeatmapError;
 use crate::beatmaps::osu::hitobject_defs::HitSamples;
 use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
 use crate::{Vector2, sync::*, helpers::{visibility_bg, io::exists}};
@@ -665,7 +666,7 @@ impl Default for IngameManager {
 
 
 pub trait GameMode {
-    fn new(beatmap:&Beatmap) -> Self where Self: Sized;
+    fn new(beatmap:&Beatmap) -> Result<Self, TaikoError> where Self: Sized;
 
     fn playmode(&self) -> PlayMode;
     fn end_time(&self) -> f32;
@@ -697,14 +698,14 @@ pub trait GameMode {
 }
 impl Default for Box<dyn GameMode> {
     fn default() -> Self {
-        Box::new(NoMode::new(&Default::default()))
+        Box::new(NoMode::new(&Default::default()).unwrap())
     }
 }
 
 // needed for std::mem::take/swap
 struct NoMode {}
 impl GameMode for NoMode {
-    fn new(_:&Beatmap) -> Self where Self: Sized {Self {}}
+    fn new(_:&Beatmap) -> Result<Self, TaikoError> where Self: Sized {Ok(Self {})}
     fn playmode(&self) -> PlayMode {PlayMode::Standard}
     fn end_time(&self) -> f32 {0.0}
     fn combo_bounds(&self) -> Rectangle {Rectangle::bounds_only(Vector2::zero(), Vector2::zero())}

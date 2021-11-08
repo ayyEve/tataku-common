@@ -56,12 +56,16 @@ impl MainMenu {
             None => return
         };
 
-        let mut manager = manager_from_playmode(settings.mode, &map);
-        manager.autoplay = true;
-        manager.menu_background = true;
-        manager.start();
+        match manager_from_playmode(settings.mode, &map) {
+            Ok(mut manager) => {
+                manager.autoplay = true;
+                manager.menu_background = true;
+                manager.start();
 
-        self.background_game = Some(manager);
+                self.background_game = Some(manager);
+            },
+            Err(e) => NotificationManager::add_error_notification("Error loading beatmap", e)
+        }
     }
 }
 impl Menu<Game> for MainMenu {

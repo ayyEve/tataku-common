@@ -87,7 +87,7 @@ impl GameMode for ManiaGame {
     fn playmode(&self) -> PlayMode {PlayMode::Mania}
     fn end_time(&self) -> f32 {self.end_time}
 
-    fn new(beatmap:&Beatmap) -> Self {
+    fn new(beatmap:&Beatmap) -> Result<Self, crate::errors::TaikoError> {
         let metadata = beatmap.get_beatmap_meta();
 
         match beatmap {
@@ -96,16 +96,15 @@ impl GameMode for ManiaGame {
                     columns: Vec::new(),
                     column_indices:Vec::new(),
                     column_states: Vec::new(),
-        
                     timing_bars: Vec::new(),
                     timing_point_index: 0,
                     end_time: 0.0,
-        
+
                     hitwindow_100: 0.0,
                     hitwindow_300: 0.0,
                     hitwindow_miss: 0.0,
-        
-                    column_count: metadata.cs as u8,
+
+                    column_count: beatmap.metadata.cs as u8,
                     auto_helper: ManiaAutoHelper::new()
                 };
         
@@ -168,7 +167,7 @@ impl GameMode for ManiaGame {
                     }
                 }
                 
-                s
+                Ok(s)
             },
             Beatmap::Quaver(beatmap) => {
                 let mut s = Self {
@@ -222,7 +221,7 @@ impl GameMode for ManiaGame {
                     }
                 }
                 
-                s
+                Ok(s)
             },
             Beatmap::Adofai(_) => todo!(),
             Beatmap::None => todo!(),

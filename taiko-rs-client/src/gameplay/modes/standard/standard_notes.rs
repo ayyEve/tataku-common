@@ -567,6 +567,7 @@ impl HitObject for StandardSlider {
         let color = self.color.alpha(alpha);
 
         if self.time - self.map_time > 0.0 {
+            
             // timing circle
             list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.circle_depth, self.scaling_helper.scale, alpha));
 
@@ -574,6 +575,7 @@ impl HitObject for StandardSlider {
             self.combo_text.color.a = alpha;
             list.push(self.combo_text.clone());
         } else {
+
             // slider ball
             let mut inner = Circle::new(
                 color,

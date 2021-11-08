@@ -12,6 +12,8 @@ use serde::{Serialize, Deserialize};
 use crate::serialization::Serializable;
 
 use PlayMode::*;
+
+#[repr(u8)]
 #[derive(Debug,Clone,Copy,PartialEq, Serialize, Deserialize)]
 pub enum PlayMode {
     Standard,
@@ -19,6 +21,8 @@ pub enum PlayMode {
     Catch,
     Mania,
     Adofai,
+    #[allow(non_camel_case_types)]
+    pTyping
 }
 impl Into<PlayMode> for u8 {
     fn into(self) -> PlayMode {
@@ -27,7 +31,8 @@ impl Into<PlayMode> for u8 {
             1 => Taiko,
             2 => Catch,
             3 => Mania,
-            4 => Adofai,
+            4 => pTyping,
+            5 => Adofai,
             _ => Standard
         }
     }
@@ -39,7 +44,8 @@ impl Into<u8> for PlayMode {
             Taiko => 1,
             Catch => 2,
             Mania => 3,
-            Adofai => 4
+            pTyping => 4,
+            Adofai => 5
         }
     }
 }

@@ -5,6 +5,7 @@ pub mod key_counter;
 pub mod math;
 pub mod curve;
 pub mod skin_helper;
+pub mod transform;
 
 pub use fps_display::*;
 pub use volume_control::*;

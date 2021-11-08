@@ -1,10 +1,10 @@
 use taiko_rs_common::types::PlayMode;
 
-use crate::beatmaps::Beatmap;
-use crate::beatmaps::common::BeatmapMeta;
 use crate::game::Settings;
-use crate::render::{Rectangle, Vector2};
+use crate::beatmaps::Beatmap;
 use super::{GameMode, IngameManager};
+use crate::render::{Rectangle, Vector2};
+use crate::beatmaps::common::BeatmapMeta;
 
 pub mod taiko;
 pub mod mania;
@@ -16,7 +16,7 @@ const FIELD_SIZE:Vector2 = Vector2::new(512.0, 384.0); // 4:3
 
 
 use PlayMode::*;
-pub fn manager_from_playmode(mut playmode: PlayMode, beatmap: &BeatmapMeta) -> IngameManager {
+pub fn manager_from_playmode(mut playmode: PlayMode, beatmap: &BeatmapMeta) -> Result<IngameManager, crate::errors::TaikoError> {
     // println!("playmode: {:?}", playmode);
     if beatmap.mode != Standard {
         playmode = beatmap.mode;
@@ -27,46 +27,22 @@ pub fn manager_from_playmode(mut playmode: PlayMode, beatmap: &BeatmapMeta) -> I
     match beatmap {
         Ok(beatmap) => {
             let gamemode:Box<dyn GameMode> = match playmode {
-                Standard => Box::new(standard::StandardGame::new(&beatmap)),
-                Taiko => Box::new(taiko::TaikoGame::new(&beatmap)),
-                Catch => Box::new(catch::CatchGame::new(&beatmap)),
-                Mania => Box::new(mania::ManiaGame::new(&beatmap)),
+                Standard => Box::new(standard::StandardGame::new(&beatmap)?),
+                Taiko => Box::new(taiko::TaikoGame::new(&beatmap)?),
+                Catch => Box::new(catch::CatchGame::new(&beatmap)?),
+                Mania => Box::new(mania::ManiaGame::new(&beatmap)?),
 
                 //TODO
-                Adofai => Box::new(taiko::TaikoGame::new(&beatmap)),
+                Adofai => Box::new(taiko::TaikoGame::new(&beatmap)?),
+                pTyping => todo!(),
             };
-            IngameManager::new(beatmap, gamemode)
+            Ok(IngameManager::new(beatmap, gamemode))
         },
         Err(e) => {
-            panic!("error loading map: {}", e);
+            Err(e)
         }
     }
 }
-
-
-// fn scale_window() -> (f64, Vector2) {
-//     let (scale, offset) = Settings::get_mut().standard_settings.get_playfield();
-//     let window_size = window_size();
-//     let scale = (window_size.y / FIELD_SIZE.y) * scale;
-
-//     let offset = (window_size - FIELD_SIZE * scale) / 2.0 + offset;
-
-//     (scale, offset)
-// }
-
-// pub fn scale_coords(osu_coords:Vector2) -> Vector2 {
-//     let (scale, offset) = scale_window();
-//     offset + osu_coords * scale
-
-//     // osu_coords + Vector2::new((window_size.x - FIELD_SIZE.x) / 2.0, (window_size.y - FIELD_SIZE.y) / 2.0)
-// }
-
-// pub fn scale_cs(base:f64) -> f64 {
-//     let (scale, _) = scale_window();
-
-//     base * scale
-// }
-
 
 #[derive(Copy, Clone)]
 pub struct ScalingHelper {
