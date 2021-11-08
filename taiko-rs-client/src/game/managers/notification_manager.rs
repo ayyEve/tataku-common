@@ -2,9 +2,9 @@ use std::time::Instant;
 
 use crate::sync::*;
 use crate::Settings;
+use crate::game::Game;
 use crate::errors::TaikoError;
-use crate::game::{Game, get_font};
-use crate::render::{Border, Color, Rectangle, Renderable, Text, Vector2};
+use crate::render::{Border, Color, Rectangle, Renderable, Text, Vector2, fonts::get_font};
 
 
 const NOTIF_WIDTH:f64 = 200.0;
@@ -35,7 +35,8 @@ impl NotificationManager { // static
         println!("adding text notif");
         Self::add_notification(notif);
     }
-    pub fn add_error_notification(msg:&str, error:TaikoError) {
+    pub fn add_error_notification<E: Into<TaikoError>>(msg:&str, error:E) {
+        let error:TaikoError = error.into();
         let text = format!("{}:\n{}", msg, error);
         
         println!("{}", text);

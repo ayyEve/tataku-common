@@ -5,11 +5,10 @@ use piston::RenderArgs;
 use opengl_graphics::GlyphCache;
 
 use crate::gameplay::hitobject_defs::HitSamples;
-use crate::helpers::io::exists;
-use crate::render::{Renderable, Rectangle, Text, Color, Border};
-use crate::{Vector2, gameplay::*, sync::*, helpers::visibility_bg};
 use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
-use crate::game::{Audio, AudioHandle, BackgroundGameSettings, Settings, Sound, get_font};
+use crate::game::{Audio, AudioHandle, BackgroundGameSettings, Settings, Sound};
+use crate::render::{Renderable, Rectangle, Text, Color, Border, fonts::get_font};
+use crate::{Vector2, gameplay::*, sync::*, helpers::{visibility_bg, io::exists}};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
 const OFFSET_DRAW_TIME:f32 = 2_000.0; // how long should the offset be drawn for?
@@ -23,10 +22,9 @@ const HIT_TIMING_FADE:f32 = 300.0; // how long to fade out for
 const HIT_TIMING_BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // hit timing bar color
 
 
-
 pub struct IngameManager {
     pub beatmap: Beatmap,
-    pub gamemode: Arc<Mutex<dyn GameMode>>,
+    pub gamemode: Box<dyn GameMode>,
 
     pub score: Score,
     pub replay: Replay,
@@ -57,7 +55,7 @@ pub struct IngameManager {
     pub hitbar_timings: Vec<(f32, f32)>,
 
     // draw helpers
-    pub font: Arc<Mutex< GlyphCache<'static>>>,
+    pub font: Arc<Mutex<GlyphCache<'static>>>,
     combo_text_bounds: Rectangle,
     timing_bar_things: (Vec<(f32,Color)>, (f32,Color)),
 
@@ -67,10 +65,8 @@ pub struct IngameManager {
     background_game_settings: BackgroundGameSettings,
 }
 impl IngameManager {
-    pub fn new(beatmap: Beatmap, gamemode: Arc<Mutex<dyn GameMode>>) -> Self {
-        let lock = gamemode.clone();
-        let lock = lock.lock();
-        let playmode = lock.playmode();
+    pub fn new(beatmap: Beatmap, gamemode: Box<dyn GameMode>) -> Self {
+        let playmode = gamemode.playmode();
 
         let hitsound_cache = HashMap::new();
         let settings = Settings::get_mut().clone();
@@ -81,7 +77,6 @@ impl IngameManager {
             score: Score::new(beatmap.hash.clone(), settings.username.clone(), playmode),
 
             replay: Replay::new(),
-            gamemode,
             beatmap,
 
             song: Weak::new(), // temp until we get the audio file path
@@ -92,7 +87,7 @@ impl IngameManager {
             menu_background: false,
 
             lead_in_time: LEAD_IN_TIME,
-            end_time: lock.end_time(),
+            end_time: gamemode.end_time(),
 
             offset: 0.0,
             offset_changed_time: 0.0,
@@ -102,11 +97,13 @@ impl IngameManager {
             timing_point_index: 0,
 
             font: get_font("main"),
-            combo_text_bounds: lock.combo_bounds(),
-            timing_bar_things: lock.timing_bar_things(),
+            combo_text_bounds: gamemode.combo_bounds(),
+            timing_bar_things: gamemode.timing_bar_things(),
             hitbar_timings: Vec::new(),
 
-            background_game_settings: settings.background_game_settings.clone()
+            background_game_settings: settings.background_game_settings.clone(),
+
+            gamemode,
         }
     }
 
@@ -217,11 +214,10 @@ impl IngameManager {
             }
         }
 
-        let mut lock = self.gamemode.lock();
-        lock.reset(&self.beatmap);
+        self.gamemode.reset(&self.beatmap);
         if self.menu_background {
             self.background_game_settings = settings.background_game_settings.clone();
-            lock.apply_auto(&self.background_game_settings)
+            self.gamemode.apply_auto(&self.background_game_settings)
         }
 
         self.completed = false;
@@ -229,12 +225,12 @@ impl IngameManager {
         self.lead_in_time = LEAD_IN_TIME;
         self.offset_changed_time = 0.0;
         self.lead_in_timer = Instant::now();
-        self.score = Score::new(self.beatmap.hash.clone(), settings.username.clone(), lock.playmode());
+        self.score = Score::new(self.beatmap.hash.clone(), settings.username.clone(), self.gamemode.playmode());
         self.replay_frame = 0;
         self.timing_point_index = 0;
 
-        self.combo_text_bounds = lock.combo_bounds();
-        self.timing_bar_things = lock.timing_bar_things();
+        self.combo_text_bounds = self.gamemode.combo_bounds();
+        self.timing_bar_things = self.gamemode.timing_bar_things();
         self.hitbar_timings = Vec::new();
 
 
@@ -268,10 +264,10 @@ impl IngameManager {
             self.timing_point_index += 1;
         }
 
+        let mut gamemode = std::mem::take(&mut self.gamemode);
+
         // read inputs from replay if replaying
         if self.replaying && !self.autoplay {
-            let m = self.gamemode.clone();
-            let mut m = m.lock();
 
             // read any frames that need to be read
             loop {
@@ -279,7 +275,9 @@ impl IngameManager {
                 
                 let (frame_time, frame) = self.replay.frames[self.replay_frame as usize];
                 if frame_time > time {break}
-                m.handle_replay_frame(frame, frame_time, self);
+
+                gamemode.handle_replay_frame(frame, frame_time, self);
+                
                 self.replay_frame += 1;
             }
         }
@@ -288,9 +286,10 @@ impl IngameManager {
         self.hitbar_timings.retain(|(hit_time, _)| {time - hit_time < HIT_TIMING_DURATION});
 
         // update gamemode
-        let m = self.gamemode.clone();
-        let mut m = m.lock();
-        m.update(self, time);
+        gamemode.update(self, time);
+
+        // put it back
+        self.gamemode = gamemode;
     }
 
 
@@ -424,9 +423,6 @@ impl IngameManager {
     }
 
     pub fn key_down(&mut self, key:piston::Key) {
-        let m = self.gamemode.clone();
-        let mut m = m.lock();
-
         if self.replaying || self.autoplay {
             // check replay-only keys
             if key == piston::Key::Escape {
@@ -436,40 +432,41 @@ impl IngameManager {
             }
         }
 
+        let mut gamemode = std::mem::take(&mut self.gamemode);
+
         // skip intro
         if key == piston::Key::Space {
-            m.skip_intro(self);
+            gamemode.skip_intro(self);
         }
 
-        // if key == piston::Key::d
-
-        m.key_down(key, self);
+        gamemode.key_down(key, self);
+        self.gamemode = gamemode;
     }
     pub fn key_up(&mut self, key:piston::Key) {
-        let m = self.gamemode.clone();
-        let mut m = m.lock();
-        m.key_up(key, self);
+        let mut gamemode = std::mem::take(&mut self.gamemode);
+        gamemode.key_up(key, self);
+        self.gamemode = gamemode;
     }
     pub fn mouse_move(&mut self, pos:Vector2) {
-        let m = self.gamemode.clone();
-        let mut m = m.lock();
-        // let pos = m.scale_mouse_pos(pos);
-        m.mouse_move(pos, self);
+        let mut gamemode = std::mem::take(&mut self.gamemode);
+        gamemode.mouse_move(pos, self);
+        self.gamemode = gamemode;
     }
     pub fn mouse_down(&mut self, btn:piston::MouseButton) {
-        let m = self.gamemode.clone();
-        let mut m = m.lock();
-        m.mouse_down(btn, self);
+        let mut gamemode = std::mem::take(&mut self.gamemode);
+        gamemode.mouse_down(btn, self);
+        self.gamemode = gamemode;
     }
     pub fn mouse_up(&mut self, btn:piston::MouseButton) {
-        let m = self.gamemode.clone();
-        let mut m = m.lock();
-        m.mouse_up(btn, self);
+        let mut gamemode = std::mem::take(&mut self.gamemode);
+        gamemode.mouse_up(btn, self);
+        self.gamemode = gamemode;
     }
 
     pub fn mouse_scroll(&mut self, delta:f64) {
-        let gamemode = self.gamemode.clone();
-        gamemode.lock().mouse_scroll(delta, self);
+        let mut gamemode = std::mem::take(&mut self.gamemode);
+        gamemode.mouse_scroll(delta, self);
+        self.gamemode = gamemode;
     }
 
     pub fn draw(&mut self, args: RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
@@ -478,9 +475,9 @@ impl IngameManager {
         let window_size:Vector2 = args.window_size.into();
 
         // draw gamemode
-        let m = self.gamemode.clone();
-        let mut m = m.lock();
-        m.draw(args, self, list);
+        let mut gamemode = std::mem::take(&mut self.gamemode);
+        gamemode.draw(args, self, list);
+        self.gamemode = gamemode;
 
 
         // draw offset
@@ -618,6 +615,42 @@ impl IngameManager {
 
     }
 }
+impl Default for IngameManager {
+    fn default() -> Self {
+        Self { 
+            beatmap: Default::default(), 
+            gamemode: Default::default(), 
+            score: Score::new(
+                String::new(),
+                String::new(),
+                Default::default()
+            ), 
+            replay: Replay::new(), 
+            started: Default::default(), 
+            completed: Default::default(), 
+            replaying: Default::default(), 
+            autoplay: Default::default(), 
+            menu_background: Default::default(), 
+            end_time: Default::default(), 
+            lead_in_time: Default::default(), 
+            lead_in_timer: Instant::now(), 
+            timing_point_index: Default::default(), 
+            song: Default::default(), 
+            hitsound_cache: Default::default(), 
+            offset: Default::default(), 
+            offset_changed_time: Default::default(), 
+            global_offset: Default::default(), 
+            hitbar_timings: Default::default(), 
+            font: get_font("main"), 
+            combo_text_bounds: Rectangle::bounds_only(Vector2::zero(), Vector2::zero()), 
+            timing_bar_things: (Vec::new(), (0.0, Color::WHITE)), 
+            replay_frame: Default::default(), 
+            background_game_settings: Default::default() 
+        }
+    }
+}
+
+
 
 pub trait GameMode {
     fn new(beatmap:&Beatmap) -> Self where Self: Sized;
@@ -650,8 +683,30 @@ pub trait GameMode {
     fn unpause(&mut self, _manager:&mut IngameManager) {}
     fn reset(&mut self, beatmap:&Beatmap);
 }
+impl Default for Box<dyn GameMode> {
+    fn default() -> Self {
+        Box::new(NoMode::new(&Default::default()))
+    }
+}
 
+// needed for std::mem::take/swap
+struct NoMode {}
+impl GameMode for NoMode {
+    fn new(_:&Beatmap) -> Self where Self: Sized {Self {}}
+    fn playmode(&self) -> PlayMode {PlayMode::Standard}
+    fn end_time(&self) -> f32 {0.0}
+    fn combo_bounds(&self) -> Rectangle {Rectangle::bounds_only(Vector2::zero(), Vector2::zero())}
+    fn timing_bar_things(&self) -> (Vec<(f32,Color)>, (f32,Color)) {(Vec::new(), (0.0, Color::WHITE))}
 
+    fn handle_replay_frame(&mut self, _:ReplayFrame, _:f32, _:&mut IngameManager) {}
+    fn update(&mut self, _:&mut IngameManager, _: f32) {}
+    fn draw(&mut self, _:RenderArgs, _:&mut IngameManager, _: &mut Vec<Box<dyn Renderable>>) {}
+    fn key_down(&mut self, _:piston::Key, _:&mut IngameManager) {}
+    fn key_up(&mut self, _:piston::Key, _:&mut IngameManager) {}
+    fn apply_auto(&mut self, _: &BackgroundGameSettings) {}
+    fn skip_intro(&mut self, _: &mut IngameManager) {}
+    fn reset(&mut self, _:&Beatmap) {}
+}
 
 struct HitsoundManager {
     sounds: HashMap<String, Option<Sound>>,

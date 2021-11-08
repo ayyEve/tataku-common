@@ -136,29 +136,21 @@ impl InputManager {
 
     /// get whether the mouse was moved or not
     pub fn get_mouse_moved(&mut self) -> bool {
-        let moved = self.mouse_moved;
-        self.mouse_moved = false;
-        moved
+        std::mem::take(&mut self.mouse_moved)
     }
     /// get how much the mouse wheel as scrolled (vertically) since the last check
     pub fn get_scroll_delta(&mut self) -> f64 {
-        let delta = self.scroll_delta;
-        self.scroll_delta = 0.0;
-        delta
+        std::mem::take(&mut self.scroll_delta)
     }
 
     /// gets any text typed since the last check
     pub fn get_text(&mut self) -> String {
-        let t = self.text_cache.clone();
-        self.text_cache = String::new();
-        t
+        std::mem::take(&mut self.text_cache)
     }
 
     /// get whether the window's focus has changed
     pub fn get_changed_focus(&mut self) -> Option<bool> {
-        let o = self.window_change_focus.clone();
-        self.window_change_focus = None;
-        o
+        std::mem::take(&mut self.window_change_focus)
     }
 
     /// get the input register delay average 

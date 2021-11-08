@@ -15,7 +15,7 @@ use crate::game::{Settings, audio::Audio, managers::*, online::{USER_ITEM_SIZE, 
 
 
 /// background color
-const GFX_CLEAR_COLOR:Color = Color::WHITE;
+const GFX_CLEAR_COLOR:Color = Color::BLACK;
 /// how long do transitions between gamemodes last?
 const TRANSITION_TIME:u64 = 500;
 
@@ -182,7 +182,7 @@ impl Game {
                 }
             }
             Err(e) => {
-                NotificationManager::add_error_notification("Error loading wallpaper", e.into())
+                NotificationManager::add_error_notification("Error loading wallpaper", e)
             }
         }
 
@@ -241,9 +241,9 @@ impl Game {
 
     fn update(&mut self, _delta:f64) {
         // let timer = Instant::now();
-        self.update_display.increment();
-        let current_state = self.current_state.clone();
         let elapsed = self.game_start.elapsed().as_millis() as u64;
+        self.update_display.increment();
+        let mut current_state = std::mem::take(&mut self.current_state);
 
         // read input events
         let mouse_pos = self.input_manager.mouse_pos;
@@ -300,50 +300,47 @@ impl Game {
 
 
         // run update on current state
-        match current_state {
-            GameState::Ingame(ref manager) => {
-                let mut lock = manager.lock();
+        match &mut current_state {
+            GameState::Ingame(manager) => {
                 let settings =  Settings::get();
                 
                 // pause button, or focus lost, only if not replaying
-                if !lock.replaying && (matches!(window_focus_changed, Some(false)) && settings.pause_on_focus_lost) || keys_down.contains(&Key::Escape) {
-                    lock.pause();
-                    let menu = PauseMenu::new(manager.clone());
+                if !manager.replaying && (matches!(window_focus_changed, Some(false)) && settings.pause_on_focus_lost) || keys_down.contains(&Key::Escape) {
+                    manager.pause();
+                    
+                    let mut manager2 = std::mem::take(manager);
+
+                    let menu = PauseMenu::new(manager2);
                     self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
                 }
 
                 // offset adjust
-                if keys_down.contains(&settings.key_offset_up) {lock.increment_offset(5.0)}
-                if keys_down.contains(&settings.key_offset_up) {lock.increment_offset(-5.0)}
+                if keys_down.contains(&settings.key_offset_up) {manager.increment_offset(5.0)}
+                if keys_down.contains(&settings.key_offset_up) {manager.increment_offset(-5.0)}
 
                 // inputs
-                if mouse_moved {lock.mouse_move(mouse_pos)}
-                for btn in mouse_down {lock.mouse_down(btn)}
-                for btn in mouse_up {lock.mouse_up(btn)}
-                if scroll_delta != 0.0 {lock.mouse_scroll(scroll_delta)}
+                if mouse_moved {manager.mouse_move(mouse_pos)}
+                for btn in mouse_down {manager.mouse_down(btn)}
+                for btn in mouse_up {manager.mouse_up(btn)}
+                if scroll_delta != 0.0 {manager.mouse_scroll(scroll_delta)}
 
-                for k in keys_down.iter() {lock.key_down(*k)}
-                for k in keys_up.iter() {lock.key_up(*k)}
+                for k in keys_down.iter() {manager.key_down(*k)}
+                for k in keys_up.iter() {manager.key_up(*k)}
 
                 // update, then check if complete
-                lock.update();
-                if lock.completed {
+                manager.update();
+                if manager.completed {
                     println!("beatmap complete");
-                    let score = &lock.score;
-                    let replay = &lock.replay;
+                    let score = &manager.score;
+                    let replay = &manager.replay;
 
-                    if !lock.replaying {
+                    if !manager.replaying {
                         // save score
                         save_score(&score);
                         match save_replay(&replay, &score) {
                             Ok(_)=> println!("replay saved ok"),
-                            Err(e) => println!("error saving replay: {}", e),
+                            Err(e) => NotificationManager::add_error_notification("error saving replay", e),
                         }
-                        // match save_all_scores() {
-                        //     Ok(_) => println!("Scores saved successfully"),
-                        //     Err(e) => println!("Failed to save scores! {}", e),
-                        // }
-                        println!("all scores saved");
 
                         // submit score
                         #[cfg(feature = "online_scores")] 
@@ -374,14 +371,14 @@ impl Game {
                     }
 
                     // used to indicate user stopped watching a replay
-                    if lock.replaying && !lock.started {
+                    if manager.replaying && !manager.started {
                         // go back to beatmap select
                         let menu = self.menus.get("beatmap").unwrap();
                         let menu = menu.clone();
                         self.queue_state_change(GameState::InMenu(menu));
                     } else {
                         // show score menu
-                        let menu = ScoreMenu::new(&score, lock.beatmap.metadata.clone());
+                        let menu = ScoreMenu::new(&score, manager.beatmap.metadata.clone());
                         self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
                     }
                 }
@@ -417,7 +414,7 @@ impl Game {
                 menu.update(self);
             }
 
-            GameState::Spectating(ref data, ref state, ref _beatmap) => {
+            GameState::Spectating(ref data, ref state, ref _beatmap) => {   
                 let mut data = data.lock();
 
                 // (try to) read pending data from the online manager
@@ -436,10 +433,10 @@ impl Game {
 
             GameState::None => {
                 // might be transitioning
-                if self.transition.is_some().clone() && elapsed - self.transition_timer > TRANSITION_TIME / 2 {
-                    let trans = self.transition.as_ref().unwrap().clone();
-                    self.queue_state_change(trans);
-                    self.transition = None;
+                if self.transition.is_some() && elapsed - self.transition_timer > TRANSITION_TIME / 2 {
+
+                    let trans = std::mem::take(&mut self.transition);
+                    self.queue_state_change(trans.unwrap());
                     self.transition_timer = elapsed;
                 }
             }
@@ -467,13 +464,11 @@ impl Game {
                 //     OnlineManager::set_action(online_manager, UserAction::Leaving, String::new()).await;
                 // });
 
-                match &self.queued_state {
+                match &mut self.queued_state {
                     GameState::Ingame(manager) => {
                         let (m, h) = {
-                            let mut lock = manager.lock();
-                            lock.start();
-
-                            (lock.beatmap.metadata.clone(), lock.beatmap.hash.clone())
+                            manager.start();
+                            (manager.beatmap.metadata.clone(), manager.beatmap.hash.clone())
                         };
 
                         self.set_background_beatmap(&m);
@@ -511,7 +506,7 @@ impl Game {
                 }
 
                 let mut do_transition = true;
-                match &self.current_state {
+                match &current_state {
                     GameState::None => do_transition = false,
                     GameState::InMenu(menu) if menu.lock().get_name() == "pause" => do_transition = false,
                     _ => {}
@@ -519,18 +514,16 @@ impl Game {
 
                 if do_transition {
                     // do a transition
-                    let qm = &self.queued_state;
-                    self.transition = Some(qm.clone());
+
+                    let qm = std::mem::take(&mut self.queued_state);
+                    self.transition = Some(qm);
                     self.transition_timer = elapsed;
-                    self.transition_last = Some(self.current_state.clone());
+                    self.transition_last = Some(current_state);
                     self.queued_state = GameState::None;
                     self.current_state = GameState::None;
                 } else {
                     // old mode was none, or was pause menu, transition to new mode
-                    let mode = self.queued_state.clone();
-
-                    self.current_state = mode.clone();
-                    self.queued_state = GameState::None;
+                    std::mem::swap(&mut self.queued_state, &mut self.current_state);
 
                     if let GameState::InMenu(menu) = &self.current_state {
                         menu.lock().on_change(true);
@@ -570,8 +563,8 @@ impl Game {
         )));
 
         // mode
-        match &self.current_state {
-            GameState::Ingame(manager) => manager.lock().draw(args, &mut renderables),
+        match &mut self.current_state {
+            GameState::Ingame(manager) => manager.draw(args, &mut renderables),
             GameState::InMenu(menu) => renderables.extend(menu.lock().draw(args)),
             
             _ => {}
@@ -725,16 +718,20 @@ impl Game {
 }
 
 
-#[derive(Clone)]
 pub enum GameState {
     None, // use this as the inital game mode, but me sure to change it after
     Closing,
-    Ingame(Arc<Mutex<IngameManager>>),
+    Ingame(IngameManager),
     InMenu(Arc<Mutex<dyn Menu<Game>>>),
 
     #[allow(dead_code)]
     Spectating(Arc<Mutex<SpectatorFrames>>, SpectatorState, Option<Arc<Mutex<Beatmap>>>), // frames awaiting replay, state, beatmap
     // Multiplaying(MultiplayerState), // wink wink nudge nudge (dont hold your breath)
+}
+impl Default for GameState {
+    fn default() -> Self {
+        GameState::None
+    }
 }
 
 

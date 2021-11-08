@@ -2,11 +2,12 @@ use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::KeyModifiers;
 use taiko_rs_common::types::PlayMode;
 
-use crate::{Vector2, render::*, sync::*};
+use crate::{Vector2, sync::*};
+use crate::render::{*, fonts::get_font};
 use crate::visualization::{MenuVisualization, Visualization};
 use crate::gameplay::{IngameManager, modes::manager_from_playmode};
 use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
-use crate::game::{Audio, Game, GameState, Settings, get_font, managers::{BEATMAP_MANAGER, NotificationManager}};
+use crate::game::{Audio, Game, GameState, Settings, managers::{BEATMAP_MANAGER, NotificationManager}};
 
 const BUTTON_SIZE: Vector2 = Vector2::new(100.0, 50.0);
 const Y_MARGIN: f64 = 20.0;
@@ -19,7 +20,6 @@ pub struct MainMenu {
     pub exit_button: MenuButton,
 
     visualization: MenuVisualization,
-
     background_game: Option<IngameManager>,
 }
 impl MainMenu {
@@ -225,9 +225,12 @@ impl Menu<Game> for MainMenu {
             };
 
             if let Some(new_mode) = new_mode {
-                needs_manager_setup = true;
-                Settings::get_mut().background_game_settings.mode = new_mode;
-                NotificationManager::add_text_notification(&format!("Menu mode changed to {:?}", new_mode), 1000.0, Color::BLUE);
+                let mut settings = Settings::get_mut();
+                if settings.background_game_settings.mode != new_mode {
+                    needs_manager_setup = true;
+                    settings.background_game_settings.mode = new_mode;
+                    NotificationManager::add_text_notification(&format!("Menu mode changed to {:?}", new_mode), 1000.0, Color::BLUE);
+                }
             }
         }
 

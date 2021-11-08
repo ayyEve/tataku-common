@@ -1,6 +1,5 @@
 use piston::{MouseButton, RenderArgs};
 
-use crate::sync::*;
 use crate::{Vector2, render::*};
 use crate::gameplay::IngameManager;
 use crate::menu::{Menu, MenuButton, ScrollableItem};
@@ -12,13 +11,13 @@ const Y_OFFSET:f64 = 10.0;
 
 pub struct PauseMenu {
     // beatmap: Arc<Mutex<Beatmap>>,
-    manager: Arc<Mutex<IngameManager>>,
+    manager: IngameManager,
     continue_button: MenuButton,
     retry_button: MenuButton,
     exit_button: MenuButton
 }
 impl PauseMenu {
-    pub fn new(manager:Arc<Mutex<IngameManager>>) -> PauseMenu {
+    pub fn new(manager:IngameManager) -> PauseMenu {
         let middle = Settings::window_size().x /2.0 - BUTTON_SIZE.x/2.0;
 
         PauseMenu {
@@ -32,7 +31,9 @@ impl PauseMenu {
     pub fn unpause(&mut self, game:&mut Game) {
         // self.beatmap.lock().start();
         // self.manager.lock().start();
-        game.queue_state_change(GameState::Ingame(self.manager.clone()));
+        let mut manager = Default::default();
+        std::mem::swap(&mut self.manager, &mut manager);
+        game.queue_state_change(GameState::Ingame(manager));
     }
 }
 impl Menu<Game> for PauseMenu {
@@ -59,7 +60,7 @@ impl Menu<Game> for PauseMenu {
         
         // retry
         if self.retry_button.on_click(pos, button, mods) {
-            self.manager.lock().reset();
+            self.manager.reset();
             self.unpause(game);
             return;
         }

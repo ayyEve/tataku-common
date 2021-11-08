@@ -46,6 +46,11 @@ impl Into<u8> for PlayMode {
         }
     }
 }
+impl Default for PlayMode {
+    fn default() -> Self {
+        PlayMode::Standard
+    }
+}
 
 impl Serializable for PlayMode {
     fn read(sr:&mut crate::serialization::SerializationReader) -> Self {

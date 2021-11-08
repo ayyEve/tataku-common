@@ -1,6 +1,8 @@
 use std::time::Instant;
+
 use crate::game::Settings;
-use crate::{Vector2, helpers::visibility_bg, render::{Color, Text, Renderable}};
+use crate::render::{Color, Text, Renderable, fonts::get_font};
+use crate::{Vector2, helpers::visibility_bg};
 
 const SIZE:Vector2 = Vector2::new(180.0, 20.0);
 
@@ -42,7 +44,7 @@ impl FpsDisplay {
         self.frametime_timer = Instant::now();
     }
     pub fn draw(&mut self, list:&mut Vec<Box<dyn Renderable>>) {
-        let font = crate::game::get_font("main");
+        let font = get_font("main");
 
         let fps_elapsed = self.timer.elapsed().as_micros() as f64 / 1000.0;
         if fps_elapsed >= 100.0 {
