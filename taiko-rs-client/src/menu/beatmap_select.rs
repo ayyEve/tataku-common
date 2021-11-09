@@ -3,10 +3,11 @@ use std::collections::HashMap;
 use piston::{Key, MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::menu_elements::TextInput;
 
+use crate::beatmaps::common::BeatmapMeta;
 use crate::render::{*, fonts::get_font};
 use taiko_rs_common::types::{Score, PlayMode};
+use crate::gameplay::modes::manager_from_playmode;
 use crate::{Vector2, databases::get_scores, sync::*};
-use crate::gameplay::{BeatmapMeta, modes::manager_from_playmode};
 use crate::game::managers::{NotificationManager, BEATMAP_MANAGER};
 use crate::game::{Settings, Game, GameState, KeyModifiers, Audio};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
@@ -245,6 +246,14 @@ impl Menu<Game> for BeatmapSelectMenu {
     fn on_change(&mut self, into:bool) {
         if !into {return}
 
+        // play song if it exists
+        if let Some(song) = Audio::get_song() {
+            // reset any time mods
+            song.set_playback_speed(1.0);
+            // play
+            song.play();
+        }
+
         // load maps
         self.refresh_maps();
         self.beatmap_scroll.refresh_layout();
@@ -278,7 +287,6 @@ impl Menu<Game> for BeatmapSelectMenu {
         // check if beatmap item was clicked
         if let Some(clicked_hash) = self.beatmap_scroll.on_click_tagged(pos, button, mods) {
             let mut lock = BEATMAP_MANAGER.lock();
-            println!("clicked: {}", clicked_hash);
 
             // compare last clicked map hash with the new hash.
             // if the hashes are the same, the same map was clicked twice in a row.

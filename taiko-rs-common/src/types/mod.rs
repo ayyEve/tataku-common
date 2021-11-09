@@ -20,6 +20,7 @@ pub enum PlayMode {
     Taiko,
     Catch,
     Mania,
+    Adofai,
     #[allow(non_camel_case_types)]
     pTyping
 }
@@ -31,6 +32,7 @@ impl Into<PlayMode> for u8 {
             2 => Catch,
             3 => Mania,
             4 => pTyping,
+            5 => Adofai,
             _ => Standard
         }
     }
@@ -43,6 +45,7 @@ impl Into<u8> for PlayMode {
             Catch => 2,
             Mania => 3,
             pTyping => 4,
+            Adofai => 5
         }
     }
 }

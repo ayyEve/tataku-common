@@ -1,29 +1,26 @@
 use std::{path::Path};
 
-use crate::{Vector2, render::Color};
+use super::hitobject_defs::*;
 use taiko_rs_common::types::PlayMode;
-use crate::gameplay::{beatmap_structs::*, defs::*};
-
-/// timing bar color
-pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0);
+use crate::{Vector2, beatmaps::common::{BeatmapMeta, TaikoRsBeatmap, TimingPoint}};
 
 #[derive(Clone, Default)]
-pub struct Beatmap {
+pub struct OsuBeatmap {
     pub hash: String,
     
     // meta info
     pub metadata: BeatmapMeta,
-    pub timing_points: Vec<TimingPoint>,
+    pub timing_points: Vec<OsuTimingPoint>,
 
     pub notes: Vec<NoteDef>,
     pub sliders: Vec<SliderDef>,
     pub spinners: Vec<SpinnerDef>,
     pub holds: Vec<HoldDef>,
 }
-impl Beatmap {
-    pub fn load(file_path:String) -> Beatmap {
+impl OsuBeatmap {
+    pub fn load(file_path:String) -> OsuBeatmap {
         let parent_dir = Path::new(&file_path).parent().unwrap();
-        let hash = crate::get_file_hash(file_path.clone()).unwrap();
+        let hash = crate::get_file_hash(&file_path).unwrap();
 
         /// helper enum
         #[derive(Debug)]
@@ -41,7 +38,7 @@ impl Beatmap {
 
         let lines = crate::read_lines(file_path.clone()).expect("Beatmap file not found");
         let mut current_area = BeatmapSection::Version;
-        let mut beatmap = Beatmap {
+        let mut beatmap = Self {
             metadata: BeatmapMeta::new(file_path.clone(), hash.clone()),
             hash,
             notes: Vec::new(),
@@ -133,7 +130,7 @@ impl Beatmap {
                         }
                     }
                     BeatmapSection::TimingPoints => {
-                        beatmap.timing_points.push(TimingPoint::from_str(&line));
+                        beatmap.timing_points.push(OsuTimingPoint::from_str(&line));
                     }
                     BeatmapSection::HitObjects => {
                         let mut split = line.split(",");
@@ -273,19 +270,42 @@ impl Beatmap {
         beatmap
     }
 
-    pub fn from_metadata(metadata: &BeatmapMeta) -> Beatmap {
+    pub fn from_metadata(metadata: &BeatmapMeta) -> OsuBeatmap {
         // load the betmap
-        let mut b = Beatmap::load(metadata.file_path.clone());
+        let mut b = Self::load(metadata.file_path.clone());
         // overwrite the loaded meta with the old meta, this maintains calculations etc
         b.metadata = metadata.clone();
         b
     }
 
-    pub fn beat_length_at(&self, time:f32, allow_multiplier:bool) -> f32 {
+    pub fn bpm_multiplier_at(&self, time:f32) -> f32 {
+        self.control_point_at(time).bpm_multiplier()
+    }
+}
+impl TaikoRsBeatmap for OsuBeatmap {
+    fn hash(&self) -> String {self.hash.clone()}
+    fn get_timing_points(&self) -> Vec<crate::beatmaps::common::TimingPoint> {
+        self.timing_points
+            .iter()
+            .map(|t|t.clone().into())
+            .collect()
+    }
+    fn get_beatmap_meta(&self) -> BeatmapMeta {self.metadata.clone()}
+
+    fn playmode(&self, incoming:taiko_rs_common::types::PlayMode) -> taiko_rs_common::types::PlayMode {
+        match self.metadata.mode {
+            PlayMode::Standard => incoming,
+            PlayMode::Adofai => panic!("osu map has adofai mode !?"),
+            m => m
+        }
+    }
+
+
+    fn beat_length_at(&self, time:f32, allow_multiplier:bool) -> f32 {
         if self.timing_points.len() == 0 {return 0.0}
 
-        let mut point: Option<TimingPoint> = Some(self.timing_points.as_slice()[0].clone());
-        let mut inherited_point: Option<TimingPoint> = None;
+        let mut point: Option<OsuTimingPoint> = Some(self.timing_points.as_slice()[0].clone());
+        let mut inherited_point: Option<OsuTimingPoint> = None;
 
         for tp in self.timing_points.as_slice() {
             if tp.time <= time {
@@ -310,14 +330,11 @@ impl Beatmap {
 
         p.beat_length * mult
     }
-    
-    // something is fucked with this, it returns values wayyyyyyyyyyyyyyyyyyyyyy too high
-    pub fn slider_velocity_at(&self, time:f32) -> f32 {
+    fn slider_velocity_at(&self, time:f32) -> f32 {
         let bl = self.beat_length_at(time, true);
         100.0 * (self.metadata.slider_multiplier * 1.4) * if bl > 0.0 {1000.0 / bl} else {1.0}
     }
-
-    pub fn control_point_at(&self, time:f32) -> TimingPoint {
+    fn control_point_at(&self, time:f32) -> TimingPoint {
         // panic as this should be dealt with earlier in the code
         if self.timing_points.len() == 0 {panic!("beatmap has no timing points!")}
 
@@ -326,136 +343,97 @@ impl Beatmap {
             if tp.time <= time {point = *tp}
         }
 
-        point
-    }
-
-    pub fn bpm_multiplier_at(&self, time:f32) -> f32 {
-        self.control_point_at(time).bpm_multiplier()
+        point.into()
     }
 }
 
 
-// contains beatmap info unrelated to notes and timing points, etc
-#[derive(Clone, Debug, Default)]
-pub struct BeatmapMeta {
-    pub file_path: String,
-    pub beatmap_hash: String,
+///https://osu.ppy.sh/wiki/en/osu%21_File_Formats/Osu_%28file_format%29#timing-points
+#[derive(Clone, Copy)]
+pub struct OsuTimingPoint {
+    /// Start time of the timing section, in milliseconds from the beginning of the beatmap's audio. The end of the timing section is the next timing point's time (or never, if this is the last timing point).
+    pub time: f32,
+    /// This property has two meanings:
+    ///     For uninherited timing points, the duration of a beat, in milliseconds.
+    ///     For inherited timing points, a negative inverse slider velocity multiplier, as a percentage. For example, -50 would make all sliders in this timing section twice as fast as SliderMultiplier.
+    pub beat_length: f32,
+    /// Volume percentage for hit objects
+    pub volume: u8,
+    /// Amount of beats in a measure. Inherited timing points ignore this property.
+    pub meter: u8,
 
-    pub beatmap_version: u8,
-    pub mode: PlayMode,
-    pub artist: String,
-    pub title: String,
-    pub artist_unicode: String,
-    pub title_unicode: String,
-    pub creator: String,
-    pub version: String,
-    pub audio_filename: String,
-    pub image_filename: String,
-    pub audio_preview: f32,
+    // effects
 
-    pub duration: f32, // time in ms from first note to last note
-    /// song duration mins, used for display
-    pub mins: u8,
-    /// song duration seconds, used for display
-    pub secs: u8,
+    /// Whether or not kiai time is enabled
+    pub kiai: bool,
+    /// Whether or not the first barline is omitted in osu!taiko and osu!mania
+    pub skip_first_barline: bool,
 
-    pub hp: f32,
-    pub od: f32,
-    pub cs: f32,
-    pub ar: f32,
-    // pub sr: f64,
+    // samples
 
-    pub slider_multiplier: f32,
-    pub slider_tick_rate: f32
+    /// Default sample set for hit objects (0 = beatmap default, 1 = normal, 2 = soft, 3 = drum)
+    pub sample_set: u8,
+    /// Custom sample index for hit objects. 0 indicates osu!'s default hitsounds
+    pub sample_index: u8
 }
-impl BeatmapMeta {
-    pub fn new(file_path:String, beatmap_hash:String) -> BeatmapMeta {
-        let unknown = "Unknown".to_owned();
+impl OsuTimingPoint {
+    pub fn from_str(str:&str) -> Self {
+        // time,beatLength,meter,sampleSet,sampleIndex,volume,uninherited,effects
+        // println!("{}", str.clone());
+        let mut split = str.split(',');
+        let time = split.next().unwrap_or("0").parse::<f32>().unwrap_or(0.0);
+        let beat_length = split.next().unwrap_or("0").parse::<f32>().unwrap_or(0.0);
+        let meter = split.next().unwrap_or("4").parse::<u8>().unwrap_or(4);
+        let sample_set = split.next().unwrap_or("0").parse::<u8>().unwrap_or(0);
+        let sample_index = split.next().unwrap_or("0").parse::<u8>().unwrap_or(0);
 
-        BeatmapMeta {
-            file_path,
-            beatmap_hash,
-            beatmap_version: 0,
-            mode: PlayMode::Standard,
-            artist: unknown.clone(),
-            title: unknown.clone(),
-            artist_unicode: unknown.clone(),
-            title_unicode: unknown.clone(),
-            creator: unknown.clone(),
-            version: unknown.clone(),
-            audio_filename: String::new(),
-            image_filename: String::new(),
-            audio_preview: 0.0,
-            hp: -1.0,
-            od: -1.0,
-            ar: -1.0,
-            cs: -1.0,
-            slider_multiplier: 1.4,
-            slider_tick_rate: 1.0,
+        let volume = match split.next() {
+            Some(str) => str.parse::<u8>().unwrap_or(50),
+            None => 50
+        };
+        let _uninherited = split.next();
+        let effects = match split.next() {
+            Some(str) => str.parse::<u8>().unwrap_or(0),
+            None => 0
+        };
 
-            duration: 0.0,
-            mins: 0,
-            secs: 0,
+        let kiai = (effects & 1) == 1;
+        let skip_first_barline = (effects & 8) == 1;
+
+        Self {
+            time, 
+            beat_length, 
+            volume, 
+            meter,
+
+            sample_set,
+            sample_index,
+
+            kiai,
+            skip_first_barline
         }
     }
-    pub fn do_checks(&mut self) {
-        if self.ar < 0.0 {self.ar = self.od}
-    }
 
-    pub fn set_dur(&mut self, duration: f32) {
-        self.duration = duration;
-        self.mins = (self.duration / 60000.0).floor() as u8;
-        self.secs = ((self.duration / 1000.0) % (self.mins as f32 * 60.0)).floor() as u8;
+    pub fn is_inherited(&self) -> bool {
+        return self.beat_length < 0.0;
     }
-
-    /// get the title string with the version
-    pub fn version_string(&self) -> String {
-        format!("{} - {} [{}]", self.artist, self.title, self.version)  
-    }
-
-    /// get the difficulty string (od, hp, sr)
-    pub fn diff_string(&self) -> String {
-        // format!("od: {:.2} hp: {:.2}, {:.2}*, {}:{}", self.od, self.hp, self.sr, self.mins, self.secs)
-        format!("od: {:.2} hp: {:.2}, {}:{}", self.od, self.hp, self.mins, self.secs)
-    }
-
-    pub fn filter(&self, filter_str: &str) -> bool {
-        self.artist.to_ascii_lowercase().contains(filter_str) 
-        || self.artist_unicode.to_ascii_lowercase().contains(filter_str) 
-        || self.title.to_ascii_lowercase().contains(filter_str) 
-        || self.title_unicode.to_ascii_lowercase().contains(filter_str) 
-        || self.creator.to_ascii_lowercase().contains(filter_str) 
-        || self.version.to_ascii_lowercase().contains(filter_str) 
-    }
-
-    pub fn check_mode_override(&self, override_mode:PlayMode) -> PlayMode {
-        if self.mode == PlayMode::Standard {
-            override_mode
-        } else {
-            self.mode
-        }
+    
+    pub fn bpm_multiplier(&self) -> f32 {
+        if !self.is_inherited() {1.0}
+        else {self.beat_length.abs().clamp(10.0, 1000.0) / 100.0}
     }
 }
-
-
-// might use this later idk
-// pub trait IntoSets {
-//     fn sort_into_sets(&self) -> Vec<Vec<BeatmapMeta>>;
-// }
-// impl IntoSets for Vec<BeatmapMeta> {
-//     fn sort_into_sets(&self) -> Vec<Vec<BeatmapMeta>> {
-//         todo!()
-//     }
-// }
-
-
-// stolen from peppy, /shrug
-pub fn map_difficulty(diff:f32, min:f32, mid:f32, max:f32) -> f32 {
-    if diff > 5.0 {
-        mid + (max - mid) * (diff - 5.0) / 5.0
-    } else if diff < 5.0 {
-        mid - (mid - min) * (5.0 - diff) / 5.0
-    } else {
-        mid
+impl Into<crate::beatmaps::common::TimingPoint> for OsuTimingPoint {
+    fn into(self) -> crate::beatmaps::common::TimingPoint {
+        crate::beatmaps::common::TimingPoint {
+            time: self.time,
+            beat_length: self.beat_length,
+            volume: self.volume,
+            meter: self.meter,
+            kiai: self.kiai,
+            skip_first_barline: self.skip_first_barline,
+            sample_set: self.sample_set,
+            sample_index: self.sample_index,
+        }
     }
 }

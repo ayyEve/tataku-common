@@ -3,9 +3,11 @@ use std::f64::consts::PI;
 use graphics::CharacterCache;
 
 use taiko_rs_common::types::ScoreHit;
+use crate::beatmaps::common::{NoteType, map_difficulty};
 use crate::helpers::math::VectorHelpers;
 use crate::{Vector2, helpers::curve::Curve};
-use crate::gameplay::{HitObject, map_difficulty, defs::*, modes::ScalingHelper};
+use crate::beatmaps::osu::hitobject_defs::{HitSamples, NoteDef, SliderDef, SpinnerDef};
+use crate::gameplay::{HitObject, modes::ScalingHelper};
 use crate::render::{Circle, Color, Renderable, Border, Line, Rectangle, Text, fonts::get_font};
 
 const SPINNER_RADIUS:f64 = 200.0;
@@ -317,7 +319,7 @@ impl StandardSlider {
         let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
         
         let pos = scaling_helper.scale_coords(def.pos);
-        let visual_end_pos = scaling_helper.scale_coords(curve.position_at_length(curve.length()));
+        let visual_end_pos = scaling_helper.scale_coords(curve.path.last().unwrap().p2);
         let time_end_pos = if def.slides % 2 == 1 {visual_end_pos} else {pos};
         let radius = CIRCLE_RADIUS_BASE * scaling_helper.scaled_cs;
 

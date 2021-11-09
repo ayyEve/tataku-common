@@ -1,15 +1,17 @@
-use std::collections::HashMap;
 use std::time::Instant;
+use std::collections::HashMap;
 
 use piston::RenderArgs;
 use opengl_graphics::GlyphCache;
 
+use crate::{beatmaps::Beatmap, errors::TaikoError};
 use crate::errors::BeatmapError;
-use crate::gameplay::hitobject_defs::HitSamples;
+use crate::beatmaps::osu::hitobject_defs::HitSamples;
 use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
+use crate::{Vector2, sync::*, helpers::{visibility_bg, io::exists}};
+use crate::beatmaps::common::{BeatmapMeta, TaikoRsBeatmap, TimingPoint};
 use crate::game::{Audio, AudioHandle, BackgroundGameSettings, Settings, Sound};
 use crate::render::{Renderable, Rectangle, Text, Color, Border, fonts::get_font};
-use crate::{Vector2, gameplay::*, sync::*, helpers::{visibility_bg, io::exists}};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
 const OFFSET_DRAW_TIME:f32 = 2_000.0; // how long should the offset be drawn for?
@@ -25,6 +27,7 @@ const HIT_TIMING_BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // hit timing
 
 pub struct IngameManager {
     pub beatmap: Beatmap,
+    pub metadata: BeatmapMeta,
     pub gamemode: Box<dyn GameMode>,
 
     pub score: Score,
@@ -41,6 +44,7 @@ pub struct IngameManager {
     pub lead_in_time: f32,
     pub lead_in_timer: Instant,
 
+    pub timing_points: Vec<TimingPoint>,
     pub timing_point_index: usize,
     pub song: Weak<AudioHandle>,
 
@@ -68,14 +72,20 @@ pub struct IngameManager {
 impl IngameManager {
     pub fn new(beatmap: Beatmap, gamemode: Box<dyn GameMode>) -> Self {
         let playmode = gamemode.playmode();
+        let metadata = beatmap.get_beatmap_meta();
 
         let hitsound_cache = HashMap::new();
         let settings = Settings::get_mut().clone();
 
+        let timing_points = beatmap.get_timing_points();
+
+
         Self {
+            metadata,
+            timing_points,
             hitsound_cache,
             lead_in_timer: Instant::now(),
-            score: Score::new(beatmap.hash.clone(), settings.username.clone(), playmode),
+            score: Score::new(beatmap.hash().clone(), settings.username.clone(), playmode),
 
             replay: Replay::new(),
             beatmap,
@@ -109,7 +119,7 @@ impl IngameManager {
     }
 
     pub fn current_timing_point(&self) -> TimingPoint {
-        self.beatmap.timing_points[self.timing_point_index]
+        self.timing_points[self.timing_point_index]
     }
 
     pub fn time(&mut self) -> f32 {
@@ -122,7 +132,7 @@ impl IngameManager {
                     }
                     None => {
                         println!("song doesnt exist at Beatmap.time()!!");
-                        self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
+                        self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
                         self.song.upgrade().unwrap().pause();
                         0.0
                     }
@@ -130,7 +140,7 @@ impl IngameManager {
             },
             (None, None) => {
                 println!("song doesnt exist at Beatmap.time()!!");
-                self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
+                self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
                 self.song.upgrade().unwrap().pause();
                 0.0
             }
@@ -164,7 +174,7 @@ impl IngameManager {
                         song.set_position(0.0);
                     }
                     None => {
-                        self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
+                        self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
                         self.song.upgrade().unwrap().pause();
                     }
                 }
@@ -183,7 +193,7 @@ impl IngameManager {
             // needed because if paused for a while it can crash
             match self.song.upgrade() {
                 Some(song) => song.play(),
-                None => self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0),
+                None => self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0),
             }
         }
     }
@@ -206,7 +216,7 @@ impl IngameManager {
                 }
                 None => {
                     while let None = self.song.upgrade() {
-                        self.song = Audio::play_song(self.beatmap.metadata.audio_filename.clone(), true, 0.0);
+                        self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
                     }
                     let song = self.song.upgrade().unwrap();
                     song.pause();
@@ -226,7 +236,7 @@ impl IngameManager {
         self.lead_in_time = LEAD_IN_TIME;
         self.offset_changed_time = 0.0;
         self.lead_in_timer = Instant::now();
-        self.score = Score::new(self.beatmap.hash.clone(), settings.username.clone(), self.gamemode.playmode());
+        self.score = Score::new(self.beatmap.hash(), settings.username.clone(), self.gamemode.playmode());
         self.replay_frame = 0;
         self.timing_point_index = 0;
 
@@ -260,7 +270,7 @@ impl IngameManager {
         let time = self.time();
 
         // check timing point
-        let timing_points = &self.beatmap.timing_points;
+        let timing_points = &self.timing_points;
         if self.timing_point_index + 1 < timing_points.len() && timing_points[self.timing_point_index + 1].time <= time {
             self.timing_point_index += 1;
         }
@@ -619,6 +629,7 @@ impl IngameManager {
 impl Default for IngameManager {
     fn default() -> Self {
         Self { 
+            metadata: Default::default(), 
             beatmap: Default::default(), 
             gamemode: Default::default(), 
             score: Score::new(
@@ -646,7 +657,8 @@ impl Default for IngameManager {
             combo_text_bounds: Rectangle::bounds_only(Vector2::zero(), Vector2::zero()), 
             timing_bar_things: (Vec::new(), (0.0, Color::WHITE)), 
             replay_frame: Default::default(), 
-            background_game_settings: Default::default() 
+            background_game_settings: Default::default(),
+            timing_points: Vec::new(), 
         }
     }
 }
@@ -654,7 +666,7 @@ impl Default for IngameManager {
 
 
 pub trait GameMode {
-    fn new(beatmap:&Beatmap) -> Result<Self, BeatmapError> where Self: Sized;
+    fn new(beatmap:&Beatmap) -> Result<Self, TaikoError> where Self: Sized;
 
     fn playmode(&self) -> PlayMode;
     fn end_time(&self) -> f32;
@@ -693,7 +705,7 @@ impl Default for Box<dyn GameMode> {
 // needed for std::mem::take/swap
 struct NoMode {}
 impl GameMode for NoMode {
-    fn new(_:&Beatmap) -> Result<Self, BeatmapError> where Self: Sized {Ok(Self {})}
+    fn new(_:&Beatmap) -> Result<Self, TaikoError> where Self: Sized {Ok(Self {})}
     fn playmode(&self) -> PlayMode {PlayMode::Standard}
     fn end_time(&self) -> f32 {0.0}
     fn combo_bounds(&self) -> Rectangle {Rectangle::bounds_only(Vector2::zero(), Vector2::zero())}

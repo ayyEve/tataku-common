@@ -5,10 +5,12 @@ use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
 
+use crate::beatmaps::Beatmap;
+use crate::beatmaps::common::{BeatmapMeta, TaikoRsBeatmap};
+use crate::gameplay::IngameManager;
 use crate::databases::{save_replay, save_score};
 use crate::render::{Color, Image, Rectangle, Renderable};
 use taiko_rs_common::types::{SpectatorFrames, UserAction};
-use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
 use crate::{Vector2, DOWNLOADS_DIR, menu::*, sync::{Arc, Mutex}};
 use crate::helpers::{FpsDisplay, BenchmarkHelper, VolumeControl, io::*};
 use crate::game::{Settings, audio::Audio, managers::*, online::{USER_ITEM_SIZE, OnlineManager}};
@@ -312,74 +314,74 @@ impl Game {
 
                     let menu = PauseMenu::new(manager2);
                     self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
-                }
+                } else {
+                    // offset adjust
+                    if keys_down.contains(&settings.key_offset_up) {manager.increment_offset(5.0)}
+                    if keys_down.contains(&settings.key_offset_up) {manager.increment_offset(-5.0)}
 
-                // offset adjust
-                if keys_down.contains(&settings.key_offset_up) {manager.increment_offset(5.0)}
-                if keys_down.contains(&settings.key_offset_up) {manager.increment_offset(-5.0)}
+                    // inputs
+                    if mouse_moved {manager.mouse_move(mouse_pos)}
+                    for btn in mouse_down {manager.mouse_down(btn)}
+                    for btn in mouse_up {manager.mouse_up(btn)}
+                    if scroll_delta != 0.0 {manager.mouse_scroll(scroll_delta)}
 
-                // inputs
-                if mouse_moved {manager.mouse_move(mouse_pos)}
-                for btn in mouse_down {manager.mouse_down(btn)}
-                for btn in mouse_up {manager.mouse_up(btn)}
-                if scroll_delta != 0.0 {manager.mouse_scroll(scroll_delta)}
+                    for k in keys_down.iter() {manager.key_down(*k)}
+                    for k in keys_up.iter() {manager.key_up(*k)}
 
-                for k in keys_down.iter() {manager.key_down(*k)}
-                for k in keys_up.iter() {manager.key_up(*k)}
+                    // update, then check if complete
+                    manager.update();
+                    if manager.completed {
+                        println!("beatmap complete");
+                        let score = &manager.score;
+                        let replay = &manager.replay;
 
-                // update, then check if complete
-                manager.update();
-                if manager.completed {
-                    println!("beatmap complete");
-                    let score = &manager.score;
-                    let replay = &manager.replay;
+                        if !manager.replaying {
+                            // save score
+                            save_score(&score);
+                            match save_replay(&replay, &score) {
+                                Ok(_)=> println!("replay saved ok"),
+                                Err(e) => NotificationManager::add_error_notification("error saving replay", e),
+                            }
 
-                    if !manager.replaying {
-                        // save score
-                        save_score(&score);
-                        match save_replay(&replay, &score) {
-                            Ok(_)=> println!("replay saved ok"),
-                            Err(e) => NotificationManager::add_error_notification("error saving replay", e),
+                            // submit score
+                            #[cfg(feature = "online_scores")] 
+                            {
+                                self.threading.spawn(async move {
+                                    //TODO: do this async
+                                    println!("submitting score");
+                                    let mut writer = taiko_rs_common::serialization::SerializationWriter::new();
+                                    writer.write(score.clone());
+                                    writer.write(replay.clone());
+                                    let data = writer.data();
+                                    
+                                    let c = reqwest::Client::new();
+                                    let res = c.post("http://localhost:8000/score_submit")
+                                        .body(data)
+                                        .send().await;
+
+                                    match res {
+                                        Ok(_isgood) => {
+                                            //TODO: do something with the response?
+                                            println!("score submitted successfully");
+                                        },
+                                        Err(e) => println!("error submitting score: {}", e),
+                                    }
+                                });
+                            }
+
                         }
 
-                        // submit score
-                        #[cfg(feature = "online_scores")] 
-                        {
-                            self.threading.spawn(async move {
-                                //TODO: do this async
-                                println!("submitting score");
-                                let mut writer = taiko_rs_common::serialization::SerializationWriter::new();
-                                writer.write(score.clone());
-                                writer.write(replay.clone());
-                                let data = writer.data();
-                                
-                                let c = reqwest::Client::new();
-                                let res = c.post("http://localhost:8000/score_submit")
-                                    .body(data)
-                                    .send().await;
-
-                                match res {
-                                    Ok(_isgood) => {
-                                        //TODO: do something with the response?
-                                        println!("score submitted successfully");
-                                    },
-                                    Err(e) => println!("error submitting score: {}", e),
-                                }
-                            });
+                        // used to indicate user stopped watching a replay
+                        if manager.replaying && !manager.started {
+                            // go back to beatmap select
+                            let menu = self.menus.get("beatmap").unwrap();
+                            let menu = menu.clone();
+                            self.queue_state_change(GameState::InMenu(menu));
+                        } else {
+                            // show score menu
+                            let menu = ScoreMenu::new(&score, manager.metadata.clone());
+                            self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
                         }
-
-                    }
-
-                    // used to indicate user stopped watching a replay
-                    if manager.replaying && !manager.started {
-                        // go back to beatmap select
-                        let menu = self.menus.get("beatmap").unwrap();
-                        let menu = menu.clone();
-                        self.queue_state_change(GameState::InMenu(menu));
-                    } else {
-                        // show score menu
-                        let menu = ScoreMenu::new(&score, manager.beatmap.metadata.clone());
-                        self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
                     }
                 }
             }
@@ -399,12 +401,13 @@ impl Game {
                 // mouse scroll
                 if scroll_delta.abs() > 0.0 {menu.on_scroll(scroll_delta, self)}
 
-                //check keys down
+                // check keys down
                 for key in keys_down {menu.on_key_press(key, self, mods)}
-                //TODO: check keys up (or remove it, probably not used anywhere)
+                // check keys up
+                for key in keys_up {menu.on_key_release(key, self)}
 
                 // check text
-                if text.len() > 0 {menu.on_text(text);}
+                if text.len() > 0 {menu.on_text(text)}
 
                 // window focus change
                 if let Some(has_focus) = window_focus_changed {
@@ -420,7 +423,7 @@ impl Game {
                 // (try to) read pending data from the online manager
                 match self.online_manager.try_lock() {
                     Ok(mut online_manager) => data.extend(online_manager.get_pending_spec_frames()),
-                    Err(e) => println!("hmm, {}", e),
+                    Err(e) => println!("failed to lock online manager, {}", e),
                 }
 
                 match &state {
@@ -468,7 +471,7 @@ impl Game {
                     GameState::Ingame(manager) => {
                         let (m, h) = {
                             manager.start();
-                            (manager.beatmap.metadata.clone(), manager.beatmap.hash.clone())
+                            (manager.metadata.clone(), manager.beatmap.hash())
                         };
 
                         self.set_background_beatmap(&m);

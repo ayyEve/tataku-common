@@ -1,6 +1,9 @@
 use crate::Vector2;
+use crate::beatmaps::Beatmap;
+use crate::beatmaps::common::TaikoRsBeatmap;
+use crate::beatmaps::osu::hitobject_defs::{CurveType, SliderDef};
 use crate::helpers::math::*;
-use crate::gameplay::{Beatmap, defs::{CurveType, SliderDef}};
+// use crate::gameplay::{Beatmap, defs::{CurveType, SliderDef}};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Line {
@@ -46,7 +49,7 @@ pub struct Curve {
 impl Curve {
     fn new(slider: SliderDef, path: Vec<Line>, beatmap: &Beatmap) -> Self {
         let l = slider.length * 1.4 * slider.slides as f32;
-        let v2 = 100.0 * beatmap.metadata.slider_multiplier * 1.4;
+        let v2 = 100.0 * beatmap.get_beatmap_meta().slider_multiplier * 1.4;
         // let l = slider.length * slider.slides as f32;
         // let v2 = 100.0 * beatmap.metadata.slider_multiplier;
         let bl = beatmap.beat_length_at(slider.time, true);
@@ -137,6 +140,8 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
     points.insert(0, slider.pos);
     let mut path = Vec::new();
 
+    let metadata = beatmap.get_beatmap_meta();
+
     match slider.curve_type {
         CurveType::Catmull => {
             for j in 0..points.len() {
@@ -159,7 +164,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
             let mut last_index = 0;
             let mut i = 0;
             while i < points.len() {
-                if beatmap.metadata.beatmap_version > 8 {
+                if metadata.beatmap_version > 8 {
                     let multipart_segment = (i as i32) < points.len() as i32 - 2 && points[i] == points[i + 1];
                     // println!("i: {}, p.len(): {}", i, points.len());
 
@@ -178,7 +183,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
                                 path.push(line);
                             }
                         } else {
-                            if beatmap.metadata.beatmap_version < 10 {
+                            if metadata.beatmap_version < 10 {
                                 //use the WRONG bezier algorithm. sliders will be 1/50 too short!
                                 let points = create_bezier_wrong(this_length);
                                 for j in 1..points.len() {
@@ -203,7 +208,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
                     }
                     
 
-                } else if beatmap.metadata.beatmap_version > 6 {
+                } else if metadata.beatmap_version > 6 {
                     let multipart_segment = (i as i32) < points.len() as i32 - 2 && points[i] == points[i + 1];
 
                     if multipart_segment || i == points.len() - 1 {
@@ -320,7 +325,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
 
     if path_count < 1 {return curve}
 
-    let ms_between_ticks = beatmap.beat_length_at(curve.slider.time, false) / beatmap.metadata.slider_tick_rate;
+    let ms_between_ticks = beatmap.beat_length_at(curve.slider.time, false) / metadata.slider_tick_rate;
     let mut t = curve.slider.time + ms_between_ticks;
     while t < curve.end_time {
         curve.score_times.push(t);

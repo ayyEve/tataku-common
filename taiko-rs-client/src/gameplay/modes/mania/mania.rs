@@ -4,10 +4,13 @@ use piston::RenderArgs;
 use taiko_rs_common::types::{KeyPress, ReplayFrame, PlayMode};
 
 use crate::Vector2;
+use crate::beatmaps::Beatmap;
+use crate::beatmaps::common::{NoteType, TaikoRsBeatmap, TimingPoint, map_difficulty};
+use crate::beatmaps::osu::hitobject_defs::HoldDef;
 use crate::render::*;
 use crate::game::{Audio, Settings};
 use super::{ManiaHold, ManiaNote, ManiaHitObject};
-use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint, map_difficulty, defs::*};
+use crate::gameplay::{GameMode, IngameManager};
 
 
 pub const COLUMN_WIDTH: f64 = 100.0;
@@ -84,85 +87,145 @@ impl GameMode for ManiaGame {
     fn playmode(&self) -> PlayMode {PlayMode::Mania}
     fn end_time(&self) -> f32 {self.end_time}
 
-    fn new(beatmap:&Beatmap) -> Result<Self, crate::errors::BeatmapError> {
+    fn new(beatmap:&Beatmap) -> Result<Self, crate::errors::TaikoError> {
+        let metadata = beatmap.get_beatmap_meta();
 
-        let mut s = Self {
-            columns: Vec::new(),
-            column_indices:Vec::new(),
-            column_states: Vec::new(),
+        match beatmap {
+            Beatmap::Osu(beatmap) => {
+                let mut s = Self {
+                    columns: Vec::new(),
+                    column_indices:Vec::new(),
+                    column_states: Vec::new(),
+                    timing_bars: Vec::new(),
+                    timing_point_index: 0,
+                    end_time: 0.0,
 
-            timing_bars: Vec::new(),
-            timing_point_index: 0,
-            end_time: 0.0,
+                    hitwindow_100: 0.0,
+                    hitwindow_300: 0.0,
+                    hitwindow_miss: 0.0,
 
-            hitwindow_100: 0.0,
-            hitwindow_300: 0.0,
-            hitwindow_miss: 0.0,
-
-            column_count: beatmap.metadata.cs as u8,
-            auto_helper: ManiaAutoHelper::new()
-        };
-
-        // init defaults for the columsn
-        for _col in 0..s.column_count {
-            s.columns.push(Vec::new());
-            s.column_indices.push(0);
-            s.column_states.push(false);
-        }
-
-        // add notes
-        for note in beatmap.notes.iter() {
-            if beatmap.metadata.mode == PlayMode::Mania {
-                let column = (note.pos.x * s.column_count as f64 / 512.0).floor() as u8;
-                let x = s.col_pos(column);
-                s.columns[column as usize].push(Box::new(ManiaNote::new(
-                    note.time,
-                    x
-                )));
-            }
-        }
-        for hold in beatmap.holds.iter() {
-            let HoldDef {pos, time, end_time, ..} = hold.to_owned();
-
-            let column = (pos.x * s.column_count as f64 / 512.0).floor() as u8;
-            let x = s.col_pos(column);
-            s.columns[column as usize].push(Box::new(ManiaHold::new(
-                time ,
-                end_time,
-                x
-            )));
-        }
+                    column_count: beatmap.metadata.cs as u8,
+                    auto_helper: ManiaAutoHelper::new()
+                };
         
-        for _slider in beatmap.sliders.iter() {
-            // let SliderDef {pos, time, slides, length, ..} = slider.to_owned();
-            // let time = time as u64;
-
-            // let l = (length * 1.4) * slides as f64;
-            // let v2 = 100.0 * (beatmap.metadata.slider_multiplier as f64 * 1.4);
-            // let bl = beatmap.beat_length_at(time as f64, true);
-            // let end_time = time + (l / v2 * bl) as u64;
-    
-            // let column = (pos.x * s.column_count as f64 / 512.0).floor() as u8;
-            // let x = s.col_pos(column);
-            // s.columns[column as usize].push(Box::new(ManiaHold::new(
-            //     time as u64,
-            //     end_time as u64,
-            //     x
-            // )));
-        }
-        for _spinner in beatmap.spinners.iter() {
-            // let SpinnerDef {time, end_time, ..} = spinner;
-            //TODO
-        }
-
-        for col in s.columns.iter_mut() {
-            col.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
-            if let Some(last_note) = col.iter().last() {
-                s.end_time = s.end_time.max(last_note.time());
-            }
-        }
+                // init defaults for the columsn
+                for _col in 0..s.column_count {
+                    s.columns.push(Vec::new());
+                    s.column_indices.push(0);
+                    s.column_states.push(false);
+                }
         
-        Ok(s)
+                // add notes
+                for note in beatmap.notes.iter() {
+                    if metadata.mode == PlayMode::Mania {
+                        let column = (note.pos.x * s.column_count as f64 / 512.0).floor() as u8;
+                        let x = s.col_pos(column);
+                        s.columns[column as usize].push(Box::new(ManiaNote::new(
+                            note.time,
+                            x
+                        )));
+                    }
+                }
+                for hold in beatmap.holds.iter() {
+                    let HoldDef {pos, time, end_time, ..} = hold.to_owned();
+        
+                    let column = (pos.x * s.column_count as f64 / 512.0).floor() as u8;
+                    let x = s.col_pos(column);
+                    s.columns[column as usize].push(Box::new(ManiaHold::new(
+                        time ,
+                        end_time,
+                        x
+                    )));
+                }
+                
+                for _slider in beatmap.sliders.iter() {
+                    // let SliderDef {pos, time, slides, length, ..} = slider.to_owned();
+                    // let time = time as u64;
+        
+                    // let l = (length * 1.4) * slides as f64;
+                    // let v2 = 100.0 * (beatmap.metadata.slider_multiplier as f64 * 1.4);
+                    // let bl = beatmap.beat_length_at(time as f64, true);
+                    // let end_time = time + (l / v2 * bl) as u64;
+            
+                    // let column = (pos.x * s.column_count as f64 / 512.0).floor() as u8;
+                    // let x = s.col_pos(column);
+                    // s.columns[column as usize].push(Box::new(ManiaHold::new(
+                    //     time as u64,
+                    //     end_time as u64,
+                    //     x
+                    // )));
+                }
+                for _spinner in beatmap.spinners.iter() {
+                    // let SpinnerDef {time, end_time, ..} = spinner;
+                    //TODO
+                }
+        
+                for col in s.columns.iter_mut() {
+                    col.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
+                    if let Some(last_note) = col.iter().last() {
+                        s.end_time = s.end_time.max(last_note.time());
+                    }
+                }
+                
+                Ok(s)
+            },
+            Beatmap::Quaver(beatmap) => {
+                let mut s = Self {
+                    columns: Vec::new(),
+                    column_indices:Vec::new(),
+                    column_states: Vec::new(),
+        
+                    timing_bars: Vec::new(),
+                    timing_point_index: 0,
+                    end_time: 0.0,
+        
+                    hitwindow_100: 0.0,
+                    hitwindow_300: 0.0,
+                    hitwindow_miss: 0.0,
+        
+                    column_count: beatmap.mode.into(),
+                    auto_helper: ManiaAutoHelper::new()
+                };
+                
+                // init defaults for the columsn
+                for _col in 0..s.column_count {
+                    s.columns.push(Vec::new());
+                    s.column_indices.push(0);
+                    s.column_states.push(false);
+                }
+
+                // add notes
+                for note in beatmap.hit_objects.iter() {
+                    let column = note.lane - 1;
+                    let time = note.start_time;
+                    let x = s.col_pos(column);
+
+                    if let Some(end_time) = note.end_time {
+                        s.columns[column as usize].push(Box::new(ManiaHold::new(
+                            time,
+                            end_time,
+                            x
+                        )));
+                    } else {
+                        s.columns[column as usize].push(Box::new(ManiaNote::new(
+                            time,
+                            x
+                        )));
+                    }
+                }
+        
+                for col in s.columns.iter_mut() {
+                    col.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
+                    if let Some(last_note) = col.iter().last() {
+                        s.end_time = s.end_time.max(last_note.time());
+                    }
+                }
+                
+                Ok(s)
+            },
+            Beatmap::Adofai(_) => todo!(),
+            Beatmap::None => todo!(),
+        }
     }
 
     fn handle_replay_frame(&mut self, frame:ReplayFrame, time:f32, manager:&mut IngameManager) {
@@ -336,7 +399,7 @@ impl GameMode for ManiaGame {
         
         self.timing_point_index = 0;
 
-        let od = beatmap.metadata.od;
+        let od = beatmap.get_beatmap_meta().od;
         // setup hitwindows
         self.hitwindow_miss = map_difficulty(od, 135.0, 95.0, 70.0);
         self.hitwindow_100 = map_difficulty(od, 120.0, 80.0, 50.0);
@@ -347,8 +410,9 @@ impl GameMode for ManiaGame {
         // setup timing bars
         //TODO: it would be cool if we didnt actually need timing bar objects, and could just draw them
         if self.timing_bars.len() == 0 {
+            let tps = beatmap.get_timing_points();
             // load timing bars
-            let parent_tps = beatmap.timing_points.iter().filter(|t|!t.is_inherited()).collect::<Vec<&TimingPoint>>();
+            let parent_tps = tps.iter().filter(|t|!t.is_inherited()).collect::<Vec<&TimingPoint>>();
             let mut time = parent_tps[0].time;
             let mut tp_index = 0;
             let step = beatmap.beat_length_at(time, false);
@@ -429,7 +493,7 @@ impl GameMode for ManiaGame {
         // TODO: might move tbs to a (time, speed) tuple
         for tb in self.timing_bars.iter_mut() {tb.update(time)}
 
-        let timing_points = &manager.beatmap.timing_points;
+        let timing_points = &manager.timing_points;
         // check timing point
         if self.timing_point_index + 1 < timing_points.len() && timing_points[self.timing_point_index + 1].time <= time {
             self.timing_point_index += 1;

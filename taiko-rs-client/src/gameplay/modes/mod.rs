@@ -1,9 +1,10 @@
 use taiko_rs_common::types::PlayMode;
 
-use crate::errors::BeatmapError;
 use crate::game::Settings;
+use crate::beatmaps::Beatmap;
+use super::{GameMode, IngameManager};
 use crate::render::{Rectangle, Vector2};
-use super::{Beatmap, BeatmapMeta, GameMode, IngameManager};
+use crate::beatmaps::common::BeatmapMeta;
 
 pub mod taiko;
 pub mod mania;
@@ -15,22 +16,32 @@ const FIELD_SIZE:Vector2 = Vector2::new(512.0, 384.0); // 4:3
 
 
 use PlayMode::*;
-pub fn manager_from_playmode(mut playmode: PlayMode, beatmap: &BeatmapMeta) -> Result<IngameManager, BeatmapError> {
+pub fn manager_from_playmode(mut playmode: PlayMode, beatmap: &BeatmapMeta) -> Result<IngameManager, crate::errors::TaikoError> {
     // println!("playmode: {:?}", playmode);
     if beatmap.mode != Standard {
         playmode = beatmap.mode;
     }
 
     let beatmap = Beatmap::from_metadata(beatmap);
-    let gamemode:Box<dyn GameMode> = match playmode {
-        Standard => Box::new(standard::StandardGame::new(&beatmap)?),
-        Taiko => Box::new(taiko::TaikoGame::new(&beatmap)?),
-        Catch => Box::new(catch::CatchGame::new(&beatmap)?),
-        Mania => Box::new(mania::ManiaGame::new(&beatmap)?),
-        pTyping => todo!(),
-    };
 
-    Ok(IngameManager::new(beatmap, gamemode))
+    match beatmap {
+        Ok(beatmap) => {
+            let gamemode:Box<dyn GameMode> = match playmode {
+                Standard => Box::new(standard::StandardGame::new(&beatmap)?),
+                Taiko => Box::new(taiko::TaikoGame::new(&beatmap)?),
+                Catch => Box::new(catch::CatchGame::new(&beatmap)?),
+                Mania => Box::new(mania::ManiaGame::new(&beatmap)?),
+
+                //TODO
+                Adofai => Box::new(taiko::TaikoGame::new(&beatmap)?),
+                pTyping => todo!(),
+            };
+            Ok(IngameManager::new(beatmap, gamemode))
+        },
+        Err(e) => {
+            Err(e)
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
