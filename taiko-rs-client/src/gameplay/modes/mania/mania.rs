@@ -1,5 +1,3 @@
-use std::u8;
-
 use piston::{Key, RenderArgs};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, PlayMode};
 
