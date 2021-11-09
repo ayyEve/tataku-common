@@ -1,6 +1,6 @@
 use std::u8;
 
-use piston::RenderArgs;
+use piston::{Key, RenderArgs};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, PlayMode};
 
 use crate::Vector2;
@@ -31,6 +31,7 @@ const BAR_SPACING:f32 = 4.0; // how many beats between timing bars
 const BAR_DEPTH:f64 = -90.0;
 
 const SV_FACTOR:f32 = 700.0; // bc sv is bonked, divide it by this amount
+const SV_CHANGE_DELTA:f32 = 30.0; // how much to change the sv by when a sv change key is pressed
 
 pub struct ManiaGame {
     // lists
@@ -50,7 +51,9 @@ pub struct ManiaGame {
     end_time: f32,
     column_count: u8,
 
-    auto_helper: ManiaAutoHelper
+    auto_helper: ManiaAutoHelper,
+
+    current_sv: f32,
 }
 impl ManiaGame {
     /// get the x_pos for `col`
@@ -70,15 +73,17 @@ impl ManiaGame {
     }
 
     fn set_sv(&mut self, sv:f32) {
-        let sv = sv / SV_FACTOR;
+        self.current_sv = sv;
+        let scaled_sv = self.current_sv / SV_FACTOR;
+        println!("setting sv to {} ({})", self.current_sv, scaled_sv);
 
         for col in self.columns.iter_mut() {
             for note in col.iter_mut() {
-                note.set_sv(sv);
+                note.set_sv(scaled_sv);
             }
         }
         for bar in self.timing_bars.iter_mut() {
-            bar.set_sv(sv);
+            bar.set_sv(scaled_sv);
         }
     }
 }
@@ -105,7 +110,8 @@ impl GameMode for ManiaGame {
                     hitwindow_miss: 0.0,
 
                     column_count: beatmap.metadata.cs as u8,
-                    auto_helper: ManiaAutoHelper::new()
+                    auto_helper: ManiaAutoHelper::new(),
+                    current_sv: 1.0
                 };
         
                 // init defaults for the columsn
@@ -184,7 +190,9 @@ impl GameMode for ManiaGame {
                     hitwindow_miss: 0.0,
         
                     column_count: beatmap.mode.into(),
-                    auto_helper: ManiaAutoHelper::new()
+                    auto_helper: ManiaAutoHelper::new(),
+
+                    current_sv: 1.0
                 };
                 
                 // init defaults for the columsn
@@ -355,6 +363,18 @@ impl GameMode for ManiaGame {
     }
 
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
+
+        // check sv change keys
+        if key == Key::F4 {
+            self.set_sv(self.current_sv + SV_CHANGE_DELTA);
+            return;
+        }
+        if key == Key::F3 {
+            self.set_sv(self.current_sv - SV_CHANGE_DELTA);
+            return;
+        }
+
+
         let settings = Settings::get();
         let mut game_key = KeyPress::RightDon;
 

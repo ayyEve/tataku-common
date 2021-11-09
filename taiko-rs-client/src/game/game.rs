@@ -216,13 +216,18 @@ impl Game {
                 if let Some(ext) = d.extension() {
                     let ext = ext.to_str().unwrap();
                     match *&ext {
-                        "osz" => {
+                        "osz" | "qp" => {
                             if let Err(e) = std::fs::copy(path, format!("{}/{}", DOWNLOADS_DIR, filename.unwrap().to_str().unwrap())) {
                                 println!("Error moving file: {}", e);
+                                NotificationManager::add_error_notification(
+                                    "Error moving file", 
+                                    e
+                                );
+                            } else {
                                 NotificationManager::add_text_notification(
-                                    &format!("Error moving file\n{}", e), 
+                                    "Set file added, it will be loaded soon...", 
                                     2_000.0, 
-                                    Color::RED
+                                    Color::BLUE
                                 );
                             }
                         }
@@ -230,7 +235,7 @@ impl Game {
                         _ => {
                             NotificationManager::add_text_notification(
                                 &format!("What is this?"), 
-                                1_000.0, 
+                                3_000.0, 
                                 Color::RED
                             );
                         }
