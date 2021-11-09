@@ -6,8 +6,8 @@ use crate::render::*;
 use crate::sync::Arc;
 use crate::beatmaps::Beatmap;
 use crate::gameplay::{GameMode, IngameManager};
-use crate::beatmaps::osu::hitobject_defs::HoldDef;
 use super::{ManiaHold, ManiaNote, ManiaHitObject};
+use crate::beatmaps::osu::hitobject_defs::HoldDef;
 use crate::game::{Audio, Settings, ManiaPlayfieldSettings};
 use crate::beatmaps::common::{NoteType, TaikoRsBeatmap, TimingPoint, map_difficulty};
 
@@ -624,6 +624,7 @@ impl GameMode for ManiaGame {
 }
 
 
+
 // timing bar struct
 //TODO: might be able to reduce this to a (time, speed) and just calc pos on draw
 #[derive(Clone, Debug)]
@@ -671,7 +672,6 @@ impl TimingBar {
         renderables
     }
 }
-
 
 
 

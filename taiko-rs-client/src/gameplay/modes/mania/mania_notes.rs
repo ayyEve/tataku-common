@@ -1,7 +1,7 @@
 use piston::RenderArgs;
 
-use crate::Vector2;
 use crate::sync::*;
+use crate::Vector2;
 use crate::gameplay::HitObject;
 use crate::beatmaps::common::NoteType;
 use crate::game::ManiaPlayfieldSettings;
@@ -17,7 +17,6 @@ pub trait ManiaHitObject: HitObject {
     fn was_hit(&self) -> bool {false}
 
     fn y_at(&self, time:f32) -> f64;
-
     fn set_sv(&mut self, sv:f32);
 }
 
@@ -61,12 +60,7 @@ impl HitObject for ManiaNote {
     fn set_alpha(&mut self, alpha: f32) {self.alpha_mult = alpha}
 
     fn update(&mut self, beatmap_time: f32) {
-        // let y = 
-        //     if self.hit {-((beatmap_time as f64 - self.hit_time as f64)*20.0).ln()*20.0 + 1.0} 
-        //     else if self.missed {GRAVITY_SCALING * 9.81 * ((beatmap_time as f64 - self.hit_time as f64)/1000.0).powi(2)} 
-        //     else {0.0};
-        
-        self.pos.y = self.y_at(beatmap_time); //hit_y() - (self.time as f64 - beatmap_time as f64) * self.speed;
+        self.pos.y = self.y_at(beatmap_time);
     }
     fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         if self.pos.y + self.playfield.note_size().y < 0.0 || self.pos.y > args.window_size[1] as f64 {return}
