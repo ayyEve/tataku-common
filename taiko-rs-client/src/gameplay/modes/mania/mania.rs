@@ -13,18 +13,8 @@ use super::{ManiaHold, ManiaNote, ManiaHitObject};
 use crate::game::{Audio, Settings, ManiaPlayfieldSettings};
 use crate::beatmaps::common::{NoteType, TaikoRsBeatmap, TimingPoint, map_difficulty};
 
-
-// pub const COLUMN_WIDTH: f64 = 100.0;
-// pub const NOTE_SIZE:Vector2 = Vector2::new(COLUMN_WIDTH, 30.0);
-pub const NOTE_BORDER_SIZE:f64 = 1.4;
-
 const FIELD_DEPTH:f64 = 110.0;
 const HIT_AREA_DEPTH: f64 = 99.9;
-
-// pub const HIT_Y:f64 = window_size().y - 100.0;
-// pub fn hit_y() -> f64 {
-//     Settings::window_size().y - 100.0
-// }
 
 // timing bar consts
 pub const BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // timing bar color
@@ -34,7 +24,7 @@ const BAR_DEPTH:f64 = -90.0;
 
 // sv things (TODO!: rework sv to not suck)
 const SV_FACTOR:f32 = 700.0; // bc sv is bonked, divide it by this amount
-const SV_CHANGE_DELTA:f32 = 30.0; // how much to change the sv by when a sv change key is pressed
+const SV_CHANGE_DELTA:f32 = 0.1; // how much to change the sv by when a sv change key is pressed
 
 
 pub struct ManiaGame {
@@ -53,7 +43,7 @@ pub struct ManiaGame {
     hitwindow_miss: f32,
 
     end_time: f32,
-    current_sv: f32,
+    sv_mult: f32,
     column_count: u8,
 
     auto_helper: ManiaAutoHelper,
@@ -64,7 +54,7 @@ impl ManiaGame {
     pub fn col_pos(&self, col:u8) -> f64 {
         let total_width = self.column_count as f64 * self.playfield.column_width;
         let x_offset = self.playfield.x_offset + (Settings::window_size().x - total_width) / 2.0;
-        
+
         x_offset + self.playfield.x_offset + (self.playfield.column_width + self.playfield.column_spacing) * col as f64
     }
 
@@ -77,10 +67,7 @@ impl ManiaGame {
     }
 
     fn set_sv(&mut self, sv:f32) {
-        self.current_sv = sv;
-        let scaled_sv = self.current_sv / SV_FACTOR;
-        println!("setting sv to {} ({})", self.current_sv, scaled_sv);
-
+        let scaled_sv = (sv / SV_FACTOR) * self.sv_mult;
         for col in self.columns.iter_mut() {
             for note in col.iter_mut() {
                 note.set_sv(scaled_sv);
@@ -116,7 +103,7 @@ impl GameMode for ManiaGame {
                     hitwindow_300: 0.0,
                     hitwindow_miss: 0.0,
 
-                    current_sv: 1.0,
+                    sv_mult: 1.0,
                     column_count: beatmap.metadata.cs as u8,
 
                     auto_helper,
@@ -202,8 +189,8 @@ impl GameMode for ManiaGame {
                     hitwindow_100: 0.0,
                     hitwindow_300: 0.0,
                     hitwindow_miss: 0.0,
-        
-                    current_sv: 1.0,
+
+                    sv_mult: 1.0,
                     column_count,
 
                     auto_helper,
@@ -384,11 +371,17 @@ impl GameMode for ManiaGame {
 
         // check sv change keys
         if key == Key::F4 {
-            self.set_sv(self.current_sv + SV_CHANGE_DELTA);
+            self.sv_mult += SV_CHANGE_DELTA;
+            
+            let time = manager.time();
+            self.set_sv(manager.beatmap.slider_velocity_at(time));
             return;
         }
         if key == Key::F3 {
-            self.set_sv(self.current_sv - SV_CHANGE_DELTA);
+            self.sv_mult -= SV_CHANGE_DELTA;
+
+            let time = manager.time();
+            self.set_sv(manager.beatmap.slider_velocity_at(time));
             return;
         }
 
@@ -570,10 +563,9 @@ impl GameMode for ManiaGame {
                 HIT_AREA_DEPTH,
                 Vector2::new(x, self.playfield.hit_y()),
                 self.playfield.note_size(),
-                Some(Border::new(Color::RED, NOTE_BORDER_SIZE))
+                Some(Border::new(Color::RED, self.playfield.note_border_width))
             )));
         }
-        
 
         // draw notes
         for col in self.columns.iter_mut() {
