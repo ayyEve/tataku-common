@@ -362,19 +362,31 @@ impl GameMode for CatchGame {
         let settings = Settings::get().catch_settings;
         let time = manager.time();
 
-        if !manager.replaying {
-            if key == settings.left_key {
-                self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), time, manager);
-            }
-            if key == settings.right_key {
-                self.handle_replay_frame(ReplayFrame::Press(KeyPress::Right), time, manager);
-            }
-            if key == settings.dash_key { 
-                self.handle_replay_frame(ReplayFrame::Press(KeyPress::Dash), time, manager);
-            }
+        
+        // dont accept key input when autoplay is enabled, or a replay is being watched
+        if manager.current_mods.autoplay || manager.replaying {
+            return;
+        }
+
+
+        if key == settings.left_key {
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::Left), time, manager);
+        }
+        if key == settings.right_key {
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::Right), time, manager);
+        }
+        if key == settings.dash_key { 
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::Dash), time, manager);
         }
     }
     fn key_up(&mut self, key:piston::Key, manager:&mut IngameManager) {
+        
+        // dont accept key input when autoplay is enabled, or a replay is being watched
+        if manager.current_mods.autoplay || manager.replaying {
+            return;
+        }
+
+
         let settings = Settings::get().catch_settings;
         let time = manager.time();
 

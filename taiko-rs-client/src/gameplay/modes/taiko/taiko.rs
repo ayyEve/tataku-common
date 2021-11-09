@@ -429,6 +429,12 @@ impl GameMode for TaikoGame {
 
 
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
+
+        // dont accept key input when autoplay is enabled, or a replay is being watched
+        if manager.current_mods.autoplay || manager.replaying {
+            return;
+        }
+
         let settings = Settings::get().taiko_settings;
         let time = manager.time();
 

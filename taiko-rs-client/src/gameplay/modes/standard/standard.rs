@@ -543,6 +543,11 @@ impl GameMode for StandardGame {
             self.move_playfield = Some((old.1, self.window_mouse_pos));
             return;
         }
+        
+        // dont accept key input when autoplay is enabled, or a replay is being watched
+        if manager.current_mods.autoplay || manager.replaying {
+            return;
+        }
 
         let time = manager.time();
         if key == self.settings.left_key {
@@ -555,6 +560,12 @@ impl GameMode for StandardGame {
     fn key_up(&mut self, key:piston::Key, manager:&mut IngameManager) {
         if key == piston::Key::LCtrl {
             self.move_playfield = None;
+            return;
+        }
+
+        
+        // dont accept key input when autoplay is enabled, or a replay is being watched
+        if manager.current_mods.autoplay || manager.replaying {
             return;
         }
 

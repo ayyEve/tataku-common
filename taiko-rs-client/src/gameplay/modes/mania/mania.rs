@@ -383,6 +383,11 @@ impl GameMode for ManiaGame {
             return;
         }
 
+        // dont accept key input when autoplay is enabled, or a replay is being watched
+        if manager.current_mods.autoplay || manager.replaying {
+            return;
+        }
+
 
         let settings = Settings::get();
         let mut game_key = KeyPress::RightDon;
@@ -401,6 +406,13 @@ impl GameMode for ManiaGame {
         self.handle_replay_frame(ReplayFrame::Press(game_key), time, manager);
     }
     fn key_up(&mut self, key:piston::Key, manager:&mut IngameManager) {
+
+        
+        // dont accept key input when autoplay is enabled, or a replay is being watched
+        if manager.current_mods.autoplay || manager.replaying {
+            return;
+        }
+
         let settings = Settings::get();
         let mut game_key = KeyPress::RightDon;
 
