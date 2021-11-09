@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use piston::RenderArgs;
 use opengl_graphics::GlyphCache;
 
+use crate::game::managers::ModManager;
 use crate::{beatmaps::Beatmap, errors::TaikoError};
-use crate::errors::BeatmapError;
 use crate::beatmaps::osu::hitobject_defs::HitSamples;
 use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
 use crate::{Vector2, sync::*, helpers::{visibility_bg, io::exists}};
@@ -29,6 +29,7 @@ pub struct IngameManager {
     pub beatmap: Beatmap,
     pub metadata: BeatmapMeta,
     pub gamemode: Box<dyn GameMode>,
+    pub current_mods: ModManager,
 
     pub score: Score,
     pub replay: Replay,
@@ -84,6 +85,8 @@ impl IngameManager {
             metadata,
             timing_points,
             hitsound_cache,
+            current_mods: ModManager::get().clone(),
+
             lead_in_timer: Instant::now(),
             score: Score::new(beatmap.hash().clone(), settings.username.clone(), playmode),
 
@@ -212,6 +215,7 @@ impl IngameManager {
                 Some(song) => {
                     song.set_position(0.0);
                     song.pause();
+                    song.set_playback_speed(self.current_mods.speed as f64);
                     // song.set_playback_speed(2.0);
                 }
                 None => {
@@ -219,6 +223,7 @@ impl IngameManager {
                         self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
                     }
                     let song = self.song.upgrade().unwrap();
+                    song.set_playback_speed(self.current_mods.speed as f64);
                     song.pause();
                     // song.set_playback_speed(2.0);
                 }
@@ -257,12 +262,13 @@ impl IngameManager {
         if self.lead_in_time > 0.0 {
             let elapsed = self.lead_in_timer.elapsed().as_micros() as f32 / 1000.0;
             self.lead_in_timer = Instant::now();
-            self.lead_in_time -= elapsed;
+            self.lead_in_time -= elapsed * self.current_mods.speed;
 
             if self.lead_in_time <= 0.0 {
                 let song = self.song.upgrade().unwrap();
                 song.set_position(-self.lead_in_time);
                 song.set_volume(Settings::get().get_music_vol());
+                song.set_playback_speed(self.current_mods.speed as f64);
                 song.play();
                 self.lead_in_time = 0.0;
             }
@@ -632,6 +638,7 @@ impl Default for IngameManager {
             metadata: Default::default(), 
             beatmap: Default::default(), 
             gamemode: Default::default(), 
+            current_mods: ModManager::new(),
             score: Score::new(
                 String::new(),
                 String::new(),

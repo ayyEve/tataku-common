@@ -76,7 +76,7 @@ impl Curve {
     }
 
     pub fn get_non_normalized_length_required(&self, time: f32) -> f32 {
-        let mut pos = (time - self.slider.time) / (self.length() / self.slider.slides as f32);
+        let pos = (time - self.slider.time) / (self.length() / self.slider.slides as f32);
         self.cumulative_lengths.last().unwrap() * pos
     }
     

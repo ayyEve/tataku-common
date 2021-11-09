@@ -322,7 +322,7 @@ impl Game {
                 } else {
                     // offset adjust
                     if keys_down.contains(&settings.key_offset_up) {manager.increment_offset(5.0)}
-                    if keys_down.contains(&settings.key_offset_up) {manager.increment_offset(-5.0)}
+                    if keys_down.contains(&settings.key_offset_down) {manager.increment_offset(-5.0)}
 
                     // inputs
                     if mouse_moved {manager.mouse_move(mouse_pos)}

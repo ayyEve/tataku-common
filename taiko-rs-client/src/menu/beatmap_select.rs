@@ -8,7 +8,7 @@ use crate::render::{*, fonts::get_font};
 use taiko_rs_common::types::{Score, PlayMode};
 use crate::gameplay::modes::manager_from_playmode;
 use crate::{Vector2, databases::get_scores, sync::*};
-use crate::game::managers::{NotificationManager, BEATMAP_MANAGER};
+use crate::game::managers::{BEATMAP_MANAGER, ModManager, NotificationManager};
 use crate::game::{Settings, Game, GameState, KeyModifiers, Audio};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
 
@@ -354,6 +354,20 @@ impl Menu<Game> for BeatmapSelectMenu {
                 NotificationManager::add_text_notification(&format!("Mode changed to {:?}", new_mode), 1000.0, Color::BLUE);
             }
         }
+
+        if mods.ctrl {
+            if key == piston::Key::Equals {
+                let speed = &mut ModManager::get().speed;
+                *speed += 0.2;
+                println!("new speed: {}", speed);
+            }
+            if key == piston::Key::Minus {
+                let speed = &mut ModManager::get().speed;
+                *speed -= 0.2;
+                println!("new speed: {}", speed);
+            }
+        }
+
 
         // only refresh if the text changed
         let old_text = self.search_text.get_text();

@@ -18,7 +18,6 @@ pub struct MenuVisualization {
     timer: Instant,
 
     bar_height: f64,
-
     rotation: f64,
 
     cookie: Image
