@@ -722,26 +722,54 @@ impl StandardAutoHelper {
 
         for i in 0..notes.len() {
             let note = &notes[i];
+            if note.was_hit() {continue}
 
-            if time >= note.time() && !note.was_hit() {
+            if let Ok(ind) = self.holding.binary_search(&i) {
+                if time >= note.end_time(1.0) {
+                    frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
+                    
+                    let pos = scaling_helper.descale_coords(note.pos_at(time, &scaling_helper));
+
+                    self.holding.remove(ind);
+                    if i+1 >= notes.len() {
+                        self.point_trail_start_pos = pos;
+                        self.point_trail_end_pos = pos;
+                        continue;
+                    }
+                    
+                    let next_note = &notes[i + 1];
+
+                    self.point_trail_start_pos = pos;
+                    self.point_trail_end_pos = scaling_helper.descale_coords(next_note.pos_at(self.point_trail_end_time, scaling_helper));
+                    
+                    self.point_trail_start_time = time;
+                    self.point_trail_end_time = next_note.time();
+                } else {
+                    let pos = scaling_helper.descale_coords(note.pos_at(time, &scaling_helper));
+                    // move the mouse to the pos
+                    frames.push(ReplayFrame::MousePos(
+                        pos.x as f32,
+                        pos.y as f32
+                    ));
+                }
+                
+                any_checked = true;
+                continue;
+            }
+            
+            if time >= note.time() {
                 let pos = scaling_helper.descale_coords(note.pos_at(time, &scaling_helper));
                 // move the mouse to the pos
                 frames.push(ReplayFrame::MousePos(
                     pos.x as f32,
                     pos.y as f32
                 ));
-
-                if self.holding.contains(&i) {
-                    if time <= note.end_time(0.0) {
-                        frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
-                    }
-                    continue;
-                }
                 
                 frames.push(ReplayFrame::Press(KeyPress::LeftMouse));
-
                 if note.note_type() == NoteType::Note {
                     frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
+                } else {
+                    self.holding.push(i)
                 }
 
                 // if this was the last note

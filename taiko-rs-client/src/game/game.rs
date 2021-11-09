@@ -309,10 +309,10 @@ impl Game {
         // run update on current state
         match &mut current_state {
             GameState::Ingame(manager) => {
-                let settings =  Settings::get();
+                let settings = Settings::get();
                 
                 // pause button, or focus lost, only if not replaying
-                if !manager.replaying && (matches!(window_focus_changed, Some(false)) && settings.pause_on_focus_lost) || keys_down.contains(&Key::Escape) {
+                if (manager.can_pause() && (matches!(window_focus_changed, Some(false)) && settings.pause_on_focus_lost)) || keys_down.contains(&Key::Escape) {
                     manager.pause();
                     
                     let manager2 = std::mem::take(manager);

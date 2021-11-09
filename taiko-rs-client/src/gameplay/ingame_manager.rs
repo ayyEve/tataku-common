@@ -158,6 +158,11 @@ impl IngameManager {
     }
 
 
+    // is this game pausable
+    pub fn can_pause(&mut self) -> bool {
+        !(self.current_mods.autoplay || self.replaying)
+    }
+
     // can be from either paused or new
     pub fn start(&mut self) {
         println!("ingame_manager::start, background_menu: {}", self.menu_background);
