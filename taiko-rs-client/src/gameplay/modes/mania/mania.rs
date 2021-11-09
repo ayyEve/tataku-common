@@ -706,6 +706,7 @@ impl ManiaAutoHelper {
                 }
             }
 
+            if column_indices[c] >= columns[c].len() {continue}
             let note = &columns[c][column_indices[c]];
             if time >= note.time() && !note.was_hit() {
                 if timer.0 == note.end_time(50.0) && timer.1 {continue}
