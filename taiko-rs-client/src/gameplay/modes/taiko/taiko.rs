@@ -1,17 +1,14 @@
-use core::f32;
-
 use piston::RenderArgs;
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
 
-
 use super::*;
 use crate::Vector2;
-use crate::beatmaps::Beatmap;
-use crate::beatmaps::common::{NoteType, TaikoRsBeatmap, TimingPoint, map_difficulty};
-use crate::beatmaps::osu::hitobject_defs::{SliderDef, SpinnerDef};
 use crate::render::*;
+use crate::beatmaps::Beatmap;
 use crate::game::{Audio, Settings};
 use crate::gameplay::{GameMode, IngameManager};
+use crate::beatmaps::osu::hitobject_defs::{SliderDef, SpinnerDef};
+use crate::beatmaps::common::{NoteType, TaikoRsBeatmap, TimingPoint, map_difficulty};
 
 
 pub const NOTE_RADIUS:f64 = 32.0;
@@ -58,8 +55,6 @@ impl GameMode for TaikoGame {
     fn new(beatmap:&Beatmap) -> Result<Self, crate::errors::TaikoError> {
 
         match beatmap {
-            Beatmap::None => todo!(),
-            Beatmap::Quaver(_) => todo!(),
             Beatmap::Osu(beatmap) => {
                 let mut s = Self {
                     notes: Vec::new(),
@@ -163,7 +158,6 @@ impl GameMode for TaikoGame {
                 Ok(s)
             },
             Beatmap::Adofai(beatmap) => {
-                
                 let mut s = Self {
                     notes: Vec::new(),
                     note_index: 0,
@@ -197,6 +191,8 @@ impl GameMode for TaikoGame {
 
                 Ok(s)
             },
+
+            _ => Err(crate::errors::BeatmapError::UnsupportedMode.into()),
         }
     }
 

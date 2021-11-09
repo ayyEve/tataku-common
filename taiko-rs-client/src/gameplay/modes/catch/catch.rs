@@ -3,11 +3,11 @@ use ayyeve_piston_ui::render::*;
 
 use super::*;
 use crate::beatmaps::Beatmap;
-use crate::beatmaps::common::{TaikoRsBeatmap, map_difficulty};
 use crate::game::{Audio, Settings};
-use crate::gameplay::modes::{FIELD_SIZE, ScalingHelper};
 use crate::gameplay::{GameMode, IngameManager};
+use crate::gameplay::modes::{FIELD_SIZE, ScalingHelper};
 use crate::{Vector2, helpers::{curve::get_curve, math::Lerp}};
+use crate::beatmaps::common::{TaikoRsBeatmap, map_difficulty};
 use crate::beatmaps::osu::hitobject_defs::{SliderDef, SpinnerDef};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
 
@@ -214,9 +214,8 @@ impl GameMode for CatchGame {
                 s.end_time = s.notes.iter().last().unwrap().time();
                 Ok(s)
             },
-            Beatmap::Quaver(_) => todo!(),
-            Beatmap::Adofai(_) => todo!(),
-            Beatmap::None => todo!(),
+            
+            _ => Err(crate::errors::BeatmapError::UnsupportedMode.into()),
         }
     }
 
@@ -380,7 +379,7 @@ impl GameMode for CatchGame {
         }
     }
     fn key_up(&mut self, key:piston::Key, manager:&mut IngameManager) {
-        
+
         // dont accept key input when autoplay is enabled, or a replay is being watched
         if manager.current_mods.autoplay || manager.replaying {
             return;

@@ -5,11 +5,11 @@ use piston::{MouseButton, RenderArgs};
 
 use crate::Vector2;
 use crate::beatmaps::Beatmap;
-use crate::beatmaps::common::{NoteType, TaikoRsBeatmap, map_difficulty};
-use crate::beatmaps::osu::hitobject_defs::NoteDef;
 use crate::game::{Settings, StandardSettings};
+use crate::beatmaps::osu::hitobject_defs::NoteDef;
 use crate::gameplay::modes::{ScalingHelper, standard::*};
 use crate::gameplay::{DURATION_HEIGHT, GameMode, IngameManager};
+use crate::beatmaps::common::{NoteType, TaikoRsBeatmap, map_difficulty};
 use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
 use crate::helpers::{curve::get_curve, key_counter::KeyCounter, math::Lerp};
 
@@ -81,7 +81,6 @@ impl GameMode for StandardGame {
         let scaling_helper = ScalingHelper::new(metadata.cs, PlayMode::Standard);
 
         match map {
-            Beatmap::None => todo!(),
             Beatmap::Osu(beatmap) => {
                 let mut s = Self {
                     notes: Vec::new(),
@@ -258,8 +257,8 @@ impl GameMode for StandardGame {
         
                 Ok(s)
             },
-            Beatmap::Quaver(_) => todo!(),
-            Beatmap::Adofai(_) => todo!(),
+            
+            _ => Err(crate::errors::BeatmapError::UnsupportedMode.into()),
         }
     }
 

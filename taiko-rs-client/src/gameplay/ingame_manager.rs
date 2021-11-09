@@ -48,7 +48,6 @@ pub struct IngameManager {
     pub timing_point_index: usize,
     pub song: Weak<AudioHandle>,
 
-
     pub hitsound_cache: HashMap<String, Option<Sound>>,
 
     // offset things
@@ -501,7 +500,7 @@ impl IngameManager {
             let mut offset_text = Text::new(
                 Color::BLACK,
                 -20.0,
-                Vector2::new(0.0, 0.0), // centered anyways
+                Vector2::zero(), // centered anyways
                 32,
                 format!("Offset: {}", self.offset),
                 font.clone()

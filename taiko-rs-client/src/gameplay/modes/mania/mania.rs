@@ -234,8 +234,8 @@ impl GameMode for ManiaGame {
                 
                 Ok(s)
             },
-            Beatmap::Adofai(_) => todo!(),
-            Beatmap::None => todo!(),
+            
+            _ => Err(crate::errors::BeatmapError::UnsupportedMode.into()),
         }
     }
 
