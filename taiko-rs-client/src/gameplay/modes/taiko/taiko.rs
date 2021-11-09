@@ -450,6 +450,12 @@ impl GameMode for TaikoGame {
     fn key_up(&mut self, _key:piston::Key, _manager:&mut IngameManager) {}
 
     fn mouse_down(&mut self, btn:piston::MouseButton, manager:&mut IngameManager) {
+        
+        // dont accept mouse input when autoplay is enabled, or a replay is being watched
+        if manager.current_mods.autoplay || manager.replaying {
+            return;
+        }
+        
         {
             let settings = Settings::get().taiko_settings;
             if settings.ignore_mouse_buttons {return}

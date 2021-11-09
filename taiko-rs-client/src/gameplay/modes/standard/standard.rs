@@ -579,9 +579,8 @@ impl GameMode for StandardGame {
     
 
     fn mouse_move(&mut self, pos:Vector2, manager:&mut IngameManager) {
-        let time = manager.time();
         self.window_mouse_pos = pos;
-
+        
         if let Some((original, mouse_start)) = self.move_playfield {
             {
                 let settings = &mut Settings::get_mut().standard_settings;
@@ -595,18 +594,23 @@ impl GameMode for StandardGame {
             return;
         }
 
-        // dont continue if this is a replay
-        if manager.replaying {return}
+        // dont accept mouse input when autoplay is enabled, or a replay is being watched
+        if manager.current_mods.autoplay || manager.replaying {
+            return;
+        }
 
         // convert window pos to playfield pos
+        let time = manager.time();
         let pos = self.scaling_helper.descale_coords(pos);
         self.handle_replay_frame(ReplayFrame::MousePos(pos.x as f32, pos.y as f32), time, manager);
     }
     fn mouse_down(&mut self, btn:piston::MouseButton, manager:&mut IngameManager) {
         if self.settings.ignore_mouse_buttons {return}
-
-        // dont continue if this is a replay
-        if manager.replaying {return}
+        
+        // dont accept mouse input when autoplay is enabled, or a replay is being watched
+        if manager.current_mods.autoplay || manager.replaying {
+            return;
+        }
 
         let time = manager.time();
         if btn == MouseButton::Left {
@@ -619,8 +623,10 @@ impl GameMode for StandardGame {
     fn mouse_up(&mut self, btn:piston::MouseButton, manager:&mut IngameManager) {
         if self.settings.ignore_mouse_buttons {return}
 
-        // dont continue if this is a replay
-        if manager.replaying {return}
+        // dont accept mouse input when autoplay is enabled, or a replay is being watched
+        if manager.current_mods.autoplay || manager.replaying {
+            return;
+        }
 
         let time = manager.time();
         if btn == MouseButton::Left {
@@ -727,7 +733,7 @@ impl StandardAutoHelper {
             if let Ok(ind) = self.holding.binary_search(&i) {
                 if time >= note.end_time(1.0) {
                     frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
-                    
+
                     let pos = scaling_helper.descale_coords(note.pos_at(time, &scaling_helper));
 
                     self.holding.remove(ind);
