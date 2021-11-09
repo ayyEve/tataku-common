@@ -1,11 +1,11 @@
 use piston::RenderArgs;
 
 use crate::Vector2;
+use crate::sync::*;
 use crate::gameplay::HitObject;
 use crate::beatmaps::common::NoteType;
+use crate::game::ManiaPlayfieldSettings;
 use crate::render::{Color, Rectangle, Renderable, Border};
-
-use super::{NOTE_BORDER_SIZE, NOTE_SIZE, COLUMN_WIDTH, hit_y};
 
 const MANIA_NOTE_DEPTH: f64 = 100.0;
 const MANIA_SLIDER_DEPTH: f64 = 100.1;
@@ -22,7 +22,7 @@ pub trait ManiaHitObject: HitObject {
 }
 
 // note
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct ManiaNote {
     pos: Vector2,
     time: f32, // ms
@@ -32,9 +32,10 @@ pub struct ManiaNote {
     speed: f32,
 
     alpha_mult: f32,
+    playfield: Arc<ManiaPlayfieldSettings>,
 }
 impl ManiaNote {
-    pub fn new(time:f32, x:f64) -> Self {
+    pub fn new(time:f32, x:f64, playfield: Arc<ManiaPlayfieldSettings>) -> Self {
         Self {
             time, 
             speed: 1.0,
@@ -43,7 +44,9 @@ impl ManiaNote {
             hit: false,
             missed: false,
             pos: Vector2::new(x, 0.0),
-            alpha_mult: 1.0
+
+            alpha_mult: 1.0,
+            playfield
         }
     }
 
@@ -66,15 +69,15 @@ impl HitObject for ManiaNote {
         self.pos.y = self.y_at(beatmap_time); //hit_y() - (self.time as f64 - beatmap_time as f64) * self.speed;
     }
     fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
-        if self.pos.y + NOTE_SIZE.y < 0.0 || self.pos.y > args.window_size[1] as f64 {return}
+        if self.pos.y + self.playfield.note_size().y < 0.0 || self.pos.y > args.window_size[1] as f64 {return}
         if self.hit {return}
 
         let note = Rectangle::new(
             self.get_color(),
             MANIA_NOTE_DEPTH,
             self.pos,
-            NOTE_SIZE,
-            Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
+            self.playfield.note_size(),
+            Some(Border::new(Color::BLACK, self.playfield.note_border_width))
         );
         list.push(Box::new(note));
     }
@@ -97,7 +100,7 @@ impl ManiaHitObject for ManiaNote {
     }
 
     fn y_at(&self, time:f32) -> f64 {
-        hit_y() - ((self.time - time) * self.speed) as f64
+        self.playfield.hit_y() - ((self.time - time) * self.speed) as f64
     }
 
     fn set_sv(&mut self, sv:f32) {
@@ -122,20 +125,23 @@ pub struct ManiaHold {
     end_y: f64,
 
     alpha_mult: f32,
+    playfield: Arc<ManiaPlayfieldSettings>,
 }
 impl ManiaHold {
-    pub fn new(time:f32, end_time:f32, x:f64) -> Self {
+    pub fn new(time:f32, end_time:f32, x:f64, playfield: Arc<ManiaPlayfieldSettings>) -> Self {
         Self {
             time, 
             end_time,
             speed: 1.0,
-            holding:false,
+            holding: false,
 
             pos: Vector2::new(x, 0.0),
             hold_starts: Vec::new(),
             hold_ends: Vec::new(),
             end_y: 0.0,
-            alpha_mult: 1.0
+
+            alpha_mult: 1.0,
+            playfield
         }
     }
 }
@@ -147,33 +153,33 @@ impl HitObject for ManiaHold {
 
     fn update(&mut self, beatmap_time: f32) {
         // self.pos.x = HIT_POSITION.x + (self.time as f64 - beatmap_time as f64) * self.speed;
-        self.end_y = hit_y() - ((self.end_time - beatmap_time) * self.speed) as f64;
-        self.pos.y = hit_y() - ((self.time - beatmap_time) * self.speed) as f64;
+        self.end_y = self.playfield.hit_y() - ((self.end_time - beatmap_time) * self.speed) as f64;
+        self.pos.y = self.playfield.hit_y() - ((self.time - beatmap_time) * self.speed) as f64;
     }
     fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         if self.pos.y < 0.0 || self.end_y > args.window_size[1] as f64 {return}
 
-        let border = Some(Border::new(Color::BLACK.alpha(self.alpha_mult), NOTE_BORDER_SIZE));
+        let border = Some(Border::new(Color::BLACK.alpha(self.alpha_mult), self.playfield.note_border_width));
         let color = Color::YELLOW.alpha(self.alpha_mult);
 
         // start
-        if self.pos.y < hit_y() {
+        if self.pos.y < self.playfield.hit_y() {
             list.push(Box::new(Rectangle::new(
                 color,
                 MANIA_NOTE_DEPTH,
                 self.pos,
-                NOTE_SIZE,
+                self.playfield.note_size(),
                 border.clone()
             )));
         }
 
         // end
-        if self.end_y < hit_y() {
+        if self.end_y < self.playfield.hit_y() {
             list.push(Box::new(Rectangle::new(
                 color,
                 MANIA_NOTE_DEPTH,
                 Vector2::new(self.pos.x, self.end_y),
-                NOTE_SIZE,
+                self.playfield.note_size(),
                 border.clone()
             )));
         }
@@ -194,13 +200,13 @@ impl HitObject for ManiaHold {
         // }
 
         // middle
-        if self.end_y < hit_y() {
-            let y = if self.holding {hit_y()} else {self.pos.y};
+        if self.end_y < self.playfield.hit_y() {
+            let y = if self.holding {self.playfield.hit_y()} else {self.pos.y};
             list.push(Box::new(Rectangle::new(
                 color,
                 MANIA_SLIDER_DEPTH,
                 Vector2::new(self.pos.x, y),
-                Vector2::new(COLUMN_WIDTH, self.end_y - y),
+                Vector2::new(self.playfield.column_width, self.end_y - y),
                 border.clone()
             )));
         }
@@ -231,7 +237,7 @@ impl ManiaHitObject for ManiaHold {
     fn miss(&mut self, _time:f32) {}
 
     fn y_at(&self, time:f32) -> f64 {
-        hit_y() - ((self.time - time) * self.speed) as f64
+        self.playfield.hit_y() - ((self.time - time) * self.speed) as f64
     }
 
     fn set_sv(&mut self, sv:f32) {
