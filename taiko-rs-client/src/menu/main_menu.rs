@@ -2,6 +2,7 @@ use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::KeyModifiers;
 use taiko_rs_common::types::PlayMode;
 
+use crate::game::managers::ModManager;
 use crate::{Vector2, sync::*};
 use crate::render::{*, fonts::get_font};
 use crate::visualization::{MenuVisualization, Visualization};
@@ -58,7 +59,10 @@ impl MainMenu {
 
         match manager_from_playmode(settings.mode, &map) {
             Ok(mut manager) => {
-                manager.autoplay = true;
+                manager.current_mods = Arc::new(ModManager {
+                    autoplay: true,
+                    ..Default::default()
+                });
                 manager.menu_background = true;
                 manager.start();
 

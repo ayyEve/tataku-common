@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use piston::{Key, MouseButton, RenderArgs};
+use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::menu_elements::TextInput;
 
 use crate::beatmaps::common::BeatmapMeta;
@@ -330,22 +330,24 @@ impl Menu<Game> for BeatmapSelectMenu {
     }
 
     fn on_key_press(&mut self, key:piston::Key, game:&mut Game, mods:KeyModifiers) {
-        if key == Key::Escape {
+        use piston::Key::*;
+
+        if key == Escape {
             let menu = game.menus.get("main").unwrap().clone();
             game.queue_state_change(GameState::InMenu(menu));
             return;
         }
-        if key == Key::F5 {
+        if key == F5 {
             self.refresh_maps();
             return;
         }
 
         if mods.alt {
             let new_mode = match key {
-                piston::Key::D1 => Some(PlayMode::Standard),
-                piston::Key::D2 => Some(PlayMode::Taiko),
-                piston::Key::D3 => Some(PlayMode::Catch),
-                piston::Key::D4 => Some(PlayMode::Mania),
+                D1 => Some(PlayMode::Standard),
+                D2 => Some(PlayMode::Taiko),
+                D3 => Some(PlayMode::Catch),
+                D4 => Some(PlayMode::Mania),
                 _ => None
             };
 
@@ -356,16 +358,33 @@ impl Menu<Game> for BeatmapSelectMenu {
         }
 
         if mods.ctrl {
-            if key == piston::Key::Equals {
-                let speed = &mut ModManager::get().speed;
-                *speed += 0.2;
-                println!("new speed: {}", speed);
+            match key {
+                // map speed up
+                Equals => {
+                    let speed = &mut ModManager::get().speed;
+                    *speed += 0.2;
+
+                    NotificationManager::add_text_notification(&format!("Map speed: {:.2}x", speed), 2000.0, Color::BLUE);
+                }
+                // map speed down
+                Minus => {
+                    let speed = &mut ModManager::get().speed;
+                    *speed -= 0.2;
+                    NotificationManager::add_text_notification(&format!("Map speed: {:.2}x", speed), 2000.0, Color::BLUE);
+                }
+
+                // autoplay enable/disable
+                A => {
+                    let mut manager = ModManager::get();
+                    manager.autoplay = !manager.autoplay;
+
+                    let state = if manager.autoplay {"on"} else {"off"};
+                    NotificationManager::add_text_notification(&format!("Autoplay {}", state), 2000.0, Color::BLUE);
+                },
+
+                _ => {}
             }
-            if key == piston::Key::Minus {
-                let speed = &mut ModManager::get().speed;
-                *speed -= 0.2;
-                println!("new speed: {}", speed);
-            }
+            
         }
 
 
@@ -626,10 +645,3 @@ impl ScrollableItem for LeaderboardItem {
 
     // fn on_click(&mut self, _pos:Vector2, _button:MouseButton, _mods:KeyModifiers) -> bool {self.hover}
 }
-
-
-// struct DragData {
-//     start_pos: f64,
-//     current_pos: f64,
-//     start_time: Instant
-// }

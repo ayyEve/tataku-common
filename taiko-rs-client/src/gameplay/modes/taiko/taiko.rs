@@ -344,7 +344,7 @@ impl GameMode for TaikoGame {
     fn update(&mut self, manager:&mut IngameManager, time: f32) {
 
         // do autoplay things
-        if manager.autoplay {
+        if manager.current_mods.autoplay {
             let mut pending_frames = Vec::new();
             let notes = &mut self.notes;
 

@@ -7,7 +7,7 @@ use crate::errors::TaikoError;
 use crate::render::{Border, Color, Rectangle, Renderable, Text, Vector2, fonts::get_font};
 
 
-const NOTIF_WIDTH:f64 = 200.0;
+const NOTIF_WIDTH:f64 = 300.0;
 const NOTIF_Y_OFFSET:f64 = 100.0; // window_size().y - this
 const NOTIF_TEXT_SIZE:u32 = 15;
 const NOTIF_DEPTH:f64 = -8_000.0;

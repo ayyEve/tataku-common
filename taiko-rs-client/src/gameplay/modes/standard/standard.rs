@@ -361,7 +361,7 @@ impl GameMode for StandardGame {
     fn update(&mut self, manager:&mut IngameManager, time:f32) {
 
         // do autoplay things
-        if manager.autoplay {
+        if manager.current_mods.autoplay {
             let mut pending_frames = Vec::new();
 
             self.auto_helper.update(time, &mut self.notes, &self.scaling_helper, &mut pending_frames);
@@ -477,7 +477,7 @@ impl GameMode for StandardGame {
 
 
         // if this is a replay, we need to draw the replay curser
-        if manager.replaying || manager.autoplay {
+        if manager.replaying || manager.current_mods.autoplay {
             list.push(Box::new(Circle::new(
                 Color::RED,
                 -999.9,

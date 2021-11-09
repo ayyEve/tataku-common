@@ -483,14 +483,13 @@ impl GameMode for ManiaGame {
 
     fn update(&mut self, manager:&mut IngameManager, time: f32) {
 
-        if manager.autoplay {
+        if manager.current_mods.autoplay {
             let mut frames = Vec::new();
             self.auto_helper.update(&self.columns, &mut self.column_indices, time, &mut frames);
             for frame in frames {
                 self.handle_replay_frame(frame, time, manager)
             }
         }
-
 
         // update notes
         for col in self.columns.iter_mut() {

@@ -222,7 +222,7 @@ impl GameMode for CatchGame {
 
     fn update(&mut self, manager:&mut IngameManager, time: f32) {
 
-        if manager.autoplay {
+        if manager.current_mods.autoplay {
             let mut frames = Vec::new();
             self.auto_helper.update(
                 time, 

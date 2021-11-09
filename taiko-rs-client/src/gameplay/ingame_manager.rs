@@ -29,7 +29,7 @@ pub struct IngameManager {
     pub beatmap: Beatmap,
     pub metadata: BeatmapMeta,
     pub gamemode: Box<dyn GameMode>,
-    pub current_mods: ModManager,
+    pub current_mods: Arc<ModManager>,
 
     pub score: Score,
     pub replay: Replay,
@@ -37,7 +37,6 @@ pub struct IngameManager {
     pub started: bool,
     pub completed: bool,
     pub replaying: bool,
-    pub autoplay: bool,
     /// is this playing in the background of the main menu?
     pub menu_background: bool,
     pub end_time: f32,
@@ -85,7 +84,7 @@ impl IngameManager {
             metadata,
             timing_points,
             hitsound_cache,
-            current_mods: ModManager::get().clone(),
+            current_mods: Arc::new(ModManager::get().clone()),
 
             lead_in_timer: Instant::now(),
             score: Score::new(beatmap.hash().clone(), settings.username.clone(), playmode),
@@ -97,7 +96,6 @@ impl IngameManager {
             started: false,
             completed: false,
             replaying: false,
-            autoplay: false,
             menu_background: false,
 
             lead_in_time: LEAD_IN_TIME,
@@ -284,7 +282,7 @@ impl IngameManager {
         let mut gamemode = std::mem::take(&mut self.gamemode);
 
         // read inputs from replay if replaying
-        if self.replaying && !self.autoplay {
+        if self.replaying && !self.current_mods.autoplay {
 
             // read any frames that need to be read
             loop {
@@ -440,7 +438,7 @@ impl IngameManager {
     }
 
     pub fn key_down(&mut self, key:piston::Key) {
-        if self.replaying || self.autoplay {
+        if self.replaying || self.current_mods.autoplay {
             // check replay-only keys
             if key == piston::Key::Escape {
                 self.started = false;
@@ -638,7 +636,7 @@ impl Default for IngameManager {
             metadata: Default::default(), 
             beatmap: Default::default(), 
             gamemode: Default::default(), 
-            current_mods: ModManager::new(),
+            current_mods: Arc::new(ModManager::new()),
             score: Score::new(
                 String::new(),
                 String::new(),
@@ -648,7 +646,6 @@ impl Default for IngameManager {
             started: Default::default(), 
             completed: Default::default(), 
             replaying: Default::default(), 
-            autoplay: Default::default(), 
             menu_background: Default::default(), 
             end_time: Default::default(), 
             lead_in_time: Default::default(), 
