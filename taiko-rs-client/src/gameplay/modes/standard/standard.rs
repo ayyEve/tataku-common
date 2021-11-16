@@ -80,6 +80,8 @@ impl GameMode for StandardGame {
         let settings = Settings::get_mut().standard_settings.clone();
         let scaling_helper = ScalingHelper::new(metadata.cs, PlayMode::Standard);
 
+        let combo_colors:Vec<Color> = settings.combo_colors.iter().map(|c|Color::from_hex(c)).collect();
+
         match map {
             Beatmap::Osu(beatmap) => {
                 let mut s = Self {
@@ -160,13 +162,8 @@ impl GameMode for StandardGame {
                 // add notes
                 let mut combo_num = 0;
                 let mut combo_change = 0;
-                let combo_colors = [
-                    Color::new(0.8, 0.0, 0.0, 1.0),
-                    Color::new(0.8, 0.8, 0.0, 1.0),
-                    Color::new(0.0, 0.8, 0.8, 1.0),
-                    Color::new(0.0, 0.0, 0.8, 1.0)
-                ];
         
+                // used for the end time
                 let end_time = s.end_time as f64;
         
                 let mut counter = 0;
@@ -249,10 +246,7 @@ impl GameMode for StandardGame {
                     counter += 1;
                 }
         
-                // get the end time
-                // for n in s.notes.iter() {
-                //     s.end_time = s.end_time.max(n.end_time(0.0));
-                // }
+                // wait an extra sec
                 s.end_time += 1000.0;
         
                 Ok(s)
