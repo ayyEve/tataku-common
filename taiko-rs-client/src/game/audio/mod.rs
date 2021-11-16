@@ -93,7 +93,9 @@ impl Audio {
         let sound = Audio::load_song(path.as_ref())?;
 
         sound.play(true).expect("Error playing music");
-        sound.set_position(position as f64).unwrap();
+        if let Err(e) = sound.set_position(position as f64) {
+            println!("error setting position: {:?}", e);
+        }
         sound.set_volume(Settings::get().get_music_vol()).unwrap();
 
         *CURRENT_SONG.lock() = Some((string_path, sound.clone()));
