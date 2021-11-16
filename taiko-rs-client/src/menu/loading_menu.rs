@@ -47,8 +47,9 @@ impl LoadingMenu {
     async fn load_audio(status: Arc<Mutex<LoadingStatus>>) {
         status.lock().stage = LoadingStage::Audio;
         // get a value from the hash, will do the lazy_static stuff and populate
-        let a = Audio::play_preloaded("don").upgrade();
-        a.unwrap().stop();
+        // if let Ok(a) = Audio::play_preloaded("don") {
+        //     a.stop();
+        // }
     }
 
     async fn load_beatmaps(status: Arc<Mutex<LoadingStatus>>) {

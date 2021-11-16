@@ -264,7 +264,7 @@ impl GameMode for ManiaGame {
 
                 // if theres no more notes to hit, return after playing the sound
                 if self.column_indices[col] >= self.columns[col].len() {
-                    Audio::play_preloaded(sound);
+                    Audio::play_preloaded(sound).unwrap();
                     return;
                 }
                 let note = &mut self.columns[col][self.column_indices[col]];
@@ -278,7 +278,7 @@ impl GameMode for ManiaGame {
 
                     manager.score.hit300(time, note_time);
                     manager.hitbar_timings.push((time, time - note_time));
-                    Audio::play_preloaded(sound);
+                    Audio::play_preloaded(sound).unwrap();
                     if note.note_type() != NoteType::Hold {
                         self.next_note(col);
                     }
@@ -287,7 +287,7 @@ impl GameMode for ManiaGame {
 
                     manager.score.hit100(time, note_time);
                     manager.hitbar_timings.push((time, time - note_time));
-                    Audio::play_preloaded(sound);
+                    Audio::play_preloaded(sound).unwrap();
                     //TODO: indicate this was a bad hit
 
                     if note.note_type() != NoteType::Hold {
@@ -301,12 +301,12 @@ impl GameMode for ManiaGame {
                     if note.note_type() != NoteType::Hold {
                         self.next_note(col);
                     }
-                    Audio::play_preloaded(sound);
+                    Audio::play_preloaded(sound).unwrap();
                     //TODO: play miss sound
                     //TODO: indicate this was a miss
                 } else { // way too early, ignore
                     // play sound
-                    Audio::play_preloaded(sound);
+                    Audio::play_preloaded(sound).unwrap();
                 }
             
             }
@@ -606,7 +606,7 @@ impl GameMode for ManiaGame {
             }
         }
 
-        manager.song.upgrade().unwrap().set_position(time);
+        manager.song.set_position(time as f64).unwrap();
     }
 
     fn combo_bounds(&self) -> Rectangle {

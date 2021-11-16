@@ -48,7 +48,7 @@ impl VolumeControl {
 
         
         if let Some(song) = Audio::get_song() {
-            song.set_volume(settings.get_music_vol());
+            song.set_volume(settings.get_music_vol()).unwrap();
         }
 
         self.vol_selected_time = elapsed;

@@ -143,10 +143,10 @@ impl BeatmapManager {
         let time = if use_preview_time {beatmap.audio_preview} else {0.0};
         if do_async {
             tokio::spawn(async move {
-                Audio::play_song(audio_filename, false, time);
+                Audio::play_song(audio_filename, false, time).unwrap();
             });
         } else {
-            Audio::play_song(audio_filename, false, time);
+            Audio::play_song(audio_filename, false, time).unwrap();
         }
 
         // set bg

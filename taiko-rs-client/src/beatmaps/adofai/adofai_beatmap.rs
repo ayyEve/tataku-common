@@ -50,7 +50,7 @@ impl AdofaiBeatmap {
 
         use AdofaiRotation::*;
         let mut current_time = map.settings.offset;
-        let mut current_beatlength = 60_000.0 / map.settings.bpm;
+        let current_beatlength = 60_000.0 / map.settings.bpm;
         let mut current_direction = Clockwise;
         let mut last_char = chars[0];
 

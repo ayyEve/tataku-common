@@ -74,6 +74,9 @@ impl Game {
         window.window.set_cursor_mode(glfw::CursorMode::Hidden);
         game_init_benchmark.log("window created", true);
 
+        
+        // initialize bass
+        bass::init_default_with_ptr(window.window.get_win32_window()).expect("Error initializing bass");
 
         // set window icon
         match image::open("resources/icon-small.png") {
@@ -495,7 +498,7 @@ impl Game {
                         if let GameState::InMenu(menu) = &self.current_state {
                             if menu.lock().get_name() == "pause" {
                                 if let Some(song) = Audio::get_song() {
-                                    song.play();
+                                    song.play(false).unwrap();
                                 }
                             }
                         }

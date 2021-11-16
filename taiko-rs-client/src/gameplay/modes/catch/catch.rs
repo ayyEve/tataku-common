@@ -279,7 +279,7 @@ impl GameMode for CatchGame {
                     _ => {}
                 }
 
-                Audio::play_preloaded("don");
+                Audio::play_preloaded("don").unwrap();
             } else {
                 if note.causes_miss() {
                     let s = &mut manager.score;
@@ -435,7 +435,7 @@ impl GameMode for CatchGame {
             }
         }
 
-        manager.song.upgrade().unwrap().set_position(time);
+        manager.song.set_position(time as f64).unwrap();
     }
 
     fn timing_bar_things(&self) -> (Vec<(f32,Color)>, (f32,Color)) {

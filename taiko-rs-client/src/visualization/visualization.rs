@@ -1,14 +1,15 @@
 // use dft::c32;
 use std::time::Instant;
 
-use crate::game::fft::FFT;
+use crate::game::Audio;
+// use crate::game::fft::FFT;
 use crate::render::{Renderable, Vector2};
 
 
 pub use f32 as Amplitude;
 pub use f32 as Frequency;
 
-pub type FFTEntry = (Frequency, Amplitude);
+pub type FFTEntry = f32; //(Frequency, Amplitude);
 
 
 pub trait Visualization {
@@ -22,31 +23,31 @@ pub trait Visualization {
     fn timer(&mut self) -> &mut Instant;
     fn update_data(&mut self) {
         // get the audio being fed to the sound card
-        let audio_data = crate::game::audio::CURRENT_DATA.clone();
-        let mut audio_data = audio_data.lock().clone();
-        // println!("{}", audio_data.len());
+        // let audio_data = crate::game::audio::CURRENT_DATA.clone();
+        // let mut audio_data = audio_data.lock().clone();
+        // // println!("{}", audio_data.len());
 
-        let len = audio_data.len();
-        let size;
+        // let len = audio_data.len();
+        // let size;
 
-        if !cfg!(target_os = "linux") {
-            let scale = (1024.0 / len as f32) * 8.0;
-            for sample in audio_data.iter_mut() {
-                *sample *= scale;
-            }
-            audio_data.resize(1024, 0.0);
-            size = FFT::F1024;
-        } else {
-            audio_data.resize(8192, 0.0);
-            size = FFT::F8192;
-        }
+        // if !cfg!(target_os = "linux") {
+        //     let scale = (1024.0 / len as f32) * 8.0;
+        //     for sample in audio_data.iter_mut() {
+        //         *sample *= scale;
+        //     }
+        //     audio_data.resize(1024, 0.0);
+        //     size = FFT::F1024;
+        // } else {
+        //     audio_data.resize(8192, 0.0);
+        //     size = FFT::F8192;
+        // }
 
-        let mut audio_data = crate::game::audio::fft::fft(
-            &mut audio_data, 
-            size
-        );
+        // let mut audio_data = crate::game::audio::fft::fft(
+        //     &mut audio_data, 
+        //     size
+        // );
 
-        audio_data.retain(|(freq, _amp)| *freq < 7_000.0);
+        // audio_data.retain(|(freq, _amp)| *freq < 7_000.0);
 
         // audio_data.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
@@ -82,6 +83,12 @@ pub trait Visualization {
         //     .map(|i|i.abs())
         //     .collect();
 
+        let audio_data = vec![0.0];
+        // match Audio::get_song() {
+        //     Some(stream) => stream.get_data(bass::prelude::DataType::FFT4096, 0i32),
+        //     None => return
+        // }.expect("error getig fft 90548");
+
 
         let time = self.timer();
         let elapsed = time.elapsed().as_secs_f32();
@@ -89,15 +96,15 @@ pub trait Visualization {
         drop(time);
 
 
-        let should_lerp = self.should_lerp();
-        let factor = self.lerp_factor() * elapsed;
-        let data = self.data();
-        if should_lerp && data.len() > 0 {
-            data.resize(audio_data.len(), (0.0, 0.0));
-            for i in 0..audio_data.len() {
-                audio_data[i].1 = lerp(data[i].1, audio_data[i].1, factor);
-            }
-        }
+        // let should_lerp = self.should_lerp();
+        // let factor = self.lerp_factor() * elapsed;
+        // let data = self.data();
+        // if should_lerp && data.len() > 0 {
+        //     data.resize(audio_data.len(), (0.0, 0.0));
+        //     for i in 0..audio_data.len() {
+        //         audio_data[i].1 = lerp(data[i].1, audio_data[i].1, factor);
+        //     }
+        // }
 
         *self.data() = audio_data;
     }

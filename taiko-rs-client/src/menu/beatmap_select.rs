@@ -158,7 +158,7 @@ impl Menu<Game> for BeatmapSelectMenu {
                     tokio::spawn(async move {
                         let lock = BEATMAP_MANAGER.lock();
                         let map = lock.current_beatmap.as_ref().unwrap();
-                        Audio::play_song(map.audio_filename.clone(), true, map.audio_preview);
+                        Audio::play_song(map.audio_filename.clone(), true, map.audio_preview).unwrap();
                     });
                 }
             }
@@ -249,9 +249,9 @@ impl Menu<Game> for BeatmapSelectMenu {
         // play song if it exists
         if let Some(song) = Audio::get_song() {
             // reset any time mods
-            song.set_playback_speed(1.0);
+            song.set_rate(1.0).unwrap();
             // play
-            song.play();
+            song.play(true).unwrap();
         }
 
         // load maps

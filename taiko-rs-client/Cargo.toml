@@ -31,6 +31,7 @@ ayyeve-piston-ui = {git = "https://gitlab.ayyeve.xyz/ayyEve/ayyeve-piston-ui"}
 # audio
 cpal = "0.13.3"
 symphonia = { version = "0.3.0", default-features = false, features = ["mp3", "ogg", "wav", "pcm"] }
+bass = {git = "https://gitlab.ayyeve.xyz/ayyEve/bass-rs"}
 
 # networking
 tokio-tungstenite = "0.15.0"

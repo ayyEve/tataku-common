@@ -73,10 +73,10 @@ impl Visualization for MenuVisualization {
         let n = (2.0 * std::f64::consts::PI * INNER_RADIUS) / self.data.len() as f64 / 2.0;
 
         for i in 0..self.data.len() {
-            if self.data[i].1 <= CUTOFF {continue}
+            if self.data[i] <= CUTOFF {continue}
 
             let factor = (i as f64 + 2.0).log10();
-            let l = INNER_RADIUS + self.data[i].1 as f64 * factor * self.bar_height;
+            let l = INNER_RADIUS + self.data[i] as f64 * factor * self.bar_height;
 
             let theta = self.rotation + a * i as f64;
             let cos = theta.cos();

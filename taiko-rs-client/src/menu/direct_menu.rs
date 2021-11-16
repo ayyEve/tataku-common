@@ -97,9 +97,7 @@ impl OsuDirectMenu {
             // store last playing audio if needed
             if self.old_audio.is_none() {
                 if let Some((key, a)) = Audio::get_song_raw() {
-                    if let Some(a2) = a.upgrade() {
-                        self.old_audio = Some(Some((key, a2.current_time())));
-                    }
+                    self.old_audio = Some(Some((key, a.get_position().unwrap() as f32)));
                 }
                 // need to store that we made an attempt
                 if let None = self.old_audio {
@@ -107,7 +105,7 @@ impl OsuDirectMenu {
                 }
             }
 
-            Audio::play_song_raw(url, data2);
+            Audio::play_song_raw(url, data2).unwrap();
         } else if let Err(oof) = req {
             println!("error with preview: {}", oof);
         }
@@ -121,7 +119,7 @@ impl OsuDirectMenu {
 
             // restore previous audio
             if let Some((path, pos)) = old_audio.clone() {
-                Audio::play_song(path, false, pos);
+                Audio::play_song(path, false, pos).unwrap();
             }
         }
 

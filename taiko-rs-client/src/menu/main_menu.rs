@@ -47,14 +47,16 @@ impl MainMenu {
         }
     }
 
-    fn setup_manager(&mut self) {
+    fn setup_manager(&mut self, called_by: &str) {
+        println!("setup manager called by {}", called_by);
+
         let settings = Settings::get().background_game_settings;
         if !settings.enabled {return}
 
         let lock = BEATMAP_MANAGER.lock();
         let map = match &lock.current_beatmap {
             Some(map) => map,
-            None => return
+            None => return println!("manager no map")
         };
 
         match manager_from_playmode(settings.mode, &map) {
@@ -65,18 +67,20 @@ impl MainMenu {
                 });
                 manager.menu_background = true;
                 manager.start();
+                println!("manager started");
 
                 self.background_game = Some(manager);
             },
             Err(e) => NotificationManager::add_error_notification("Error loading beatmap", e)
         }
+        println!("manager setup");
     }
 }
 impl Menu<Game> for MainMenu {
     fn on_change(&mut self, _into:bool) {
         self.visualization.reset();
 
-        self.setup_manager();
+        self.setup_manager("on_change");
     }
 
     fn update(&mut self, g:&mut Game) {
@@ -87,14 +91,14 @@ impl Menu<Game> for MainMenu {
             // it should?
             if let Some(map) = map {
                 BEATMAP_MANAGER.lock().set_current_beatmap(g, &map, false, false);
-                self.setup_manager();
+                self.setup_manager("update song done");
             }
         }
 
         let maps = BEATMAP_MANAGER.lock().get_new_maps();
         if maps.len() > 0 {
             BEATMAP_MANAGER.lock().set_current_beatmap(g, &maps[maps.len() - 1], true, false);
-            self.setup_manager();
+            self.setup_manager("update new map");
         }
 
         self.visualization.update();
@@ -244,7 +248,7 @@ impl Menu<Game> for MainMenu {
 
 
         if needs_manager_setup {
-            self.setup_manager();
+            self.setup_manager("key press");
         }
     }
 }

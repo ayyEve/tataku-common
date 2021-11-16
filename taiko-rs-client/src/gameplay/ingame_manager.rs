@@ -1,16 +1,17 @@
 use std::time::Instant;
 use std::collections::HashMap;
 
+use bass::prelude::*;
 use piston::RenderArgs;
 use opengl_graphics::GlyphCache;
 
 use crate::game::managers::ModManager;
 use crate::{beatmaps::Beatmap, errors::TaikoError};
+use crate::game::{Audio, BackgroundGameSettings, Settings};
 use crate::beatmaps::osu::hitobject_defs::HitSamples;
 use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
 use crate::{Vector2, sync::*, helpers::{visibility_bg, io::exists}};
 use crate::beatmaps::common::{BeatmapMeta, TaikoRsBeatmap, TimingPoint};
-use crate::game::{Audio, AudioHandle, BackgroundGameSettings, Settings, Sound};
 use crate::render::{Renderable, Rectangle, Text, Color, Border, fonts::get_font};
 
 const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
@@ -46,9 +47,9 @@ pub struct IngameManager {
 
     pub timing_points: Vec<TimingPoint>,
     pub timing_point_index: usize,
-    pub song: Weak<AudioHandle>,
+    pub song: StreamChannel,
 
-    pub hitsound_cache: HashMap<String, Option<Sound>>,
+    pub hitsound_cache: HashMap<String, Option<SampleChannel>>,
 
     // offset things
     offset: f32,
@@ -75,9 +76,7 @@ impl IngameManager {
 
         let hitsound_cache = HashMap::new();
         let settings = Settings::get_mut().clone();
-
         let timing_points = beatmap.get_timing_points();
-
 
         Self {
             metadata,
@@ -91,7 +90,7 @@ impl IngameManager {
             replay: Replay::new(),
             beatmap,
 
-            song: Weak::new(), // temp until we get the audio file path
+            song: Audio::get_song().unwrap_or(create_empty_stream()), // temp until we get the audio file path
             started: false,
             completed: false,
             replaying: false,
@@ -123,29 +122,30 @@ impl IngameManager {
     }
 
     pub fn time(&mut self) -> f32 {
-        let t = match (self.song.upgrade(), Audio::get_song_raw()) {
-            (None, Some((_, song))) => {
-                match song.upgrade() {
-                    Some(s) => {
-                        self.song = song;
-                        s.current_time()
-                    }
-                    None => {
-                        println!("song doesnt exist at Beatmap.time()!!");
-                        self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
-                        self.song.upgrade().unwrap().pause();
-                        0.0
-                    }
-                }
-            },
-            (None, None) => {
-                println!("song doesnt exist at Beatmap.time()!!");
-                self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
-                self.song.upgrade().unwrap().pause();
-                0.0
-            }
-            (Some(song), _) => song.current_time(),
-        };
+        // let t = match (self.song.upgrade(), Audio::get_song_raw()) {
+        //     (None, Some((_, song))) => {
+        //         match song.upgrade() {
+        //             Some(s) => {
+        //                 self.song = song;
+        //                 s.current_time()
+        //             }
+        //             None => {
+        //                 println!("song doesnt exist at Beatmap.time()!!");
+        //                 self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
+        //                 self.song.upgrade().unwrap().pause();
+        //                 0.0
+        //             }
+        //         }
+        //     },
+        //     (None, None) => {
+        //         println!("song doesnt exist at Beatmap.time()!!");
+        //         self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
+        //         self.song.upgrade().unwrap().pause();
+        //         0.0
+        //     }
+        //     (Some(song), _) => song.current_time(),
+        // };
+        let t = self.song.get_position().expect("error getting position") as f32;
 
         // println!("time: {}", t);
 
@@ -174,15 +174,20 @@ impl IngameManager {
                 // dont reset the song, and dont do lead in
                 self.lead_in_time = 0.0;
             } else {
-                match self.song.upgrade() {
-                    Some(song) => {
-                        song.set_position(0.0);
-                    }
-                    None => {
-                        self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
-                        self.song.upgrade().unwrap().pause();
-                    }
-                }
+                // match self.song.upgrade() {
+                //     Some(song) => {
+                //         song.set_position(0.0);
+                //     }
+                //     None => {
+                //         self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
+                //         self.song.upgrade().unwrap().pause();
+                //     }
+                // }
+                println!("start - set pos");
+                self.song.set_position(0.0).unwrap();
+                println!("start - pause");
+                self.song.pause().unwrap();
+                
                 self.lead_in_timer = Instant::now();
                 self.lead_in_time = LEAD_IN_TIME;
             }
@@ -195,41 +200,46 @@ impl IngameManager {
             // if this is the menu, dont do anything
             if self.menu_background {return}
 
-            // needed because if paused for a while it can crash
-            match self.song.upgrade() {
-                Some(song) => song.play(),
-                None => self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0),
-            }
+            // // needed because if paused for a while it can crash
+            // match self.song.upgrade() {
+            //     Some(song) => song.play(),
+            //     None => self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0),
+            // }
         }
     }
     pub fn pause(&mut self) {
-        self.song.upgrade().unwrap().pause();
+        self.song.pause().unwrap();
         // is there anything else we need to do?
 
         // might mess with lead-in but meh
     }
     pub fn reset(&mut self) {
+        println!("reset");
         let settings = Settings::get();
         
         if !self.menu_background {
             // reset song
-            match self.song.upgrade() {
-                Some(song) => {
-                    song.set_position(0.0);
-                    song.pause();
-                    song.set_playback_speed(self.current_mods.speed as f64);
-                    // song.set_playback_speed(2.0);
-                }
-                None => {
-                    while let None = self.song.upgrade() {
-                        self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
-                    }
-                    let song = self.song.upgrade().unwrap();
-                    song.set_playback_speed(self.current_mods.speed as f64);
-                    song.pause();
-                    // song.set_playback_speed(2.0);
-                }
-            }
+            // match self.song.upgrade() {
+            //     Some(song) => {
+            //         song.set_position(0.0);
+            //         song.pause();
+            //         song.set_playback_speed(self.current_mods.speed as f64);
+            //         // song.set_playback_speed(2.0);
+            //     }
+            //     None => {
+            //         while let None = self.song.upgrade() {
+            //             self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
+            //         }
+            //         let song = self.song.upgrade().unwrap();
+            //         song.set_playback_speed(self.current_mods.speed as f64);
+            //         song.pause();
+            //         // song.set_playback_speed(2.0);
+            //     }
+            // }
+            
+            self.song.set_rate(self.current_mods.speed).unwrap();
+            self.song.set_position(0.0).unwrap();
+            self.song.pause().unwrap();
         }
 
         self.gamemode.reset(&self.beatmap);
@@ -267,11 +277,14 @@ impl IngameManager {
             self.lead_in_time -= elapsed * self.current_mods.speed;
 
             if self.lead_in_time <= 0.0 {
-                let song = self.song.upgrade().unwrap();
-                song.set_position(-self.lead_in_time);
-                song.set_volume(Settings::get().get_music_vol());
-                song.set_playback_speed(self.current_mods.speed as f64);
-                song.play();
+                // let song = self.song.upgrade().unwrap();
+                println!("update -lead in- set pos");
+                self.song.set_position(-self.lead_in_time as f64).unwrap();
+                println!("update -lead in- set vol");
+                self.song.set_volume(Settings::get().get_music_vol()).unwrap();
+                // self.song.set_playback_speed(self.current_mods.speed as f64).unwrap();
+                println!("update -lead in- play");
+                self.song.play(true).unwrap();
                 self.lead_in_time = 0.0;
             }
         }
@@ -410,7 +423,7 @@ impl IngameManager {
             if !self.hitsound_cache.contains_key(sound_file) {
                 println!("not cached");
 
-                let sound = Sound::load(format!("resources/audio/{}", sound_file));
+                let sound = Audio::load(format!("resources/audio/{}", sound_file));
                 if let Err(e) = &sound {
                     println!("error loading: {:?}", e);
                 }
@@ -418,15 +431,10 @@ impl IngameManager {
                 self.hitsound_cache.insert(sound_file.clone(), sound.ok());
             }
 
-            let sound = self.hitsound_cache.get(sound_file).unwrap();
-            if sound.is_none() {continue};
-
-            let sound = Audio::play_sound(sound.clone().unwrap());
-
-            if let Some(sound) = sound.upgrade() {
-                sound.set_volume(vol);
-                sound.set_position(0.0);
-                sound.play();
+            if let Some(sound) = self.hitsound_cache.get(sound_file).unwrap() {
+                sound.set_volume(vol).unwrap();
+                sound.set_position(0.0).unwrap();
+                sound.play(true).unwrap();
             }
         }
     }
@@ -434,7 +442,7 @@ impl IngameManager {
     pub fn combo_break(&mut self) {
         if self.score.combo >= 20 && !self.menu_background {
             // play hitsound
-            Audio::play_preloaded("combobreak");
+            Audio::play_preloaded("combobreak").unwrap();
         }
 
         // reset combo to 0
@@ -655,7 +663,7 @@ impl Default for IngameManager {
             lead_in_time: Default::default(), 
             lead_in_timer: Instant::now(), 
             timing_point_index: Default::default(), 
-            song: Default::default(), 
+            song: create_empty_stream(), 
             hitsound_cache: Default::default(), 
             offset: Default::default(), 
             offset_changed_time: Default::default(), 
@@ -729,11 +737,16 @@ impl GameMode for NoMode {
     fn reset(&mut self, _:&Beatmap) {}
 }
 
-struct HitsoundManager {
-    sounds: HashMap<String, Option<Sound>>,
-    /// sound, index
-    beatmap_sounds: HashMap<String, HashMap<u8, Sound>>
-}
-impl HitsoundManager {
+// struct HitsoundManager {
+//     sounds: HashMap<String, Option<Sound>>,
+//     /// sound, index
+//     beatmap_sounds: HashMap<String, HashMap<u8, Sound>>
+// }
+// impl HitsoundManager {
 
+// }
+
+fn create_empty_stream() -> StreamChannel {
+    println!("creating empty stream");
+    StreamChannel::create_from_memory(vec![0x52,0x49,0x46,0x46,0x28,0x00,0x00,0x00,0x57,0x41,0x56,0x45,0x66,0x6D,0x74,0x20,0x10,0x00,0x00,0x00,0x01,0x00,0x02,0x00,0x44,0xAC,0x00,0x00,0x88,0x58,0x01,0x00,0x02,0x00,0x08,0x00,0x64,0x61,0x74,0x61,0x04,0x00,0x00,0x00,0x80,0x80,0x80,0x80], 0).expect("error creating empty StreamChannel")
 }
