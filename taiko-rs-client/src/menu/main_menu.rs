@@ -1,3 +1,4 @@
+use bass::prelude::PlaybackState;
 use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::KeyModifiers;
 use taiko_rs_common::types::PlayMode;
@@ -84,7 +85,18 @@ impl Menu<Game> for MainMenu {
     }
 
     fn update(&mut self, g:&mut Game) {
-        if let None = Audio::get_song() {
+        let mut song_done = false;
+        match Audio::get_song() {
+            Some(song) => {
+                match song.get_playback_state() {
+                    Ok(PlaybackState::Playing) | Ok(PlaybackState::Paused) => {},
+                    _ => song_done = true,
+                }
+            }
+            _ => song_done = true,
+        }
+
+        if song_done {
             println!("song done");
             let map = BEATMAP_MANAGER.lock().random_beatmap();
 

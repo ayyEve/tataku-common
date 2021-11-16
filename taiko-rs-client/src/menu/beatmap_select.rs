@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use bass::prelude::PlaybackState;
 use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::menu_elements::TextInput;
 
@@ -132,37 +133,72 @@ impl Menu<Game> for BeatmapSelectMenu {
             self.refresh_maps();
         }
     
-        self.map_changing.2 += 1;
-        match self.map_changing {
-            // we know its changing but havent detected the previous song stop yet
-            (true, false, n) => {
-                // give it up to 1s before assuming its already loaded
-                if Audio::get_song().is_none() || n > 1000 {
-                    // println!("song loading");
-                    self.map_changing = (true, true, 0);
-                }
-            }
-            // we know its changing, and the previous song has ended
-            (true, true, _) => {
-                if Audio::get_song().is_some() {
-                    // println!("song loaded");
-                    self.map_changing = (false, false, 0);
+
+        match Audio::get_song() {
+            Some(song) => {
+                match song.get_playback_state() {
+                    Ok(PlaybackState::Playing) => {},
+                    _ => {
+                        // restart the song at the preview point
+
+                        let lock = BEATMAP_MANAGER.lock();
+                        let map = lock.current_beatmap.as_ref().unwrap();
+                        song.set_position(map.audio_preview as f64).unwrap();
+                        song.play(false).unwrap();
+                    },
                 }
             }
 
-            // the song hasnt ended and we arent changing
-            (false, false, _) | (false, true, _) => {
-                if Audio::get_song().is_none() {
-                    // println!("song done");
-                    self.map_changing = (true, false, 0);
-                    tokio::spawn(async move {
-                        let lock = BEATMAP_MANAGER.lock();
-                        let map = lock.current_beatmap.as_ref().unwrap();
-                        Audio::play_song(map.audio_filename.clone(), true, map.audio_preview).unwrap();
-                    });
-                }
-            }
+            // no value, set it to something
+            _ => {
+                let lock = BEATMAP_MANAGER.lock();
+                let map = lock.current_beatmap.as_ref().unwrap();
+                Audio::play_song(map.audio_filename.clone(), true, map.audio_preview).unwrap();
+            },
         }
+
+        // self.map_changing.2 += 1;
+        // let mut song_done = false;
+        // match Audio::get_song() {
+        //     Some(song) => {
+        //         match song.get_playback_state() {
+        //             Ok(PlaybackState::Playing) | Ok(PlaybackState::Paused) => {},
+        //             _ => song_done = true,
+        //         }
+        //     }
+        //     _ => song_done = true,
+        // }
+        // i wonder if this can be simplified now
+        // match self.map_changing {
+        //     // we know its changing but havent detected the previous song stop yet
+        //     (true, false, n) => {
+        //         // give it up to 1s before assuming its already loaded
+        //         if song_done || n > 1000 {
+        //             // println!("song loading");
+        //             self.map_changing = (true, true, 0);
+        //         }
+        //     }
+        //     // we know its changing, and the previous song has ended
+        //     (true, true, _) => {
+        //         if !song_done {
+        //             // println!("song loaded");
+        //             self.map_changing = (false, false, 0);
+        //         }
+        //     }
+
+        //     // the song hasnt ended and we arent changing
+        //     (false, false, _) | (false, true, _) => {
+        //         if song_done {
+        //             // println!("song done");
+        //             self.map_changing = (true, false, 0);
+        //             tokio::spawn(async move {
+        //                 let lock = BEATMAP_MANAGER.lock();
+        //                 let map = lock.current_beatmap.as_ref().unwrap();
+        //                 Audio::play_song(map.audio_filename.clone(), true, map.audio_preview).unwrap();
+        //             });
+        //         }
+        //     }
+        // }
 
 
         // if self.mouse_down {
@@ -250,8 +286,8 @@ impl Menu<Game> for BeatmapSelectMenu {
         if let Some(song) = Audio::get_song() {
             // reset any time mods
             song.set_rate(1.0).unwrap();
-            // play
-            song.play(true).unwrap();
+            // // play
+            // song.play(true).unwrap();
         }
 
         // load maps
