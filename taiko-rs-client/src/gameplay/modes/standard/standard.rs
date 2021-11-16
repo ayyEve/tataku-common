@@ -459,10 +459,54 @@ impl GameMode for StandardGame {
         // draw the playfield
         if !manager.menu_background {
             let mut playfield = self.scaling_helper.playfield_scaled_with_cs_border.clone();
+
+            if self.move_playfield.is_some() {
+                let line_size = self.settings.playfield_movelines_thickness;
+                // draw x and y center lines
+                let px_line = Line::new(
+                    playfield.pos + Vector2::new(0.0, playfield.size.y/2.0),
+                    playfield.pos + Vector2::new(playfield.size.x, playfield.size.y/2.0),
+                    line_size,
+                    -100.0,
+                    Color::WHITE
+                );
+                let py_line = Line::new(
+                    playfield.pos + Vector2::new(playfield.size.x/2.0, 0.0),
+                    playfield.pos + Vector2::new(playfield.size.x/2.0, playfield.size.y),
+                    line_size, 
+                    -100.0,
+                    Color::WHITE
+                );
+
+                let window_size = Settings::window_size();
+                let wx_line = Line::new(
+                    Vector2::new(0.0, window_size.y/2.0),
+                    Vector2::new(window_size.x, window_size.y/2.0),
+                    line_size,
+                    -100.0,
+                    Color::WHITE
+                );
+                let wy_line = Line::new(
+                    Vector2::new(window_size.x/2.0, 0.0),
+                    Vector2::new(window_size.x/2.0, window_size.y),
+                    line_size, 
+                    -100.0,
+                    Color::WHITE
+                );
+
+                playfield.border = Some(Border::new(Color::WHITE, line_size));
+
+                list.push(Box::new(wx_line));
+                list.push(Box::new(wy_line));
+                list.push(Box::new(px_line));
+                list.push(Box::new(py_line));
+            }
+
             if manager.current_timing_point().kiai {
                 playfield.border = Some(Border::new(Color::YELLOW, 2.0));
             }
             list.push(Box::new(playfield));
+
 
             // draw key counter
             self.key_counter.draw(args, list);
@@ -578,7 +622,30 @@ impl GameMode for StandardGame {
         if let Some((original, mouse_start)) = self.move_playfield {
             {
                 let settings = &mut Settings::get_mut().standard_settings;
-                let change = original + (pos - mouse_start);
+                let mut change = original + (pos - mouse_start);
+
+                // check playfield snapping
+                // TODO: can this be simplified?
+                use crate::gameplay::modes::FIELD_SIZE;
+
+                let window_size = Settings::window_size();
+                let playfield_size = self.scaling_helper.playfield_scaled_with_cs_border.size;
+
+                let window_center = window_size / 2.0;
+
+                let new_playfield_pos = (window_size - FIELD_SIZE * self.scaling_helper.scale) / 2.0 + change;
+                let playfield_center = new_playfield_pos + playfield_size / 2.0;
+
+                // what the offset shuold be if playfield is centered
+                let center_offset = (window_size - FIELD_SIZE * self.scaling_helper.scale) / 2.0 - (window_center - playfield_size/2.0);
+
+                let snap = settings.playfield_snap;
+                if (window_center.x - (playfield_center.x - snap/2.0)).abs() < snap {
+                    change.x = center_offset.x;
+                }
+                if (window_center.y - (playfield_center.y - snap/2.0)).abs() < snap {
+                    change.y = center_offset.y;
+                }
 
                 settings.playfield_x_offset = change.x;
                 settings.playfield_y_offset = change.y;

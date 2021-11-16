@@ -14,10 +14,12 @@ pub struct StandardSettings {
     pub playfield_x_offset: f64,
     pub playfield_y_offset: f64,
     pub playfield_scale: f64,
+    pub playfield_snap: f64,
+    pub playfield_movelines_thickness: f64,
 
     // display
     pub draw_follow_points: bool,
-    pub combo_colors: Vec<String>
+    pub combo_colors: Vec<String>,
 }
 impl StandardSettings {
     pub fn get_playfield(&self) -> (f64, Vector2) {
@@ -35,6 +37,8 @@ impl Default for StandardSettings {
             playfield_x_offset: 0.0,
             playfield_y_offset: 0.0,
             playfield_scale: 0.8,
+            playfield_snap: 20.0,
+            playfield_movelines_thickness: 2.0,
 
             draw_follow_points: true,
 

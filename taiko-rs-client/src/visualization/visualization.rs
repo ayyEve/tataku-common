@@ -84,11 +84,12 @@ pub trait Visualization {
         //     .collect();
 
         // println!("getting data");
-        let mut audio_data = match Audio::get_song() {
+        let audio_data = match Audio::get_song() {
             Some(stream) => stream.get_data(bass::prelude::DataType::FFT2048, 1024i32),
             None => return
         }.unwrap_or(vec![0.0]);
 
+        let mut audio_data = audio_data[0..audio_data.len() / 2].to_vec();
 
         let time = self.timer();
         let elapsed = time.elapsed().as_secs_f32();
