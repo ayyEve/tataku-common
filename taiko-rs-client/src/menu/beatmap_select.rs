@@ -143,7 +143,9 @@ impl Menu<Game> for BeatmapSelectMenu {
 
                         let lock = BEATMAP_MANAGER.lock();
                         let map = lock.current_beatmap.as_ref().unwrap();
-                        song.set_position(map.audio_preview as f64).unwrap();
+                        if let Err(e) = song.set_position(map.audio_preview as f64) {
+                            println!("error setting position: {:?}", e);
+                        }
                         song.play(false).unwrap();
                     },
                 }
