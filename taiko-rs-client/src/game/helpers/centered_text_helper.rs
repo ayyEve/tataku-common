@@ -68,7 +68,11 @@ impl<V:Display + Default> Default for CenteredTextHelper<V> {
     fn default() -> Self {
         Self {
             font: ayyeve_piston_ui::render::fonts::get_font("main"),
-            ..Default::default()
+            label: Default::default(),
+            value: Default::default(),
+            depth: Default::default(),
+            changed_time: Default::default(),
+            draw_time: Default::default(),
         }
     }
 }

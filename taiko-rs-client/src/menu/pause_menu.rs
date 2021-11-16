@@ -31,6 +31,7 @@ impl PauseMenu {
     pub fn unpause(&mut self, game:&mut Game) {
         // self.beatmap.lock().start();
         // self.manager.lock().start();
+
         let mut manager = Default::default();
         std::mem::swap(&mut self.manager, &mut manager);
         game.queue_state_change(GameState::Ingame(manager));

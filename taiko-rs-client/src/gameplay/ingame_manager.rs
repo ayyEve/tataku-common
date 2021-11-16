@@ -215,6 +215,8 @@ impl IngameManager {
             // if this is the menu, dont do anything
             if self.menu_background {return}
 
+            self.song.play(false).unwrap();
+
             // // needed because if paused for a while it can crash
             // match self.song.upgrade() {
             //     Some(song) => song.play(),
@@ -468,6 +470,7 @@ impl IngameManager {
         if (self.replaying || self.current_mods.autoplay) && !self.menu_background {
             // check replay-only keys
             if key == piston::Key::Escape {
+                println!("poo");
                 self.started = false;
                 self.completed = true;
                 return;
@@ -667,34 +670,32 @@ impl IngameManager {
 impl Default for IngameManager {
     fn default() -> Self {
         Self { 
-            metadata: Default::default(), 
-            beatmap: Default::default(), 
-            gamemode: Default::default(), 
-            current_mods: Arc::new(ModManager::new()),
-            score: Score::new(
-                String::new(),
-                String::new(),
-                Default::default()
-            ), 
-            replay: Replay::new(), 
-            started: Default::default(), 
-            completed: Default::default(), 
-            replaying: Default::default(), 
-            menu_background: Default::default(), 
-            end_time: Default::default(), 
-            lead_in_time: Default::default(), 
-            lead_in_timer: Instant::now(), 
-            timing_point_index: Default::default(), 
             song: create_empty_stream(), 
-            hitsound_cache: Default::default(), 
-            offset: Default::default(), 
-            global_offset: Default::default(), 
-            hitbar_timings: Default::default(), 
             font: get_font("main"), 
             combo_text_bounds: Rectangle::bounds_only(Vector2::zero(), Vector2::zero()), 
-            timing_bar_things: (Vec::new(), (0.0, Color::WHITE)), 
-
-            ..Default::default()
+            timing_bar_things: (Vec::new(), (0.0, Color::WHITE)),
+            
+            beatmap: Default::default(),
+            metadata: Default::default(),
+            gamemode: Default::default(),
+            current_mods: Default::default(),
+            score: Default::default(),
+            replay: Default::default(),
+            started: Default::default(),
+            completed: Default::default(),
+            replaying: Default::default(),
+            menu_background: Default::default(),
+            end_time: Default::default(),
+            lead_in_time: Default::default(),
+            lead_in_timer: Instant::now(),
+            timing_points: Default::default(),
+            timing_point_index: Default::default(),
+            hitsound_cache: Default::default(),
+            offset: Default::default(),
+            global_offset: Default::default(),
+            hitbar_timings: Default::default(),
+            replay_frame: Default::default(),
+            background_game_settings: Default::default(), 
         }
     }
 }
@@ -766,7 +767,11 @@ impl GameMode for NoMode {
 
 // }
 
+lazy_static::lazy_static! {
+    static ref EMPTY_STREAM:StreamChannel = {
+        StreamChannel::create_from_memory(vec![0x52,0x49,0x46,0x46,0x28,0x00,0x00,0x00,0x57,0x41,0x56,0x45,0x66,0x6D,0x74,0x20,0x10,0x00,0x00,0x00,0x01,0x00,0x02,0x00,0x44,0xAC,0x00,0x00,0x88,0x58,0x01,0x00,0x02,0x00,0x08,0x00,0x64,0x61,0x74,0x61,0x04,0x00,0x00,0x00,0x80,0x80,0x80,0x80], 0i32).expect("error creating empty StreamChannel")
+    };
+}
 fn create_empty_stream() -> StreamChannel {
-    println!("creating empty stream");
-    StreamChannel::create_from_memory(vec![0x52,0x49,0x46,0x46,0x28,0x00,0x00,0x00,0x57,0x41,0x56,0x45,0x66,0x6D,0x74,0x20,0x10,0x00,0x00,0x00,0x01,0x00,0x02,0x00,0x44,0xAC,0x00,0x00,0x88,0x58,0x01,0x00,0x02,0x00,0x08,0x00,0x64,0x61,0x74,0x61,0x04,0x00,0x00,0x00,0x80,0x80,0x80,0x80], 0).expect("error creating empty StreamChannel")
+    EMPTY_STREAM.clone()
 }

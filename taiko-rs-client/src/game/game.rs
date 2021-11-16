@@ -319,12 +319,15 @@ impl Game {
                 
                 // pause button, or focus lost, only if not replaying
                 if (manager.can_pause() && (matches!(window_focus_changed, Some(false)) && settings.pause_on_focus_lost)) || keys_down.contains(&Key::Escape) {
+                    println!("manager.pause");
                     manager.pause();
-                    
+                    println!("taking manager");
                     let manager2 = std::mem::take(manager);
-
+                    println!("create menu");
                     let menu = PauseMenu::new(manager2);
+                    println!("state change");
                     self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
+                    println!("done");
                 } else {
                     // // offset adjust
                     // if keys_down.contains(&settings.key_offset_up) {manager.increment_offset(5.0)}
