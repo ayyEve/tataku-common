@@ -198,7 +198,7 @@ checksum = "392c772b012d685a640cdad68a5a21f4a45e696f85a2c2c907aab2fe49a91e19"
 [[package]]
 name = "bass"
 version = "0.1.0"
-source = "git+https://gitlab.ayyeve.xyz/ayyEve/bass-rs#141e9b4cf641b2ee8ad9d35e5de45cbd4270deda"
+source = "git+https://gitlab.ayyeve.xyz/ayyEve/bass-rs#75621d8e4ab642b680d92ec39051898c3d7eaac0"
 dependencies = [
  "bass-sys",
  "once_cell",

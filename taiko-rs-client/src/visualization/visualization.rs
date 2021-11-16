@@ -83,11 +83,11 @@ pub trait Visualization {
         //     .map(|i|i.abs())
         //     .collect();
 
-        let audio_data = vec![0.0];
-        // match Audio::get_song() {
-        //     Some(stream) => stream.get_data(bass::prelude::DataType::FFT4096, 0i32),
-        //     None => return
-        // }.expect("error getig fft 90548");
+        // println!("getting data");
+        let mut audio_data = match Audio::get_song() {
+            Some(stream) => stream.get_data(bass::prelude::DataType::FFT2048, 1024i32),
+            None => return
+        }.expect("error getig fft 90548");
 
 
         let time = self.timer();
@@ -96,15 +96,17 @@ pub trait Visualization {
         drop(time);
 
 
-        // let should_lerp = self.should_lerp();
-        // let factor = self.lerp_factor() * elapsed;
-        // let data = self.data();
-        // if should_lerp && data.len() > 0 {
-        //     data.resize(audio_data.len(), (0.0, 0.0));
-        //     for i in 0..audio_data.len() {
-        //         audio_data[i].1 = lerp(data[i].1, audio_data[i].1, factor);
-        //     }
-        // }
+        const MULT:f32 = 1_000.0;
+
+        let should_lerp = self.should_lerp();
+        let factor = self.lerp_factor() * elapsed;
+        let data = self.data();
+        if should_lerp && data.len() > 0 {
+            data.resize(audio_data.len(), 0.0);
+            for i in 0..audio_data.len() {
+                audio_data[i] = lerp(data[i], audio_data[i] * MULT, factor);
+            }
+        }
 
         *self.data() = audio_data;
     }

@@ -3,7 +3,7 @@ use std::fs::read_dir;
 use crate::beatmaps::common::BeatmapMeta;
 use crate::{SONGS_DIR, Vector2, menu::Menu, sync::*};
 use crate::render::{Color, Rectangle, Text, fonts::get_font};
-use crate::game::{Settings, Game, Audio, managers::BEATMAP_MANAGER};
+use crate::game::{Settings, Game, managers::BEATMAP_MANAGER};
 
 /// helper for when starting the game. will load beatmaps, settings, etc from storage
 /// all while providing the user with its progress (relatively anyways)

@@ -198,9 +198,7 @@ impl IngameManager {
                 //         self.song.upgrade().unwrap().pause();
                 //     }
                 // }
-                println!("start - set pos");
                 self.song.set_position(0.0).unwrap();
-                println!("start - pause");
                 self.song.pause().unwrap();
                 
                 self.lead_in_timer = Instant::now();
@@ -295,12 +293,9 @@ impl IngameManager {
 
             if self.lead_in_time <= 0.0 {
                 // let song = self.song.upgrade().unwrap();
-                println!("update -lead in- set pos");
                 self.song.set_position(-self.lead_in_time as f64).unwrap();
-                println!("update -lead in- set vol");
                 self.song.set_volume(Settings::get().get_music_vol()).unwrap();
-                // self.song.set_playback_speed(self.current_mods.speed as f64).unwrap();
-                println!("update -lead in- play");
+                self.song.set_rate(self.current_mods.speed).unwrap();
                 self.song.play(true).unwrap();
                 self.lead_in_time = 0.0;
             }
