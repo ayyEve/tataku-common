@@ -145,7 +145,7 @@ impl IngameManager {
         //     }
         //     (Some(song), _) => song.current_time(),
         // };
-        let t = self.song.get_position().expect("error getting position") as f32;
+        let t = self.song.get_position().unwrap() as f32;
 
         // println!("time: {}", t);
 
@@ -156,8 +156,6 @@ impl IngameManager {
         let time = self.time();
         let new_val = self.offset.value + delta;
         self.offset.set_value(new_val, time);
-        // self.offset += delta;
-        // self.offset_changed_time = self.time();
     }
 
     /// locks settings
@@ -167,9 +165,6 @@ impl IngameManager {
 
         let time = self.time();
         self.global_offset.set_value(settings.global_offset, time);
-
-        // self.global_offset = settings.global_offset;
-        // self.global_offset_changed_time = self.time();
     }
 
 
@@ -180,7 +175,6 @@ impl IngameManager {
 
     // can be from either paused or new
     pub fn start(&mut self) {
-        println!("ingame_manager::start, background_menu: {}", self.menu_background);
 
         if !self.started {
             self.reset();
@@ -189,15 +183,6 @@ impl IngameManager {
                 // dont reset the song, and dont do lead in
                 self.lead_in_time = 0.0;
             } else {
-                // match self.song.upgrade() {
-                //     Some(song) => {
-                //         song.set_position(0.0);
-                //     }
-                //     None => {
-                //         self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
-                //         self.song.upgrade().unwrap().pause();
-                //     }
-                // }
                 self.song.set_position(0.0).unwrap();
                 self.song.pause().unwrap();
                 
@@ -213,7 +198,7 @@ impl IngameManager {
             // if this is the menu, dont do anything
             if self.menu_background {return}
 
-            self.song.play(false).unwrap();
+            self.song.play(true).unwrap();
 
             // // needed because if paused for a while it can crash
             // match self.song.upgrade() {
@@ -239,7 +224,6 @@ impl IngameManager {
             //         song.set_position(0.0);
             //         song.pause();
             //         song.set_playback_speed(self.current_mods.speed as f64);
-            //         // song.set_playback_speed(2.0);
             //     }
             //     None => {
             //         while let None = self.song.upgrade() {
@@ -248,7 +232,6 @@ impl IngameManager {
             //         let song = self.song.upgrade().unwrap();
             //         song.set_playback_speed(self.current_mods.speed as f64);
             //         song.pause();
-            //         // song.set_playback_speed(2.0);
             //     }
             // }
             

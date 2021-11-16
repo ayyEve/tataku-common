@@ -87,7 +87,7 @@ pub trait Visualization {
         let mut audio_data = match Audio::get_song() {
             Some(stream) => stream.get_data(bass::prelude::DataType::FFT2048, 1024i32),
             None => return
-        }.expect("error getig fft 90548");
+        }.unwrap_or(vec![0.0]);
 
 
         let time = self.timer();

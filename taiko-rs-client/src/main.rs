@@ -85,6 +85,8 @@ async fn main() {
         }
     }
 
+    // check bass lib
+    check_bass();
 
     main_benchmark.log("File check done", true);
     
@@ -97,6 +99,43 @@ async fn main() {
 
 
 // helper functions
+
+/// check for the bass lib
+/// if not found, will be downloaded
+fn check_bass() {
+    
+    #[cfg(target_os = "windows")]
+    let filename = "bass.dll";
+       
+    #[cfg(target_os = "linux")]
+    let filename = "libbass.so";
+
+    #[cfg(target_os = "macos")]
+    let filename = "libbass.dylib";
+
+    if let Ok(mut library_path) = std::env::current_exe() {
+        library_path.pop();
+        library_path.push(filename);
+
+        // check if already exists
+        if library_path.exists() {return}
+        println!("{:?} not found, attempting to find or download", library_path);
+        
+        // if linux, check for lib in /usr/lib
+        #[cfg(target_os = "linux")]
+        if exists(format!("/usr/lib/{}", filename)) {
+            match std::fs::copy(filename, &library_path) {
+                Ok(_) => return println!("Found in /usr/lib"),
+                Err(e) => println!("Found in /usr/lib, but couldnt copy: {}", e)
+            }
+        }
+
+        // download it from the web
+        check_file(&library_path, &format!("https://cdn.ayyeve.xyz/taiko-rs/bass/{}", filename));
+    } else {
+        println!("error getting current executable dir, assuming things are good...")
+    }
+}
 
 
 /// format a number into a locale string ie 1000000 -> 1,000,000
@@ -124,3 +163,4 @@ fn format<T:Display>(num:T) -> String {
     new_new.extend(new_str.chars().rev());
     new_new.trim_start_matches(",").to_owned()
 }
+

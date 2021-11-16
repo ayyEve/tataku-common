@@ -396,7 +396,6 @@ impl Menu<Game> for BeatmapSelectMenu {
         }
     }
 
-    //TODO: implement search (oh god)
     fn on_text(&mut self, text:String) {
         self.search_text.on_text(text);
         self.refresh_maps();
