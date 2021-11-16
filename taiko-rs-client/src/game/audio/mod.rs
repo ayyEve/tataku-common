@@ -89,8 +89,14 @@ impl Audio {
             None => println!("[audio] // play_song - no audio"), // no audio set
         }
 
-
         let sound = Audio::load_song(path.as_ref())?;
+
+        // double check the song is stopped when we get here
+        if let Some((_, song)) = CURRENT_SONG.lock().clone() {
+            if let Ok(PlaybackState::Playing) = song.get_playback_state() {
+                song.stop().unwrap();
+            }
+        }
 
         sound.play(true).expect("Error playing music");
         if let Err(e) = sound.set_position(position as f64) {
