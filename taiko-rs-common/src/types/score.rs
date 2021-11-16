@@ -5,7 +5,7 @@ use super::PlayMode;
 
 const CURRENT_VERSION: u16 = 1;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Score {
     pub username: String,
     pub beatmap_hash: String,

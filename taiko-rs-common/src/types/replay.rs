@@ -2,7 +2,7 @@ use crate::serialization::{Serializable, SerializationReader, SerializationWrite
 
 const CURRENT_VERSION:u16 = 1;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Replay {
     /// (time, key)
     pub frames: Vec<(f32, ReplayFrame)>, 
@@ -56,6 +56,11 @@ impl From<u8> for Playstyle {
             2 => DDKK,
             _ => KKDD
         }
+    }
+}
+impl Default for Playstyle {
+    fn default() -> Self {
+        Self::KDDK
     }
 }
 

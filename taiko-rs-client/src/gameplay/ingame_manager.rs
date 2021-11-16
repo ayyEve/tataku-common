@@ -9,6 +9,7 @@ use crate::game::managers::ModManager;
 use crate::{beatmaps::Beatmap, errors::TaikoError};
 use crate::game::{Audio, BackgroundGameSettings, Settings};
 use crate::beatmaps::osu::hitobject_defs::HitSamples;
+use crate::helpers::centered_text_helper::CenteredTextHelper;
 use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
 use crate::{Vector2, sync::*, helpers::{visibility_bg, io::exists}};
 use crate::beatmaps::common::{BeatmapMeta, TaikoRsBeatmap, TimingPoint};
@@ -52,9 +53,8 @@ pub struct IngameManager {
     pub hitsound_cache: HashMap<String, Option<SampleChannel>>,
 
     // offset things
-    offset: f32,
-    offset_changed_time: f32,
-    global_offset: f32,
+    offset: CenteredTextHelper<f32>,
+    global_offset: CenteredTextHelper<f32>,
 
     /// (map.time, note.time - hit.time)
     pub hitbar_timings: Vec<(f32, f32)>,
@@ -77,6 +77,7 @@ impl IngameManager {
         let hitsound_cache = HashMap::new();
         let settings = Settings::get_mut().clone();
         let timing_points = beatmap.get_timing_points();
+        let font = get_font("main");
 
         Self {
             metadata,
@@ -99,14 +100,13 @@ impl IngameManager {
             lead_in_time: LEAD_IN_TIME,
             end_time: gamemode.end_time(),
 
-            offset: 0.0,
-            offset_changed_time: 0.0,
-            global_offset: settings.global_offset,
-
+            offset: CenteredTextHelper::new("Offset", 0.0, OFFSET_DRAW_TIME, -20.0, font.clone()),
+            global_offset: CenteredTextHelper::new("Global Offset", 0.0, OFFSET_DRAW_TIME, -20.0, font.clone()),
+            
             replay_frame: 0,
             timing_point_index: 0,
 
-            font: get_font("main"),
+            font,
             combo_text_bounds: gamemode.combo_bounds(),
             timing_bar_things: gamemode.timing_bar_things(),
             hitbar_timings: Vec::new(),
@@ -149,12 +149,27 @@ impl IngameManager {
 
         // println!("time: {}", t);
 
-        t - (self.lead_in_time + self.offset + self.global_offset)
+        t - (self.lead_in_time + self.offset.value + self.global_offset.value)
     }
 
     pub fn increment_offset(&mut self, delta:f32) {
-        self.offset += delta;
-        self.offset_changed_time = self.time();
+        let time = self.time();
+        let new_val = self.offset.value + delta;
+        self.offset.set_value(new_val, time);
+        // self.offset += delta;
+        // self.offset_changed_time = self.time();
+    }
+
+    /// locks settings
+    pub fn increment_global_offset(&mut self, delta:f32) {
+        let mut settings = Settings::get_mut();
+        settings.global_offset += delta;
+
+        let time = self.time();
+        self.global_offset.set_value(settings.global_offset, time);
+
+        // self.global_offset = settings.global_offset;
+        // self.global_offset_changed_time = self.time();
     }
 
 
@@ -251,7 +266,7 @@ impl IngameManager {
         self.completed = false;
         self.started = false;
         self.lead_in_time = LEAD_IN_TIME;
-        self.offset_changed_time = 0.0;
+        // self.offset_changed_time = 0.0;
         self.lead_in_timer = Instant::now();
         self.score = Score::new(self.beatmap.hash(), settings.username.clone(), self.gamemode.playmode());
         self.replay_frame = 0;
@@ -449,8 +464,8 @@ impl IngameManager {
         self.score.combo = 0;
     }
 
-    pub fn key_down(&mut self, key:piston::Key) {
-        if self.replaying || self.current_mods.autoplay {
+    pub fn key_down(&mut self, key:piston::Key, mods: ayyeve_piston_ui::menu::KeyModifiers) {
+        if (self.replaying || self.current_mods.autoplay) && !self.menu_background {
             // check replay-only keys
             if key == piston::Key::Escape {
                 self.started = false;
@@ -465,6 +480,25 @@ impl IngameManager {
         if key == piston::Key::Space {
             gamemode.skip_intro(self);
         }
+
+        // check for offset changing keys
+        {
+            let settings = Settings::get_mut();
+            if mods.shift {
+                let mut t = 0.0;
+                if key == settings.key_offset_up {t = 5.0}
+                if key == settings.key_offset_down {t = -5.0}
+                drop(settings);
+
+                if t != 0.0 {
+                    self.increment_global_offset(t);
+                }
+            } else {
+                if key == settings.key_offset_up {self.increment_offset(5.0)}
+                if key == settings.key_offset_down {self.increment_offset(-5.0)}
+            }
+        }
+
 
         gamemode.key_down(key, self);
         self.gamemode = gamemode;
@@ -507,21 +541,9 @@ impl IngameManager {
         self.gamemode = gamemode;
 
 
-        // draw offset
-        if self.offset_changed_time > 0.0 && time - self.offset_changed_time < OFFSET_DRAW_TIME {
-            let rect = Rectangle::bounds_only(Vector2::new((window_size.x - 200.0) / 2.0, window_size.y * 1.0/3.0), Vector2::new(200.0, 64.0));
-            let mut offset_text = Text::new(
-                Color::BLACK,
-                -20.0,
-                Vector2::zero(), // centered anyways
-                32,
-                format!("Offset: {}", self.offset),
-                font.clone()
-            );
-            offset_text.center_text(rect);
-            list.push(visibility_bg(rect.pos, rect.size - Vector2::new(0.0, 30.0)));
-            list.push(Box::new(offset_text));
-        }
+        // draw center texts
+        self.offset.draw(time, list);
+        self.global_offset.draw(time, list);
 
 
         if self.menu_background {return}
@@ -666,15 +688,13 @@ impl Default for IngameManager {
             song: create_empty_stream(), 
             hitsound_cache: Default::default(), 
             offset: Default::default(), 
-            offset_changed_time: Default::default(), 
             global_offset: Default::default(), 
             hitbar_timings: Default::default(), 
             font: get_font("main"), 
             combo_text_bounds: Rectangle::bounds_only(Vector2::zero(), Vector2::zero()), 
             timing_bar_things: (Vec::new(), (0.0, Color::WHITE)), 
-            replay_frame: Default::default(), 
-            background_game_settings: Default::default(),
-            timing_points: Vec::new(), 
+
+            ..Default::default()
         }
     }
 }

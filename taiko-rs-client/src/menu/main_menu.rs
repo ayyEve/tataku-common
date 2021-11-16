@@ -191,14 +191,10 @@ impl Menu<Game> for MainMenu {
 
         let mut needs_manager_setup = false;
 
-
         // check offset keys
         if let Some(manager) = self.background_game.as_mut() {
-            let settings = Settings::get();
-            if key == settings.key_offset_up {manager.increment_offset(5.0)}
-            if key == settings.key_offset_down {manager.increment_offset(-5.0)}
+            manager.key_down(key, mods);
         }
-
 
         if !mods.alt {
             match key {
@@ -245,7 +241,6 @@ impl Menu<Game> for MainMenu {
                 }
             }
         }
-
 
         if needs_manager_setup {
             self.setup_manager("key press");

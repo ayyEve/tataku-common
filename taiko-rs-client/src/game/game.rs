@@ -326,9 +326,9 @@ impl Game {
                     let menu = PauseMenu::new(manager2);
                     self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
                 } else {
-                    // offset adjust
-                    if keys_down.contains(&settings.key_offset_up) {manager.increment_offset(5.0)}
-                    if keys_down.contains(&settings.key_offset_down) {manager.increment_offset(-5.0)}
+                    // // offset adjust
+                    // if keys_down.contains(&settings.key_offset_up) {manager.increment_offset(5.0)}
+                    // if keys_down.contains(&settings.key_offset_down) {manager.increment_offset(-5.0)}
 
                     // inputs
                     if mouse_moved {manager.mouse_move(mouse_pos)}
@@ -336,7 +336,7 @@ impl Game {
                     for btn in mouse_up {manager.mouse_up(btn)}
                     if scroll_delta != 0.0 {manager.mouse_scroll(scroll_delta)}
 
-                    for k in keys_down.iter() {manager.key_down(*k)}
+                    for k in keys_down.iter() {manager.key_down(*k, mods)}
                     for k in keys_up.iter() {manager.key_up(*k)}
 
                     // update, then check if complete
