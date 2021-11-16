@@ -6,6 +6,7 @@ pub mod math;
 pub mod curve;
 pub mod skin_helper;
 pub mod transform;
+pub mod centered_text_helper;
 
 pub use fps_display::*;
 pub use volume_control::*;
