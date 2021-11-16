@@ -94,7 +94,8 @@ impl ManiaHitObject for ManiaNote {
     }
 
     fn y_at(&self, time:f32) -> f64 {
-        self.playfield.hit_y() - ((self.time - time) * self.speed) as f64
+        let speed = self.speed * if self.playfield.upside_down {-1.0} else {1.0};
+        self.playfield.hit_y() - ((self.time - time) * speed) as f64
     }
 
     fn set_sv(&mut self, sv:f32) {
@@ -147,35 +148,69 @@ impl HitObject for ManiaHold {
 
     fn update(&mut self, beatmap_time: f32) {
         // self.pos.x = HIT_POSITION.x + (self.time as f64 - beatmap_time as f64) * self.speed;
-        self.end_y = self.playfield.hit_y() - ((self.end_time - beatmap_time) * self.speed) as f64;
-        self.pos.y = self.playfield.hit_y() - ((self.time - beatmap_time) * self.speed) as f64;
+        let speed = self.speed * if self.playfield.upside_down {-1.0} else {1.0};
+        
+        self.end_y = self.playfield.hit_y() - ((self.end_time - beatmap_time) * speed) as f64;
+        self.pos.y = self.playfield.hit_y() - ((self.time - beatmap_time) * speed) as f64;
+
+        if self.playfield.upside_down {
+            std::mem::swap(&mut self.end_y, &mut self.pos.y)
+        }
+
     }
     fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
-        if self.pos.y < 0.0 || self.end_y > args.window_size[1] as f64 {return}
+        // if self.playfield.upside_down {
+        //     if self.end_y < 0.0 || self.pos.y > args.window_size[1] as f64 {return}
+        // } 
 
         let border = Some(Border::new(Color::BLACK.alpha(self.alpha_mult), self.playfield.note_border_width));
         let color = Color::YELLOW.alpha(self.alpha_mult);
 
-        // start
-        if self.pos.y < self.playfield.hit_y() {
-            list.push(Box::new(Rectangle::new(
-                color,
-                MANIA_NOTE_DEPTH,
-                self.pos,
-                self.playfield.note_size(),
-                border.clone()
-            )));
-        }
+        
+        if self.playfield.upside_down {
+            // start
+            if self.pos.y > self.playfield.hit_y() {
+                list.push(Box::new(Rectangle::new(
+                    color,
+                    MANIA_NOTE_DEPTH,
+                    self.pos,
+                    self.playfield.note_size(),
+                    border.clone()
+                )));
+            }
 
-        // end
-        if self.end_y < self.playfield.hit_y() {
-            list.push(Box::new(Rectangle::new(
-                color,
-                MANIA_NOTE_DEPTH,
-                Vector2::new(self.pos.x, self.end_y),
-                self.playfield.note_size(),
-                border.clone()
-            )));
+            // end
+            if self.end_y > self.playfield.hit_y() {
+                list.push(Box::new(Rectangle::new(
+                    color,
+                    MANIA_NOTE_DEPTH,
+                    Vector2::new(self.pos.x, self.end_y),
+                    self.playfield.note_size(),
+                    border.clone()
+                )));
+            }
+        } else {
+            // start
+            if self.pos.y < self.playfield.hit_y() {
+                list.push(Box::new(Rectangle::new(
+                    color,
+                    MANIA_NOTE_DEPTH,
+                    self.pos,
+                    self.playfield.note_size(),
+                    border.clone()
+                )));
+            }
+
+            // end
+            if self.end_y < self.playfield.hit_y() {
+                list.push(Box::new(Rectangle::new(
+                    color,
+                    MANIA_NOTE_DEPTH,
+                    Vector2::new(self.pos.x, self.end_y),
+                    self.playfield.note_size(),
+                    border.clone()
+                )));
+            }
         }
 
         // draw hold fragments
@@ -231,7 +266,8 @@ impl ManiaHitObject for ManiaHold {
     fn miss(&mut self, _time:f32) {}
 
     fn y_at(&self, time:f32) -> f64 {
-        self.playfield.hit_y() - ((self.time - time) * self.speed) as f64
+        let speed = self.speed * if self.playfield.upside_down {-1.0} else {1.0};
+        self.playfield.hit_y() - ((self.time - time) * speed) as f64
     }
 
     fn set_sv(&mut self, sv:f32) {
