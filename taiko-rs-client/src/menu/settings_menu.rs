@@ -125,7 +125,11 @@ impl Menu<Game> for SettingsMenu {
         let window_size = Settings::window_size();
 
         // background
-        list.push(visibility_bg(Vector2::new(10.0, SCROLLABLE_YOFFSET), Vector2::new(window_size.x - 20.0, window_size.y - SCROLLABLE_YOFFSET*2.0)));
+        list.push(visibility_bg(
+            Vector2::new(10.0, SCROLLABLE_YOFFSET), 
+            Vector2::new(window_size.x - 20.0, window_size.y - SCROLLABLE_YOFFSET*2.0),
+            10.0
+        ));
 
         list
     }

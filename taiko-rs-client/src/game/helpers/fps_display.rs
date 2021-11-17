@@ -68,8 +68,6 @@ impl FpsDisplay {
             font.clone()
         )));
 
-        let mut r = visibility_bg(self.pos, SIZE);
-        r.depth = -99_999_999.98;
-        list.push(r);
+        list.push(visibility_bg(self.pos, SIZE, -99_999_999.98));
     }
 }

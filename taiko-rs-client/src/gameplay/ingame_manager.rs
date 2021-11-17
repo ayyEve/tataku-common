@@ -554,7 +554,8 @@ impl IngameManager {
         // score bg
         list.push(visibility_bg(
             Vector2::new(window_size.x - 200.0, 10.0),
-            Vector2::new(180.0, 75.0 - 10.0)
+            Vector2::new(180.0, 75.0 - 10.0),
+            1.0
         ));
         // score text
         list.push(Box::new(Text::new(

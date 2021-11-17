@@ -136,7 +136,11 @@ impl Menu<Game> for ScoreMenu {
         list.extend(self.graph.draw(args, Vector2::zero(), depth));
         
         // draw background so score info is readable
-        list.push(visibility_bg(Vector2::one() * 5.0, Vector2::new(window_size.x * 2.0/3.0, window_size.y - 5.0)));
+        list.push(visibility_bg(
+            Vector2::one() * 5.0, 
+            Vector2::new(window_size.x * 2.0/3.0, window_size.y - 5.0),
+            depth + 10.0
+        ));
 
         list
     }
