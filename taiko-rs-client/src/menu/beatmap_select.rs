@@ -397,21 +397,16 @@ impl Menu<Game> for BeatmapSelectMenu {
         }
 
         if mods.ctrl {
+            let speed = &mut ModManager::get().speed;
+
+            let prev_speed = *speed;
+
+            const SPEED_DIFF:f32 = 0.2;
+
             match key {
-                // map speed up
-                Equals => {
-                    let speed = &mut ModManager::get().speed;
-                    *speed += 0.2;
-
-                    NotificationManager::add_text_notification(&format!("Map speed: {:.2}x", speed), 2000.0, Color::BLUE);
-                }
-                // map speed down
-                Minus => {
-                    let speed = &mut ModManager::get().speed;
-                    *speed -= 0.2;
-                    NotificationManager::add_text_notification(&format!("Map speed: {:.2}x", speed), 2000.0, Color::BLUE);
-                }
-
+                Equals => *speed += SPEED_DIFF, // map speed up
+                Minus => *speed -= SPEED_DIFF, // map speed down
+                 
                 // autoplay enable/disable
                 A => {
                     let mut manager = ModManager::get();
@@ -423,6 +418,12 @@ impl Menu<Game> for BeatmapSelectMenu {
 
                 _ => {}
             }
+
+            *speed = speed.clamp(SPEED_DIFF, 10.0);
+            if *speed != prev_speed {
+                NotificationManager::add_text_notification(&format!("Map speed: {:.2}x", speed), 2000.0, Color::BLUE);
+            }
+
             
         }
 
