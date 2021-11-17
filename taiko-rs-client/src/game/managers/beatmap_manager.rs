@@ -132,7 +132,11 @@ impl BeatmapManager {
     }
 
     // setters
-    pub fn set_current_beatmap(&mut self, game:&mut Game, beatmap:&BeatmapMeta, do_async:bool, use_preview_time:bool) {
+    pub fn set_current_beatmap(&mut self, game:&mut Game, beatmap:&BeatmapMeta, mut do_async:bool, use_preview_time:bool) {
+
+        // dont async with bass, causes race conditions + double audio bugs
+        do_async = false;
+        
         self.current_beatmap = Some(beatmap.clone());
         if let Some(map) = self.current_beatmap.clone() {
             self.played.push(map.beatmap_hash.clone());

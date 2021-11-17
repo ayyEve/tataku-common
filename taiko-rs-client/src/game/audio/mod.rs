@@ -47,8 +47,8 @@ pub struct Audio {
 }
 impl Audio {
     pub fn play_song(path: impl AsRef<str>, restart:bool, position: f32) -> TaikoResult<StreamChannel> {
-        println!("[audio] // play_song - playing song");
-        // check if we;re already playing, if restarting is allowed
+        println!("[audio] // play_song - playing {}", path.as_ref());
+        // check if we're already playing, if restarting is allowed
         let string_path = path.as_ref().to_owned();
 
         if let Some((c_path, audio)) = CURRENT_SONG.lock().clone() {
@@ -94,6 +94,7 @@ impl Audio {
         // double check the song is stopped when we get here
         if let Some((_, song)) = CURRENT_SONG.lock().clone() {
             if let Ok(PlaybackState::Playing) = song.get_playback_state() {
+                println!("double stopping song: {}", Arc::strong_count(&song.channel.handle));
                 song.stop().unwrap();
             }
         }
