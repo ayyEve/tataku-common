@@ -117,6 +117,11 @@ impl IngameManager {
         }
     }
 
+    pub fn should_save_score(&self) -> bool {
+        !(self.replaying || self.current_mods.autoplay)
+    }
+
+
     pub fn current_timing_point(&self) -> TimingPoint {
         self.timing_points[self.timing_point_index]
     }
