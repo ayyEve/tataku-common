@@ -523,6 +523,7 @@ impl GameMode for StandardGame {
             )))
         }
 
+        // draw hit indicators
         let time = manager.time();
         for (p_time, pos, pts) in self.draw_points.iter() {
             let color;
@@ -539,7 +540,7 @@ impl GameMode for StandardGame {
                 color.alpha(alpha),
                 -99_999.9,
                 *pos,
-                20.0
+                CIRCLE_RADIUS_BASE * self.scaling_helper.scaled_cs * (1.0/3.0)
             )))
         }
 
@@ -548,7 +549,7 @@ impl GameMode for StandardGame {
             note.draw(args, list);
         }
 
-        // draw follow
+        // draw follow points
         if self.settings.draw_follow_points {
             for i in 0..self.notes.len() - 1 {
                 if !self.new_combos.contains(&(i + 1)) {
