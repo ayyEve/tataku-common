@@ -391,6 +391,7 @@ impl Menu<Game> for BeatmapSelectMenu {
 
             if let Some(new_mode) = new_mode {
                 self.mode = new_mode;
+                self.load_scores();
                 NotificationManager::add_text_notification(&format!("Mode changed to {:?}", new_mode), 1000.0, Color::BLUE);
             }
         }
