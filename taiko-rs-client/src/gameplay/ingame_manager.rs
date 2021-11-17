@@ -7,24 +7,30 @@ use opengl_graphics::GlyphCache;
 
 use crate::game::managers::ModManager;
 use crate::{beatmaps::Beatmap, errors::TaikoError};
-use crate::game::{Audio, BackgroundGameSettings, Settings};
 use crate::beatmaps::osu::hitobject_defs::HitSamples;
+use crate::game::{Audio, BackgroundGameSettings, Settings};
 use crate::helpers::centered_text_helper::CenteredTextHelper;
 use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
 use crate::{Vector2, sync::*, helpers::{visibility_bg, io::exists}};
 use crate::beatmaps::common::{BeatmapMeta, TaikoRsBeatmap, TimingPoint};
 use crate::render::{Renderable, Rectangle, Text, Color, Border, fonts::get_font};
 
-const LEAD_IN_TIME:f32 = 1000.0; // how much time should pass at beatmap start before audio begins playing (and the map "starts")
-const OFFSET_DRAW_TIME:f32 = 2_000.0; // how long should the offset be drawn for?
-pub const DURATION_HEIGHT:f64 = 35.0; // how tall is the duration bar
+/// how much time should pass at beatmap start before audio begins playing (and the map "starts")
+const LEAD_IN_TIME:f32 = 1000.0;
+/// how long should the offset be drawn for?
+const OFFSET_DRAW_TIME:f32 = 2_000.0;
+/// how tall is the duration bar
+pub const DURATION_HEIGHT:f64 = 35.0;
 
 
 const HIT_TIMING_BAR_SIZE:Vector2 = Vector2::new(300.0, 30.0);
 const HIT_TIMING_BAR_POS:Vector2 = Vector2::new(200.0 - HIT_TIMING_BAR_SIZE.x / 2.0, -(DURATION_HEIGHT + 3.0 + HIT_TIMING_BAR_SIZE.y + 5.0));
-const HIT_TIMING_DURATION:f32 = 1_000.0; // how long should a hit timing line last
-const HIT_TIMING_FADE:f32 = 300.0; // how long to fade out for
-const HIT_TIMING_BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0); // hit timing bar color
+/// how long should a hit timing line last
+const HIT_TIMING_DURATION:f32 = 1_000.0;
+/// how long to fade out for
+const HIT_TIMING_FADE:f32 = 300.0;
+/// hit timing bar color
+const HIT_TIMING_BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0);
 
 
 pub struct IngameManager {
@@ -764,8 +770,8 @@ impl GameMode for NoMode {
 //     beatmap_sounds: HashMap<String, HashMap<u8, Sound>>
 // }
 // impl HitsoundManager {
-
 // }
+
 
 lazy_static::lazy_static! {
     static ref EMPTY_STREAM:StreamChannel = {
