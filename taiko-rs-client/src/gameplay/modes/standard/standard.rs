@@ -731,6 +731,7 @@ impl GameMode for StandardGame {
         let time = self.notes[0].time() - self.notes[0].get_preempt();
         if time < manager.time() {return}
 
+        if time < 0.0 {return}
         manager.song.set_position(time as f64).unwrap();
     }
 

@@ -558,6 +558,7 @@ impl GameMode for TaikoGame {
                 manager.lead_in_time = 0.01;
             }
         }
+        if time < 0.0 {return}
 
         manager.song.set_position(time as f64).unwrap();
     }

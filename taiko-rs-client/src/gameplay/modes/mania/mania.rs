@@ -606,6 +606,7 @@ impl GameMode for ManiaGame {
             }
         }
 
+        if time < 0.0 {return}
         manager.song.set_position(time as f64).unwrap();
     }
 
