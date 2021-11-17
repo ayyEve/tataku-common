@@ -349,7 +349,7 @@ impl Game {
                         let score = &manager.score;
                         let replay = &manager.replay;
 
-                        if !manager.should_save_score() {
+                        if manager.should_save_score() {
                             // save score
                             save_score(&score);
                             match save_replay(&replay, &score) {
