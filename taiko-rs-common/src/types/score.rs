@@ -1,12 +1,13 @@
 use core::fmt;
+use crate::types::PlayMode;
 use crate::serialization::{Serializable, SerializationReader, SerializationWriter};
 
-use super::PlayMode;
 
-const CURRENT_VERSION: u16 = 1;
+const CURRENT_VERSION: u16 = 2;
 
 #[derive(Clone, Debug, Default)]
 pub struct Score {
+    pub version: u16,
     pub username: String,
     pub beatmap_hash: String,
     pub playmode: PlayMode,
@@ -20,6 +21,7 @@ pub struct Score {
     pub xkatu: u16,
     pub xmiss: u16,
     pub accuracy: f64,
+    pub speed: f32,
 
     /// time diff for actual note hits. if the note wasnt hit, it wont be here
     /// (user_hit_time - correct_time)
@@ -28,6 +30,7 @@ pub struct Score {
 impl Score {
     pub fn new(beatmap_hash:String, username:String, playmode:PlayMode) -> Score {
         Score {
+            version: CURRENT_VERSION,
             username,
             beatmap_hash,
             playmode,
@@ -41,12 +44,17 @@ impl Score {
             xkatu: 0,
             xmiss: 0,
             accuracy: 0.0,
+            speed: 1.0,
             hit_timings: Vec::new()
         }
     }
     pub fn hash(&self) -> String {
         // TODO! lol
-        format!("{}-{},{},{},{},{},{}", self.beatmap_hash, self.score, self.combo, self.max_combo, self.x100,self.x300,self.xmiss)
+        match self.version {
+            // v1 hash didnt have the playmode
+            1 => format!("{}-{},{},{},{},{},{}", self.beatmap_hash, self.score, self.combo, self.max_combo, self.x100,self.x300,self.xmiss),
+            _ => format!("{}-{},{},{},{},{},{},{:?}", self.beatmap_hash, self.score, self.combo, self.max_combo, self.x100,self.x300,self.xmiss,self.playmode)
+        }
     }
 
     ///0-1
@@ -151,9 +159,19 @@ impl Score {
 }
 impl Serializable for Score {
     fn read(sr: &mut SerializationReader) -> Self {
-        let _version = sr.read_u16();
+        let version = sr.read_u16();
+        macro_rules! version {
+            ($v:expr, $def:expr) => {
+                if version >= $v {
+                    sr.read()
+                } else {
+                    $def
+                }
+            };
+        }
 
         Score {
+            version,
             username: sr.read(),
             beatmap_hash: sr.read(),
             playmode: sr.read(),
@@ -167,6 +185,8 @@ impl Serializable for Score {
             xkatu: sr.read(),
             xmiss: sr.read(),
             accuracy: sr.read(),
+            speed: version!(2, 0.0),
+
             hit_timings: Vec::new()
         }
     }
@@ -206,6 +226,7 @@ impl fmt::Display for Score {
         )
     }
 }
+
 
 
 #[derive(Copy, Clone, Debug)]

@@ -204,7 +204,7 @@ async fn get_scores(data:Data<'_>) -> std::io::Result<Vec<u8>> {
     let scores: Vec<ScoresModel> = Scores::find().filter(scores_table::Column::Playmode.eq(mode as i16)).filter(scores_table::Column::Beatmaphash.eq(hash)).all(DATABASE.get().unwrap()).await.unwrap();
 
     let new_scores: Vec<Score> = scores.iter().map(|score| {
-        let mut new_score: Score = Score::new(score.beatmaphash.clone(), score.username.clone(), (score.playmode as u8).into());
+        let mut new_score:Score = Score::new(score.beatmaphash.clone(), score.username.clone(), (score.playmode as u8).into());
 
         new_score.score = score.score as u64;
         new_score.combo = score.combo as u16;

@@ -609,27 +609,27 @@ impl ScrollableItem for BeatmapsetItem {
 
 
 
-struct LeaderboardItem {
+pub struct LeaderboardItem {
     pos: Vector2,
     hover: bool,
     selected: bool,
     tag: String,
 
     score: Score,
-    acc: f64,
+    font: Arc<Mutex<opengl_graphics::GlyphCache<'static>>>
 }
 impl LeaderboardItem {
     pub fn new(score:Score) -> LeaderboardItem {
         let tag = score.username.clone();
-        let acc = score.acc() * 100.0;
+        let font = get_font("main");
 
         LeaderboardItem {
             pos: Vector2::zero(),
             score,
             tag,
-            acc,
             hover: false,
-            selected: false
+            selected: false,
+            font
         }
     }
 }
@@ -647,7 +647,6 @@ impl ScrollableItem for LeaderboardItem {
 
     fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut items: Vec<Box<dyn Renderable>> = Vec::new();
-        let font = get_font("main");
 
         // bounding rect
         items.push(Box::new(Rectangle::new(
@@ -665,7 +664,7 @@ impl ScrollableItem for LeaderboardItem {
             self.pos+pos_offset + Vector2::new(5.0, 20.0),
             15,
             format!("{}: {}", self.score.username, crate::format(self.score.score)),
-            font.clone()
+            self.font.clone()
         )));
 
         // combo text
@@ -674,8 +673,8 @@ impl ScrollableItem for LeaderboardItem {
             parent_depth + 4.0,
             self.pos+pos_offset+Vector2::new(5.0, 40.0),
             12,
-            format!("{}x, {:.2}%", crate::format(self.score.max_combo), self.acc),
-            font.clone()
+            format!("{}x, {:.2}%", crate::format(self.score.max_combo), self.score.acc() * 100.0),
+            self.font.clone()
         )));
 
         items

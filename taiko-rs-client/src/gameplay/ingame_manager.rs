@@ -74,19 +74,24 @@ impl IngameManager {
         let playmode = gamemode.playmode();
         let metadata = beatmap.get_beatmap_meta();
 
-        let hitsound_cache = HashMap::new();
         let settings = Settings::get_mut().clone();
         let timing_points = beatmap.get_timing_points();
         let font = get_font("main");
+        let hitsound_cache = HashMap::new();
+
+        let current_mods = Arc::new(ModManager::get().clone());
+
+        let mut score =  Score::new(beatmap.hash().clone(), settings.username.clone(), playmode);
+        score.speed = current_mods.speed;
 
         Self {
             metadata,
             timing_points,
             hitsound_cache,
-            current_mods: Arc::new(ModManager::get().clone()),
+            current_mods,
 
             lead_in_timer: Instant::now(),
-            score: Score::new(beatmap.hash().clone(), settings.username.clone(), playmode),
+            score,
 
             replay: Replay::new(),
             beatmap,
@@ -118,7 +123,9 @@ impl IngameManager {
     }
 
     pub fn should_save_score(&self) -> bool {
-        !(self.replaying || self.current_mods.autoplay)
+        let should = !(self.replaying || self.current_mods.autoplay);
+        println!("should?: {}", should);
+        should
     }
 
 
@@ -193,11 +200,14 @@ impl IngameManager {
                 
                 self.lead_in_timer = Instant::now();
                 self.lead_in_time = LEAD_IN_TIME;
+
+                if self.replaying {
+                    self.song.set_rate(self.replay.speed).unwrap();
+                }
             }
 
             // volume is set when the song is actually started (when lead_in_time is <= 0)
             self.started = true;
-            return;
 
         } else if self.lead_in_time <= 0.0 {
             // if this is the menu, dont do anything
@@ -219,10 +229,14 @@ impl IngameManager {
         // might mess with lead-in but meh
     }
     pub fn reset(&mut self) {
-        println!("reset");
         let settings = Settings::get();
         
-        if !self.menu_background {
+        self.gamemode.reset(&self.beatmap);
+
+        if self.menu_background {
+            self.background_game_settings = settings.background_game_settings.clone();
+            self.gamemode.apply_auto(&self.background_game_settings)
+        } else {
             // reset song
             // match self.song.upgrade() {
             //     Some(song) => {
@@ -239,16 +253,9 @@ impl IngameManager {
             //         song.pause();
             //     }
             // }
-            
             self.song.set_rate(self.current_mods.speed).unwrap();
             self.song.set_position(0.0).unwrap();
             self.song.pause().unwrap();
-        }
-
-        self.gamemode.reset(&self.beatmap);
-        if self.menu_background {
-            self.background_game_settings = settings.background_game_settings.clone();
-            self.gamemode.apply_auto(&self.background_game_settings)
         }
 
         self.completed = false;
@@ -264,10 +271,14 @@ impl IngameManager {
         self.timing_bar_things = self.gamemode.timing_bar_things();
         self.hitbar_timings = Vec::new();
 
-
-        // only reset the replay if we arent replaying
-        if !self.replaying {
+        
+        if self.replaying {
+            // if we're replaying, make sure we're using the score's speed
+            self.song.set_rate(self.replay.speed).unwrap();
+        } else {
+            // only reset the replay if we arent replaying
             self.replay = Replay::new();
+            self.score.speed = self.current_mods.speed;
         }
     }
 
@@ -277,13 +288,18 @@ impl IngameManager {
         if self.lead_in_time > 0.0 {
             let elapsed = self.lead_in_timer.elapsed().as_micros() as f32 / 1000.0;
             self.lead_in_timer = Instant::now();
-            self.lead_in_time -= elapsed * self.current_mods.speed;
+            self.lead_in_time -= elapsed * if self.replaying {self.replay.speed} else {self.current_mods.speed};
 
             if self.lead_in_time <= 0.0 {
                 // let song = self.song.upgrade().unwrap();
                 self.song.set_position(-self.lead_in_time as f64).unwrap();
                 self.song.set_volume(Settings::get().get_music_vol()).unwrap();
-                self.song.set_rate(self.current_mods.speed).unwrap();
+                if self.replaying {
+                    self.song.set_rate(self.replay.speed).unwrap();
+                } else {
+                    self.song.set_rate(self.current_mods.speed).unwrap();
+                }
+                
                 self.song.play(true).unwrap();
                 self.lead_in_time = 0.0;
             }
@@ -752,6 +768,7 @@ impl GameMode for NoMode {
 
 lazy_static::lazy_static! {
     static ref EMPTY_STREAM:StreamChannel = {
+        // wave file bytes with ~1 sample
         StreamChannel::create_from_memory(vec![0x52,0x49,0x46,0x46,0x28,0x00,0x00,0x00,0x57,0x41,0x56,0x45,0x66,0x6D,0x74,0x20,0x10,0x00,0x00,0x00,0x01,0x00,0x02,0x00,0x44,0xAC,0x00,0x00,0x88,0x58,0x01,0x00,0x02,0x00,0x08,0x00,0x64,0x61,0x74,0x61,0x04,0x00,0x00,0x00,0x80,0x80,0x80,0x80], 0i32).expect("error creating empty StreamChannel")
     };
 }

@@ -155,6 +155,7 @@ impl Menu<Game> for ScoreMenu {
                         Ok(mut manager) => {
                             manager.replaying = true;
                             manager.replay = replay.clone();
+                            manager.replay.speed = self.score.speed;
                             game.queue_state_change(GameState::Ingame(manager));
                         },
                         Err(e) => NotificationManager::add_error_notification("Error loading beatmap", e)
