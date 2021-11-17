@@ -10,7 +10,7 @@ use std::{
 use tokio::sync::{Mutex, OnceCell};
 use tokio::net::{TcpListener, TcpStream};
 use futures_util::{SinkExt, StreamExt, stream::SplitSink};
-use sea_orm::{DbBackend, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, Set, Statement, Unset, Value, FromQueryResult};
+use sea_orm::{DbBackend, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set, Statement, FromQueryResult};
 use tokio_tungstenite::{WebSocketStream, accept_async, tungstenite::protocol::Message};
 
 use taiko_rs_common::serialization::*;
@@ -19,8 +19,8 @@ use taiko_rs_common::types::{PlayMode, UserAction};
 
 use argon2::{
     password_hash::{
-        rand_core::OsRng,
-        PasswordHash, PasswordHasher, PasswordVerifier, SaltString
+        PasswordHash,
+        PasswordVerifier
     },
     Argon2
 };
@@ -191,7 +191,7 @@ async fn get_user_score_info(user_id: u32, mode: PlayMode) -> (i64, i64, f64, i3
                 None => { }
             };
         },
-        Err(e) => { }
+        Err(_e) => { }
     }
 
     #[derive(Debug, FromQueryResult)]

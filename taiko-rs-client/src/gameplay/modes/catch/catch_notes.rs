@@ -36,6 +36,7 @@ pub trait CatchHitObject: HitObject {
 
 
 // normal note
+#[allow(dead_code)]
 #[derive(Clone, Copy)]
 pub struct CatchFruit {
     pos: Vector2,

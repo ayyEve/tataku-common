@@ -103,7 +103,7 @@ impl BeatmapSelectMenu {
             self.current_scores.clear();
 
             // load scores
-            let mut scores = get_scores(&map.beatmap_hash);
+            let mut scores = get_scores(&map.beatmap_hash, map.check_mode_override(self.mode));
             scores.sort_by(|a, b| b.score.cmp(&a.score));
 
             // add scores to list

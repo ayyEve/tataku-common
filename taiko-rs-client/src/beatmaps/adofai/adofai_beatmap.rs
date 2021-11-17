@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::path::Path;
 
 use serde::Deserialize;
@@ -56,7 +57,7 @@ impl AdofaiBeatmap {
 
         for (num, char) in chars.iter().enumerate() {
             if num == 0 {
-                let note = AdofaiNoteDef {
+                let _note = AdofaiNoteDef {
                     time: current_time,
                     direction: *char
                 };
@@ -152,7 +153,7 @@ impl TaikoRsBeatmap for AdofaiBeatmap {
         }
     }
 
-    fn playmode(&self, incoming:PlayMode) -> PlayMode {
+    fn playmode(&self, _incoming:PlayMode) -> PlayMode {
         //TODO
         PlayMode::Taiko
     }

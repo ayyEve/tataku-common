@@ -158,7 +158,7 @@ impl HitObject for ManiaHold {
         }
 
     }
-    fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
+    fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         // if self.playfield.upside_down {
         //     if self.end_y < 0.0 || self.pos.y > args.window_size[1] as f64 {return}
         // } 

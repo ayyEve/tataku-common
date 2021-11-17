@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_variables, unused_mut, unreachable_code)]
 use piston::RenderArgs;
 use ayyeve_piston_ui::render::*;
 

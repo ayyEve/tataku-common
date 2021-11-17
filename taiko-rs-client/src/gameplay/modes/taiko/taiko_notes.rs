@@ -273,7 +273,7 @@ impl TaikoHitObject for TaikoSlider {
         if time < self.time || time > self.end_time {return ScoreHit::None}
 
         self.hit_dots.push(SliderDot::new(time, self.speed));
-        ScoreHit::Other(100, false)
+        ScoreHit::Other(if self.finisher {200} else {100}, false)
     }
 
 }

@@ -1,9 +1,9 @@
-use taiko_rs_common::{serialization::*, types::{Replay, Score}};
+use taiko_rs_common::{serialization::*, types::{PlayMode, Replay, Score}};
 use crate::REPLAYS_DIR;
 
-pub fn get_scores(hash:&String) -> Vec<Score> {
+pub fn get_scores(hash:&String, playmode:PlayMode) -> Vec<Score> {
     let db = crate::databases::DATABASE.lock();
-    let mut s = db.prepare(&format!("SELECT * FROM scores WHERE map_hash='{}'", hash)).unwrap();
+    let mut s = db.prepare(&format!("SELECT * FROM scores WHERE map_hash='{}' AND playmode={}", hash, playmode as u8)).unwrap();
 
     s.query_map([], |r| {
         let _score_hash:String = r.get("score_hash")?;
