@@ -219,7 +219,7 @@ impl IngameManager {
             // if this is the menu, dont do anything
             if self.menu_background {return}
 
-            self.song.play(true).unwrap();
+            self.song.play(false).unwrap();
 
             // // needed because if paused for a while it can crash
             // match self.song.upgrade() {
