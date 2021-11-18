@@ -218,7 +218,7 @@ impl IngameManager {
         } else if self.lead_in_time <= 0.0 {
             // if this is the menu, dont do anything
             if self.menu_background {return}
-
+            
             self.song.play(false).unwrap();
 
             // // needed because if paused for a while it can crash
