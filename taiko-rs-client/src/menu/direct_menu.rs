@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::{fs::File, io::Write};
 use piston::{Key, MouseButton};
+use taiko_rs_common::types::PlayMode;
 
 use crate::sync::Arc;
 use crate::{DOWNLOADS_DIR, Vector2};
@@ -20,6 +21,9 @@ const DIRECT_ITEM_SIZE:Vector2 = Vector2::new(500.0, 80.0);
 //TODO: properly implement this lol
 const MAX_CONCURRENT_DOWNLOADS:usize = 5;
 
+// this whole thing should probably be rewritten 
+// now that i know what im doing lmao
+
 pub struct OsuDirectMenu {
     scroll_area: ScrollableArea,
 
@@ -32,11 +36,14 @@ pub struct OsuDirectMenu {
     /// attempted? succeeded? (path, pos)
     old_audio: Option<Option<(String, f32)>>,
 
-    search_bar: TextInput
+
+    search_bar: TextInput,
+    mode: PlayMode,
+    status: MapStatus,
+    _converts: bool,
 }
 impl OsuDirectMenu {
-    pub fn new() -> OsuDirectMenu {
-
+    pub fn new(mode: PlayMode) -> OsuDirectMenu {
         let window_size = Settings::window_size();
 
         let mut x = OsuDirectMenu {
@@ -46,9 +53,12 @@ impl OsuDirectMenu {
             items: HashMap::new(),
             selected: None,
             search_bar: TextInput::new(Vector2::zero(), Vector2::new(window_size.x , SEARCH_BAR_HEIGHT), "Search", ""),
-            old_audio: None
+            old_audio: None,
+
+            mode,
+            status: MapStatus::Ranked,
+            _converts: false
         };
-        // TODO: [audio] pause playing music, store song and pos. on close, put it back how it was
 
         x.do_search();
         x
@@ -57,7 +67,15 @@ impl OsuDirectMenu {
         let q = self.search_bar.get_text();
         let settings = Settings::get();
 
-        let data = do_search(settings.osu_username, settings.osu_password, 1, 0, 0, if q.len() > 0 {Some(q)} else {None});
+        let data = do_search(
+            settings.osu_username, 
+            settings.osu_password, 
+            self.mode as u8, 
+            0, 
+            0, 
+            if q.len() > 0 {Some(q)} else {None},
+            self.status as i8
+        );
         let mut lines = data.split('\n');
         let count = lines.next().unwrap_or("0").parse::<i32>().unwrap_or(0);
         if count <= 0 {return}
@@ -254,11 +272,51 @@ impl Menu<Game> for OsuDirectMenu {
     }
 
     fn on_key_press(&mut self, key:Key, game:&mut Game, mods:KeyModifiers) {
+        use piston::Key::*;
         self.search_bar.on_key_press(key, mods);
+        if key == Escape {return self.back(game)}
 
-        if key == Key::Escape {return self.back(game)}
 
-        if key == Key::Return {
+        if mods.alt {
+            let new_mode = match key {
+                D1 => Some(PlayMode::Standard),
+                D2 => Some(PlayMode::Taiko),
+                D3 => Some(PlayMode::Catch),
+                D4 => Some(PlayMode::Mania),
+                _ => None
+            };
+
+            if let Some(new_mode) = new_mode {
+                if self.mode != new_mode {
+                    self.mode = new_mode;
+                    self.do_search();
+                    NotificationManager::add_text_notification(&format!("Searching for {:?} maps", new_mode), 1000.0, Color::BLUE);
+                }
+            }
+        }
+        if mods.ctrl {
+            let new_status = match key {
+                D1 => Some(MapStatus::Graveyarded),
+                D2 => Some(MapStatus::Ranked),
+                D3 => Some(MapStatus::Approved),
+                D4 => Some(MapStatus::Pending),
+                D5 => Some(MapStatus::Loved),
+                D6 => Some(MapStatus::All),
+                _ => None
+            };
+
+            if let Some(new_status) = new_status {
+                if self.status != new_status {
+                    self.status = new_status;
+                    self.do_search();
+                    NotificationManager::add_text_notification(&format!("Searching for {:?} maps", new_status), 1000.0, Color::BLUE);
+                }
+            }
+        }
+
+
+
+        if key == Return {
             self.do_search();
         }
     }
@@ -269,16 +327,23 @@ impl Menu<Game> for OsuDirectMenu {
 }
 
 
-fn do_search(username:String, password:String, mode:u8, page:u8, sort:u8, query:Option<String>) -> String {
+fn do_search(username:String, password:String, mode:u8, page:u8, sort:u8, query:Option<String>, status: i8) -> String {
     println!("doing search");
     let password:String = format!("{:x}", md5::compute(password));
 
-    let mut url = format!("https://osu.ppy.sh/web/osu-search.php?u={}&h={}&m={}&p={}&s={}", username, password, mode, page, sort);
-    if let Some(q) = query {
-        url += format!("&q={}", q).as_str();
-    }
+    let url = format!(
+        "https://osu.ppy.sh/web/osu-search.php?u={}&h={}&m={}&p={}&s={}&r={}{}",
+        username, 
+        password, 
+        mode, 
+        page, 
+        sort,
+        status,
+        // query
+        if let Some(q) = query {format!("&q={}", q)} else {String::new()}
+    );
 
-    // url = "https://osu.ppy.sh/web/osu-search.php?u=emibot&h=cdcda2be9c41247386eaa646edb132c2".to_owned();
+    // url = "https://osu.ppy.sh/web/osu-search.php?u=[]&h=[]".to_owned();
     let body = reqwest::blocking::get(url)
         .expect("error with request")
         .text()
@@ -289,6 +354,7 @@ fn do_search(username:String, password:String, mode:u8, page:u8, sort:u8, query:
 
 /// perform a download on another thread
 fn perform_download(url:String, path:String) {
+    println!("[Direct] downloading '{}' to '{}'", url, path);
     std::thread::spawn(move || {
         let file_bytes = reqwest::blocking::get(url)
             .expect("error with request")
@@ -333,8 +399,8 @@ impl DirectItem {
         self.downloading = true;
         let download_dir = format!("downloads/{}", self.item.filename.clone());
         
-        let username = Settings::get().username;
-        let password = Settings::get().password;
+        let username = Settings::get().osu_username;
+        let password = Settings::get().osu_password;
         let url = format!("https://osu.ppy.sh/d/{}?u={}&h={:x}", self.item.filename.clone(), username, md5::compute(password));
 
         perform_download(url, download_dir);
@@ -419,14 +485,28 @@ impl DirectMeta {
         let _ranking_status = split.next();
         let _rating = split.next();
         let _last_update = split.next();
-        let beatmapset_id = split.next().unwrap();
+        let set_id = split.next().expect("set_id").to_owned();
 
         DirectMeta {
-            set_id: beatmapset_id.to_owned(),
+            set_id,
             filename,
             artist,
             title,
             creator
         }
     }
+}
+
+
+
+#[repr(i8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MapStatus {
+    Ranked = 1,
+    Pending = 2,
+    // 3 is ??
+    All = 4,
+    Graveyarded = 5,
+    Approved = 6,
+    Loved = 8,
 }
