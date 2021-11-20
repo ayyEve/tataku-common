@@ -359,6 +359,7 @@ impl GameMode for StandardGame {
 
             self.auto_helper.update(time, &mut self.notes, &self.scaling_helper, &mut pending_frames);
 
+            // handle presses and mouse movements now, and releases later
             for frame in pending_frames.iter() {
                 self.handle_replay_frame(*frame, time, manager);
             }
@@ -453,6 +454,18 @@ impl GameMode for StandardGame {
         
         // remove old draw points
         self.draw_points.retain(|a| time < a.0 + POINTS_DRAW_DURATION);
+
+
+        // handle note releases
+        // required because autoplay frames are checked after the frame is processed
+        // so if the key is released on the same frame its checked, it will count as not held
+        // which makes sense, but we dont want that
+        if manager.current_mods.autoplay {
+            for frame in self.auto_helper.get_release_queue().iter() {
+                self.handle_replay_frame(*frame, time, manager);
+            }
+        }
+
     }
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
 
@@ -771,7 +784,9 @@ struct StandardAutoHelper {
     point_trail_end_pos: Vector2,
 
     /// list of notes currently being held
-    holding: Vec<usize>
+    holding: Vec<usize>,
+
+    release_queue:Vec<ReplayFrame>
 }
 impl StandardAutoHelper {
     fn new() -> Self {
@@ -782,8 +797,13 @@ impl StandardAutoHelper {
             point_trail_start_pos: Vector2::zero(),
             point_trail_end_pos: Vector2::zero(),
 
-            holding: Vec::new()
+            holding: Vec::new(),
+
+            release_queue: Vec::new()
         }
+    }
+    fn get_release_queue(&mut self) -> Vec<ReplayFrame> {
+        std::mem::take(&mut self.release_queue)
     }
 
     fn update(&mut self, time:f32, notes: &mut Vec<Box<dyn StandardHitObject>>, scaling_helper: &ScalingHelper, frames: &mut Vec<ReplayFrame>) {
@@ -794,8 +814,8 @@ impl StandardAutoHelper {
             if note.was_hit() {continue}
 
             if let Ok(ind) = self.holding.binary_search(&i) {
-                if time >= note.end_time(1.0) {
-                    frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
+                if time >= note.end_time(0.0) {
+                    self.release_queue.push(ReplayFrame::Release(KeyPress::LeftMouse));
 
                     let pos = scaling_helper.descale_coords(note.pos_at(time, &scaling_helper));
 
@@ -836,7 +856,7 @@ impl StandardAutoHelper {
                 
                 frames.push(ReplayFrame::Press(KeyPress::LeftMouse));
                 if note.note_type() == NoteType::Note {
-                    frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
+                    self.release_queue.push(ReplayFrame::Release(KeyPress::LeftMouse));
                 } else {
                     self.holding.push(i)
                 }
