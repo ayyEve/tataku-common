@@ -202,7 +202,7 @@ impl Game {
 
         {
             // input and rendering thread times
-            let settings = Settings::get_mut();
+            let settings = Settings::get_mut("Game::game_loop");
             events.set_max_fps(settings.fps_target);
             events.set_ups(settings.update_target);
         }

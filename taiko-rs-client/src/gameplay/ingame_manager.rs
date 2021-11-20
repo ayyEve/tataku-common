@@ -80,7 +80,7 @@ impl IngameManager {
         let playmode = gamemode.playmode();
         let metadata = beatmap.get_beatmap_meta();
 
-        let settings = Settings::get_mut().clone();
+        let settings = Settings::get_mut("IngameManager::new").clone();
         let timing_points = beatmap.get_timing_points();
         let font = get_font("main");
         let hitsound_cache = HashMap::new();
@@ -178,7 +178,7 @@ impl IngameManager {
 
     /// locks settings
     pub fn increment_global_offset(&mut self, delta:f32) {
-        let mut settings = Settings::get_mut();
+        let mut settings = Settings::get_mut("IngameManager::increment_global_offset");
         settings.global_offset += delta;
 
         let time = self.time();
@@ -218,7 +218,7 @@ impl IngameManager {
         } else if self.lead_in_time <= 0.0 {
             // if this is the menu, dont do anything
             if self.menu_background {return}
-            
+
             self.song.play(false).unwrap();
 
             // // needed because if paused for a while it can crash
@@ -356,7 +356,7 @@ impl IngameManager {
         let play_clap = (note_hitsound & 8) > 0; // 3: Clap
 
         // get volume
-        let mut vol = (if note_hitsamples.volume == 0 {timing_point.volume} else {note_hitsamples.volume} as f32 / 100.0) * Settings::get_mut().get_effect_vol();
+        let mut vol = (if note_hitsamples.volume == 0 {timing_point.volume} else {note_hitsamples.volume} as f32 / 100.0) * Settings::get_mut("IngameManager::play_note_sound").get_effect_vol();
         if self.menu_background {vol *= self.background_game_settings.hitsound_volume};
 
 
@@ -491,7 +491,7 @@ impl IngameManager {
 
         // check for offset changing keys
         {
-            let settings = Settings::get_mut();
+            let settings = Settings::get_mut("IngameManager::key_down");
             if mods.shift {
                 let mut t = 0.0;
                 if key == settings.key_offset_up {t = 5.0}

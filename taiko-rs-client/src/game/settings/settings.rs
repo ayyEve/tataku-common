@@ -14,7 +14,9 @@ const SETTINGS_FILE:&str = "settings.json";
 lazy_static::lazy_static! {
     static ref SETTINGS: Arc<Mutex<Settings>> = Arc::new(Mutex::new(Settings::load()));
 
-    pub static ref WINDOW_SIZE: OnceCell<Vector2> = OnceCell::new_with(Some(Settings::get_mut().window_size.into()));
+    pub static ref WINDOW_SIZE: OnceCell<Vector2> = OnceCell::new_with(Some(Settings::get_mut("WINDOW_SIZE").window_size.into()));
+
+    static ref LAST_CALLER:Arc<Mutex<&'static str>> = Arc::new(Mutex::new("None"));
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -93,7 +95,18 @@ impl Settings {
 
     /// relatively slow, if you need a more performant get, use get_mut
     pub fn get() -> Settings {SETTINGS.lock().clone()}
-    pub fn get_mut<'a>() -> MutexGuard<'a, Settings> {SETTINGS.lock()}
+
+    /// more performant, but can double lock if you arent careful
+    pub fn get_mut<'a>(caller:&'static str) -> MutexGuard<'a, Settings> {
+        if SETTINGS.is_locked() {
+            // panic bc the devs should know when this error occurs, as it completely locks up the app
+            let last_caller = LAST_CALLER.lock();
+            panic!("Settings Double Locked! Called by {}, last called by {}", caller, last_caller);
+        }
+
+        *LAST_CALLER.lock() = caller;
+        SETTINGS.lock()
+    }
 
     pub fn window_size() -> Vector2 {*WINDOW_SIZE.get().unwrap()}
 

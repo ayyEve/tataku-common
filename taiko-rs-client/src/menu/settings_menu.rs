@@ -76,7 +76,7 @@ impl SettingsMenu {
 
     pub fn finalize(&self, game:&mut Game) {
         // write settings to settings
-        let mut settings = Settings::get_mut();
+        let mut settings = Settings::get_mut("SettingsMenu::finalize");
 
         //TODO: can we setup a macro for this?
         if let Some(username) = self.scroll_area.get_tagged("username".to_owned()).first().unwrap().get_value().downcast_ref::<String>() {

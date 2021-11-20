@@ -83,7 +83,7 @@ impl GameMode for ManiaGame {
     fn new(beatmap:&Beatmap) -> Result<Self, crate::errors::TaikoError> {
         let metadata = beatmap.get_beatmap_meta();
 
-        let settings = Settings::get_mut().mania_settings.clone();
+        let settings = Settings::get_mut("ManiaGame::new").mania_settings.clone();
         let playfields = &settings.playfield_settings.clone();
         let auto_helper = ManiaAutoHelper::new();
 
