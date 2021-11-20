@@ -12,7 +12,7 @@ use argon2::{
 use rocket::{Data, data::ToByteUnit};
 use taiko_rs_common::{serialization::{SerializationReader, SerializationWriter}, types::Score};
 use tokio::sync::OnceCell;
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
+use sea_orm::{DbBackend, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set, Statement, FromQueryResult};
 
 mod scores_table;
 
@@ -39,7 +39,7 @@ async fn score_submit(data:Data<'_>) -> std::io::Result<()> {
     println!("submit shit idk");
     let mut bytes:Vec<u8> = Vec::new();
 
-    match data.open(1.gigabytes()).into_bytes().await {
+    match data.open(1u32.gigabytes()).into_bytes().await {
         Ok(capped_bytes) => {
             capped_bytes.iter().for_each(|b|bytes.push(*b));
         }
@@ -136,7 +136,10 @@ async fn recalc_user(username: String, user_id: i64, mode: PlayMode) {
 
     let user_data: Option<user_data_table::Model>;
 
-    match user_data_table::Entity::find().filter(user_data_table::Column::Mode.eq(mode as i16)).filter(user_data_table::Column::Userid.eq(user_id)).one(DATABASE.get().unwrap()).await {
+    match user_data_table::Entity::find()
+        .filter(user_data_table::Column::Mode.eq(mode as i16))
+        .filter(user_data_table::Column::Userid.eq(user_id))
+        .one(DATABASE.get().unwrap()).await {
         Ok(user_data_a) => {
             println!("query ok");
             user_data = user_data_a;
@@ -201,7 +204,12 @@ async fn get_scores(data:Data<'_>) -> std::io::Result<Vec<u8>> {
 
     let mut writer = SerializationWriter::new();
     
-    let scores: Vec<ScoresModel> = Scores::find().filter(scores_table::Column::Playmode.eq(mode as i16)).filter(scores_table::Column::Beatmaphash.eq(hash)).all(DATABASE.get().unwrap()).await.unwrap();
+    let scores: Vec<ScoresModel> = Scores::find()
+        .filter(scores_table::Column::Playmode.eq(mode as i16))
+        .filter(scores_table::Column::Beatmaphash.eq(hash))
+        .all(DATABASE.get().unwrap())
+        .await
+        .unwrap();
 
     let new_scores: Vec<Score> = scores.iter().map(|score| {
         let mut new_score:Score = Score::new(score.beatmaphash.clone(), score.username.clone(), (score.playmode as u8).into());
