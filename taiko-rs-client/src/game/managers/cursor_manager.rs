@@ -30,7 +30,7 @@ impl CursorManager {
             visible: true,
             replay_mode: false,
             replay_mode_changed: false,
-            color: Color::from_hex(&Settings::get_mut().cursor_color),
+            color: Color::from_hex(&Settings::get_mut("CursorManager::new").cursor_color),
 
             left_pressed: false,
             right_pressed: false
@@ -63,7 +63,7 @@ impl CursorManager {
             self.color,
             -f64::MAX,
             self.pos,
-            radius * Settings::get_mut().cursor_scale
+            radius * Settings::get_mut("CursorManager::draw").cursor_scale
         )));
 
     }

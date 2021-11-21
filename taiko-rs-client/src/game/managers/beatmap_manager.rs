@@ -1,7 +1,8 @@
 use std::{collections::HashMap, fs::{DirEntry, read_dir}, path::Path, time::Duration};
 
+use ayyeve_piston_ui::render::Color;
 use rand::Rng;
-use crate::{beatmaps::{Beatmap, common::{BeatmapMeta, TaikoRsBeatmap}}, sync::*};
+use crate::{beatmaps::{Beatmap, common::{BeatmapMeta, TaikoRsBeatmap}}, game::managers::NotificationManager, sync::*};
 use crate::game::{Audio, Game};
 use crate::{DOWNLOADS_DIR, SONGS_DIR, get_file_hash};
 
@@ -132,7 +133,7 @@ impl BeatmapManager {
     }
 
     // setters
-    pub fn set_current_beatmap(&mut self, game:&mut Game, beatmap:&BeatmapMeta, do_async:bool, use_preview_time:bool) {
+    pub fn set_current_beatmap(&mut self, game:&mut Game, beatmap:&BeatmapMeta, mut do_async:bool, use_preview_time:bool) {
         self.current_beatmap = Some(beatmap.clone());
         if let Some(map) = self.current_beatmap.clone() {
             self.played.push(map.beatmap_hash.clone());
@@ -141,6 +142,9 @@ impl BeatmapManager {
         // play song
         let audio_filename = beatmap.audio_filename.clone();
         let time = if use_preview_time {beatmap.audio_preview} else {0.0};
+
+        // dont async with bass, causes race conditions + double audio bugs
+        #[cfg(feature="neb_audio")]
         if do_async {
             tokio::spawn(async move {
                 Audio::play_song(audio_filename, false, time);
@@ -148,6 +152,8 @@ impl BeatmapManager {
         } else {
             Audio::play_song(audio_filename, false, time);
         }
+        #[cfg(feature="bass_audio")]
+        Audio::play_song(audio_filename, false, time).unwrap();
 
         // set bg
         game.set_background_beatmap(beatmap);
@@ -295,7 +301,14 @@ pub fn extract_all() {
                         }
 
                         let file = std::fs::File::open(filename.path().to_str().unwrap()).unwrap();
-                        let mut archive = zip::ZipArchive::new(file).unwrap();
+                        let mut archive = match zip::ZipArchive::new(file) {
+                            Ok(a) => a,
+                            Err(e) => {
+                                println!("[extract] Error extracting zip archive: {}", e);
+                                NotificationManager::add_text_notification("Error extracting file\nSee console for details", 3000.0, Color::RED);
+                                continue;
+                            }
+                        };
                         
                         for i in 0..archive.len() {
                             let mut file = archive.by_index(i).unwrap();
@@ -332,10 +345,10 @@ pub fn extract_all() {
                     
                         match std::fs::remove_file(filename.path().to_str().unwrap()) {
                             Ok(_) => {},
-                            Err(e) => println!("[extract] error deleting file: {}", e),
+                            Err(e) => println!("[extract] Error deleting file: {}", e),
                         }
                         
-                        println!("[extract] done");
+                        println!("[extract] Done");
                         // *completed.lock() += 1;
                     // });
                 }

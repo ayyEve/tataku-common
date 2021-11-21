@@ -1,8 +1,12 @@
-use super::*;
-
 use std::{fmt::Display, io::Error as IOError};
-use serde_json::Error as JsonError;
+
 use image::ImageError;
+
+#[cfg(feature="bass_audio")]
+use bass::prelude::BassError;
+use serde_json::Error as JsonError;
+
+use super::*;
 
 pub type TaikoResult<T> = Result<T, TaikoError>;
 
@@ -43,6 +47,11 @@ impl From<ImageError> for TaikoError {
 impl From<AudioError> for TaikoError {
     fn from(e: AudioError) -> Self {TaikoError::Audio(e)}
 }
+#[cfg(feature="bass_audio")]
+impl From<BassError> for TaikoError {
+    fn from(e: BassError) -> Self {TaikoError::Audio(AudioError::BassError(e))}
+}
+
 
 impl From<BeatmapError> for TaikoError {
     fn from(e: BeatmapError) -> Self {TaikoError::Beatmap(e)}

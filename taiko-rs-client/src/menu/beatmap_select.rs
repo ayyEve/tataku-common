@@ -1,15 +1,17 @@
 use std::collections::HashMap;
 
+#[cfg(feature="bass_audio")]
+use bass::prelude::PlaybackState;
 use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::menu_elements::TextInput;
 
-use crate::beatmaps::common::BeatmapMeta;
 use crate::render::{*, fonts::get_font};
+use crate::beatmaps::common::BeatmapMeta;
 use taiko_rs_common::types::{Score, PlayMode};
 use crate::gameplay::modes::manager_from_playmode;
 use crate::{Vector2, databases::get_scores, sync::*};
-use crate::game::managers::{BEATMAP_MANAGER, ModManager, NotificationManager};
 use crate::game::{Settings, Game, GameState, KeyModifiers, Audio};
+use crate::game::managers::{BEATMAP_MANAGER, ModManager, NotificationManager};
 use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
 
 
@@ -102,7 +104,7 @@ impl BeatmapSelectMenu {
             self.current_scores.clear();
 
             // load scores
-            let mut scores = get_scores(&map.beatmap_hash);
+            let mut scores = get_scores(&map.beatmap_hash, map.check_mode_override(self.mode));
             scores.sort_by(|a, b| b.score.cmp(&a.score));
 
             // add scores to list
@@ -132,37 +134,110 @@ impl Menu<Game> for BeatmapSelectMenu {
             self.refresh_maps();
         }
     
-        self.map_changing.2 += 1;
-        match self.map_changing {
-            // we know its changing but havent detected the previous song stop yet
-            (true, false, n) => {
-                // give it up to 1s before assuming its already loaded
-                if Audio::get_song().is_none() || n > 1000 {
-                    // println!("song loading");
-                    self.map_changing = (true, true, 0);
-                }
-            }
-            // we know its changing, and the previous song has ended
-            (true, true, _) => {
-                if Audio::get_song().is_some() {
-                    // println!("song loaded");
-                    self.map_changing = (false, false, 0);
+        #[cfg(feature="bass_audio")]
+        match Audio::get_song() {
+            Some(song) => {
+                match song.get_playback_state() {
+                    Ok(PlaybackState::Playing) => {},
+                    _ => {
+                        // restart the song at the preview point
+
+                        let lock = BEATMAP_MANAGER.lock();
+                        let map = lock.current_beatmap.as_ref().unwrap();
+                        if let Err(e) = song.set_position(map.audio_preview as f64) {
+                            println!("error setting position: {:?}", e);
+                        }
+                        song.play(false).unwrap();
+                    },
                 }
             }
 
-            // the song hasnt ended and we arent changing
-            (false, false, _) | (false, true, _) => {
-                if Audio::get_song().is_none() {
-                    // println!("song done");
-                    self.map_changing = (true, false, 0);
-                    tokio::spawn(async move {
-                        let lock = BEATMAP_MANAGER.lock();
-                        let map = lock.current_beatmap.as_ref().unwrap();
-                        Audio::play_song(map.audio_filename.clone(), true, map.audio_preview);
-                    });
+            // no value, set it to something
+            _ => {
+                let lock = BEATMAP_MANAGER.lock();
+                let map = lock.current_beatmap.as_ref().unwrap();
+                Audio::play_song(map.audio_filename.clone(), true, map.audio_preview).unwrap();
+            },
+        }
+
+        #[cfg(feature="neb_audio")] {
+
+            self.map_changing.2 += 1;
+            match self.map_changing {
+                // we know its changing but havent detected the previous song stop yet
+                (true, false, n) => {
+                    // give it up to 1s before assuming its already loaded
+                    if Audio::get_song().is_none() || n > 1000 {
+                        // println!("song loading");
+                        self.map_changing = (true, true, 0);
+                    }
+                }
+                // we know its changing, and the previous song has ended
+                (true, true, _) => {
+                    if Audio::get_song().is_some() {
+                        // println!("song loaded");
+                        self.map_changing = (false, false, 0);
+                    }
+                }
+    
+                // the song hasnt ended and we arent changing
+                (false, false, _) | (false, true, _) => {
+                    if Audio::get_song().is_none() {
+                        // println!("song done");
+                        self.map_changing = (true, false, 0);
+                        tokio::spawn(async move {
+                            let lock = BEATMAP_MANAGER.lock();
+                            let map = lock.current_beatmap.as_ref().unwrap();
+                            Audio::play_song(map.audio_filename.clone(), true, map.audio_preview);
+                        });
+                    }
                 }
             }
+    
         }
+
+        // self.map_changing.2 += 1;
+        // let mut song_done = false;
+        // match Audio::get_song() {
+        //     Some(song) => {
+        //         match song.get_playback_state() {
+        //             Ok(PlaybackState::Playing) | Ok(PlaybackState::Paused) => {},
+        //             _ => song_done = true,
+        //         }
+        //     }
+        //     _ => song_done = true,
+        // }
+        // i wonder if this can be simplified now
+        // match self.map_changing {
+        //     // we know its changing but havent detected the previous song stop yet
+        //     (true, false, n) => {
+        //         // give it up to 1s before assuming its already loaded
+        //         if song_done || n > 1000 {
+        //             // println!("song loading");
+        //             self.map_changing = (true, true, 0);
+        //         }
+        //     }
+        //     // we know its changing, and the previous song has ended
+        //     (true, true, _) => {
+        //         if !song_done {
+        //             // println!("song loaded");
+        //             self.map_changing = (false, false, 0);
+        //         }
+        //     }
+
+        //     // the song hasnt ended and we arent changing
+        //     (false, false, _) | (false, true, _) => {
+        //         if song_done {
+        //             // println!("song done");
+        //             self.map_changing = (true, false, 0);
+        //             tokio::spawn(async move {
+        //                 let lock = BEATMAP_MANAGER.lock();
+        //                 let map = lock.current_beatmap.as_ref().unwrap();
+        //                 Audio::play_song(map.audio_filename.clone(), true, map.audio_preview).unwrap();
+        //             });
+        //         }
+        //     }
+        // }
 
 
         // if self.mouse_down {
@@ -249,9 +324,13 @@ impl Menu<Game> for BeatmapSelectMenu {
         // play song if it exists
         if let Some(song) = Audio::get_song() {
             // reset any time mods
+
+            #[cfg(feature="bass_audio")]
+            song.set_rate(1.0).unwrap();
+            #[cfg(feature="neb_audio")]
             song.set_playback_speed(1.0);
-            // play
-            song.play();
+            // // play
+            // song.play(true).unwrap();
         }
 
         // load maps
@@ -353,26 +432,20 @@ impl Menu<Game> for BeatmapSelectMenu {
 
             if let Some(new_mode) = new_mode {
                 self.mode = new_mode;
+                self.load_scores();
                 NotificationManager::add_text_notification(&format!("Mode changed to {:?}", new_mode), 1000.0, Color::BLUE);
             }
         }
 
         if mods.ctrl {
+            let mut speed = ModManager::get().speed;
+            let prev_speed = speed;
+            const SPEED_DIFF:f32 = 0.1;
+
             match key {
-                // map speed up
-                Equals => {
-                    let speed = &mut ModManager::get().speed;
-                    *speed += 0.2;
-
-                    NotificationManager::add_text_notification(&format!("Map speed: {:.2}x", speed), 2000.0, Color::BLUE);
-                }
-                // map speed down
-                Minus => {
-                    let speed = &mut ModManager::get().speed;
-                    *speed -= 0.2;
-                    NotificationManager::add_text_notification(&format!("Map speed: {:.2}x", speed), 2000.0, Color::BLUE);
-                }
-
+                Equals => speed += SPEED_DIFF, // map speed up
+                Minus => speed -= SPEED_DIFF, // map speed down
+                 
                 // autoplay enable/disable
                 A => {
                     let mut manager = ModManager::get();
@@ -384,7 +457,12 @@ impl Menu<Game> for BeatmapSelectMenu {
 
                 _ => {}
             }
-            
+
+            speed = speed.clamp(SPEED_DIFF, 10.0);
+            if speed != prev_speed {
+                ModManager::get().speed = speed;
+                NotificationManager::add_text_notification(&format!("Map speed: {:.2}x", speed), 2000.0, Color::BLUE);
+            }
         }
 
 
@@ -396,7 +474,6 @@ impl Menu<Game> for BeatmapSelectMenu {
         }
     }
 
-    //TODO: implement search (oh god)
     fn on_text(&mut self, text:String) {
         self.search_text.on_text(text);
         self.refresh_maps();
@@ -571,27 +648,27 @@ impl ScrollableItem for BeatmapsetItem {
 
 
 
-struct LeaderboardItem {
+pub struct LeaderboardItem {
     pos: Vector2,
     hover: bool,
     selected: bool,
     tag: String,
 
     score: Score,
-    acc: f64,
+    font: Arc<Mutex<opengl_graphics::GlyphCache<'static>>>
 }
 impl LeaderboardItem {
     pub fn new(score:Score) -> LeaderboardItem {
         let tag = score.username.clone();
-        let acc = score.acc() * 100.0;
+        let font = get_font("main");
 
         LeaderboardItem {
             pos: Vector2::zero(),
             score,
             tag,
-            acc,
             hover: false,
-            selected: false
+            selected: false,
+            font
         }
     }
 }
@@ -609,7 +686,6 @@ impl ScrollableItem for LeaderboardItem {
 
     fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut items: Vec<Box<dyn Renderable>> = Vec::new();
-        let font = get_font("main");
 
         // bounding rect
         items.push(Box::new(Rectangle::new(
@@ -627,7 +703,7 @@ impl ScrollableItem for LeaderboardItem {
             self.pos+pos_offset + Vector2::new(5.0, 20.0),
             15,
             format!("{}: {}", self.score.username, crate::format(self.score.score)),
-            font.clone()
+            self.font.clone()
         )));
 
         // combo text
@@ -636,8 +712,8 @@ impl ScrollableItem for LeaderboardItem {
             parent_depth + 4.0,
             self.pos+pos_offset+Vector2::new(5.0, 40.0),
             12,
-            format!("{}x, {:.2}%", crate::format(self.score.max_combo), self.acc),
-            font.clone()
+            format!("{}x, {:.2}%", crate::format(self.score.max_combo), self.score.acc() * 100.0),
+            self.font.clone()
         )));
 
         items

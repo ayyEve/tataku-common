@@ -6,13 +6,17 @@ const CURRENT_VERSION:u16 = 1;
 pub struct Replay {
     /// (time, key)
     pub frames: Vec<(f32, ReplayFrame)>, 
-    pub playstyle: Playstyle
+    pub playstyle: Playstyle,
+
+    /// used internally, not stored externally
+    pub speed: f32
 }
 impl Replay {
     pub fn new() -> Replay {
         Replay {
             frames: Vec::new(),
             playstyle: Playstyle::None,
+            speed: 1.0
         }
     }
 }

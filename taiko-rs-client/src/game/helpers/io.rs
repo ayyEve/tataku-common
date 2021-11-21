@@ -13,9 +13,9 @@ pub fn check_folder(dir:&str) {
 }
 
 /// check if a file exists, downloading it if it doesnt
-pub fn check_file(path:&str, download_url:&str) {
-    if !Path::new(&path).exists() {
-        println!("Check failed for '{}', downloading from '{}'", path, download_url);
+pub fn check_file<P:AsRef<Path>>(path:P, download_url:&str) {
+    if !Path::new(path.as_ref()).exists() {
+        println!("Check failed for '{:?}', downloading from '{}'", path.as_ref(), download_url);
         
         let bytes = reqwest::blocking::get(download_url)
             .expect("error with request")

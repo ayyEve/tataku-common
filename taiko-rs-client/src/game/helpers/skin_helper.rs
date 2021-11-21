@@ -1,7 +1,7 @@
 #[allow(unused, dead_code)]
 
 use std::collections::HashMap;
-use crate::game::audio::Sound;
+// use crate::game::audio::Sound;
 use crate::render::{Color, Image, Vector2};
 
 const SKIN_FOLDER:&str = "./skins";
@@ -15,7 +15,7 @@ pub struct SkinHelper {
     current_skin: String,
 
     texture_cache: HashMap<String, Option<Image>>,
-    audio_cache: HashMap<String, Option<Sound>>,
+    // audio_cache: HashMap<String, Option<Sound>>,
 }
 
 impl SkinHelper {
@@ -23,14 +23,14 @@ impl SkinHelper {
         Self {
             current_skin: DEFAULT_SKIN.to_owned(),
             texture_cache: HashMap::new(),
-            audio_cache: HashMap::new(),
+            // audio_cache: HashMap::new(),
         }
     }
 
     pub fn change_skin(&mut self, new_skin:String) {
         self.current_skin = new_skin;
         self.texture_cache.clear();
-        self.audio_cache.clear();
+        // self.audio_cache.clear();
     }
 
     pub fn get_texture(&mut self, name:String, allow_default:bool, scale:Vector2) -> Option<Image> {

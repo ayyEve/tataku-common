@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::path::Path;
 
 use serde::Deserialize;
@@ -50,13 +51,13 @@ impl AdofaiBeatmap {
 
         use AdofaiRotation::*;
         let mut current_time = map.settings.offset;
-        let mut current_beatlength = 60_000.0 / map.settings.bpm;
+        let current_beatlength = 60_000.0 / map.settings.bpm;
         let mut current_direction = Clockwise;
         let mut last_char = chars[0];
 
         for (num, char) in chars.iter().enumerate() {
             if num == 0 {
-                let note = AdofaiNoteDef {
+                let _note = AdofaiNoteDef {
                     time: current_time,
                     direction: *char
                 };
@@ -152,7 +153,7 @@ impl TaikoRsBeatmap for AdofaiBeatmap {
         }
     }
 
-    fn playmode(&self, incoming:PlayMode) -> PlayMode {
+    fn playmode(&self, _incoming:PlayMode) -> PlayMode {
         //TODO
         PlayMode::Taiko
     }

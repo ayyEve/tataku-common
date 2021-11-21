@@ -8,18 +8,8 @@ pub use score_database::*;
 lazy_static::lazy_static! {
     pub static ref DATABASE: Arc<Mutex<Connection>> = {
         let db = Connection::open("taiko-rs.db").unwrap();
-        
         // scores table
         db.execute(
-            // pub username: String,
-            // pub beatmap_hash: String,
-            // pub playmode: PlayMode,
-            // pub score: u64,
-            // pub combo: u16,
-            // pub max_combo: u16,
-            // pub x100: u16,
-            // pub x300: u16,
-            // pub xmiss: u16,
             "CREATE TABLE IF NOT EXISTS scores (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT,
@@ -34,36 +24,14 @@ lazy_static::lazy_static! {
                 x300 INTEGER,
                 geki INTEGER,
                 katu INTEGER,
-                xmiss INTEGER
+                xmiss INTEGER,
+                speed INTEGER,
+                version INTEGER
          )", [])
         .expect("error creating db table");
 
         // beatmaps table
         db.execute(
-            // pub file_path: String,
-            // pub beatmap_hash: String,
-            // pub mode: PlayMode,
-            // pub beatmap_version: f32,
-            // pub artist: String,
-            // pub title: String,
-            // pub artist_unicode: String,
-            // pub title_unicode: String,
-            // pub creator: String,
-            // pub version: String,
-
-            // pub audio_filename: String,
-            // pub image_filename: String,
-            // pub audio_preview: f32,
-
-            // pub duration: u64,
-            // mins: u8,
-            // secs: u8,
-
-            // pub hp: f32,
-            // pub od: f32,
-            // pub sr: f64,
-            // pub slider_multiplier: f32,
-            // pub slider_tick_rate: f32,
             "CREATE TABLE IF NOT EXISTS beatmaps (
                 beatmap_path TEXT,
                 beatmap_hash TEXT,
@@ -101,11 +69,14 @@ lazy_static::lazy_static! {
 
 // add new db columns here
 // needed to add new cols to existing dbs
+// this is essentially migrations, but a lazy way to do it lol
 
 const SCORE_ENTRIES: &[(&str, &str)] = &[
     ("x50", "INTEGER"),
     ("katu", "INTEGER"),
     ("geki", "INTEGER"),
+    ("speed", "INTEGER"),
+    ("version", "INTEGER"),
 ];
 const BEATMAP_ENTRIES: &[(&str, &str)] = &[
 
@@ -115,7 +86,7 @@ fn add_new_entries(db: &Connection) {
     // score entries
     for (col, t) in SCORE_ENTRIES {
         match db.execute(&format!("ALTER TABLE scores ADD {} {};", col, t), []) {
-            Ok(_) => println!("column added to scores db: {}", col),
+            Ok(_) => println!("Column added to scores db: {}", col),
             Err(e) => println!("Error adding column to scores db: {}", e),
         }
     }
@@ -123,7 +94,7 @@ fn add_new_entries(db: &Connection) {
     // beatmap entries
     for (col, t) in BEATMAP_ENTRIES {
         match db.execute(&format!("ALTER TABLE beatmaps ADD {} {};", col, t), []) {
-            Ok(_) => println!("column added to beatmaps db: {}", col),
+            Ok(_) => println!("Column added to beatmaps db: {}", col),
             Err(e) => println!("Error adding column to beatmaps db: {}", e),
         }
     }

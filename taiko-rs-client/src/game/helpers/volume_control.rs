@@ -33,7 +33,7 @@ impl VolumeControl {
     }
     fn change(&mut self, delta:f32) {
         let elapsed = self.elapsed();
-        let mut settings = Settings::get_mut();
+        let mut settings = Settings::get_mut("VolumeControl::change");
 
         // reset index back to 0 (master) if the volume hasnt been touched in a while
         if elapsed - self.vol_selected_time > VOLUME_CHANGE_DISPLAY_TIME + 1000 {self.vol_selected_index = 0}
@@ -48,6 +48,9 @@ impl VolumeControl {
 
         
         if let Some(song) = Audio::get_song() {
+            #[cfg(feature="bass_audio")]
+            song.set_volume(settings.get_music_vol()).unwrap();
+            #[cfg(feature="neb_audio")]
             song.set_volume(settings.get_music_vol());
         }
 

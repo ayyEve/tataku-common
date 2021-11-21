@@ -59,7 +59,7 @@ impl<V:Display> CenteredTextHelper<V>{
             );
             offset_text.center_text(rect);
             // add
-            list.push(visibility_bg(rect.pos, rect.size - Vector2::new(0.0, 30.0)));
+            list.push(visibility_bg(rect.pos, rect.size - Vector2::new(0.0, 30.0), self.depth + 10.0));
             list.push(Box::new(offset_text));
         }
     }
@@ -68,7 +68,11 @@ impl<V:Display + Default> Default for CenteredTextHelper<V> {
     fn default() -> Self {
         Self {
             font: ayyeve_piston_ui::render::fonts::get_font("main"),
-            ..Default::default()
+            label: Default::default(),
+            value: Default::default(),
+            depth: Default::default(),
+            changed_time: Default::default(),
+            draw_time: Default::default(),
         }
     }
 }

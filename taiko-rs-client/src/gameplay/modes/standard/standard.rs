@@ -77,8 +77,10 @@ impl GameMode for StandardGame {
     fn new(map:&Beatmap) -> Result<Self, crate::errors::TaikoError> {
         let metadata = map.get_beatmap_meta();
         let ar = metadata.ar;
-        let settings = Settings::get_mut().standard_settings.clone();
+        let settings = Settings::get_mut("StandardGame::new()").standard_settings.clone();
         let scaling_helper = ScalingHelper::new(metadata.cs, PlayMode::Standard);
+
+        let combo_colors:Vec<Color> = settings.combo_colors.iter().map(|c|Color::from_hex(c)).collect();
 
         match map {
             Beatmap::Osu(beatmap) => {
@@ -160,13 +162,8 @@ impl GameMode for StandardGame {
                 // add notes
                 let mut combo_num = 0;
                 let mut combo_change = 0;
-                let combo_colors = [
-                    Color::new(0.8, 0.0, 0.0, 1.0),
-                    Color::new(0.8, 0.8, 0.0, 1.0),
-                    Color::new(0.0, 0.8, 0.8, 1.0),
-                    Color::new(0.0, 0.0, 0.8, 1.0)
-                ];
         
+                // used for the end time
                 let end_time = s.end_time as f64;
         
                 let mut counter = 0;
@@ -249,10 +246,7 @@ impl GameMode for StandardGame {
                     counter += 1;
                 }
         
-                // get the end time
-                // for n in s.notes.iter() {
-                //     s.end_time = s.end_time.max(n.end_time(0.0));
-                // }
+                // wait an extra sec
                 s.end_time += 1000.0;
         
                 Ok(s)
@@ -365,6 +359,7 @@ impl GameMode for StandardGame {
 
             self.auto_helper.update(time, &mut self.notes, &self.scaling_helper, &mut pending_frames);
 
+            // handle presses and mouse movements now, and releases later
             for frame in pending_frames.iter() {
                 self.handle_replay_frame(*frame, time, manager);
             }
@@ -459,16 +454,72 @@ impl GameMode for StandardGame {
         
         // remove old draw points
         self.draw_points.retain(|a| time < a.0 + POINTS_DRAW_DURATION);
+
+
+        // handle note releases
+        // required because autoplay frames are checked after the frame is processed
+        // so if the key is released on the same frame its checked, it will count as not held
+        // which makes sense, but we dont want that
+        if manager.current_mods.autoplay {
+            for frame in self.auto_helper.get_release_queue().iter() {
+                self.handle_replay_frame(*frame, time, manager);
+            }
+        }
+
     }
     fn draw(&mut self, args:RenderArgs, manager:&mut IngameManager, list:&mut Vec<Box<dyn Renderable>>) {
 
         // draw the playfield
         if !manager.menu_background {
             let mut playfield = self.scaling_helper.playfield_scaled_with_cs_border.clone();
+
+            if self.move_playfield.is_some() {
+                let line_size = self.settings.playfield_movelines_thickness;
+                // draw x and y center lines
+                let px_line = Line::new(
+                    playfield.pos + Vector2::new(0.0, playfield.size.y/2.0),
+                    playfield.pos + Vector2::new(playfield.size.x, playfield.size.y/2.0),
+                    line_size,
+                    -100.0,
+                    Color::WHITE
+                );
+                let py_line = Line::new(
+                    playfield.pos + Vector2::new(playfield.size.x/2.0, 0.0),
+                    playfield.pos + Vector2::new(playfield.size.x/2.0, playfield.size.y),
+                    line_size, 
+                    -100.0,
+                    Color::WHITE
+                );
+
+                let window_size = Settings::window_size();
+                let wx_line = Line::new(
+                    Vector2::new(0.0, window_size.y/2.0),
+                    Vector2::new(window_size.x, window_size.y/2.0),
+                    line_size,
+                    -100.0,
+                    Color::WHITE
+                );
+                let wy_line = Line::new(
+                    Vector2::new(window_size.x/2.0, 0.0),
+                    Vector2::new(window_size.x/2.0, window_size.y),
+                    line_size, 
+                    -100.0,
+                    Color::WHITE
+                );
+
+                playfield.border = Some(Border::new(Color::WHITE, line_size));
+
+                list.push(Box::new(wx_line));
+                list.push(Box::new(wy_line));
+                list.push(Box::new(px_line));
+                list.push(Box::new(py_line));
+            }
+
             if manager.current_timing_point().kiai {
                 playfield.border = Some(Border::new(Color::YELLOW, 2.0));
             }
             list.push(Box::new(playfield));
+
 
             // draw key counter
             self.key_counter.draw(args, list);
@@ -485,6 +536,7 @@ impl GameMode for StandardGame {
             )))
         }
 
+        // draw hit indicators
         let time = manager.time();
         for (p_time, pos, pts) in self.draw_points.iter() {
             let color;
@@ -501,7 +553,7 @@ impl GameMode for StandardGame {
                 color.alpha(alpha),
                 -99_999.9,
                 *pos,
-                20.0
+                CIRCLE_RADIUS_BASE * self.scaling_helper.scaled_cs * (1.0/3.0)
             )))
         }
 
@@ -510,7 +562,7 @@ impl GameMode for StandardGame {
             note.draw(args, list);
         }
 
-        // draw follow
+        // draw follow points
         if self.settings.draw_follow_points {
             for i in 0..self.notes.len() - 1 {
                 if !self.new_combos.contains(&(i + 1)) {
@@ -538,7 +590,7 @@ impl GameMode for StandardGame {
     
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
         if key == piston::Key::LCtrl {
-            let old = Settings::get_mut().standard_settings.get_playfield();
+            let old = Settings::get_mut("StandardGame::key_down").standard_settings.get_playfield();
             self.move_playfield = Some((old.1, self.window_mouse_pos));
             return;
         }
@@ -583,8 +635,31 @@ impl GameMode for StandardGame {
         
         if let Some((original, mouse_start)) = self.move_playfield {
             {
-                let settings = &mut Settings::get_mut().standard_settings;
-                let change = original + (pos - mouse_start);
+                let settings = &mut Settings::get_mut("StandardGame::mouse_move").standard_settings;
+                let mut change = original + (pos - mouse_start);
+
+                // check playfield snapping
+                // TODO: can this be simplified?
+                use crate::gameplay::modes::FIELD_SIZE;
+
+                let window_size = Settings::window_size();
+                let playfield_size = self.scaling_helper.playfield_scaled_with_cs_border.size;
+
+                let window_center = window_size / 2.0;
+
+                let new_playfield_pos = (window_size - FIELD_SIZE * self.scaling_helper.scale) / 2.0 + change;
+                let playfield_center = new_playfield_pos + playfield_size / 2.0;
+
+                // what the offset shuold be if playfield is centered
+                let center_offset = (window_size - FIELD_SIZE * self.scaling_helper.scale) / 2.0 - (window_center - playfield_size/2.0);
+
+                let snap = settings.playfield_snap;
+                if (window_center.x - (playfield_center.x - snap/2.0)).abs() < snap {
+                    change.x = center_offset.x;
+                }
+                if (window_center.y - (playfield_center.y - snap/2.0)).abs() < snap {
+                    change.y = center_offset.y;
+                }
 
                 settings.playfield_x_offset = change.x;
                 settings.playfield_y_offset = change.y;
@@ -640,7 +715,7 @@ impl GameMode for StandardGame {
     fn mouse_scroll(&mut self, delta:f64, _manager:&mut IngameManager) {
         if self.move_playfield.is_some() {
             {
-                let settings = &mut Settings::get_mut().standard_settings;
+                let settings = &mut Settings::get_mut("StandardGame::mouse_scroll").standard_settings;
                 settings.playfield_scale += delta / 40.0;
             }
 
@@ -670,6 +745,10 @@ impl GameMode for StandardGame {
         let time = self.notes[0].time() - self.notes[0].get_preempt();
         if time < manager.time() {return}
 
+        if time < 0.0 {return}
+        #[cfg(feature="bass_audio")]
+        manager.song.set_position(time as f64).unwrap();
+        #[cfg(feature="neb_audio")]
         manager.song.upgrade().unwrap().set_position(time);
     }
 
@@ -708,7 +787,9 @@ struct StandardAutoHelper {
     point_trail_end_pos: Vector2,
 
     /// list of notes currently being held
-    holding: Vec<usize>
+    holding: Vec<usize>,
+
+    release_queue:Vec<ReplayFrame>
 }
 impl StandardAutoHelper {
     fn new() -> Self {
@@ -719,8 +800,13 @@ impl StandardAutoHelper {
             point_trail_start_pos: Vector2::zero(),
             point_trail_end_pos: Vector2::zero(),
 
-            holding: Vec::new()
+            holding: Vec::new(),
+
+            release_queue: Vec::new()
         }
+    }
+    fn get_release_queue(&mut self) -> Vec<ReplayFrame> {
+        std::mem::take(&mut self.release_queue)
     }
 
     fn update(&mut self, time:f32, notes: &mut Vec<Box<dyn StandardHitObject>>, scaling_helper: &ScalingHelper, frames: &mut Vec<ReplayFrame>) {
@@ -731,8 +817,8 @@ impl StandardAutoHelper {
             if note.was_hit() {continue}
 
             if let Ok(ind) = self.holding.binary_search(&i) {
-                if time >= note.end_time(1.0) {
-                    frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
+                if time >= note.end_time(0.0) {
+                    self.release_queue.push(ReplayFrame::Release(KeyPress::LeftMouse));
 
                     let pos = scaling_helper.descale_coords(note.pos_at(time, &scaling_helper));
 
@@ -773,7 +859,7 @@ impl StandardAutoHelper {
                 
                 frames.push(ReplayFrame::Press(KeyPress::LeftMouse));
                 if note.note_type() == NoteType::Note {
-                    frames.push(ReplayFrame::Release(KeyPress::LeftMouse));
+                    self.release_queue.push(ReplayFrame::Release(KeyPress::LeftMouse));
                 } else {
                     self.holding.push(i)
                 }

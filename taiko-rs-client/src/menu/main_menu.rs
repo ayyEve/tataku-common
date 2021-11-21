@@ -1,3 +1,6 @@
+
+#[cfg(feature = "bass_audio")]
+use bass::prelude::PlaybackState;
 use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::KeyModifiers;
 use taiko_rs_common::types::PlayMode;
@@ -47,14 +50,16 @@ impl MainMenu {
         }
     }
 
-    fn setup_manager(&mut self) {
+    fn setup_manager(&mut self, called_by: &str) {
+        println!("setup manager called by {}", called_by);
+
         let settings = Settings::get().background_game_settings;
         if !settings.enabled {return}
 
         let lock = BEATMAP_MANAGER.lock();
         let map = match &lock.current_beatmap {
             Some(map) => map,
-            None => return
+            None => return println!("manager no map")
         };
 
         match manager_from_playmode(settings.mode, &map) {
@@ -65,36 +70,55 @@ impl MainMenu {
                 });
                 manager.menu_background = true;
                 manager.start();
+                println!("manager started");
 
                 self.background_game = Some(manager);
             },
             Err(e) => NotificationManager::add_error_notification("Error loading beatmap", e)
         }
+        println!("manager setup");
     }
 }
 impl Menu<Game> for MainMenu {
     fn on_change(&mut self, _into:bool) {
         self.visualization.reset();
 
-        self.setup_manager();
+        self.setup_manager("on_change");
     }
 
     fn update(&mut self, g:&mut Game) {
+        let mut song_done = false;
+
+        #[cfg(feature = "bass_audio")]
+        match Audio::get_song() {
+            Some(song) => {
+                match song.get_playback_state() {
+                    Ok(PlaybackState::Playing) | Ok(PlaybackState::Paused) => {},
+                    _ => song_done = true,
+                }
+            }
+            _ => song_done = true,
+        }
+        #[cfg(feature = "neb_audio")]
         if let None = Audio::get_song() {
+            song_done = true;
+        }
+
+        if song_done {
             println!("song done");
             let map = BEATMAP_MANAGER.lock().random_beatmap();
 
             // it should?
             if let Some(map) = map {
                 BEATMAP_MANAGER.lock().set_current_beatmap(g, &map, false, false);
-                self.setup_manager();
+                self.setup_manager("update song done");
             }
         }
 
         let maps = BEATMAP_MANAGER.lock().get_new_maps();
         if maps.len() > 0 {
             BEATMAP_MANAGER.lock().set_current_beatmap(g, &maps[maps.len() - 1], true, false);
-            self.setup_manager();
+            self.setup_manager("update new map");
         }
 
         self.visualization.update();
@@ -125,7 +149,11 @@ impl Menu<Game> for MainMenu {
         );
         welcome_text.center_text(Rectangle::bounds_only(Vector2::new(0.0, 30.0), Vector2::new(window_size.x , 50.0)));
         
-        list.push(crate::helpers::visibility_bg(welcome_text.pos - Vector2::new(0.0, 40.0), Vector2::new(welcome_text.measure_text().x , 50.0)));
+        list.push(crate::helpers::visibility_bg(
+            welcome_text.pos - Vector2::new(0.0, 40.0), 
+            Vector2::new(welcome_text.measure_text().x , 50.0),
+            depth+10.0
+        ));
         list.push(Box::new(welcome_text));
 
         // draw buttons
@@ -155,7 +183,8 @@ impl Menu<Game> for MainMenu {
 
         // open direct menu
         if self.direct_button.on_click(pos, button, mods) {
-            let menu:Arc<Mutex<dyn Menu<Game>>> = Arc::new(Mutex::new(OsuDirectMenu::new()));
+            let mode = Settings::get_mut("MainMenu::on_click").background_game_settings.mode;
+            let menu:Arc<Mutex<dyn Menu<Game>>> = Arc::new(Mutex::new(OsuDirectMenu::new(mode)));
             game.queue_state_change(GameState::InMenu(menu));
             return;
         }
@@ -229,7 +258,7 @@ impl Menu<Game> for MainMenu {
             };
 
             if let Some(new_mode) = new_mode {
-                let mut settings = Settings::get_mut();
+                let mut settings = Settings::get_mut("MainMenu::on_key_press");
                 if settings.background_game_settings.mode != new_mode {
                     needs_manager_setup = true;
                     settings.background_game_settings.mode = new_mode;
@@ -239,7 +268,7 @@ impl Menu<Game> for MainMenu {
         }
 
         if needs_manager_setup {
-            self.setup_manager();
+            self.setup_manager("key press");
         }
     }
 }

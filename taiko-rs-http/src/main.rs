@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
-use std::sync::{Arc, Mutex};
 
 use argon2::{
     password_hash::{
-        rand_core::OsRng,
-        PasswordHash, PasswordHasher, PasswordVerifier, SaltString
+        PasswordHash, 
+        PasswordVerifier
     },
     Argon2
 };
@@ -13,7 +12,7 @@ use argon2::{
 use rocket::{Data, data::ToByteUnit};
 use taiko_rs_common::{serialization::{SerializationReader, SerializationWriter}, types::Score};
 use tokio::sync::OnceCell;
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect, Set, Statement, Unset, Value, FromQueryResult};
+use sea_orm::{DbBackend, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set, Statement, FromQueryResult};
 
 mod scores_table;
 
@@ -31,7 +30,6 @@ pub use scores_table::ActiveModel as ScoresActiveModel;
 
 use taiko_rs_common::tables::{users_table};
 use taiko_rs_common::tables::{user_data_table};
-use taiko_rs_common::tables::user_data_table::Model;
 use taiko_rs_common::types::PlayMode;
 
 pub static DATABASE:OnceCell<DatabaseConnection> = OnceCell::const_new();
@@ -41,7 +39,7 @@ async fn score_submit(data:Data<'_>) -> std::io::Result<()> {
     println!("submit shit idk");
     let mut bytes:Vec<u8> = Vec::new();
 
-    match data.open(1.gigabytes()).into_bytes().await {
+    match data.open(1u32.gigabytes()).into_bytes().await {
         Ok(capped_bytes) => {
             capped_bytes.iter().for_each(|b|bytes.push(*b));
         }
@@ -129,16 +127,19 @@ async fn recalc_user(username: String, user_id: i64, mode: PlayMode) {
         }
     }
 
-    for (hash, score) in best_scores.clone() {
+    for (_hash, score) in best_scores.clone() {
         ranked_score += score.score;
         total_accuracy += score.accuracy;
     }
 
     let accuracy = total_accuracy / best_scores.len() as f64;
 
-    let mut user_data: Option<user_data_table::Model>;
+    let user_data: Option<user_data_table::Model>;
 
-    match user_data_table::Entity::find().filter(user_data_table::Column::Mode.eq(mode as i16)).filter(user_data_table::Column::Userid.eq(user_id)).one(DATABASE.get().unwrap()).await {
+    match user_data_table::Entity::find()
+        .filter(user_data_table::Column::Mode.eq(mode as i16))
+        .filter(user_data_table::Column::Userid.eq(user_id))
+        .one(DATABASE.get().unwrap()).await {
         Ok(user_data_a) => {
             println!("query ok");
             user_data = user_data_a;
@@ -203,10 +204,15 @@ async fn get_scores(data:Data<'_>) -> std::io::Result<Vec<u8>> {
 
     let mut writer = SerializationWriter::new();
     
-    let scores: Vec<ScoresModel> = Scores::find().filter(scores_table::Column::Playmode.eq(mode as i16)).filter(scores_table::Column::Beatmaphash.eq(hash)).all(DATABASE.get().unwrap()).await.unwrap();
+    let scores: Vec<ScoresModel> = Scores::find()
+        .filter(scores_table::Column::Playmode.eq(mode as i16))
+        .filter(scores_table::Column::Beatmaphash.eq(hash))
+        .all(DATABASE.get().unwrap())
+        .await
+        .unwrap();
 
     let new_scores: Vec<Score> = scores.iter().map(|score| {
-        let mut new_score: Score = Score::new(score.beatmaphash.clone(), score.username.clone(), (score.playmode as u8).into());
+        let mut new_score:Score = Score::new(score.beatmaphash.clone(), score.username.clone(), (score.playmode as u8).into());
 
         new_score.score = score.score as u64;
         new_score.combo = score.combo as u16;
@@ -236,7 +242,7 @@ async fn get_scores(data:Data<'_>) -> std::io::Result<Vec<u8>> {
 
     let mut filtered_scores_vec: Vec<Score> = Vec::new();
 
-    for (username, score) in filtered_scores {
+    for (_username, score) in filtered_scores {
         filtered_scores_vec.push(score);
     }
 

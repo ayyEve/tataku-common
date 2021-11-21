@@ -74,6 +74,13 @@ impl Game {
         window.window.set_cursor_mode(glfw::CursorMode::Hidden);
         game_init_benchmark.log("window created", true);
 
+        #[cfg(feature="bass_audio")] {
+            // initialize bass
+            #[cfg(target_os = "windows")]
+            bass::init_default_with_ptr(window.window.get_win32_window()).expect("Error initializing bass");
+            #[cfg(target_os = "linux")]
+            bass::init_default_with_ptr(window.window.get_x11_window()).expect("Error initializing bass");
+        }
 
         // set window icon
         match image::open("resources/icon-small.png") {
@@ -196,7 +203,7 @@ impl Game {
 
         {
             // input and rendering thread times
-            let settings = Settings::get_mut();
+            let settings = Settings::get_mut("Game::game_loop");
             events.set_max_fps(settings.fps_target);
             events.set_ups(settings.update_target);
         }
@@ -313,12 +320,15 @@ impl Game {
                 
                 // pause button, or focus lost, only if not replaying
                 if (manager.can_pause() && (matches!(window_focus_changed, Some(false)) && settings.pause_on_focus_lost)) || keys_down.contains(&Key::Escape) {
+                    println!("manager.pause");
                     manager.pause();
-                    
+                    println!("taking manager");
                     let manager2 = std::mem::take(manager);
-
+                    println!("create menu");
                     let menu = PauseMenu::new(manager2);
+                    println!("state change");
                     self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
+                    println!("done");
                 } else {
                     // // offset adjust
                     // if keys_down.contains(&settings.key_offset_up) {manager.increment_offset(5.0)}
@@ -340,7 +350,7 @@ impl Game {
                         let score = &manager.score;
                         let replay = &manager.replay;
 
-                        if !manager.replaying {
+                        if manager.should_save_score() {
                             // save score
                             save_score(&score);
                             match save_replay(&replay, &score) {
@@ -495,6 +505,9 @@ impl Game {
                         if let GameState::InMenu(menu) = &self.current_state {
                             if menu.lock().get_name() == "pause" {
                                 if let Some(song) = Audio::get_song() {
+                                    #[cfg(feature="bass_audio")]
+                                    song.play(false).unwrap();
+                                    #[cfg(feature="neb_audio")]
                                     song.play();
                                 }
                             }
