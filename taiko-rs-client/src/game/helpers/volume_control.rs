@@ -48,7 +48,10 @@ impl VolumeControl {
 
         
         if let Some(song) = Audio::get_song() {
+            #[cfg(feature="bass_audio")]
             song.set_volume(settings.get_music_vol()).unwrap();
+            #[cfg(feature="neb_audio")]
+            song.set_volume(settings.get_music_vol());
         }
 
         self.vol_selected_time = elapsed;

@@ -746,7 +746,10 @@ impl GameMode for StandardGame {
         if time < manager.time() {return}
 
         if time < 0.0 {return}
+        #[cfg(feature="bass_audio")]
         manager.song.set_position(time as f64).unwrap();
+        #[cfg(feature="neb_audio")]
+        manager.song.upgrade().unwrap().set_position(time);
     }
 
 

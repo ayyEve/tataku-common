@@ -134,10 +134,6 @@ impl BeatmapManager {
 
     // setters
     pub fn set_current_beatmap(&mut self, game:&mut Game, beatmap:&BeatmapMeta, mut do_async:bool, use_preview_time:bool) {
-
-        // dont async with bass, causes race conditions + double audio bugs
-        do_async = false;
-        
         self.current_beatmap = Some(beatmap.clone());
         if let Some(map) = self.current_beatmap.clone() {
             self.played.push(map.beatmap_hash.clone());
@@ -146,13 +142,18 @@ impl BeatmapManager {
         // play song
         let audio_filename = beatmap.audio_filename.clone();
         let time = if use_preview_time {beatmap.audio_preview} else {0.0};
+
+        // dont async with bass, causes race conditions + double audio bugs
+        #[cfg(feature="neb_audio")]
         if do_async {
             tokio::spawn(async move {
-                Audio::play_song(audio_filename, false, time).unwrap();
+                Audio::play_song(audio_filename, false, time);
             });
         } else {
-            Audio::play_song(audio_filename, false, time).unwrap();
+            Audio::play_song(audio_filename, false, time);
         }
+        #[cfg(feature="bass_audio")]
+        Audio::play_song(audio_filename, false, time).unwrap();
 
         // set bg
         game.set_background_beatmap(beatmap);

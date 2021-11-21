@@ -244,6 +244,15 @@ impl GameMode for ManiaGame {
             manager.replay.frames.push((time, frame));
         }
 
+        macro_rules! play_sound {
+            ($sound:expr) => {
+                #[cfg(feature="bass_audio")]
+                Audio::play_preloaded($sound).unwrap();
+                #[cfg(feature="neb_audio")]
+                Audio::play_preloaded($sound);
+            }
+        }
+
         match frame {
             ReplayFrame::Press(key) => {
                 let col:usize = match key {
@@ -264,7 +273,7 @@ impl GameMode for ManiaGame {
 
                 // if theres no more notes to hit, return after playing the sound
                 if self.column_indices[col] >= self.columns[col].len() {
-                    Audio::play_preloaded(sound).unwrap();
+                    play_sound!(sound);
                     return;
                 }
                 let note = &mut self.columns[col][self.column_indices[col]];
@@ -278,7 +287,7 @@ impl GameMode for ManiaGame {
 
                     manager.score.hit300(time, note_time);
                     manager.hitbar_timings.push((time, time - note_time));
-                    Audio::play_preloaded(sound).unwrap();
+                    play_sound!(sound);
                     if note.note_type() != NoteType::Hold {
                         self.next_note(col);
                     }
@@ -287,7 +296,7 @@ impl GameMode for ManiaGame {
 
                     manager.score.hit100(time, note_time);
                     manager.hitbar_timings.push((time, time - note_time));
-                    Audio::play_preloaded(sound).unwrap();
+                    play_sound!(sound);
                     //TODO: indicate this was a bad hit
 
                     if note.note_type() != NoteType::Hold {
@@ -301,12 +310,12 @@ impl GameMode for ManiaGame {
                     if note.note_type() != NoteType::Hold {
                         self.next_note(col);
                     }
-                    Audio::play_preloaded(sound).unwrap();
+                    play_sound!(sound);
                     //TODO: play miss sound
                     //TODO: indicate this was a miss
                 } else { // way too early, ignore
                     // play sound
-                    Audio::play_preloaded(sound).unwrap();
+                    play_sound!(sound);
                 }
             
             }
@@ -607,7 +616,10 @@ impl GameMode for ManiaGame {
         }
 
         if time < 0.0 {return}
+        #[cfg(feature="bass_audio")]
         manager.song.set_position(time as f64).unwrap();
+        #[cfg(feature="neb_audio")]
+        manager.song.upgrade().unwrap().set_position(time);
     }
 
     fn combo_bounds(&self) -> Rectangle {

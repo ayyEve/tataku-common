@@ -1,9 +1,13 @@
 use std::time::Instant;
 use std::collections::HashMap;
 
+#[cfg(feature="bass_audio")]
 use bass::prelude::*;
 use piston::RenderArgs;
 use opengl_graphics::GlyphCache;
+
+#[cfg(feature="neb_audio")]
+use crate::game::{AudioHandle, Sound};
 
 use crate::game::managers::ModManager;
 use crate::{beatmaps::Beatmap, errors::TaikoError};
@@ -54,9 +58,19 @@ pub struct IngameManager {
 
     pub timing_points: Vec<TimingPoint>,
     pub timing_point_index: usize,
-    pub song: StreamChannel,
 
+    #[cfg(feature="bass_audio")]
+    pub song: StreamChannel,
+    #[cfg(feature="bass_audio")]
     pub hitsound_cache: HashMap<String, Option<SampleChannel>>,
+
+    #[cfg(feature="neb_audio")] 
+    pub song: Weak<AudioHandle>,
+    #[cfg(feature="neb_audio")] 
+    pub hitsound_cache: HashMap<String, Option<Sound>>,
+
+    
+    
 
     // offset things
     offset: CenteredTextHelper<f32>,
@@ -102,7 +116,11 @@ impl IngameManager {
             replay: Replay::new(),
             beatmap,
 
+            #[cfg(feature="bass_audio")]
             song: Audio::get_song().unwrap_or(create_empty_stream()), // temp until we get the audio file path
+            #[cfg(feature="neb_audio")]
+            song: Weak::new(),
+            
             started: false,
             completed: false,
             replaying: false,
@@ -140,30 +158,33 @@ impl IngameManager {
     }
 
     pub fn time(&mut self) -> f32 {
-        // let t = match (self.song.upgrade(), Audio::get_song_raw()) {
-        //     (None, Some((_, song))) => {
-        //         match song.upgrade() {
-        //             Some(s) => {
-        //                 self.song = song;
-        //                 s.current_time()
-        //             }
-        //             None => {
-        //                 println!("song doesnt exist at Beatmap.time()!!");
-        //                 self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
-        //                 self.song.upgrade().unwrap().pause();
-        //                 0.0
-        //             }
-        //         }
-        //     },
-        //     (None, None) => {
-        //         println!("song doesnt exist at Beatmap.time()!!");
-        //         self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
-        //         self.song.upgrade().unwrap().pause();
-        //         0.0
-        //     }
-        //     (Some(song), _) => song.current_time(),
-        // };
+        #[cfg(feature="bass_audio")]
         let t = self.song.get_position().unwrap() as f32;
+
+        #[cfg(feature="neb_audio")]
+        let t = match (self.song.upgrade(), Audio::get_song_raw()) {
+            (None, Some((_, song))) => {
+                match song.upgrade() {
+                    Some(s) => {
+                        self.song = song;
+                        s.current_time()
+                    }
+                    None => {
+                        println!("song doesnt exist at Beatmap.time()!!");
+                        self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
+                        self.song.upgrade().unwrap().pause();
+                        0.0
+                    }
+                }
+            },
+            (None, None) => {
+                println!("song doesnt exist at Beatmap.time()!!");
+                self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
+                self.song.upgrade().unwrap().pause();
+                0.0
+            }
+            (Some(song), _) => song.current_time(),
+        };
 
         // println!("time: {}", t);
 
@@ -201,15 +222,30 @@ impl IngameManager {
                 // dont reset the song, and dont do lead in
                 self.lead_in_time = 0.0;
             } else {
-                self.song.set_position(0.0).unwrap();
-                self.song.pause().unwrap();
+                #[cfg(feature="bass_audio")] {
+                    self.song.set_position(0.0).unwrap();
+                    self.song.pause().unwrap();
+                    if self.replaying {
+                        self.song.set_rate(self.replay.speed).unwrap();
+                    }
+                }
+
+                #[cfg(feature="neb_audio")]
+                match self.song.upgrade() {
+                    Some(song) => {
+                        song.set_position(0.0);
+                        if self.replaying {
+                            song.set_playback_speed(self.replay.speed as f64)
+                        }
+                    }
+                    None => {
+                        self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
+                        self.song.upgrade().unwrap().pause();
+                    }
+                }
                 
                 self.lead_in_timer = Instant::now();
                 self.lead_in_time = LEAD_IN_TIME;
-
-                if self.replaying {
-                    self.song.set_rate(self.replay.speed).unwrap();
-                }
             }
 
             // volume is set when the song is actually started (when lead_in_time is <= 0)
@@ -219,17 +255,23 @@ impl IngameManager {
             // if this is the menu, dont do anything
             if self.menu_background {return}
 
+            #[cfg(feature="bass_audio")]
             self.song.play(false).unwrap();
 
             // // needed because if paused for a while it can crash
-            // match self.song.upgrade() {
-            //     Some(song) => song.play(),
-            //     None => self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0),
-            // }
+            #[cfg(feature="neb_audio")]
+            match self.song.upgrade() {
+                Some(song) => song.play(),
+                None => self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0),
+            }
         }
     }
     pub fn pause(&mut self) {
+        #[cfg(feature="bass_audio")]
         self.song.pause().unwrap();
+        #[cfg(feature="neb_audio")]
+        self.song.upgrade().unwrap().pause();
+
         // is there anything else we need to do?
 
         // might mess with lead-in but meh
@@ -244,24 +286,29 @@ impl IngameManager {
             self.gamemode.apply_auto(&self.background_game_settings)
         } else {
             // reset song
-            // match self.song.upgrade() {
-            //     Some(song) => {
-            //         song.set_position(0.0);
-            //         song.pause();
-            //         song.set_playback_speed(self.current_mods.speed as f64);
-            //     }
-            //     None => {
-            //         while let None = self.song.upgrade() {
-            //             self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
-            //         }
-            //         let song = self.song.upgrade().unwrap();
-            //         song.set_playback_speed(self.current_mods.speed as f64);
-            //         song.pause();
-            //     }
-            // }
-            self.song.set_rate(self.current_mods.speed).unwrap();
-            self.song.set_position(0.0).unwrap();
-            self.song.pause().unwrap();
+            #[cfg(feature="bass_audio")] {
+                self.song.set_rate(self.current_mods.speed).unwrap();
+                self.song.set_position(0.0).unwrap();
+                self.song.pause().unwrap();
+            }
+            
+            #[cfg(feature="neb_audio")] 
+            match self.song.upgrade() {
+                Some(song) => {
+                    song.set_position(0.0);
+                    song.pause();
+                    song.set_playback_speed(self.current_mods.speed as f64);
+                }
+                None => {
+                    while let None = self.song.upgrade() {
+                        self.song = Audio::play_song(self.metadata.audio_filename.clone(), true, 0.0);
+                    }
+                    let song = self.song.upgrade().unwrap();
+                    song.set_playback_speed(self.current_mods.speed as f64);
+                    song.pause();
+                }
+            }
+            
         }
 
         self.completed = false;
@@ -280,7 +327,11 @@ impl IngameManager {
         
         if self.replaying {
             // if we're replaying, make sure we're using the score's speed
+            #[cfg(feature="bass_audio")]
             self.song.set_rate(self.replay.speed).unwrap();
+
+            #[cfg(feature="neb_audio")]
+            self.song.upgrade().unwrap().set_playback_speed(self.replay.speed as f64);
         } else {
             // only reset the replay if we arent replaying
             self.replay = Replay::new();
@@ -297,16 +348,27 @@ impl IngameManager {
             self.lead_in_time -= elapsed * if self.replaying {self.replay.speed} else {self.current_mods.speed};
 
             if self.lead_in_time <= 0.0 {
-                // let song = self.song.upgrade().unwrap();
-                self.song.set_position(-self.lead_in_time as f64).unwrap();
-                self.song.set_volume(Settings::get().get_music_vol()).unwrap();
-                if self.replaying {
-                    self.song.set_rate(self.replay.speed).unwrap();
-                } else {
-                    self.song.set_rate(self.current_mods.speed).unwrap();
+
+                #[cfg(feature="bass_audio")] {
+                    self.song.set_position(-self.lead_in_time as f64).unwrap();
+                    self.song.set_volume(Settings::get().get_music_vol()).unwrap();
+                    if self.replaying {
+                        self.song.set_rate(self.replay.speed).unwrap();
+                    } else {
+                        self.song.set_rate(self.current_mods.speed).unwrap();
+                    }
+                    self.song.play(true).unwrap();
                 }
                 
-                self.song.play(true).unwrap();
+                #[cfg(feature="neb_audio")] {
+                    let song = self.song.upgrade().unwrap();
+                    song.set_position(-self.lead_in_time);
+                    song.set_volume(Settings::get().get_music_vol());
+                    song.set_playback_speed(self.current_mods.speed as f64);
+                    song.play();
+                }
+
+
                 self.lead_in_time = 0.0;
             }
         }
@@ -445,7 +507,11 @@ impl IngameManager {
             if !self.hitsound_cache.contains_key(sound_file) {
                 println!("not cached");
 
+                #[cfg(feature="bass_audio")]
                 let sound = Audio::load(format!("resources/audio/{}", sound_file));
+                #[cfg(feature="neb_audio")]
+                let sound = crate::game::Sound::load(format!("resources/audio/{}", sound_file));
+
                 if let Err(e) = &sound {
                     println!("error loading: {:?}", e);
                 }
@@ -454,9 +520,19 @@ impl IngameManager {
             }
 
             if let Some(sound) = self.hitsound_cache.get(sound_file).unwrap() {
-                sound.set_volume(vol).unwrap();
-                sound.set_position(0.0).unwrap();
-                sound.play(true).unwrap();
+                #[cfg(feature="bass_audio")] {
+                    sound.set_volume(vol).unwrap();
+                    sound.set_position(0.0).unwrap();
+                    sound.play(true).unwrap();
+                }
+                #[cfg(feature="neb_audio")] {
+                    let sound = Audio::play_sound(sound.clone());
+                    if let Some(sound) = sound.upgrade() {
+                        sound.set_volume(vol);
+                        sound.set_position(0.0);
+                        sound.play();
+                    }
+                }
             }
         }
     }
@@ -464,7 +540,11 @@ impl IngameManager {
     pub fn combo_break(&mut self) {
         if self.score.combo >= 20 && !self.menu_background {
             // play hitsound
+
+            #[cfg(feature="bass_audio")]
             Audio::play_preloaded("combobreak").unwrap();
+            #[cfg(feature="neb_audio")]
+            Audio::play_preloaded("combobreak");
         }
 
         // reset combo to 0
@@ -676,7 +756,11 @@ impl IngameManager {
 impl Default for IngameManager {
     fn default() -> Self {
         Self { 
+            #[cfg(feature="bass_audio")]
             song: create_empty_stream(), 
+            #[cfg(feature="neb_audio")]
+            song: Weak::new(),
+
             font: get_font("main"), 
             combo_text_bounds: Rectangle::bounds_only(Vector2::zero(), Vector2::zero()), 
             timing_bar_things: (Vec::new(), (0.0, Color::WHITE)),
@@ -772,13 +856,14 @@ impl GameMode for NoMode {
 // impl HitsoundManager {
 // }
 
-
+#[cfg(feature="bass_audio")]
 lazy_static::lazy_static! {
     static ref EMPTY_STREAM:StreamChannel = {
         // wave file bytes with ~1 sample
         StreamChannel::create_from_memory(vec![0x52,0x49,0x46,0x46,0x28,0x00,0x00,0x00,0x57,0x41,0x56,0x45,0x66,0x6D,0x74,0x20,0x10,0x00,0x00,0x00,0x01,0x00,0x02,0x00,0x44,0xAC,0x00,0x00,0x88,0x58,0x01,0x00,0x02,0x00,0x08,0x00,0x64,0x61,0x74,0x61,0x04,0x00,0x00,0x00,0x80,0x80,0x80,0x80], 0i32).expect("error creating empty StreamChannel")
     };
 }
+#[cfg(feature="bass_audio")]
 fn create_empty_stream() -> StreamChannel {
     EMPTY_STREAM.clone()
 }

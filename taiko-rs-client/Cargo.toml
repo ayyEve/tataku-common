@@ -7,6 +7,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
+default = ["bass_audio"]
+# default = ["neb_audio"]
+bass_audio = ["bass"]
+neb_audio = ["cpal", "symphonia"]
 
 [dependencies]
 taiko-rs-common = {path="../taiko-rs-common"}
@@ -24,14 +28,14 @@ glfw = {version = "0.42.0", features=["image"]}
 image = "0.23"
 piston = "0.53.0"
 piston2d-graphics = "0.40.0"
-pistoncore-glfw_window = {git="https://github.com/ayyEve/glfw_window"}
+pistoncore-glfw_window = { git="https://github.com/ayyEve/glfw_window" }
 piston2d-opengl_graphics = "0.78.0"
 ayyeve-piston-ui = {git = "https://gitlab.ayyeve.xyz/ayyEve/ayyeve-piston-ui"}
 
 # audio
-cpal = "0.13.3"
-symphonia = { version = "0.3.0", default-features = false, features = ["mp3", "ogg", "wav", "pcm"] }
-bass = {git = "https://gitlab.ayyeve.xyz/ayyEve/bass-rs"}
+cpal = { version = "0.13.3", optional = true }
+symphonia = { version = "0.3.0", default-features = false, features = ["mp3", "ogg", "wav", "pcm"], optional = true }
+bass = {git = "https://gitlab.ayyeve.xyz/ayyEve/bass-rs", optional = true}
 
 # networking
 tokio-tungstenite = "0.16.0"

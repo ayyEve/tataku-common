@@ -114,16 +114,26 @@ impl OsuDirectMenu {
 
             // store last playing audio if needed
             if self.old_audio.is_none() {
+                #[cfg(feature="bass_audio")]
                 if let Some((key, a)) = Audio::get_song_raw() {
                     self.old_audio = Some(Some((key, a.get_position().unwrap() as f32)));
                 }
+                #[cfg(feature="neb_audio")]
+                if let Some((key, a)) = Audio::get_song_raw() {
+                    self.old_audio = Some(Some((key, a.upgrade().unwrap().current_time())));
+                }
+
                 // need to store that we made an attempt
                 if let None = self.old_audio {
                     self.old_audio = Some(None);
                 }
             }
 
+            #[cfg(feature="bass_audio")]
             Audio::play_song_raw(url, data2).unwrap();
+            #[cfg(feature="neb_audio")]
+            Audio::play_song_raw(url, data2);
+            
         } else if let Err(oof) = req {
             println!("error with preview: {}", oof);
         }
@@ -137,7 +147,11 @@ impl OsuDirectMenu {
 
             // restore previous audio
             if let Some((path, pos)) = old_audio.clone() {
+                #[cfg(feature="bass_audio")]
                 Audio::play_song(path, false, pos).unwrap();
+                
+                #[cfg(feature="neb_audio")]
+                Audio::play_song(path, false, pos);
             }
         }
 

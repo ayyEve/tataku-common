@@ -261,8 +261,13 @@ impl GameMode for TaikoGame {
 
         // if theres no more notes to hit, return after playing the sound
         if self.note_index >= self.notes.len() {
+            #[cfg(feature="bass_audio")]
             if let Ok(a) = Audio::play_preloaded(sound) {
                 a.set_volume(hit_volume).unwrap();
+            }
+            #[cfg(feature="neb_audio")] {
+                let a = Audio::play_preloaded(sound);
+                a.upgrade().unwrap().set_volume(hit_volume);
             }
             return;
         }
@@ -333,8 +338,13 @@ impl GameMode for TaikoGame {
             }
         }
 
+        #[cfg(feature="bass_audio")]
         if let Ok(a) = Audio::play_preloaded(sound) {
             a.set_volume(hit_volume).unwrap();
+        }
+        #[cfg(feature="neb_audio")] {
+            let a = Audio::play_preloaded(sound);
+            a.upgrade().unwrap().set_volume(hit_volume);
         }
     }
 
@@ -558,9 +568,12 @@ impl GameMode for TaikoGame {
                 manager.lead_in_time = 0.01;
             }
         }
+        
         if time < 0.0 {return}
-
+        #[cfg(feature="bass_audio")]
         manager.song.set_position(time as f64).unwrap();
+        #[cfg(feature="neb_audio")]
+        manager.song.upgrade().unwrap().set_position(time);
     }
 
     fn timing_bar_things(&self) -> (Vec<(f32,Color)>, (f32,Color)) {

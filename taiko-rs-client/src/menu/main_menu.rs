@@ -1,3 +1,5 @@
+
+#[cfg(feature = "bass_audio")]
 use bass::prelude::PlaybackState;
 use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::KeyModifiers;
@@ -86,6 +88,8 @@ impl Menu<Game> for MainMenu {
 
     fn update(&mut self, g:&mut Game) {
         let mut song_done = false;
+
+        #[cfg(feature = "bass_audio")]
         match Audio::get_song() {
             Some(song) => {
                 match song.get_playback_state() {
@@ -94,6 +98,10 @@ impl Menu<Game> for MainMenu {
                 }
             }
             _ => song_done = true,
+        }
+        #[cfg(feature = "neb_audio")]
+        if let None = Audio::get_song() {
+            song_done = true;
         }
 
         if song_done {
