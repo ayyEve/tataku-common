@@ -219,9 +219,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a32fd6af2b5827bce66c29053ba0e7c42b9dcab01835835058558c10851a46b"
 
 [[package]]
-name = "bass"
+name = "bass-rs"
 version = "0.1.0"
-source = "git+https://gitlab.ayyeve.xyz/ayyEve/bass-rs#75621d8e4ab642b680d92ec39051898c3d7eaac0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4e585e81ea2708745336a8888a27dae82f6e4bfaf1457df31d842ab25fa8acd"
 dependencies = [
  "bass-sys",
  "once_cell",
@@ -229,9 +230,9 @@ dependencies = [
 
 [[package]]
 name = "bass-sys"
-version = "2.0.1"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f7a838bc5d8e574b540e08c2a04a9ed97ea5f934bac862c717a07273203fbd5"
+checksum = "2d8c962bfd1d725c9a9f7f3ef5f027cc17acba492dc1268c406315ce688add39"
 dependencies = [
  "libloading",
  "once_cell",
@@ -3330,7 +3331,7 @@ name = "taiko-rs-client"
 version = "0.1.0"
 dependencies = [
  "ayyeve-piston-ui",
- "bass",
+ "bass-rs",
  "clipboard",
  "cpal",
  "futures-util",

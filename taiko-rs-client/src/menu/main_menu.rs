@@ -1,6 +1,6 @@
 
 #[cfg(feature = "bass_audio")]
-use bass::prelude::PlaybackState;
+use bass_rs::prelude::PlaybackState;
 use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::KeyModifiers;
 use taiko_rs_common::types::PlayMode;

@@ -8,7 +8,7 @@ edition = "2018"
 
 [features]
 default = ["bass_audio"]
-bass_audio = ["bass"]
+bass_audio = ["bass-rs"]
 neb_audio = ["cpal", "symphonia", "rustfft"]
 
 [dependencies]
@@ -32,7 +32,7 @@ piston2d-opengl_graphics = "0.78.0"
 ayyeve-piston-ui = { git = "https://gitlab.ayyeve.xyz/ayyEve/ayyeve-piston-ui" }
 
 # bass audio
-bass = { git = "https://gitlab.ayyeve.xyz/ayyEve/bass-rs", optional = true }
+bass-rs = { version="0.1", optional = true }
 
 # neb audio
 cpal = { version = "0.13.3", optional = true }

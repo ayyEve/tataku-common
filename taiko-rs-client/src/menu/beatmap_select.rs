@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 #[cfg(feature="bass_audio")]
-use bass::prelude::PlaybackState;
+use bass_rs::prelude::PlaybackState;
 use piston::{MouseButton, RenderArgs};
 use ayyeve_piston_ui::menu::menu_elements::TextInput;
 
@@ -44,13 +44,15 @@ pub struct BeatmapSelectMenu {
     // mouse_down: bool
 
     /// internal search box
-    search_text: TextInput
+    search_text: TextInput,
+    no_maps_notif_sent: bool
 }
 impl BeatmapSelectMenu {
     pub fn new() -> BeatmapSelectMenu {
         let window_size = Settings::window_size();
         BeatmapSelectMenu {
             mode: PlayMode::Standard,
+            no_maps_notif_sent: false,
 
             // mouse_down: false,
             // drag: None,
@@ -155,8 +157,15 @@ impl Menu<Game> for BeatmapSelectMenu {
             // no value, set it to something
             _ => {
                 let lock = BEATMAP_MANAGER.lock();
-                let map = lock.current_beatmap.as_ref().unwrap();
-                Audio::play_song(map.audio_filename.clone(), true, map.audio_preview).unwrap();
+                match &lock.current_beatmap {
+                    Some(map) => {
+                        Audio::play_song(map.audio_filename.clone(), true, map.audio_preview).unwrap();
+                    }
+                    None => if !self.no_maps_notif_sent {
+                        NotificationManager::add_text_notification("No beatmaps\nHold on...", 5000.0, Color::GREEN);
+                        self.no_maps_notif_sent = true;
+                    }
+                }
             },
         }
 

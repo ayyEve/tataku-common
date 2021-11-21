@@ -77,9 +77,9 @@ impl Game {
         #[cfg(feature="bass_audio")] {
             // initialize bass
             #[cfg(target_os = "windows")]
-            bass::init_default_with_ptr(window.window.get_win32_window()).expect("Error initializing bass");
+            bass_rs::Bass::init_default_with_ptr(window.window.get_win32_window()).expect("Error initializing bass");
             #[cfg(target_os = "linux")]
-            bass::init_default_with_ptr(window.window.get_x11_window()).expect("Error initializing bass");
+            bass_rs::Bass::init_default_with_ptr(window.window.get_x11_window()).expect("Error initializing bass");
         }
 
         // set window icon

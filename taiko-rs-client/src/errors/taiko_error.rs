@@ -3,7 +3,7 @@ use std::{fmt::Display, io::Error as IOError};
 use image::ImageError;
 
 #[cfg(feature="bass_audio")]
-use bass::prelude::BassError;
+use bass_rs::prelude::BassError;
 use serde_json::Error as JsonError;
 
 use super::*;

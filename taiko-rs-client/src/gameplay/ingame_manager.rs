@@ -2,7 +2,7 @@ use std::time::Instant;
 use std::collections::HashMap;
 
 #[cfg(feature="bass_audio")]
-use bass::prelude::*;
+use bass_rs::prelude::*;
 use piston::RenderArgs;
 use opengl_graphics::GlyphCache;
 

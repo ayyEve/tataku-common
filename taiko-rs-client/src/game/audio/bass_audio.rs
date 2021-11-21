@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::path::Path;
 use std::collections::HashMap;
 
-use bass::prelude::*;
+use bass_rs::prelude::*;
 use parking_lot::Mutex;
 
 use crate::game::Settings;

@@ -1,6 +1,6 @@
 
 #[cfg(feature="bass_audio")]
-use bass::prelude::BassError;
+use bass_rs::prelude::BassError;
 #[cfg(feature="neb_audio")]
 use symphonia::core::errors::Error as SymphoniaError;
 

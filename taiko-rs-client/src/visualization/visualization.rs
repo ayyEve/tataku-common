@@ -34,7 +34,7 @@ pub trait Visualization {
 
         #[cfg(feature="bass_audio")] {
             let data = match Audio::get_song() {
-                Some(stream) => stream.get_data(bass::prelude::DataType::FFT2048, 1024i32),
+                Some(stream) => stream.get_data(bass_rs::prelude::DataType::FFT2048, 1024i32),
                 None => return
             }.unwrap_or(vec![0.0]);
             audio_data = data[0..data.len() / 2].to_vec();
