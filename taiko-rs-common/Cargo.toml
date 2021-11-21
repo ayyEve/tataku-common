@@ -11,7 +11,5 @@ server = ["sea-orm"]
 
 
 [dependencies]
-num_enum = "0.5.1"
-
 serde = { version="1.0", features=["derive"] }
 sea-orm = { version = "0.4", features = [ "sqlx-postgres", "runtime-tokio-rustls" ], optional = true }

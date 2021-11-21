@@ -1,10 +1,6 @@
-use std::convert::TryInto;
-
-use num_enum::{IntoPrimitive, TryFromPrimitive};
-
 use crate::serialization::Serializable;
 
-#[derive(Copy, Clone, Debug, IntoPrimitive, TryFromPrimitive, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u16)]
 pub enum UserAction {
     Unknown = 0,
@@ -13,13 +9,26 @@ pub enum UserAction {
     Leaving,
     Editing
 }
+impl From<u16> for UserAction {
+    fn from(n: u16) -> Self {
+        use UserAction::*;
+        match n {
+            1 => Idle,
+            2 => Ingame,
+            3 => Leaving,
+            4 => Editing,
+            _=> Unknown
+        }
+    }
+}
+
 
 impl Serializable for UserAction {
     fn read(sr:&mut crate::serialization::SerializationReader) -> Self {
-        sr.read_u16().try_into().unwrap_or(UserAction::Unknown)
+        sr.read_u16().into()
     }
 
     fn write(&self, sw:&mut crate::serialization::SerializationWriter) {
-        sw.write_u16(self.clone().into())
+        sw.write_u16(*self as u16)
     }
 }
