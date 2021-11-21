@@ -133,7 +133,7 @@ impl BeatmapManager {
     }
 
     // setters
-    pub fn set_current_beatmap(&mut self, game:&mut Game, beatmap:&BeatmapMeta, mut do_async:bool, use_preview_time:bool) {
+    pub fn set_current_beatmap(&mut self, game:&mut Game, beatmap:&BeatmapMeta, _do_async:bool, use_preview_time:bool) {
         self.current_beatmap = Some(beatmap.clone());
         if let Some(map) = self.current_beatmap.clone() {
             self.played.push(map.beatmap_hash.clone());
@@ -145,7 +145,7 @@ impl BeatmapManager {
 
         // dont async with bass, causes race conditions + double audio bugs
         #[cfg(feature="neb_audio")]
-        if do_async {
+        if _do_async {
             tokio::spawn(async move {
                 Audio::play_song(audio_filename, false, time);
             });
@@ -185,6 +185,7 @@ impl BeatmapManager {
         }
     }
 
+
     pub fn random_beatmap(&self) -> Option<BeatmapMeta> {
         if self.beatmaps.len() > 0 {
             let ind = rand::thread_rng().gen_range(0..self.beatmaps.len());
@@ -195,22 +196,53 @@ impl BeatmapManager {
         }
     }
 
-    pub fn next_beatmap(&mut self) -> Option<BeatmapMeta> {
+    pub fn next_beatmap(&mut self, game:&mut Game) -> bool {
         self.play_index += 1;
-        if self.play_index < self.played.len() {
-            let hash = self.played[self.play_index].clone();
-            self.get_by_hash(&hash).clone()
-        } else {
-            self.random_beatmap()
+
+        let next_in_queue = match self.played.get(self.play_index) {
+            Some(hash) => self.get_by_hash(&hash),
+            None => None
+        };
+
+        match next_in_queue {
+            Some(map) => {
+                self.set_current_beatmap(game, &map, false, false);
+                // since we're playing something already in the queue, dont append it again
+                self.played.pop();
+                true
+            }
+
+            None => if let Some(map) = self.random_beatmap() {
+                self.set_current_beatmap(game, &map, false, false);
+                true
+            } else {
+                false
+            }
         }
+
+        // if self.play_index < self.played.len() {
+        //     let hash = self.played[self.play_index].clone();
+        //     self.get_by_hash(&hash).clone()
+        // } else {
+        //     self.random_beatmap()
+        // }
     }
-    pub fn previous_beatmap(&mut self) -> Option<BeatmapMeta> {
-        if self.play_index == 0 {return None}
+    pub fn previous_beatmap(&mut self, game:&mut Game) -> bool {
+        if self.play_index == 0 {return false}
         self.play_index -= 1;
         
         match self.played.get(self.play_index) {
-            Some(hash) => self.get_by_hash(&hash).clone(),
-            None => None
+            Some(hash) => {
+                if let Some(map) = self.get_by_hash(&hash) {
+                    self.set_current_beatmap(game, &map, false, false);
+                    // since we're playing something already in the queue, dont append it again
+                    self.played.pop();
+                    true
+                } else {
+                    false
+                }
+            }
+            None => false
         }
     }
 

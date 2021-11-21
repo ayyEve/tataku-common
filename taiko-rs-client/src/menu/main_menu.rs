@@ -226,8 +226,7 @@ impl Menu<Game> for MainMenu {
                 Left => {
                     let mut manager = BEATMAP_MANAGER.lock();
 
-                    if let Some(map) = manager.previous_beatmap() {
-                        manager.set_current_beatmap(game, &map, false, false);
+                    if manager.previous_beatmap(game) {
                         needs_manager_setup = true;
                     } else {
                         println!("no prev")
@@ -236,8 +235,7 @@ impl Menu<Game> for MainMenu {
                 Right => {
                     let mut manager = BEATMAP_MANAGER.lock();
 
-                    if let Some(map) = manager.next_beatmap() {
-                        manager.set_current_beatmap(game, &map, false, false);
+                    if manager.next_beatmap(game) {
                         needs_manager_setup = true;
                     } else {
                         println!("no next")
