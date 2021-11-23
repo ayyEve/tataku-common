@@ -10,6 +10,8 @@ edition = "2018"
 default = ["bass_audio"]
 bass_audio = ["bass-rs"]
 neb_audio = ["cpal", "symphonia", "rustfft"]
+debug_sliders = []
+debug_hitsounds = []
 
 [dependencies]
 taiko-rs-common = { path="../taiko-rs-common" }

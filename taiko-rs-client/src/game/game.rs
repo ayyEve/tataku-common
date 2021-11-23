@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
+use bass_rs::Bass;
 use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
@@ -57,7 +58,10 @@ pub struct Game {
     // misc
     pub game_start: Instant,
     pub background_image: Option<Image>,
-    // register_timings: (f32,f32,f32)
+    // register_timings: (f32,f32,f32),
+
+    #[cfg(feature="bass_audio")]
+    bass: Bass,
 }
 impl Game {
     pub fn new() -> Game {
@@ -74,13 +78,17 @@ impl Game {
         window.window.set_cursor_mode(glfw::CursorMode::Hidden);
         game_init_benchmark.log("window created", true);
 
-        #[cfg(feature="bass_audio")] {
-            // initialize bass
+
+        #[cfg(feature="bass_audio")] 
+        let bass = {
             #[cfg(target_os = "windows")]
-            bass_rs::Bass::init_default_with_ptr(window.window.get_win32_window()).expect("Error initializing bass");
+            let window_ptr = window.window.get_win32_window();
             #[cfg(target_os = "linux")]
-            bass_rs::Bass::init_default_with_ptr(window.window.get_x11_window()).expect("Error initializing bass");
-        }
+            let window_ptr = window.window.get_x11_window();
+
+            // initialize bass
+            bass_rs::Bass::init_default_with_ptr(window_ptr).expect("Error initializing bass")
+        };
 
         // set window icon
         match image::open("resources/icon-small.png") {
@@ -134,7 +142,9 @@ impl Game {
             // misc
             show_user_list: false,
             game_start: Instant::now(),
-            // register_timings: (0.0,0.0,0.0)
+            // register_timings: (0.0,0.0,0.0),
+            #[cfg(feature="bass_audio")] 
+            bass
         };
         game_init_benchmark.log("game created", true);
 

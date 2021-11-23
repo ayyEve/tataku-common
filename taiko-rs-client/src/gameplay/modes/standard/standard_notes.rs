@@ -517,6 +517,7 @@ impl HitObject for StandardSlider {
             // direction changed
             self.moving_forward = current_moving_forwards;
             self.slides_complete += 1;
+            #[cfg(feature="debug_sliders")]
             println!("slide complete: {}", self.slides_complete);
 
             // increment index
@@ -752,11 +753,13 @@ impl StandardHitObject for StandardSlider {
     fn get_points(&mut self, is_press:bool, time:f32, (h_miss, h50, h100, h300):(f32,f32,f32,f32)) -> ScoreHit {
         // if slider was held to end, no hitwindow to check
         if h_miss == -1.0 {
-            println!("checking end window (held to end)");
             let distance = ((self.time_end_pos.x - self.mouse_pos.x).powi(2) + (self.time_end_pos.y - self.mouse_pos.y).powi(2)).sqrt();
 
-            if distance > self.radius * 2.0 {println!("slider end miss (out of radius)")}
-            if !self.holding {println!("slider end miss (not held)")}
+            #[cfg(feature="debug_sliders")] {
+                println!("checking end window (held to end)");
+                if distance > self.radius * 2.0 {println!("slider end miss (out of radius)")}
+                if !self.holding {println!("slider end miss (not held)")}
+            }
 
             return if distance > self.radius * 2.0 || !self.holding {
                 ScoreHit::X100
@@ -769,14 +772,17 @@ impl StandardHitObject for StandardSlider {
         let judgement_time: f32;
         // check press
         if time > self.time - h_miss && time < self.time + h_miss {
-            println!("checking start window");
             // within starting time frame
 
             // make sure the cursor is in the radius
             let distance = ((self.pos.x - self.mouse_pos.x).powi(2) + (self.pos.y - self.mouse_pos.y).powi(2)).sqrt();
 
+            #[cfg(feature="debug_sliders")] {
+                println!("checking start window");
+                if distance > self.radius * 2.0 {println!("slider end miss (out of radius)")}
+            }
+
             // if already hit, or this is a release, return None
-            if distance > self.radius * 2.0 {println!("slider end miss (out of radius)")}
             if self.start_checked || !is_press || distance > self.radius {return ScoreHit::None}
             
             // start wasnt hit yet, set it to true
@@ -790,6 +796,7 @@ impl StandardHitObject for StandardSlider {
         // check release
         if time > self.curve.end_time - h_miss && time < self.curve.end_time + h_miss {
             // within ending time frame
+            #[cfg(feature="debug_sliders")]
             println!("checking end window");
 
             // make sure the cursor is in the radius

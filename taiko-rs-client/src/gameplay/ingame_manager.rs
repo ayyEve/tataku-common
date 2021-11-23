@@ -148,7 +148,6 @@ impl IngameManager {
 
     pub fn should_save_score(&self) -> bool {
         let should = !(self.replaying || self.current_mods.autoplay);
-        println!("should?: {}", should);
         should
     }
 
@@ -185,8 +184,6 @@ impl IngameManager {
             }
             (Some(song), _) => song.current_time(),
         };
-
-        // println!("time: {}", t);
 
         t - (self.lead_in_time + self.offset.value + self.global_offset.value)
     }
@@ -368,7 +365,6 @@ impl IngameManager {
                     song.play();
                 }
 
-
                 self.lead_in_time = 0.0;
             }
         }
@@ -445,11 +441,13 @@ impl IngameManager {
         // if the hitsound is being overridden
         if let Some(name) = note_hitsamples.filename {
             if name.len() > 0 {
+                #[cfg(feature="debug_hitsounds")]
                 println!("got custom sound: {}", name);
                 if exists(format!("resources/audio/{}", name)) {
                     play_normal = (note_hitsound & 1) > 0;
                     play_list.push((name, 0))
                 } else {
+                    #[cfg(feature="debug_hitsounds")]
                     println!("doesnt exist");
                 }
             }
@@ -505,6 +503,7 @@ impl IngameManager {
 
         for (sound_file, _index) in play_list.iter() {
             if !self.hitsound_cache.contains_key(sound_file) {
+                #[cfg(feature="debug_hitsounds")]
                 println!("not cached");
 
                 #[cfg(feature="bass_audio")]
