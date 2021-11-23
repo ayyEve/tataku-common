@@ -6,6 +6,7 @@ use crate::render::{*, fonts::get_font};
 use ayyeve_piston_ui::menu::KeyModifiers;
 
 pub const USER_ITEM_SIZE:Vector2 = Vector2::new(200.0, 100.0);
+pub const USERNAME_OFFSET:Vector2 = Vector2::new(5.0, 25.0);
 
 #[derive(Clone)]
 pub struct OnlineUser {
@@ -46,26 +47,25 @@ impl ScrollableItem for OnlineUser {
     fn set_selected(&mut self, selected:bool) {self.selected = selected}
 
 
-    fn draw(&mut self, _args:piston::RenderArgs, pos_offset:Vector2, depth:f64) -> Vec<Box<dyn Renderable>> {
+    fn draw(&mut self, _args:piston::RenderArgs, pos:Vector2, depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut list:Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
 
         // bounding box
-        let mut c = Color::BLACK.clone();
-        c.a = 0.5;
+        let mut c = Color::new(0.5, 0.5, 0.5, 0.75);
         list.push(Box::new(Rectangle::new(
             c,
             depth,
-            pos_offset,
+            pos,
             USER_ITEM_SIZE,
-            Some(Border::new(if self.hover {Color::RED} else {Color::BLACK}, 2.0))
+            Some(Border::new(if self.hover {Color::RED} else {Color::new(0.75, 0.75, 0.75, 0.75)}, 2.0))
         )));
 
         // username
         list.push(Box::new(Text::new(
-            Color::BLACK,
+            Color::WHITE,
             depth - 1.0,
-            pos_offset + Vector2::new(5.0, 20.0),
+            pos + USERNAME_OFFSET,
             20,
             self.username.clone(),
             font.clone()
@@ -79,7 +79,7 @@ impl ScrollableItem for OnlineUser {
             list.push(Box::new(Text::new(
                 Color::BLACK,
                 depth - 1.0,
-                pos_offset + Vector2::new(5.0, 50.0),
+                 USERNAME_OFFSET + pos,
                 20,
                 action_text.clone(),
                 font.clone()
