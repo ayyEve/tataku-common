@@ -60,19 +60,18 @@ async fn main() {
     check_folder("resources");
     check_folder("resources/audio");
 
-    main_benchmark.log("Folder check done", true);
+    main_benchmark.log("Folder check done, downloading files", true);
 
     // check for missing files
     for file in REQUIRED_FILES.iter() {
-        check_file(file, &format!("https://cdn.ayyeve.xyz/taiko-rs/{}", file));
+        check_file(file, &format!("https://cdn.ayyeve.xyz/taiko-rs/{}", file)).await;
     }
-
 
     // hitsounds
     for sample_set in ["normal", "soft", "drum"] {
         for hitsound in ["hitnormal", "hitwhistle", "hitclap", "hitfinish", "slidertick"] {
             let file = &format!("resources/audio/{}-{}.wav", sample_set, hitsound);
-            check_file(file, &format!("https://cdn.ayyeve.xyz/taiko-rs/{}", file));
+            check_file(file, &format!("https://cdn.ayyeve.xyz/taiko-rs/{}", file)).await;
         }
     }
 
@@ -81,12 +80,12 @@ async fn main() {
     if std::fs::read_dir(SONGS_DIR).unwrap().count() == 0 {
         // no songs, download some
         for id in FIRST_MAPS {
-            check_file(&format!("{}/{}.osz", DOWNLOADS_DIR, id), &format!("https://cdn.ayyeve.xyz/taiko-rs/maps/{}.osz", id));
+            check_file(&format!("{}/{}.osz", DOWNLOADS_DIR, id), &format!("https://cdn.ayyeve.xyz/taiko-rs/maps/{}.osz", id)).await;
         }
     }
 
     // check bass lib
-    check_bass();
+    check_bass().await;
 
     main_benchmark.log("File check done", true);
     
@@ -102,7 +101,7 @@ async fn main() {
 
 /// check for the bass lib
 /// if not found, will be downloaded
-fn check_bass() {
+async fn check_bass() {
     
     #[cfg(target_os = "windows")]
     let filename = "bass.dll";
@@ -131,7 +130,7 @@ fn check_bass() {
         }
 
         // download it from the web
-        check_file(&library_path, &format!("https://cdn.ayyeve.xyz/taiko-rs/bass/{}", filename));
+        check_file(&library_path, &format!("https://cdn.ayyeve.xyz/taiko-rs/bass/{}", filename)).await;
     } else {
         println!("error getting current executable dir, assuming things are good...")
     }

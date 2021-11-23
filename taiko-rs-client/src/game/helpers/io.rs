@@ -13,13 +13,16 @@ pub fn check_folder(dir:&str) {
 }
 
 /// check if a file exists, downloading it if it doesnt
-pub fn check_file<P:AsRef<Path>>(path:P, download_url:&str) {
-    if !Path::new(path.as_ref()).exists() {
-        println!("Check failed for '{:?}', downloading from '{}'", path.as_ref(), download_url);
+pub async fn check_file<P:AsRef<Path>>(path:P, download_url:&str) {
+    let path = path.as_ref();
+    if !path.exists() {
+        println!("Check failed for '{:?}', downloading from '{}'", path, download_url);
         
-        let bytes = reqwest::blocking::get(download_url)
+        let bytes = reqwest::get(download_url)
+            .await
             .expect("error with request")
             .bytes()
+            .await
             .expect("error converting to bytes");
 
         std::fs::write(path, bytes)

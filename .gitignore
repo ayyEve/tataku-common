@@ -2,3 +2,10 @@
 *.zip
 .vscode
 vgcore.*
+
+/downloads
+/fonts
+/resources
+/[Ss]ongs
+taiko-rs.db
+settings.json
