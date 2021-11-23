@@ -1,5 +1,7 @@
 use taiko_rs_common::types::PlayMode;
 
+use crate::game::managers::ModManager;
+
 
 // contains beatmap info unrelated to notes and timing points, etc
 #[derive(Clone, Debug, Default)]
@@ -20,10 +22,6 @@ pub struct BeatmapMeta {
     pub audio_preview: f32,
 
     pub duration: f32, // time in ms from first note to last note
-    /// song duration mins, used for display
-    pub mins: u8,
-    /// song duration seconds, used for display
-    pub secs: u8,
 
     pub hp: f32,
     pub od: f32,
@@ -32,7 +30,10 @@ pub struct BeatmapMeta {
     // pub sr: f64,
 
     pub slider_multiplier: f32,
-    pub slider_tick_rate: f32
+    pub slider_tick_rate: f32,
+
+    pub bpm_min: f32,
+    pub bpm_max: f32,
 }
 impl BeatmapMeta {
     pub fn new(file_path:String, beatmap_hash:String) -> BeatmapMeta {
@@ -60,18 +61,21 @@ impl BeatmapMeta {
             slider_tick_rate: 1.0,
 
             duration: 0.0,
-            mins: 0,
-            secs: 0,
+            bpm_min: 0.0,
+            bpm_max: 0.0
         }
     }
     pub fn do_checks(&mut self) {
         if self.ar < 0.0 {self.ar = self.od}
     }
 
-    pub fn set_dur(&mut self, duration: f32) {
-        self.duration = duration;
-        self.mins = (self.duration / 60000.0).floor() as u8;
-        self.secs = ((self.duration / 1000.0) % (self.mins as f32 * 60.0)).floor() as u8;
+    fn mins(&self, speed:f32) -> f32 {
+        ((self.duration / speed) / 60000.0).floor() 
+    }
+    fn secs(&self, speed:f32) -> f32 {
+        let mins = self.mins(speed);
+        let remaining_ms = (self.duration / speed) - mins * 60000.0;
+        (remaining_ms / 1000.0).floor()
     }
 
     /// get the title string with the version
@@ -79,10 +83,36 @@ impl BeatmapMeta {
         format!("{} - {} [{}]", self.artist, self.title, self.version)  
     }
 
-    /// get the difficulty string (od, hp, sr)
+    /// get the difficulty string (od, hp, sr, bpm, len)
     pub fn diff_string(&self) -> String {
+        let mods = ModManager::get();
+        let symb = if mods.speed > 1.0 {"+"} else if mods.speed < 1.0 {"-"} else {""};
+
         // format!("od: {:.2} hp: {:.2}, {:.2}*, {}:{}", self.od, self.hp, self.sr, self.mins, self.secs)
-        format!("od: {:.2} hp: {:.2}, {}:{}", self.od, self.hp, self.mins, self.secs)
+        let mut secs = format!("{}", self.secs(mods.speed));
+        if secs.len() == 1 {secs = format!("0{}",secs)}
+
+        let mut txt = format!(
+            "od: {:.2}{} hp: {:.2}{}, dur: {}:{}", 
+            self.od, symb,
+            self.hp, symb,
+            self.mins(mods.speed), secs
+        );
+
+        // make sure at least one has a value
+        if self.bpm_min != 0.0 || self.bpm_max != 0.0 {
+            // one bpm
+            if self.bpm_min == self.bpm_max {
+                txt += &format!(" bpm: {:.2}", self.bpm_min * mods.speed);
+            } else { // multi bpm
+                // i think i had it backwards when setting, just make sure its the right way :/
+                let min = self.bpm_min.min(self.bpm_max);
+                let max = self.bpm_max.max(self.bpm_min);
+                txt += &format!(" bpm: {:.2}-{:.2}", min * mods.speed, max * mods.speed);
+            }
+        }
+
+        txt
     }
 
     pub fn filter(&self, filter_str: &str) -> bool {

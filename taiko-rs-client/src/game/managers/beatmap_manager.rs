@@ -8,7 +8,6 @@ use crate::{DOWNLOADS_DIR, SONGS_DIR, get_file_hash};
 
 
 const DOWNLOAD_CHECK_INTERVAL:u64 = 10_000;
-
 lazy_static::lazy_static! {
     pub static ref BEATMAP_MANAGER: Arc<Mutex<BeatmapManager>> = Arc::new(Mutex::new(BeatmapManager::new()));
 }
@@ -69,6 +68,34 @@ impl BeatmapManager {
                 BeatmapManager::check_downloads();
             }
         });
+    }
+
+    /// clear the cache and db, 
+    /// and do a full rescan of the songs folder
+    pub fn full_refresh(&mut self) {
+        self.beatmaps.clear();
+        self.beatmaps_by_hash.clear();
+
+        {
+            let lock = crate::databases::DATABASE.lock();
+            let statement = format!("DELETE FROM beatmaps");
+            let res = lock.prepare(&statement).expect(&statement).execute([]);
+            if let Err(e) = res {
+                println!("error deleting beatmap meta from db: {}", e);
+            }
+        }
+
+
+
+        let mut folders = Vec::new();
+        read_dir(SONGS_DIR)
+            .unwrap()
+            .for_each(|f| {
+                let f = f.unwrap().path();
+                folders.push(f.to_str().unwrap().to_owned());
+            });
+
+        for f in folders {self.check_folder(f)}
     }
 
     // adders
@@ -250,48 +277,52 @@ impl BeatmapManager {
 
 
 fn insert_metadata(map: &BeatmapMeta) -> String {
-    format!("INSERT INTO beatmaps (
-        beatmap_path, beatmap_hash,
+    format!(
+        "INSERT INTO beatmaps (
+            beatmap_path, beatmap_hash,
 
-        playmode, beatmap_version,
-        artist, artist_unicode,
-        title, title_unicode,
-        creator, version,
+            playmode, beatmap_version,
+            artist, artist_unicode,
+            title, title_unicode,
+            creator, version,
 
-        audio_filename, image_filename,
-        audio_preview, duration,
+            audio_filename, image_filename,
+            audio_preview, duration,
+            
+            hp, od, cs, ar,
+            
+            slider_multiplier, slider_tick_rate,
+            bpm_min, bpm_max
+        ) VALUES (
+            \"{}\", \"{}\",
+
+            {}, {}, 
+            \"{}\", \"{}\",
+            \"{}\", \"{}\",
+            \"{}\", \"{}\",
+
+            \"{}\", \"{}\",
+            {}, {},
+
+            {}, {}, {}, {},
+
+            {}, {},
+            {}, {}
+        )",
+        map.file_path, map.beatmap_hash, 
+
+        map.mode as u8, map.beatmap_version,
+        map.artist.replace("\"", "\"\""), map.artist_unicode.replace("\"", "\"\""),
+        map.title.replace("\"", "\"\""), map.title_unicode.replace("\"", "\"\""),
+        map.creator.replace("\"", "\"\""), map.version.replace("\"", "\"\""),
         
-        hp, od, cs, ar,
-        
-        slider_multiplier, slider_tick_rate
-    ) VALUES (
-        \"{}\", \"{}\",
+        map.audio_filename, map.image_filename,
+        map.audio_preview, map.duration,
 
-        {}, {}, 
-        \"{}\", \"{}\",
-        \"{}\", \"{}\",
-        \"{}\", \"{}\",
+        map.hp, map.od, map.cs, map.ar,
 
-        \"{}\", \"{}\",
-        {}, {},
-
-        {}, {}, {}, {},
-
-        {}, {}
-    )",
-    map.file_path, map.beatmap_hash, 
-
-    map.mode as u8, map.beatmap_version,
-    map.artist.replace("\"", "\"\""), map.artist_unicode.replace("\"", "\"\""),
-    map.title.replace("\"", "\"\""), map.title_unicode.replace("\"", "\"\""),
-    map.creator.replace("\"", "\"\""), map.version.replace("\"", "\"\""),
-    
-    map.audio_filename, map.image_filename,
-    map.audio_preview, map.duration,
-
-    map.hp, map.od, map.cs, map.ar,
-
-    map.slider_multiplier, map.slider_tick_rate
+        map.slider_multiplier, map.slider_tick_rate,
+        map.bpm_min, map.bpm_max
     )
 }
 

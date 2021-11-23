@@ -264,6 +264,55 @@ impl OsuBeatmap {
             }
         }
 
+        // metadata bpm
+        let mut bpm_min = 9999999999.9;
+        let mut bpm_max  = 0.0;
+        for i in beatmap.timing_points.iter() {
+            if i.is_inherited() {continue}
+
+            if i.beat_length < bpm_min {
+                bpm_min = i.beat_length;
+            }
+            if i.beat_length > bpm_max {
+                bpm_max = i.beat_length;
+            }
+        }
+        // 60,000 / BPM = bl
+        // bpm/60,000 = 1/bl
+        // bpm = bl * 60,000
+        beatmap.metadata.bpm_min = 60_000.0 / bpm_min;
+        beatmap.metadata.bpm_max = 60_000.0 / bpm_max;
+
+        // metadata duration (scuffed bc .osu is trash)
+        let mut start_time = 0.0;
+        let mut end_time = 0.0;
+        for note in beatmap.notes.iter() {
+            if note.time < start_time {
+                start_time = note.time
+            }
+            if note.time > end_time {
+                end_time = note.time
+            }
+        }
+        for note in beatmap.sliders.iter() {
+            if note.time < start_time {
+                start_time = note.time
+            }
+            if note.time > end_time {
+                end_time = note.time
+            }
+        }
+        for note in beatmap.spinners.iter() {
+            if note.time < start_time {
+                start_time = note.time
+            }
+            if note.time > end_time {
+                end_time = note.time
+            }
+        }
+        beatmap.metadata.duration = end_time - start_time;
+
+
         // make sure we have the ar set
         beatmap.metadata.do_checks();
 

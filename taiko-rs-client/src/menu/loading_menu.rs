@@ -73,8 +73,7 @@ impl LoadingMenu {
             let mut s = t.prepare("SELECT * FROM beatmaps").unwrap();
 
             let rows = s.query_map([], |r| {
-                let duration: f32 = r.get("duration")?;
-                let mut meta = BeatmapMeta {
+                let meta = BeatmapMeta {
                     file_path: r.get("beatmap_path")?,
                     beatmap_hash: r.get("beatmap_hash")?,
                     beatmap_version: r.get("beatmap_version")?,
@@ -95,11 +94,10 @@ impl LoadingMenu {
                     slider_multiplier: r.get("slider_multiplier")?,
                     slider_tick_rate: r.get("slider_tick_rate")?,
         
-                    duration: 0.0,
-                    mins: 0,
-                    secs: 0,
+                    duration: r.get("duration")?,
+                    bpm_min: r.get("bpm_min").unwrap_or(0.0),
+                    bpm_max: r.get("bpm_max").unwrap_or(0.0),
                 };
-                meta.set_dur(duration);
 
                 Ok(meta)
             })

@@ -426,7 +426,12 @@ impl Menu<Game> for BeatmapSelectMenu {
             return;
         }
         if key == F5 {
-            self.refresh_maps();
+            if mods.ctrl {
+                NotificationManager::add_text_notification("doing a full refresh", 5000.0, Color::RED);
+                BEATMAP_MANAGER.lock().full_refresh();
+            } else {
+                self.refresh_maps();
+            }
             return;
         }
 

@@ -127,6 +127,18 @@ impl TaikoRsBeatmap for AdofaiBeatmap {
         let parent_dir = Path::new(&self.file_path);
         let parent_dir = parent_dir.parent().unwrap().to_str().unwrap();
 
+
+        // let mut bpm_min = 9999999999.9;
+        // let mut bpm_max  = 0.0;
+        // for i in self.timing_points {
+        //     if i. < bpm_min {
+        //         bpm_min = i.bpm;
+        //     }
+        //     if i.bpm > bpm_max {
+        //         bpm_max = i.bpm;
+        //     }
+        // }
+
         crate::beatmaps::common::BeatmapMeta {
             file_path: self.file_path.clone(),
             beatmap_hash: self.hash(),
@@ -142,14 +154,14 @@ impl TaikoRsBeatmap for AdofaiBeatmap {
             image_filename: format!("{}/{}", parent_dir, self.settings.bg_image),
             audio_preview: self.settings.preview_song_start,
             duration: 0.0,
-            mins: 0,
-            secs: 0,
             hp: 0.0,
             od: 0.0,
             cs: 0.0,
             ar: 0.0,
             slider_multiplier: 1.0,
             slider_tick_rate: 1.0,
+            bpm_min: 0.0,
+            bpm_max: 0.0
         }
     }
 

@@ -71,7 +71,19 @@ impl TaikoRsBeatmap for QuaverBeatmap {
     fn get_beatmap_meta(&self) -> crate::beatmaps::common::BeatmapMeta {
         let cs:u8 = self.mode.into();
         let cs = cs as f32;
-        crate::beatmaps::common::BeatmapMeta { 
+
+        let mut bpm_min = 9999999999.9;
+        let mut bpm_max  = 0.0;
+        for i in self.timing_points.iter() {
+            if i.bpm < bpm_min {
+                bpm_min = i.bpm;
+            }
+            if i.bpm > bpm_max {
+                bpm_max = i.bpm;
+            }
+        }
+
+        let mut meta = crate::beatmaps::common::BeatmapMeta { 
             file_path: self.path.clone(), 
             beatmap_hash: self.hash.clone(), 
             beatmap_version: 0, 
@@ -86,15 +98,33 @@ impl TaikoRsBeatmap for QuaverBeatmap {
             image_filename: self.background_file.clone(), 
             audio_preview: self.song_preview_time, 
             duration: 0.0, 
-            mins: 0, 
-            secs: 0, 
             hp: 0.0, 
             od: 0.0, 
             cs, 
             ar: 0.0, 
             slider_multiplier: 1.0, 
-            slider_tick_rate: 1.0
+            slider_tick_rate: 1.0,
+
+            bpm_min,
+            bpm_max
+        };
+
+
+        let mut start_time = 0.0;
+        let mut end_time = 0.0;
+        for note in self.hit_objects.iter() {
+            if note.start_time < start_time {
+                start_time = note.start_time
+            }
+
+            let et = note.end_time.unwrap_or(note.start_time);
+            if et > end_time {
+                end_time = et
+            }
         }
+        meta.duration = end_time - start_time;
+
+        meta
     }
 
     fn playmode(&self, _incoming:taiko_rs_common::types::PlayMode) -> taiko_rs_common::types::PlayMode {
