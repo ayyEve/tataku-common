@@ -1,9 +1,4 @@
-use std::fmt::Display;
-
-use ayyeve_piston_ui::render::{Color, Rectangle, Renderable, Text};
-use opengl_graphics::GlyphCache;
-
-use crate::{Vector2, game::Settings, helpers::{visibility_bg}, sync::*};
+use crate::prelude::*;
 
 const TEXT_HPADDING:f64 = 5.0;
 
@@ -14,10 +9,10 @@ pub struct CenteredTextHelper<V:Display> {
     pub depth: f64,
     changed_time: f32,
     draw_time: f32,
-    font: Arc<Mutex<GlyphCache<'static>>>,
+    font: Font,
 }
 impl<V:Display> CenteredTextHelper<V>{
-    pub fn new(label:&str, initial_value: V, draw_time: f32, depth: f64, font: Arc<Mutex<GlyphCache<'static>>>) -> Self {
+    pub fn new(label:&str, initial_value: V, draw_time: f32, depth: f64, font: Font) -> Self {
         Self {
             label: label.to_owned(),
             value: initial_value,

@@ -1,14 +1,7 @@
-use piston::RenderArgs;
-use std::f64::consts::PI;
-use graphics::CharacterCache;
-
-use taiko_rs_common::types::ScoreHit;
-use crate::beatmaps::common::{NoteType, map_difficulty};
-use crate::helpers::math::VectorHelpers;
-use crate::{Vector2, helpers::curve::Curve};
-use crate::beatmaps::osu::hitobject_defs::{HitSamples, NoteDef, SliderDef, SpinnerDef};
+use crate::prelude::*;
 use crate::gameplay::{HitObject, modes::ScalingHelper};
-use crate::render::{Circle, Color, Renderable, Border, Line, Rectangle, Text, fonts::get_font};
+use crate::beatmaps::common::{NoteType, map_difficulty};
+use crate::beatmaps::osu::hitobject_defs::{HitSamples, NoteDef, SliderDef, SpinnerDef};
 
 const SPINNER_RADIUS:f64 = 200.0;
 const SLIDER_DOT_RADIUS:f64 = 8.0;
@@ -999,7 +992,7 @@ impl HitObject for StandardSpinner {
                 diff = self.last_rotation_val - mouse_angle;
             }
             if diff.abs() > PI {diff = 0.0}
-            self.rotation_velocity = crate::helpers::math::Lerp::lerp(-diff, self.rotation_velocity, 0.005 * (beatmap_time - self.last_update) as f64);
+            self.rotation_velocity = math::Lerp::lerp(-diff, self.rotation_velocity, 0.005 * (beatmap_time - self.last_update) as f64);
             self.rotation += self.rotation_velocity * (beatmap_time - self.last_update) as f64;
 
             // println!("rotation: {}, diff: {}", self.rotation, diff);

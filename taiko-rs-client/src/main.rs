@@ -1,28 +1,14 @@
-// native imports
-use std::fmt::Display;
-
-// local imports
-use helpers::io::*;
-pub use game::helpers;
-pub use ayyeve_piston_ui::render;
-pub use ayyeve_piston_ui::render::Vector2;
-use game::{Game, Settings, helpers::BenchmarkHelper};
+use crate::prelude::*;
 
 // include files
 mod game;
 mod menu;
 mod errors;
+mod prelude;
 mod beatmaps;
 mod gameplay;
 mod databases;
 mod visualization;
-
-// re-exports to make imports nicer
-mod sync {
-    pub use std::sync::{Arc, Weak};
-    pub use parking_lot::{Mutex, MutexGuard};
-}
-
 
 // folders
 pub const DOWNLOADS_DIR:&str = "downloads";
@@ -102,7 +88,6 @@ async fn main() {
 /// check for the bass lib
 /// if not found, will be downloaded
 async fn check_bass() {
-    
     #[cfg(target_os = "windows")]
     let filename = "bass.dll";
        

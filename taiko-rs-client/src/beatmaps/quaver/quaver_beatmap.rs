@@ -1,11 +1,5 @@
-use std::path::Path;
-
 use serde::Deserialize;
-use taiko_rs_common::types::PlayMode;
-
-use crate::beatmaps::common::TaikoRsBeatmap;
-
-
+use crate::prelude::*;
 
 #[derive(Deserialize)]
 #[serde(rename_all="PascalCase")]
@@ -49,7 +43,7 @@ impl QuaverBeatmap {
         let lines = std::fs::read_to_string(&path).unwrap();
         let mut s:QuaverBeatmap = serde_yaml::from_str(&lines).unwrap();
 
-        s.hash = crate::helpers::io::get_file_hash(&path).unwrap();
+        s.hash = get_file_hash(&path).unwrap();
         s.path = path.clone();
 
         let parent_dir = Path::new(&path).parent().unwrap();

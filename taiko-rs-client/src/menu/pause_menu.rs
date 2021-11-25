@@ -1,9 +1,4 @@
-use piston::{MouseButton, RenderArgs};
-
-use crate::{Vector2, render::*};
-use crate::gameplay::IngameManager;
-use crate::menu::{Menu, MenuButton, ScrollableItem};
-use crate::game::{Settings, Game, GameState, KeyModifiers};
+use crate::prelude::*;
 
 const BUTTON_SIZE:Vector2 = Vector2::new(100.0, 50.0);
 const Y_MARGIN:f64 = 20.0;

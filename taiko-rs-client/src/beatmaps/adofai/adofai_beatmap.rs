@@ -1,11 +1,7 @@
 #![allow(dead_code)]
-use std::path::Path;
 
+use crate::prelude::*;
 use serde::Deserialize;
-use taiko_rs_common::types::PlayMode;
-
-use crate::beatmaps::common::{TaikoRsBeatmap, TimingPoint};
-
 
 #[derive(Deserialize)]
 #[serde(rename_all="camelCase")]
@@ -44,7 +40,7 @@ impl AdofaiBeatmap {
             Err(e) => panic!("error reading adofai map '{}': {}", path, e),
         };
 
-        map.hash = crate::helpers::io::get_file_hash(&path).unwrap();
+        map.hash = get_file_hash(&path).unwrap();
         map.file_path = path.clone();
         
         let chars = map.path_data.chars().collect::<Vec<char>>();

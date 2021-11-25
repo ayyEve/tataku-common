@@ -1,17 +1,12 @@
 use std::ops::Range;
 
-use ayyeve_piston_ui::render::*;
-use piston::{MouseButton, RenderArgs};
+use crate::prelude::*;
+use super::*;
 
-use crate::Vector2;
-use crate::beatmaps::Beatmap;
-use crate::game::{Settings, StandardSettings};
-use crate::beatmaps::osu::hitobject_defs::NoteDef;
-use crate::gameplay::modes::{ScalingHelper, standard::*};
-use crate::gameplay::{DURATION_HEIGHT, GameMode, IngameManager};
-use crate::beatmaps::common::{NoteType, TaikoRsBeatmap, map_difficulty};
-use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
-use crate::helpers::{curve::get_curve, key_counter::KeyCounter, math::Lerp};
+// use crate::gameplay::{DURATION_HEIGHT, GameMode, IngameManager};
+// use crate::beatmaps::common::{NoteType, TaikoRsBeatmap, map_difficulty};
+// use taiko_rs_common::types::{KeyPress, ReplayFrame, ScoreHit, PlayMode};
+// use crate::helpers::{curve::get_curve, key_counter::KeyCounter, math::Lerp};
 
 
 const POINTS_DRAW_DURATION:f32 = 200.0;
@@ -640,8 +635,6 @@ impl GameMode for StandardGame {
 
                 // check playfield snapping
                 // TODO: can this be simplified?
-                use crate::gameplay::modes::FIELD_SIZE;
-
                 let window_size = Settings::window_size();
                 let playfield_size = self.scaling_helper.playfield_scaled_with_cs_border.size;
 

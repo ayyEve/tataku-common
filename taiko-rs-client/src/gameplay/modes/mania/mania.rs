@@ -1,15 +1,5 @@
-use piston::{Key, RenderArgs};
-use taiko_rs_common::types::{KeyPress, ReplayFrame, PlayMode};
-
-use crate::Vector2;
-use crate::render::*;
-use crate::sync::Arc;
-use crate::beatmaps::Beatmap;
-use crate::gameplay::{GameMode, IngameManager};
-use super::{ManiaHold, ManiaNote, ManiaHitObject};
-use crate::beatmaps::osu::hitobject_defs::HoldDef;
-use crate::game::{Audio, Settings, ManiaPlayfieldSettings};
-use crate::beatmaps::common::{NoteType, TaikoRsBeatmap, TimingPoint, map_difficulty};
+use crate::prelude::*;
+use super::mania_notes::*;
 
 const FIELD_DEPTH:f64 = 110.0;
 const HIT_AREA_DEPTH: f64 = 99.9;

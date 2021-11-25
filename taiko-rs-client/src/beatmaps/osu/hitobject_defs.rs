@@ -1,4 +1,4 @@
-use crate::Vector2;
+use crate::prelude::*;
 
 #[derive(Clone, Debug)]
 pub struct NoteDef {
@@ -92,16 +92,23 @@ pub struct HitSamples {
 impl HitSamples {
     pub fn from_str(str:Option<&str>) -> Self {
 
+        macro_rules! read_val {
+            ($split:expr) => {
+                $split.next().unwrap_or("0").parse().unwrap_or(0)
+            };
+        }
+
         match str {
-            None =>  Self {..Default::default()},
+            None => Self::default(),
             Some(str) => {
                 let mut split = str.split(':');
-                let normal_set = split.next().unwrap_or("0").parse().unwrap_or(0);
+
+                let normal_set = read_val!(split); //split.next().unwrap_or("0").parse().unwrap_or(0);
                 let addition_set = split.next().unwrap_or("0").parse().unwrap_or(0);
                 let index = split.next().unwrap_or("0").parse().unwrap_or(0);
                 let volume = split.next().unwrap_or("0").parse().unwrap_or(0);
+                // i wonder if this can be simplified
                 let filename = match split.next() {Some(s) => Some(s.to_owned()), None => None};
-
                 Self {
                     normal_set,
                     addition_set,

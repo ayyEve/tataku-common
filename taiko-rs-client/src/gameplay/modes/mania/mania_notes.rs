@@ -1,11 +1,4 @@
-use piston::RenderArgs;
-
-use crate::sync::*;
-use crate::Vector2;
-use crate::gameplay::HitObject;
-use crate::beatmaps::common::NoteType;
-use crate::game::ManiaPlayfieldSettings;
-use crate::render::{Color, Rectangle, Renderable, Border};
+use crate::prelude::*;
 
 const MANIA_NOTE_DEPTH: f64 = 100.0;
 const MANIA_SLIDER_DEPTH: f64 = 100.1;

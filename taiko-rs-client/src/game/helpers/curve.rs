@@ -1,9 +1,5 @@
-use crate::Vector2;
-use crate::beatmaps::Beatmap;
-use crate::beatmaps::common::TaikoRsBeatmap;
+use crate::prelude::*;
 use crate::beatmaps::osu::hitobject_defs::{CurveType, SliderDef};
-use crate::helpers::math::*;
-// use crate::gameplay::{Beatmap, defs::{CurveType, SliderDef}};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Line {

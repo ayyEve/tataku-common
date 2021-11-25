@@ -1,6 +1,4 @@
-use piston::Key;
-use serde::{Serialize, Deserialize};
-use crate::Vector2;
+use crate::prelude::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]

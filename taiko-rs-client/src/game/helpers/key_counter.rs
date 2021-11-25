@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-use taiko_rs_common::types::KeyPress;
-use crate::render::{Border, Color, Rectangle, Renderable, Vector2, Text, fonts::get_font};
+use crate::prelude::*;
 
 const BOX_SIZE:Vector2 = Vector2::new(40.0, 40.0);
 

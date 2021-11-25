@@ -1,8 +1,14 @@
-use std::{collections::HashSet, time::Instant};
-use piston::input::*;
+use piston::Event;
+use piston::TextEvent;
+use piston::FocusEvent;
+use piston::ButtonEvent;
+use piston::input::Button;
+use piston::MouseScrollEvent;
+use piston::MouseCursorEvent;
+use piston::input::ButtonState;
+use piston::ControllerAxisEvent;
 
-use crate::Vector2;
-use crate::game::KeyModifiers;
+use crate::prelude::*;
 
 pub struct InputManager {
     pub mouse_pos: Vector2,

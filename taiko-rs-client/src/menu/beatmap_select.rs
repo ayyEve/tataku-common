@@ -1,18 +1,6 @@
-use std::collections::HashMap;
 
-#[cfg(feature="bass_audio")]
-use bass_rs::prelude::PlaybackState;
-use piston::{MouseButton, RenderArgs};
-use ayyeve_piston_ui::menu::menu_elements::TextInput;
-
-use crate::render::{*, fonts::get_font};
-use crate::beatmaps::common::BeatmapMeta;
-use taiko_rs_common::types::{Score, PlayMode};
-use crate::gameplay::modes::manager_from_playmode;
-use crate::{Vector2, databases::get_scores, sync::*};
-use crate::game::{Settings, Game, GameState, KeyModifiers, Audio};
-use crate::game::managers::{BEATMAP_MANAGER, ModManager, NotificationManager};
-use crate::menu::{Menu, ScoreMenu, ScrollableArea, ScrollableItem, MenuButton};
+use crate::prelude::*;
+use crate::databases::get_scores;
 
 
 // constants

@@ -1,14 +1,11 @@
-use std::collections::HashMap;
 use std::{fs::File, io::Write};
-use piston::{Key, MouseButton};
-use taiko_rs_common::types::PlayMode;
 
-use crate::sync::Arc;
-use crate::{DOWNLOADS_DIR, Vector2};
-use crate::game::managers::NotificationManager;
-use crate::game::{Audio, Game, GameState, KeyModifiers, Settings};
-use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
-use crate::render::{Text, Renderable, Rectangle, Color, Border, fonts::get_font};
+use crate::prelude::*;
+use crate::DOWNLOADS_DIR;
+// use crate::game::managers::NotificationManager;
+// use crate::game::{Audio, Game, GameState, KeyModifiers, Settings};
+// use crate::menu::{Menu, ScrollableArea, ScrollableItem, TextInput};
+// use crate::render::{Text, Renderable, Rectangle, Color, Border, fonts::get_font};
 
 const DOWNLOAD_ITEM_SIZE:Vector2 = Vector2::new(300.0, 40.0);
 const DOWNLOAD_ITEM_YMARGIN:f64 = 30.0;

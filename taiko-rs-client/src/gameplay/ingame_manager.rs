@@ -1,23 +1,5 @@
-use std::time::Instant;
-use std::collections::HashMap;
-
-#[cfg(feature="bass_audio")]
-use bass_rs::prelude::*;
-use piston::RenderArgs;
-use opengl_graphics::GlyphCache;
-
-#[cfg(feature="neb_audio")]
-use crate::game::{AudioHandle, Sound};
-
-use crate::game::managers::ModManager;
-use crate::{beatmaps::Beatmap, errors::TaikoError};
+use crate::prelude::*;
 use crate::beatmaps::osu::hitobject_defs::HitSamples;
-use crate::game::{Audio, BackgroundGameSettings, Settings};
-use crate::helpers::centered_text_helper::CenteredTextHelper;
-use taiko_rs_common::types::{PlayMode, Replay, ReplayFrame, Score};
-use crate::{Vector2, sync::*, helpers::{visibility_bg, io::exists}};
-use crate::beatmaps::common::{BeatmapMeta, TaikoRsBeatmap, TimingPoint};
-use crate::render::{Renderable, Rectangle, Text, Color, Border, fonts::get_font};
 
 /// how much time should pass at beatmap start before audio begins playing (and the map "starts")
 const LEAD_IN_TIME:f32 = 1000.0;
@@ -80,7 +62,7 @@ pub struct IngameManager {
     pub hitbar_timings: Vec<(f32, f32)>,
 
     // draw helpers
-    pub font: Arc<Mutex<GlyphCache<'static>>>,
+    pub font: Font,
     combo_text_bounds: Rectangle,
     timing_bar_things: (Vec<(f32,Color)>, (f32,Color)),
 

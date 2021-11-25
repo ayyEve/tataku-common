@@ -1,9 +1,7 @@
 use std::{fs::File, path::Path};
 use std::io::{self, BufRead, BufReader, Lines};
 
-use crate::{Vector2, render::Image};
-use crate::game::{Settings, managers::NotificationManager};
-
+use crate::prelude::*;
 
 /// check if folder exists, creating it if it doesnt
 pub fn check_folder(dir:&str) {

@@ -1,4 +1,4 @@
-use crate::sync::*;
+use crate::prelude::*;
 
 lazy_static::lazy_static! {
     static ref MOD_MANAGER: Arc<Mutex<ModManager>> = Arc::new(Mutex::new(ModManager::new()));

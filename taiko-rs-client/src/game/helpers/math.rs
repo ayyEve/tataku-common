@@ -1,5 +1,5 @@
+use crate::prelude::Vector2;
 use std::collections::VecDeque;
-use crate::Vector2;
 
 // this is essentially osu's math helper
 

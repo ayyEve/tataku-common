@@ -1,10 +1,4 @@
-use taiko_rs_common::types::PlayMode;
-
-use crate::game::Settings;
-use crate::beatmaps::Beatmap;
-use super::{GameMode, IngameManager};
-use crate::render::{Rectangle, Vector2};
-use crate::beatmaps::common::BeatmapMeta;
+use crate::prelude::*;
 
 pub mod taiko;
 pub mod mania;
@@ -12,11 +6,12 @@ pub mod catch;
 pub mod standard;
 
 
-const FIELD_SIZE:Vector2 = Vector2::new(512.0, 384.0); // 4:3
+pub const FIELD_SIZE:Vector2 = Vector2::new(512.0, 384.0); // 4:3
 
 
-use PlayMode::*;
 pub fn manager_from_playmode(mut playmode: PlayMode, beatmap: &BeatmapMeta) -> Result<IngameManager, crate::errors::TaikoError> {
+    use PlayMode::*;
+    
     // println!("playmode: {:?}", playmode);
     if beatmap.mode != Standard {
         playmode = beatmap.mode;

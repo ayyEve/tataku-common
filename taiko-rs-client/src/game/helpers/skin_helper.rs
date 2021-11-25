@@ -1,8 +1,5 @@
 #[allow(unused, dead_code)]
-
-use std::collections::HashMap;
-// use crate::game::audio::Sound;
-use crate::render::{Color, Image, Vector2};
+use crate::prelude::*;
 
 const SKIN_FOLDER:&str = "./skins";
 const DEFAULT_SKIN:&str = "default";

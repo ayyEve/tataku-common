@@ -1,13 +1,5 @@
-use std::sync::Arc;
 use std::path::Path;
-use std::collections::HashMap;
-
-use bass_rs::prelude::*;
-use parking_lot::Mutex;
-
-use crate::game::Settings;
-use crate::errors::{AudioError, TaikoResult};
-
+use crate::prelude::*;
 
 const SOUND_LIST:&[&'static str] = &[
     "resources/audio/don.wav",

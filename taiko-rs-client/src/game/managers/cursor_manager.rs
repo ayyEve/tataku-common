@@ -1,6 +1,4 @@
-use crate::Vector2;
-use crate::game::Settings;
-use crate::render::{Renderable, Circle, Color};
+use crate::prelude::*;
 
 pub struct CursorManager {
     /// position of the visible cursor

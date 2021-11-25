@@ -1,10 +1,8 @@
 use std::fs::read_dir;
 
-use crate::beatmaps::common::BeatmapMeta;
-use crate::{SONGS_DIR, Vector2, menu::Menu, sync::*};
-use crate::render::{Color, Rectangle, Text, fonts::get_font};
-use crate::game::{Settings, Game, managers::BEATMAP_MANAGER};
 
+use crate::SONGS_DIR;
+use crate::prelude::*;
 /// helper for when starting the game. will load beatmaps, settings, etc from storage
 /// all while providing the user with its progress (relatively anyways)
 pub struct LoadingMenu {
@@ -150,8 +148,8 @@ impl Menu<Game> for LoadingMenu {
         }
     }
 
-    fn draw(&mut self, _args:piston::RenderArgs) -> Vec<Box<dyn crate::render::Renderable>> {
-        let mut list: Vec<Box<dyn crate::render::Renderable>> = Vec::new();
+    fn draw(&mut self, _args:piston::RenderArgs) -> Vec<Box<dyn Renderable>> {
+        let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
 
         // since this is just loading, we dont care about performance here

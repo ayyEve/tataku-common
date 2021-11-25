@@ -1,9 +1,5 @@
-
-use piston::Key;
+use crate::prelude::*;
 use serde::{Serialize, Deserialize};
-
-use crate::Vector2;
-use crate::game::Settings;
 
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

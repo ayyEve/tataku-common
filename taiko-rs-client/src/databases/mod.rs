@@ -1,4 +1,4 @@
-use crate::sync::*;
+use crate::prelude::*;
 use rusqlite::Connection;
 
 mod score_database;

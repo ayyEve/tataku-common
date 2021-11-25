@@ -1,8 +1,4 @@
-use std::time::Instant;
-
-use crate::game::Settings;
-use crate::render::{Color, Text, Renderable, fonts::get_font};
-use crate::{Vector2, helpers::visibility_bg};
+use crate::prelude::*;
 
 const SIZE:Vector2 = Vector2::new(180.0, 20.0);
 

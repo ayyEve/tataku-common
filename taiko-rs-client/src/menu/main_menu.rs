@@ -1,17 +1,6 @@
+use crate::prelude::*;
 
-#[cfg(feature = "bass_audio")]
-use bass_rs::prelude::PlaybackState;
-use piston::{MouseButton, RenderArgs};
-use ayyeve_piston_ui::menu::KeyModifiers;
-use taiko_rs_common::types::PlayMode;
-
-use crate::game::managers::ModManager;
-use crate::{Vector2, sync::*};
-use crate::render::{*, fonts::get_font};
 use crate::visualization::{MenuVisualization, Visualization};
-use crate::gameplay::{IngameManager, modes::manager_from_playmode};
-use crate::menu::{Menu, MenuButton, OsuDirectMenu, ScrollableItem};
-use crate::game::{Audio, Game, GameState, Settings, managers::{BEATMAP_MANAGER, NotificationManager}};
 
 const BUTTON_SIZE: Vector2 = Vector2::new(100.0, 50.0);
 const Y_MARGIN: f64 = 20.0;
@@ -149,7 +138,7 @@ impl Menu<Game> for MainMenu {
         );
         welcome_text.center_text(Rectangle::bounds_only(Vector2::new(0.0, 30.0), Vector2::new(window_size.x , 50.0)));
         
-        list.push(crate::helpers::visibility_bg(
+        list.push(visibility_bg(
             welcome_text.pos - Vector2::new(0.0, 40.0), 
             Vector2::new(welcome_text.measure_text().x , 50.0),
             depth+10.0

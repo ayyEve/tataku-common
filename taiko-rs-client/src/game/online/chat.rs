@@ -1,9 +1,5 @@
 #![allow(dead_code, unused, non_snake_case)]
-use std::collections::HashMap;
-
-use crate::game::Game;
-use crate::{Vector2, Settings};
-use crate::menu::{Menu, ScrollableArea, ScrollableItem, dialog::Dialog};
+use crate::prelude::*;
 
 const CHANNEL_LIST_WIDTH:f64 = 100.0;
 // const CHAT_SIZE:Vector2 = Vector2::new(window_size().x - CHANNEL_LIST_WIDTH, 300.0);
@@ -45,12 +41,12 @@ impl Chat {
     }
 }
 
-impl Dialog for Chat{}
+impl Dialog for Chat {}
 impl Menu<Game> for Chat {
-    fn draw(&mut self, args:piston::RenderArgs) -> Vec<Box<dyn crate::render::Renderable>> {
+    fn draw(&mut self, args:piston::RenderArgs) -> Vec<Box<dyn Renderable>> {
         if !self.visible {return Vec::new()}
 
-        let mut list: Vec<Box<dyn crate::render::Renderable>> = Vec::new();
+        let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         list.extend(self.channel_scroll.draw(args, Vector2::zero(), 0.0));
         list.extend(self.messages_scroll.draw(args, Vector2::zero(), 0.0));
         list

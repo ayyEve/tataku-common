@@ -1,20 +1,11 @@
-use std::collections::HashMap;
-use std::time::{Duration, Instant};
-
-use bass_rs::Bass;
 use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
 
-use crate::beatmaps::Beatmap;
-use crate::beatmaps::common::{BeatmapMeta, TaikoRsBeatmap};
-use crate::gameplay::IngameManager;
+use crate::prelude::*;
+use crate::DOWNLOADS_DIR;
 use crate::databases::{save_replay, save_score};
-use crate::render::{Color, Image, Rectangle, Renderable};
-use taiko_rs_common::types::{SpectatorFrames, UserAction};
-use crate::{Vector2, DOWNLOADS_DIR, menu::*, sync::{Arc, Mutex}};
-use crate::helpers::{FpsDisplay, BenchmarkHelper, VolumeControl, io::*};
-use crate::game::{Settings, audio::Audio, managers::*, online::{USER_ITEM_SIZE, OnlineManager}};
+use crate::game::online::{USER_ITEM_SIZE, OnlineManager};
 
 
 /// background color
@@ -61,7 +52,9 @@ pub struct Game {
     // register_timings: (f32,f32,f32),
 
     #[cfg(feature="bass_audio")]
-    bass: Bass,
+    #[allow(dead_code)]
+    /// needed to prevent bass from deinitializing
+    bass: bass_rs::Bass,
 }
 impl Game {
     pub fn new() -> Game {

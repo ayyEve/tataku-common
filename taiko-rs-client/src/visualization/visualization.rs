@@ -1,12 +1,4 @@
-// use dft::c32;
-use std::time::Instant;
-
-#[cfg(feature="bass_audio")]
-use crate::game::Audio;
-#[cfg(feature="neb_audio")]
-use crate::game::fft::FFT;
-use crate::render::{Renderable, Vector2};
-
+use crate::prelude::*;
 
 pub use f32 as Amplitude;
 pub use f32 as Frequency;
