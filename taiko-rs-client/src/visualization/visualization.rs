@@ -53,7 +53,7 @@ pub trait Visualization {
                 size = FFT::F8192;
             }
 
-            let mut data = crate::game::audio::fft::fft(
+            let mut data = fft(
                 &mut data, 
                 size
             );

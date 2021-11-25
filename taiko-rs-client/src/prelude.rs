@@ -37,6 +37,8 @@ pub use taiko_rs_common::types::*;
 pub use bass_rs::prelude::*;
 #[cfg(feature="neb_audio")]
 pub use crate::game::{AudioHandle, Sound};
+#[cfg(feature="neb_audio")]
+pub use crate::game::audio::fft::*;
 
 // game and helper imports
 pub use crate::menu::*;
