@@ -44,7 +44,7 @@ fn main() {
         env!("CI_PROJECT_DIR", if cd.ends_with("taiko-rs-client") {"../.."} else {".."}),
         if TEST {"test-"} else {""}
     );
-    if TEST {println!("cd:{:?}, path: {}", cd, commit_file)};
+    println!("cd:{:?}, path: {}", cd, commit_file);
 
     // build the query url
     let url = format!("{}/projects/{}/repository/commits?ref_name={}", url, id, branch);

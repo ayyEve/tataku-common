@@ -2,10 +2,9 @@
 variables:
   CARGO_HOME: $CI_PROJECT_DIR/.cargo
 
-
 stages:
   - build-client
-  
+
 
 rust-latest:
   stage: build-client
@@ -17,6 +16,7 @@ rust-latest:
     - cargo test --bin taiko-rs-client --verbose
   cache:
     paths:
+      - target
       - .cargo
 
 
@@ -31,4 +31,5 @@ rust-nightly:
   allow_failure: true
   cache:
     paths:
+      - target
       - .cargo
