@@ -40,11 +40,11 @@ fn main() {
 
     let cd = std::env::current_dir().unwrap();
     let commit_file = format!(
-        "{}/taiko.rs/taiko-rs-client/src/{}commits.rs", 
-        env!("CI_PROJECT_DIR", if cd.ends_with("taiko-rs-client") {"../.."} else {".."}),
+        "{}/src/{}commits.rs", 
+        env!("CI_PROJECT_DIR", if cd.ends_with("taiko-rs-client") {"."} else {"taiko-rs-client"}),
         if TEST {"test-"} else {""}
     );
-    println!("cd:{:?}, path: {}", cd, commit_file);
+    println!("cd: {:?}, path: {}", cd, commit_file);
 
     // build the query url
     let url = format!("{}/projects/{}/repository/commits?ref_name={}", url, id, branch);
@@ -64,7 +64,7 @@ fn main() {
         build_commits_file(commits, this_commit)
     ).expect("error writing commits.rs");
 
-    if TEST {panic!("")};
+    if TEST {panic!("end of test")};
 }
 
 
