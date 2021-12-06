@@ -1,12 +1,12 @@
-mod replay;
 mod score;
-mod user_status;
+mod replay;
 mod spectator;
+mod user_status;
 
 pub use score::*;
 pub use replay::*;
-pub use user_status::*;
 pub use spectator::*;
+pub use user_status::*;
 
 use serde::{Serialize, Deserialize};
 use crate::serialization::Serializable;

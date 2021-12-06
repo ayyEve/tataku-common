@@ -4,6 +4,7 @@ use crate::prelude::*;
 mod game;
 mod menu;
 mod errors;
+mod commits;
 mod prelude;
 mod beatmaps;
 mod gameplay;

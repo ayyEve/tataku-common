@@ -9,3 +9,5 @@ vgcore.*
 /[Ss]ongs
 taiko-rs.db
 settings.json
+
+test-commits.rs
