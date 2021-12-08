@@ -28,7 +28,9 @@ pub struct InputManager {
     
     text_cache: String,
     window_change_focus: Option<bool>,
-    register_times: Vec<f32>
+    register_times: Vec<f32>,
+
+    pub raw_input: bool
 }
 impl InputManager {
     pub fn new() -> InputManager {
@@ -47,12 +49,13 @@ impl InputManager {
             keys_up:  HashSet::new(),
             
             text_cache: String::new(),
-
             window_change_focus: None,
+
+            raw_input: false
         }
     }
 
-    pub fn handle_events(&mut self, e:Event) {
+    pub fn handle_events(&mut self, e:Event, window:&mut glfw_window::GlfwWindow) {
         if let Some(button) = e.button_args() {
             match (button.button, button.state) {
                 (Button::Keyboard(key), ButtonState::Press) => {
@@ -86,10 +89,26 @@ impl InputManager {
             println!("got controller axis: {:?}", axis);
         }
 
-        e.mouse_cursor(|pos| {
-            let new_pos = Vector2::new(pos[0], pos[1]);
-            if new_pos != self.mouse_pos {self.mouse_moved = true}
-            self.mouse_pos = new_pos;
+        e.mouse_cursor(|[x, y]| {
+            let incoming = Vector2::new(x, y);
+
+            if self.raw_input {
+                let half_window = Settings::window_size() / 2.0;
+                let diff = incoming - half_window;
+                if diff == Vector2::zero() {return}
+                self.mouse_pos = self.mouse_pos + diff;
+                self.mouse_moved = true;
+
+                if !(self.mouse_pos.x < 0.0 || self.mouse_pos.y < 0.0 
+                || self.mouse_pos.x > half_window.x * 2.0 || self.mouse_pos.y > half_window.y * 2.0) {
+                    window.window.set_cursor_pos(half_window.x, half_window.y)
+                }
+
+            } else {
+                if incoming == self.mouse_pos {return}
+                self.mouse_moved = true;
+                self.mouse_pos = incoming;
+            }
         });
 
         e.mouse_scroll(|d| {self.scroll_delta += d[1]});
