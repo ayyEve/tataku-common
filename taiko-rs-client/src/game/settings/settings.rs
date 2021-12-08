@@ -93,7 +93,7 @@ impl Settings {
         if SETTINGS.is_locked() {
             // panic bc the devs should know when this error occurs, as it completely locks up the app
             let last_caller = LAST_CALLER.lock();
-            panic!("Settings Double Locked! Called by {}, last called by {}", caller, last_caller);
+            panic!("Settings Double Locked! Called by {}, locked by {}", caller, last_caller);
         }
 
         *LAST_CALLER.lock() = caller;

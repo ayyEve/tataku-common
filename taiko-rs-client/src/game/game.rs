@@ -21,13 +21,13 @@ pub struct Game {
     pub graphics: GlGraphics,
     pub input_manager: InputManager,
     pub online_manager: Arc<tokio::sync::Mutex<OnlineManager>>,
+    pub volume_controller: VolumeControl,
     
     pub menus: HashMap<&'static str, Arc<Mutex<dyn Menu<Game>>>>,
     pub current_state: GameState,
     pub queued_state: GameState,
 
-    pub volume_controller: VolumeControl,
-
+    pub dialogs: Vec<Box<dyn Dialog<Self>>>,
     pub wallpapers: Vec<Image>,
 
     // fps
@@ -112,6 +112,7 @@ impl Game {
             online_manager,
             volume_controller:VolumeControl::new(),
             render_queue: Vec::new(),
+            dialogs: Vec::new(),
             background_image: None,
             wallpapers: Vec::new(),
 
@@ -148,9 +149,10 @@ impl Game {
     }
 
     pub fn init(&mut self) {
-        let clone = self.online_manager.clone();
-
+        // set the dialog queue
+        
         // online loop
+        let clone = self.online_manager.clone();
         tokio::spawn(async move {
             loop {
                 OnlineManager::start(clone.clone()).await;
@@ -212,7 +214,7 @@ impl Game {
         }
 
         while let Some(e) = events.next(&mut self.window) {
-            self.input_manager.handle_events(e.clone());
+            self.input_manager.handle_events(e.clone(), &mut self.window);
             if let Some(args) = e.update_args() {self.update(args.dt*1000.0)}
             if let Some(args) = e.render_args() {self.render(args)}
             if let Some(Button::Keyboard(_)) = e.press_args() {self.input_update_display.increment()}
@@ -265,14 +267,14 @@ impl Game {
         // read input events
         let mouse_pos = self.input_manager.mouse_pos;
         let mut mouse_down = self.input_manager.get_mouse_down();
-        let mouse_up = self.input_manager.get_mouse_up();
+        let mut mouse_up = self.input_manager.get_mouse_up();
         let mouse_moved = self.input_manager.get_mouse_moved();
         let mut scroll_delta = self.input_manager.get_scroll_delta();
 
         let mut keys_down = self.input_manager.get_keys_down();
-        let keys_up = self.input_manager.get_keys_up();
+        let mut keys_up = self.input_manager.get_keys_up();
         let mods = self.input_manager.get_key_mods();
-        let text = self.input_manager.get_text();
+        let mut text = self.input_manager.get_text();
         let window_focus_changed = self.input_manager.get_changed_focus();
 
         // if keys.len() > 0 {
@@ -300,6 +302,7 @@ impl Game {
         self.volume_controller.on_key_press(&mut keys_down, mods);
         
         // users list
+        //TODO: maybe try to move this to a dialog?
         if keys_down.contains(&Key::F8) {
             self.show_user_list = !self.show_user_list;
             println!("Show user list: {}", self.show_user_list);
@@ -314,6 +317,26 @@ impl Game {
                 }
             }
         }
+
+
+        // update any dialogs
+        let mut dialog_list = std::mem::take(&mut self.dialogs);
+        for d in dialog_list.iter_mut().rev() {
+            
+            // kb events
+            keys_down.retain(|k| !d.on_key_press(k, &mods, self));
+            keys_up.retain(|k| !d.on_key_release(k,  &mods, self));
+            if !text.is_empty() && d.on_text(&text) {text = String::new()}
+
+            // mouse events
+            if mouse_moved {d.on_mouse_move(&mouse_pos, self)}
+            if d.get_bounds().contains(mouse_pos) {
+                mouse_down.retain(|button| !d.on_mouse_down(&mouse_pos, &button, &mods, self));
+                mouse_up.retain(|button| !d.on_mouse_up(&mouse_pos, &button, &mods, self));
+                if scroll_delta != 0.0 && d.on_mouse_scroll(&scroll_delta, self) {scroll_delta = 0.0}
+            }
+        }
+        self.dialogs = std::mem::take(&mut dialog_list);
 
 
         // run update on current state
@@ -638,6 +661,17 @@ impl Game {
             }
         }
 
+
+        // update any dialogs
+        let mut dialog_list = std::mem::take(&mut self.dialogs);
+        let mut current_depth = -5000.0;
+        const DIALOG_DEPTH_DIFF:f64 = 50.0;
+        for d in dialog_list.iter_mut().rev() {
+            d.draw(&args, &current_depth, &mut self.render_queue);
+            current_depth += DIALOG_DEPTH_DIFF;
+        }
+        self.dialogs = std::mem::take(&mut dialog_list);
+
         // volume control
         self.render_queue.extend(self.volume_controller.draw(args));
 
@@ -733,6 +767,11 @@ impl Game {
         // //     },
         // // }
     }
+
+
+    pub fn add_dialog(&mut self, dialog: Box<dyn Dialog<Self>>) {
+        self.dialogs.push(dialog)
+    }
 }
 
 
@@ -743,7 +782,7 @@ pub enum GameState {
     InMenu(Arc<Mutex<dyn Menu<Game>>>),
 
     #[allow(dead_code)]
-    Spectating(Arc<Mutex<SpectatorFrames>>, SpectatorState, Option<Arc<Mutex<Beatmap>>>), // frames awaiting replay, state, beatmap
+    Spectating(Arc<Mutex<SpectatorFrames>>, SpectatorState, Option<IngameManager>), // frames awaiting replay, state, beatmap
     // Multiplaying(MultiplayerState), // wink wink nudge nudge (dont hold your breath)
 }
 impl Default for GameState {
