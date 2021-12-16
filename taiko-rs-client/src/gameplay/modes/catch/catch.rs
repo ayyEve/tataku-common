@@ -620,7 +620,7 @@ impl CatchAutoHelper {
         let current = time - self.point_trail_start_time;
         let len = current / duration;
         
-        let new_pos = Lerp::lerp(self.point_trail_start_pos, self.point_trail_end_pos, len as f64);
+        let new_pos = f64::lerp(self.point_trail_start_pos, self.point_trail_end_pos, len as f64);
         frames.push(ReplayFrame::MousePos(
             new_pos as f32,
             0.0

@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
@@ -13,8 +15,9 @@ const GFX_CLEAR_COLOR:Color = Color::BLACK;
 /// how long do transitions between gamemodes last?
 const TRANSITION_TIME:u64 = 500;
 
-
 pub struct Game {
+    test: Test,
+
     // engine things
     render_queue: Vec<Box<dyn Renderable>>,
     pub window: AppWindow,
@@ -105,6 +108,7 @@ impl Game {
         game_init_benchmark.log("online manager created", true);
 
         let mut g = Game {
+            test: Test::new(),
             // engine
             window,
             graphics,
@@ -261,7 +265,8 @@ impl Game {
         }
     }
 
-    fn update(&mut self, _delta:f64) {
+    fn update(&mut self, delta:f64) {
+        self.test.update();
         // let timer = Instant::now();
         let elapsed = self.game_start.elapsed().as_millis() as u64;
         self.update_display.increment();
@@ -700,6 +705,9 @@ impl Game {
         // sort the queue here (so it only needs to be sorted once per frame, instead of every time a shape is added)
         self.render_queue.sort_by(|a, b| b.get_depth().partial_cmp(&a.get_depth()).unwrap());
 
+
+        self.test.draw(&mut self.render_queue);
+
         // slice the queue because loops
         let queue = self.render_queue.as_mut_slice();
         self.graphics.draw(args.viewport(), |c, g| {
@@ -807,4 +815,46 @@ pub enum SpectatorState {
     Watching, // host playing
     Paused, // host paused
     MapChanging, // host is changing map
+}
+
+
+struct Test {
+    timer: Instant,
+    man: DrawingManager,
+}
+impl Test {
+    fn new() -> Self {
+        let mut man = DrawingManager::new();
+        let mut circle = Circle::new(
+            Color::BLUE,
+            -10000000.0,
+            Vector2::new(100.0, 100.0),
+            100.0
+        );
+        circle.border = Some(Border::new(Color::BLACK, 2.0));
+        man.items.push(DrawItem::Circle(circle));
+        man.transforms.push(Transformation::new(
+            0.0,
+            1000.0,
+            TransformType::Position {
+                start: Vector2::new(100.0, 100.0), 
+                end: Vector2::new(500.0, 500.0)
+            },
+            TransformEasing::EaseInBack(1.70158, 2.70158),
+            0.0
+        ));
+        
+        Self {
+            timer: Instant::now(),
+            man
+        }
+    }
+
+    fn update(&mut self) {
+        let time = self.timer.elapsed().as_secs_f64() * 1000.0;
+        self.man.update(time)
+    }
+    fn draw(&mut self, list: &mut Vec<Box<dyn Renderable>>) {
+        self.man.draw(list)
+    }
 }

@@ -5,6 +5,7 @@ mod game;
 mod menu;
 mod errors;
 mod prelude;
+mod graphics;
 mod beatmaps;
 mod gameplay;
 mod databases;

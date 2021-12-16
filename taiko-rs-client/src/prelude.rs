@@ -22,7 +22,7 @@ pub use serde::{Serialize, Deserialize};
 
 // ui imports
 pub use ayyeve_piston_ui::menu::*;
-pub use ayyeve_piston_ui::render::*;
+pub use ayyeve_piston_ui::render::{Renderable, Vector2, Color};
 pub use ayyeve_piston_ui::menu::menu_elements::*;
 
 // font things
@@ -41,6 +41,7 @@ pub use crate::game::{AudioHandle, Sound};
 pub use crate::game::audio::fft::*;
 
 // game and helper imports
+pub use crate::graphics::*;
 pub use crate::menu::*;
 pub use crate::game::*;
 pub use crate::game::audio::*;

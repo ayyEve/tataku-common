@@ -260,14 +260,220 @@ pub(crate) fn circle_point(center:Vector2, radius:f64, a:f64) -> Vector2 {
     ) + center
 }
 
-
-pub trait Lerp {
+// help
+pub trait Interpolation {
     fn lerp(target: Self, current: Self, amount: f64) -> Self;
+
+    // helpers since many of the easing fns are just different powers
+    fn ease_in_exp(target: Self, current: Self, amount: f64, pow: i32) -> Self;
+    fn ease_out_exp(target: Self, current: Self, amount: f64, pow: i32) -> Self;
+    fn ease_inout_exp(target: Self, current: Self, amount: f64, pow: i32) -> Self;
+
+    // sine
+    fn easein_sine(target:Self, current: Self, amount: f64) -> Self;
+    fn easeout_sine(target:Self, current: Self, amount: f64) -> Self;
+    fn easeinout_sine(target:Self, current: Self, amount: f64) -> Self;
+
+    // quadratic
+    fn easein_quadratic(target:Self, current: Self, amount: f64) -> Self;
+    fn easeout_quadratic(target:Self, current: Self, amount: f64) -> Self;
+    fn easeinout_quadratic(target:Self, current: Self, amount: f64) -> Self;
+
+    // cubic
+    fn easein_cubic(target:Self, current: Self, amount: f64) -> Self;
+    fn easeout_cubic(target:Self, current: Self, amount: f64) -> Self;
+    fn easeinout_cubic(target:Self, current: Self, amount: f64) -> Self;
+
+    // quartic
+    fn easein_quartic(target:Self, current: Self, amount: f64) -> Self;
+    fn easeout_quartic(target:Self, current: Self, amount: f64) -> Self;
+    fn easeinout_quartic(target:Self, current: Self, amount: f64) -> Self;
+
+    // quintic
+    fn easein_quintic(target:Self, current: Self, amount: f64) -> Self;
+    fn easeout_quintic(target:Self, current: Self, amount: f64) -> Self;
+    fn easeinout_quintic(target:Self, current: Self, amount: f64) -> Self;
+
+    // exponential
+    fn easein_exponential(target:Self, current: Self, amount: f64) -> Self;
+    fn easeout_exponential(target:Self, current: Self, amount: f64) -> Self;
+    fn easeinout_exponential(target:Self, current: Self, amount: f64) -> Self;
+
+    // circular
+    fn easein_circular(target:Self, current: Self, amount: f64) -> Self;
+    fn easeout_circular(target:Self, current: Self, amount: f64) -> Self;
+    fn easeinout_circular(target:Self, current: Self, amount: f64) -> Self;
+
+    // back 
+    // todo! come up with better names than c1 and c3
+    fn easein_back(target:Self, current: Self, amount: f64, c1:f64, c3: f64) -> Self;
+    fn easeout_back(target:Self, current: Self, amount: f64, c1:f64, c3: f64) -> Self;
+    fn easeinout_back(target:Self, current: Self, amount: f64, c1:f64, c3: f64) -> Self;
+
+    // skipping elastic and bounce bc they kinda suck
 }
-impl<T> Lerp for T where T: Copy + std::ops::Add<Output=T> + std::ops::Sub<Output=T> + std::ops::Mul<f64, Output=T> {
-    fn lerp(target: T, current: Self, amount: f64) -> T {
+impl<T> Interpolation for T where T: Copy + std::ops::Add<Output=T> + std::ops::Sub<Output=T> + std::ops::Mul<f64, Output=T> {
+    fn lerp(target:T, current:T, amount:f64) -> T {
         target + (current - target) * amount
     }
+
+    fn ease_in_exp(target:T, current:T, amount:f64, pow:i32) -> T {
+        Self::lerp(target, current, amount.powi(pow))
+    }
+    fn ease_out_exp(target:T, current:T, amount:f64, pow:i32) -> T {
+        Self::lerp(target, current, 1.0 - (1.0 - amount).powi(pow))
+    }
+    fn ease_inout_exp(target:T, current:T, amount:f64, pow:i32) -> T {
+        let amount = if amount < 0.5 {
+            4.0 * amount.powi(pow)
+        } else {
+            (-2.0 * amount + 2.0).powi(pow) / 2.0
+        };
+        Self::lerp(target, current, amount)
+    }
+
+    // sine
+    fn easein_sine(target:T, current:T, amount:f64) -> T {
+        Self::lerp(target, current, 1.0 - ((amount * PI) / 2.0).cos())
+    }
+    fn easeout_sine(target:T, current:T, amount:f64) -> T {
+        Self::lerp(target, current, ((amount * PI) / 2.0).sin())
+    }
+    fn easeinout_sine(target:T, current:T, amount:f64) -> T {
+        Self::lerp(target, current, -((amount * PI).cos() - 1.0) / 2.0)
+    }
+
+    // quad
+    fn easein_quadratic(target:T, current:T, amount:f64) -> T {
+        Self::ease_in_exp(target, current, amount, 2)
+        // Self::lerp(target, current, amount.powi(2))
+    }
+    fn easeout_quadratic(target:T, current:T, amount:f64) -> T {
+        Self::ease_out_exp(target, current, amount, 2)
+        // Self::lerp(target, current, 1.0 - (1.0 - amount).powi(2))
+    }
+    fn easeinout_quadratic(target:T, current:T, amount:f64) -> T {
+        Self::ease_inout_exp(target, current, amount, 2)
+        // let amount = if amount < 0.5 {
+        //     4.0 * amount.powi(3)
+        // } else {
+        //     (-2.0 * amount + 2.0).powi(3) / 2.0
+        // };
+        // Self::lerp(target, current, amount)
+    }
+
+    // cubic
+    fn easein_cubic(target:T, current:T, amount:f64) -> T {
+        Self::ease_in_exp(target, current, amount, 3)
+    }
+    fn easeout_cubic(target:T, current:T, amount:f64) -> T {
+        Self::ease_out_exp(target, current, amount, 3)
+    }
+    fn easeinout_cubic(target:T, current:T, amount:f64) -> T {
+        Self::ease_inout_exp(target, current, amount, 3)
+    }
+
+    // quart
+    fn easein_quartic(target:T, current:T, amount:f64) -> T {
+        Self::ease_in_exp(target, current, amount, 4)
+    }
+    fn easeout_quartic(target:T, current:T, amount:f64) -> T {
+        Self::ease_out_exp(target, current, amount, 4)
+    }
+    fn easeinout_quartic(target:T, current:T, amount:f64) -> T {
+        Self::ease_inout_exp(target, current, amount, 4)
+    }
+
+    // quint
+    fn easein_quintic(target:T, current:T, amount:f64) -> T {
+        Self::ease_in_exp(target, current, amount, 4)
+    }
+    fn easeout_quintic(target:T, current:T, amount:f64) -> T {
+        Self::ease_out_exp(target, current, amount, 4)
+    }
+    fn easeinout_quintic(target:T, current:T, amount:f64) -> T {
+        Self::ease_inout_exp(target, current, amount, 4)
+    }
+
+    // expo
+    fn easein_exponential(target:T, current:T, amount:f64) -> T {
+        let amount = if amount == 0.0 {0.0} else {
+            2f64.powf(amount * 10.0  - 10.0)
+        };
+        Self::lerp(target, current, amount)
+    }
+    fn easeout_exponential(target:T, current:T, amount:f64) -> T {
+        // return x === 1 ? 1 : 1 - pow(2, -10 * x);
+        let amount = if amount == 1.0 {1.0} else {
+            1.0 - 2f64.powf(amount * -10.0)
+        };
+        Self::lerp(target, current, amount)
+    }
+    fn easeinout_exponential(target:T, current:T, amount:f64) -> T {
+        // return x === 0 ? 0 : (x === 1 ? 1
+        // : x < 0.5 ? pow(2, 20 * x - 10) / 2)
+        // : (2 - pow(2, -20 * x + 10)) / 2;
+        let amount = 
+            if amount == 0.0 {0.0}
+            else if amount == 1.0 {1.0}
+            else if amount < 0.5 {
+                2f64.powf(20.0 * amount - 10.0) / 2.0
+            } else {
+                2.0 - 2f64.powf(-20.0 * amount + 10.0) / 2.0
+            };
+        Self::lerp(target, current, amount)
+    }
+
+    // circular
+    fn easein_circular(target:T, current: T, amount: f64) -> T {
+        // return 1 - sqrt(1 - pow(x, 2));
+        Self::lerp(target, current, 1.0 - (1.0 - amount.powi(2)).sqrt())
+    }
+    fn easeout_circular(target:T, current: T, amount: f64) -> T {
+        Self::lerp(target, current, 1.0 - ((amount - 1.0).powi(2)).sqrt())
+    }
+    fn easeinout_circular(target:T, current: T, amount: f64) -> T {
+        let amount = if amount < 0.5 {
+            // (1 - sqrt(1 - pow(2 * x, 2))) / 2
+            1.0 - (1.0 - (2.0 * amount).powi(2)).sqrt() / 2.0
+        } else {
+            // (sqrt(1 - pow(-2 * x + 2, 2)) + 1) / 2;
+            (1.0 - (-2.0 * amount + 2.0).powi(2) + 1.0).sqrt() / 2.0
+        };
+        Self::lerp(target, current, amount)
+    }
+
+
+    fn easein_back(target:T, current: T, amount: f64, c1:f64, c3:f64) -> T {
+        // c3 * x * x * x - c1 * x * x
+        Self::lerp(target, current, c3 * amount.powi(3) - c1 * amount.powi(2))
+    }
+    fn easeout_back(target:T, current: T, amount: f64, c1:f64, c3: f64) -> T {
+        // 1 + c3 * pow(x - 1, 3) + c1 * pow(x - 1, 2);
+        Self::lerp(target, current, 1.0 + c3 * (amount - 1.0).powi(3) - c1 * (amount - 1.0).powi(2))
+    }
+    fn easeinout_back(target:T, current: T, amount: f64, c1:f64, c3: f64) -> T {
+        let amount = if amount < 0.5 {
+            // (pow(2 * x, 2) * (
+            //     (c2 + 1) * 2 * x - c2
+            // )) / 2
+            ((amount * 2.0).powi(2) * (c3 + 1.0) * 2.0 * amount - c3) / 2.0
+        } else {
+            // (
+                // pow(2 * x - 2, 2) 
+                // * (
+                //     (c2 + 1) 
+                //     * (x * 2 - 2) 
+                //     + c2
+                // ) + 2
+            // ) / 2;
+            ((amount * 2.0 - 2.0).powi(2) * ((c3 + 1.0) * (amount * 2.0 - 2.0) + c3) + 2.0) / 2.0
+        };
+
+        Self::lerp(target, current, amount)
+    }
+
+
 }
 
 

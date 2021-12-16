@@ -992,7 +992,7 @@ impl HitObject for StandardSpinner {
                 diff = self.last_rotation_val - mouse_angle;
             }
             if diff.abs() > PI {diff = 0.0}
-            self.rotation_velocity = math::Lerp::lerp(-diff, self.rotation_velocity, 0.005 * (beatmap_time - self.last_update) as f64);
+            self.rotation_velocity = f64::lerp(-diff, self.rotation_velocity, 0.005 * (beatmap_time - self.last_update) as f64);
             self.rotation += self.rotation_velocity * (beatmap_time - self.last_update) as f64;
 
             // println!("rotation: {}, diff: {}", self.rotation, diff);
