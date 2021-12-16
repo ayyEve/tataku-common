@@ -317,6 +317,7 @@ impl<T> Interpolation for T where T: Copy + std::ops::Add<Output=T> + std::ops::
         current + (target - current) * amount
     }
 
+    // helpers
     fn ease_in_exp(current:T, target:T, amount:f64, pow:i32) -> T {
         Self::lerp(current, target, amount.powi(pow))
     }
@@ -325,9 +326,9 @@ impl<T> Interpolation for T where T: Copy + std::ops::Add<Output=T> + std::ops::
     }
     fn ease_inout_exp(current:T, target:T, amount:f64, pow:i32) -> T {
         let amount = if amount < 0.5 {
-            4.0 * amount.powi(pow)
+            2.0f64.powi(pow - 1) * amount.powi(pow)
         } else {
-            (-2.0 * amount + 2.0).powi(pow) / 2.0
+            1.0 - (-2.0 * amount + 2.0).powi(pow) / 2.0
         };
         Self::lerp(current, target, amount)
     }
@@ -386,13 +387,13 @@ impl<T> Interpolation for T where T: Copy + std::ops::Add<Output=T> + std::ops::
 
     // quint
     fn easein_quintic(current:T, target:T, amount:f64) -> T {
-        Self::ease_in_exp(current, target, amount, 4)
+        Self::ease_in_exp(current, target, amount, 5)
     }
     fn easeout_quintic(current:T, target:T, amount:f64) -> T {
-        Self::ease_out_exp(current, target, amount, 4)
+        Self::ease_out_exp(current, target, amount, 5)
     }
     fn easeinout_quintic(current:T, target:T, amount:f64) -> T {
-        Self::ease_inout_exp(current, target, amount, 4)
+        Self::ease_inout_exp(current, target, amount, 5)
     }
 
     // expo
@@ -419,7 +420,7 @@ impl<T> Interpolation for T where T: Copy + std::ops::Add<Output=T> + std::ops::
             else if amount < 0.5 {
                 2f64.powf(20.0 * amount - 10.0) / 2.0
             } else {
-                2.0 - 2f64.powf(-20.0 * amount + 10.0) / 2.0
+                (2.0 - 2f64.powf(-20.0 * amount + 10.0)) / 2.0
             };
         Self::lerp(current, target, amount)
     }
@@ -434,16 +435,14 @@ impl<T> Interpolation for T where T: Copy + std::ops::Add<Output=T> + std::ops::
     }
     fn easeinout_circular(current:T, target: T, amount: f64) -> T {
         let amount = if amount < 0.5 {
-            // (1 - sqrt(1 - pow(2 * x, 2))) / 2
-            1.0 - (1.0 - (2.0 * amount).powi(2)).sqrt() / 2.0
+            (1.0 - (1.0 - (2.0 * amount).powi(2)).sqrt()) / 2.0
         } else {
-            // (sqrt(1 - pow(-2 * x + 2, 2)) + 1) / 2;
-            (1.0 - (-2.0 * amount + 2.0).powi(2) + 1.0).sqrt() / 2.0
+            ((1.0 - (-2.0 * amount + 2.0).powi(2)).sqrt() + 1.0) / 2.0
         };
         Self::lerp(current, target, amount)
     }
 
-
+    // back
     fn easein_back(current:T, target: T, amount: f64, c1:f64, c3:f64) -> T {
         // c3 * x * x * x - c1 * x * x
         Self::lerp(current, target, c3 * amount.powi(3) - c1 * amount.powi(2))
@@ -452,9 +451,8 @@ impl<T> Interpolation for T where T: Copy + std::ops::Add<Output=T> + std::ops::
         // 1 + c3 * pow(x - 1, 3) + c1 * pow(x - 1, 2);
         Self::lerp(current, target, 1.0 + c3 * (amount - 1.0).powi(3) - c1 * (amount - 1.0).powi(2))
     }
-    fn easeinout_back(current:T, target: T, amount: f64, c1:f64, c2: f64) -> T {
+    fn easeinout_back(current:T, target: T, amount: f64, _c1:f64, c2: f64) -> T {
         let amount = if amount < 0.5 {
-            // (pow(2 * x, 2) * ((c2 + 1) * 2 * x - c2)) / 2
             (
                 (2.0 * amount).powi(2) 
                 * (
@@ -465,14 +463,6 @@ impl<T> Interpolation for T where T: Copy + std::ops::Add<Output=T> + std::ops::
                 )
             ) / 2.0
         } else {
-            // (
-                // pow(2 * x - 2, 2) 
-                // * (
-                //     (c2 + 1) 
-                //     * (x * 2 - 2) 
-                //     + c2
-                // ) + 2
-            // ) / 2;
             (
                 (2.0 * amount - 2.0).powi(2) 
                 * (
@@ -484,7 +474,6 @@ impl<T> Interpolation for T where T: Copy + std::ops::Add<Output=T> + std::ops::
 
         Self::lerp(current, target, amount)
     }
-
 
 }
 

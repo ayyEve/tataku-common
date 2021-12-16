@@ -837,8 +837,8 @@ impl Test {
         let mut time = 0.0;
         let duration = 1000.0;
 
-        let easing = TransformEasing::EaseInOutBack(1.70158, 2.70158);
-        // let easing = TransformEasing::EaseInOutSine;
+        // let easing = TransformEasing::EaseInOutBack(1.70158, 2.70158);
+        let easing = TransformEasing::EaseInOutExponential;
 
         for _i in 0..100 {
             // top left -> bottom left
