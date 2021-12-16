@@ -1,4 +1,4 @@
-const TEST:bool = true;
+const TEST:bool = false;
 #[test]
 fn test() {}
 

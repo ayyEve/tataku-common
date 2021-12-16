@@ -1,27 +1,2 @@
-pub const COMMIT_HASH: &'static str = "1bc485e2bc088d837d893cdd22a04dc92dccd95d";
-pub const COMMITS:&[(&'static str,&'static str,&'static str,&'static str,&'static str)] = &[
-    ("5c394e8579bd588b39cfda68f3cb6f35baf498dc","fix commit hash comment","fix commit hash comment","2021-12-15T20:25:31.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/5c394e8579bd588b39cfda68f3cb6f35baf498dc"),
-    ("e7852778b218eeb431d225baa646e4a1cce02eac","Merge branch 'dialogs' into multi-mode","Merge branch 'dialogs' into multi-mode","2021-12-07T22:44:56.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/e7852778b218eeb431d225baa646e4a1cce02eac"),
-    ("cf8de196f335f58796772cec5bcc783a5d919a46","start adding dialogs and \"raw\" input","start adding dialogs and \"raw\" input","2021-12-07T22:40:19.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/cf8de196f335f58796772cec5bcc783a5d919a46"),
-    ("3128cea4d9075254aaea8fdde27618f6dc853c88","does build work now?","does build work now?","2021-12-06T15:29:46.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/3128cea4d9075254aaea8fdde27618f6dc853c88"),
-    ("da680b1142de5e494e9b9b30f98b557858b4043a","maybe fix build","maybe fix build","2021-12-06T14:41:04.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/da680b1142de5e494e9b9b30f98b557858b4043a"),
-    ("9d1b5b612a0cdfc36c8bfd3375f111b73683ec6f","try caching target, print build current dir","try caching target, print build current dir","2021-12-06T13:28:25.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/9d1b5b612a0cdfc36c8bfd3375f111b73683ec6f"),
-    ("0399ea65a2c707f55d194a88bd6985bc0cd2c02d","start implementing an ingame changelog","start implementing an ingame changelog","2021-12-06T12:57:38.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/0399ea65a2c707f55d194a88bd6985bc0cd2c02d"),
-    ("4ebfe0b0f3e6754602155d2b9dba2f904370a7df","use bass as default audio","use bass as default audio","2021-12-06T10:44:39.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/4ebfe0b0f3e6754602155d2b9dba2f904370a7df"),
-    ("65e1f4d50225ff73478735290cee6793fa360900","fix prelude with neb audio","fix prelude with neb audio","2021-11-25T12:36:01.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/65e1f4d50225ff73478735290cee6793fa360900"),
-    ("d635624a7bf04ffe6f0aab82ef1c0886d6f8643e","add prelude for imports","add prelude for imports","2021-11-25T12:26:31.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/d635624a7bf04ffe6f0aab82ef1c0886d6f8643e"),
-    ("fc7f83993f5f2d95557b413ed34ec64ffa264da8","improve auto-download fn","improve auto-download fn","2021-11-23T08:08:17.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/fc7f83993f5f2d95557b413ed34ec64ffa264da8"),
-    ("b6a604ec00c442fcad0bc18de98312efee792db0","Merge branch 'autoplay' of https://gitlab.ayyeve.xyz/ayyEve/taiko.rs into multi-mode","Merge branch 'autoplay' of https://gitlab.ayyeve.xyz/ayyEve/taiko.rs into multi-mode","2021-11-23T08:03:19.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/b6a604ec00c442fcad0bc18de98312efee792db0"),
-    ("60a9cb47b182f4b19ae63d363e32c254d637fdb7","fix duration info, add bpm info","fix duration info, add bpm info","2021-11-23T01:38:29.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/60a9cb47b182f4b19ae63d363e32c254d637fdb7"),
-    ("a24472715b3ba32d5f94af32d3b988793b462a0a","add logging features, fix bass being dropped","add logging features, fix bass being dropped","2021-11-22T23:11:50.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/a24472715b3ba32d5f94af32d3b988793b462a0a"),
-    ("56a9cf68cf5bf5857404c0809fd596c9708a6c48","move bass to bass-rs crate","move bass to bass-rs crate","2021-11-21T16:13:19.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/56a9cf68cf5bf5857404c0809fd596c9708a6c48"),
-    ("f161ea7a7f346d10aef5cec02baf5381adbd4cb1","better forward/back song select for main menu (still scuffed tho)","better forward/back song select for main menu (still scuffed tho)","2021-11-21T07:49:20.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/f161ea7a7f346d10aef5cec02baf5381adbd4cb1"),
-    ("0c58702a8a000780a6cb5630d8ba9cbb3e8e4fcf","remove num_enum as a dependency from common","remove num_enum as a dependency from common","2021-11-21T05:35:20.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/0c58702a8a000780a6cb5630d8ba9cbb3e8e4fcf"),
-    ("2340b3d2bd0cb80fe7b2750c074bf5ad39794960","add build script for neb audio, and tidy up cargo.toml","add build script for neb audio, and tidy up cargo.toml","2021-11-21T05:35:01.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/2340b3d2bd0cb80fe7b2750c074bf5ad39794960"),
-    ("be993c2a059cb18e60b710aa0f5fd6fd44eed630","Merge branch 'bass_testing' into 'autoplay'","Merge branch 'bass_testing' into 'autoplay'
-
-Bass
-
-See merge request ayyEve/taiko.rs!14","2021-11-21T09:27:32.000+00:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/be993c2a059cb18e60b710aa0f5fd6fd44eed630"),
-    ("213552329277b2076b244822589885839e168339","add neb audio back as an optional feature","add neb audio back as an optional feature","2021-11-21T04:22:52.000-05:00","https://gitlab.ayyeve.xyz/ayyEve/taiko.rs/-/commit/213552329277b2076b244822589885839e168339"),
-];
+pub const COMMIT_HASH: &'static str = "";
+pub const COMMITS:&[(&'static str,&'static str,&'static str,&'static str,&'static str)] = &[];

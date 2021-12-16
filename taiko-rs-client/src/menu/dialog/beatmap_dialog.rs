@@ -1,7 +1,5 @@
 use crate::prelude::*;
 
-
-
 pub struct BeatmapDialog {
     bounds: Rectangle,
     target_map: String,
