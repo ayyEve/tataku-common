@@ -30,7 +30,7 @@ impl ChangelogDialog {
                 title
             ))
         }
-        // settings.last_git_hash = COMMIT_HASH.to_owned();
+        settings.last_git_hash = COMMIT_HASH.to_owned();
         let height = (items.len()+1) as f64 * (ITEM_HEIGHT + ITEM_PADDING.y) + ITEM_PADDING.y;
 
         let window = Settings::window_size();
@@ -52,10 +52,11 @@ impl ChangelogDialog {
         );
         
         Self {
+            // should immediately close if theres no items to show
+            should_close: items.len() == 0,
+
             items, 
             bounds,
-
-            should_close: false
         }
     }
 }
