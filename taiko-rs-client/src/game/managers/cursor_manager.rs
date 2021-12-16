@@ -57,12 +57,24 @@ impl CursorManager {
             radius *= 2.0;
         }
 
-        list.push(Box::new(Circle::new(
+        let settings = Settings::get_mut("CursorManager::draw");
+
+        let mut circle = Circle::new(
             self.color,
             -f64::MAX,
             self.pos,
-            radius * Settings::get_mut("CursorManager::draw").cursor_scale
-        )));
-
+            radius * settings.cursor_scale
+        );
+        if settings.cursor_border > 0.0 {
+            let col = Color::from_hex(&settings.cursor_border_color);
+            if col.a > 0.0 {
+                circle.border = Some(Border::new(
+                    col,
+                    settings.cursor_border as f64
+                ));
+            }
+        }
+        
+        list.push(Box::new(circle));
     }
 }

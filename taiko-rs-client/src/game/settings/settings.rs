@@ -39,14 +39,19 @@ pub struct Settings {
     pub fps_target: u64,
     pub update_target: u64,
     pub window_size: [f64; 2],
+
+    // cursor
+    pub cursor_color: String,
     pub cursor_scale: f64,
+    pub cursor_border: f32,
+    pub cursor_border_color: String,
+
 
     // bg
     pub background_dim: f32,
     /// should the game pause when focus is lost?
     pub pause_on_focus_lost: bool,
 
-    pub cursor_color: String,
 
 
     // misc keybinds
@@ -136,8 +141,13 @@ impl Default for Settings {
             update_target: 1000,
             window_size: [1000.0, 600.0],
             background_dim: 0.8,
+
+            // cursor
             cursor_scale: 1.0,
+            cursor_border: 1.5,
             cursor_color: "#ffff32".to_owned(),
+            cursor_border_color: "#000".to_owned(),
+            
 
             // keys
             key_offset_up: Key::Equals,
