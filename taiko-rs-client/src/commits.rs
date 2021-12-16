@@ -1,4 +1,4 @@
-
+/// this is the current commit hash
 /// used to check last update
 pub const COMMIT_HASH: &'static str = "";
 
