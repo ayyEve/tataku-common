@@ -831,7 +831,7 @@ impl Test {
             Vector2::new(100.0, 100.0),
             100.0
         );
-        circle.border = Some(Border::new(Color::BLACK, 2.0));
+        circle.border = Some(Border::new(Color::WHITE, 2.0));
         man.items.push(DrawItem::Circle(circle));
 
         let mut time = 0.0;
@@ -848,6 +848,16 @@ impl Test {
                 TransformType::Transparency {
                     start: 1.0, 
                     end: 0.0
+                },
+                TransformEasing::EaseOutExponential,
+                0.0
+            ));
+            man.transforms.push(Transformation::new(
+                time,
+                duration,
+                TransformType::BorderSize {
+                    start: 1.0, 
+                    end: 10.0
                 },
                 TransformEasing::EaseOutExponential,
                 0.0

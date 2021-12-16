@@ -41,14 +41,18 @@ impl Transformation {
             TransformType::Position { start, end } => 
                 TransformValueResult::Vector2(self.run_easing_fn(start, end, factor)),
 
-            TransformType::Rotation { start, end }
-            | TransformType::Scale { start, end } 
-            | TransformType::Transparency { start, end } => 
-                TransformValueResult::F64(self.run_easing_fn( start, end, factor)),
+            TransformType::Scale { start, end }
+            | TransformType::BorderSize { start, end } 
+            | TransformType::Rotation { start, end }
+            | TransformType::Transparency { start, end } 
+            | TransformType::BorderTransparency { start, end }
+            => TransformValueResult::F64(self.run_easing_fn( start, end, factor)),
+
+            TransformType::BorderColor { start, end }
+            | TransformType::Color { start, end } 
+            => TransformValueResult::Color(self.run_easing_fn( start, end, factor)),
 
             TransformType::None => TransformValueResult::None,
-            TransformType::Color { start, end } => 
-                TransformValueResult::Color(self.run_easing_fn( start, end, factor)),
         }
     }
 
@@ -138,11 +142,14 @@ impl Into<Color> for TransformValueResult {
 #[derive(Copy, Clone)]
 pub enum TransformType {
     None, // default
-    Position {start: Vector2, end: Vector2},
     Scale {start: f64, end: f64},
     Rotation {start: f64, end: f64},
-    Transparency {start: f64, end: f64},
     Color {start: Color, end: Color},
+    BorderSize {start: f64, end: f64},
+    Transparency {start: f64, end: f64},
+    BorderColor {start: Color, end: Color},
+    Position {start: Vector2, end: Vector2},
+    BorderTransparency {start: f64, end: f64},
 }
 impl Default for TransformType {
     fn default() -> Self {

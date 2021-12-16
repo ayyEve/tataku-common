@@ -72,7 +72,6 @@ impl Transformable for Circle {
         let val = transform.get_value(game_time);
 
         match transform.trans_type {
-            TransformType::None => {},
             TransformType::Position { .. } => {
                 let val:Vector2 = val.into();
                 // println!("val: {:?}", val);
@@ -91,11 +90,25 @@ impl Transformable for Circle {
                 let val:Color = val.into();
                 self.current_color = val
             },
-
-
-            TransformType::Rotation { .. } => {
+            TransformType::BorderTransparency { .. } => if let Some(border) = self.border.as_mut() {
                 // this is a circle, it doesnt rotate
-            }
+                let val:f64 = val.into();
+                border.color = border.color.alpha(val.clamp(0.0, 1.0) as f32);
+            },
+            TransformType::BorderSize { .. } => if let Some(border) = self.border.as_mut() {
+                // this is a circle, it doesnt rotate
+                border.radius = val.into();
+            },
+            TransformType::BorderColor { .. } => if let Some(border) = self.border.as_mut() {
+                let val:Color = val.into();
+                border.color = val
+            },
+
+
+
+            TransformType::None => {},
+            // this is a circle, it doesnt rotate
+            TransformType::Rotation { .. } => {}
         }
     }
 
