@@ -70,6 +70,7 @@ impl Renderable for Circle {
 impl Transformable for Circle {
     fn apply_transform(&mut self, transform: &Transformation, game_time:f64) {
         let val = transform.get_value(game_time);
+        let trans_done = game_time >= transform.start_time() + transform.duration;
 
         match transform.trans_type {
             TransformType::None => {},
@@ -82,7 +83,7 @@ impl Transformable for Circle {
                 let val:f64 = val.into();
                 self.current_radius = self.initial_radius + val;
             },
-            TransformType::Rotation { ..} => {
+            TransformType::Rotation { .. } => {
                 // this is a circle, it doesnt rotate
             }
             TransformType::Color { .. } => {

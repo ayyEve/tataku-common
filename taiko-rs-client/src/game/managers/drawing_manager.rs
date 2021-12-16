@@ -22,29 +22,29 @@ impl DrawingManager {
         // from use in taiko-rs
 
         // shouldnt be too terrible, just annoying tbh
-
-        for transform in self.transforms.iter_mut() {
-            // transform.update()
-            // match transform.trans_type {
-            //     TransformType::None => {},
-            //     TransformType::Position { .. } => {
-            for i in self.items.iter_mut() {
-                match i {
-                    // DrawItem::Line(a) => a.apply_transform(transform, game_time),
-                    // DrawItem::Text(a) => a.apply_transform(transform, game_time),
-                    // DrawItem::Image(a) => a.apply_transform(transform, game_time),
-                    DrawItem::Circle(a) => a.apply_transform(transform, game_time),
-                    // DrawItem::Rectangle(a) => a.apply_transform(transform, game_time),
-                    // DrawItem::HalfCircle(a) => a.apply_transform(transform, game_time),
-                    _ => {}
-                };
+        let mut transforms = std::mem::take(&mut self.transforms);
+        transforms.retain(|transform| {
+            let start_time = transform.start_time();
+            // transform hasnt started, ignore
+            if game_time >= start_time {
+                for i in self.items.iter_mut() {
+                    match i {
+                        // DrawItem::Line(a) => a.apply_transform(transform, game_time),
+                        // DrawItem::Text(a) => a.apply_transform(transform, game_time),
+                        // DrawItem::Image(a) => a.apply_transform(transform, game_time),
+                        DrawItem::Circle(a) => a.apply_transform(transform, game_time),
+                        // DrawItem::Rectangle(a) => a.apply_transform(transform, game_time),
+                        // DrawItem::HalfCircle(a) => a.apply_transform(transform, game_time),
+                        _ => {}
+                    };
+                }
             }
-                // },
-        //         TransformType::Scale { start, end } => todo!(),
-        //         TransformType::Color { start, end } => todo!(),
-        //         TransformType::Rotation { start, end } => todo!(),
-        //     }
-        }
+
+            game_time < start_time + transform.duration
+        });
+        self.transforms = transforms;
+        // for transform in self.transforms.iter_mut() {
+        // }
     }
 
     //TODO: maybe this could be improved?

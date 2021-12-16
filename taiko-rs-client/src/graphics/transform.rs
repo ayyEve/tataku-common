@@ -23,9 +23,13 @@ impl Transformation {
             create_time
         }
     }
+    pub fn start_time(&self) -> f64 {
+        self.create_time + self.offset
+    }
+    
     pub fn get_value(&self, current_game_time: f64) -> TransformValueResult {
         // when this transform should start
-        let begin_time = self.create_time + self.offset;
+        let begin_time = self.start_time();
         // how long has elapsed? (minimum 0ms, max self.duration)
         let elapsed = (current_game_time - begin_time).clamp(0.0, self.duration);
 
@@ -44,6 +48,7 @@ impl Transformation {
             TransformType::Color { start, end } => todo!(),
         }
     }
+
 
     // thank god i got this working lmao
     pub fn run_easing_fn<I:Interpolation>(&self, target:I, current:I, factor: f64) -> I {

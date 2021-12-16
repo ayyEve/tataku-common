@@ -833,16 +833,67 @@ impl Test {
         );
         circle.border = Some(Border::new(Color::BLACK, 2.0));
         man.items.push(DrawItem::Circle(circle));
-        man.transforms.push(Transformation::new(
-            0.0,
-            1000.0,
-            TransformType::Position {
-                start: Vector2::new(100.0, 100.0), 
-                end: Vector2::new(500.0, 500.0)
-            },
-            TransformEasing::EaseInBack(1.70158, 2.70158),
-            0.0
-        ));
+
+        let mut time = 0.0;
+        let duration = 1000.0;
+
+        let easing = TransformEasing::EaseInOutBack(1.70158, 2.70158);
+
+        for _i in 0..100 {
+            // top left -> bottom left
+            man.transforms.push(Transformation::new(
+                time,
+                duration,
+                TransformType::Position {
+                    start: Vector2::new(100.0, 100.0), 
+                    end: Vector2::new(100.0, 500.0)
+                },
+                easing,
+                0.0
+            ));
+            time += duration;
+
+            // bottom left -> bottom right
+            man.transforms.push(Transformation::new(
+                time,
+                duration,
+                TransformType::Position {
+                    start: Vector2::new(100.0, 500.0), 
+                    end: Vector2::new(500.0, 500.0)
+                },
+                easing,
+                0.0
+            ));
+            time += duration;
+
+            // bottom right -> right right
+            man.transforms.push(Transformation::new(
+                time,
+                duration,
+                TransformType::Position {
+                    start: Vector2::new(500.0, 500.0), 
+                    end: Vector2::new(500.0, 100.0)
+                },
+                easing,
+                0.0
+            ));
+            time += duration;
+
+            // bottom right -> right right
+            man.transforms.push(Transformation::new(
+                time,
+                duration,
+                TransformType::Position {
+                    end: Vector2::new(500.0, 100.0),
+                    start: Vector2::new(100.0, 100.0), 
+                },
+                easing,
+                0.0
+            ));
+            time += duration;
+
+        }
+        
         
         Self {
             timer: Instant::now(),
