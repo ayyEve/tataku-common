@@ -1,11 +1,8 @@
 use std::fs::{DirEntry, read_dir};
-
 use rand::Rng;
 
 use crate::prelude::*;
 use crate::{DOWNLOADS_DIR, SONGS_DIR};
-
-
 
 const DOWNLOAD_CHECK_INTERVAL:u64 = 10_000;
 lazy_static::lazy_static! {
@@ -24,7 +21,10 @@ pub struct BeatmapManager {
     /// current index of previously played maps
     play_index: usize,
 
-    new_maps: Vec<BeatmapMeta>
+    new_maps: Vec<BeatmapMeta>,
+
+    /// helpful when a map is deleted
+    pub(crate) force_beatmap_list_refresh: bool
 }
 impl BeatmapManager {
     pub fn new() -> Self {
@@ -38,6 +38,8 @@ impl BeatmapManager {
             played: Vec::new(),
             play_index: 0,
             new_maps: Vec::new(),
+
+            force_beatmap_list_refresh: false,
         }
     }
 
@@ -159,6 +161,25 @@ impl BeatmapManager {
         self.beatmaps.push(beatmap.clone());
     }
 
+
+    // remover
+    pub fn delete_beatmap(&mut self, beatmap:String, game: &mut Game) {
+        // delete beatmap
+        self.beatmaps.retain(|b|b.beatmap_hash != beatmap);
+        if let Some(old_map) = self.beatmaps_by_hash.remove(&beatmap) {
+            // delete the file
+            if let Err(e) = std::fs::remove_file(old_map.file_path) {
+                NotificationManager::add_error_notification("Error deleting map", e);
+            }
+            // TODO: should check if this is the last beatmap in this folder
+            // if so, delete the parent dir
+        }
+
+        self.force_beatmap_list_refresh = true;
+        // select next one
+        self.next_beatmap(game);
+    }
+
     // setters
     pub fn set_current_beatmap(&mut self, game:&mut Game, beatmap:&BeatmapMeta, _do_async:bool, use_preview_time:bool) {
         self.current_beatmap = Some(beatmap.clone());
@@ -272,7 +293,6 @@ impl BeatmapManager {
             None => false
         }
     }
-
 }
 
 

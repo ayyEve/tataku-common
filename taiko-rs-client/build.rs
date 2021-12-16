@@ -1,4 +1,4 @@
-const TEST:bool = false;
+const TEST:bool = true;
 #[test]
 fn test() {}
 
@@ -43,7 +43,8 @@ fn main() {
         "{}/{}/src/{}commits.rs", 
         dir,
         if dir.ends_with("taiko-rs-client") {"."} else {"taiko-rs-client"},
-        if TEST {"test-"} else {""}
+        ""
+        // if TEST {"test-"} else {""}
     );
     println!("dir: {:?}, path: {}", dir, commit_file);
 
@@ -65,7 +66,7 @@ fn main() {
         build_commits_file(commits, this_commit)
     ).expect("error writing commits.rs");
 
-    if TEST {panic!("end of test")};
+    // if TEST {panic!("end of test")};
 }
 
 
@@ -80,11 +81,11 @@ fn build_commits_file(commits: Vec<GitCommit>, commit_hash: String) -> String {
     for commit in commits.iter() {
         output += &format!(
             "    (\"{}\",\"{}\",\"{}\",\"{}\",\"{}\"),\n",
-            commit.id,
-            commit.title,
-            commit.message.trim(),
-            commit.committed_date,
-            commit.web_url
+            clean_string(&commit.id),
+            clean_string(&commit.title),
+            clean_string(&commit.message),
+            clean_string(&commit.committed_date),
+            clean_string(&commit.web_url)
         )
     }
 
@@ -92,6 +93,14 @@ fn build_commits_file(commits: Vec<GitCommit>, commit_hash: String) -> String {
     output
 }
 
+
+fn clean_string(s:&String) -> String {
+    s
+    .replace("\"", "\\\"")
+    
+    .trim()
+    .to_owned()
+}
 
 #[derive(serde::Deserialize)]
 pub struct GitCommit {

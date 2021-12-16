@@ -14,12 +14,10 @@ lazy_static::lazy_static! {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
-    // volume
+    // audio
     pub master_vol: f32,
     pub music_vol: f32,
     pub effect_vol: f32,
-
-    // offset
     pub global_offset: f32,
 
     // login
@@ -30,6 +28,7 @@ pub struct Settings {
     pub osu_username: String,
     pub osu_password: String,
     
+    // game settings
     pub standard_settings: StandardSettings,
     pub taiko_settings: TaikoSettings,
     pub catch_settings: CatchSettings,
@@ -53,6 +52,8 @@ pub struct Settings {
     // misc keybinds
     pub key_offset_up: Key,
     pub key_offset_down: Key,
+
+    pub last_git_hash: String,
 }
 impl Settings {
     fn load() -> Settings {
@@ -108,7 +109,7 @@ impl Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            // vol
+            // audio
             music_vol: 1.0,
             effect_vol: 1.0,
             master_vol: 0.3,
@@ -128,22 +129,22 @@ impl Default for Settings {
             catch_settings: CatchSettings {..Default::default()},
             mania_settings: ManiaSettings {..Default::default()},
             background_game_settings: BackgroundGameSettings {..Default::default()},
+            pause_on_focus_lost: true,
 
             // window settings
             fps_target: 144,
             update_target: 1000,
             window_size: [1000.0, 600.0],
             background_dim: 0.8,
-
-            // other
             cursor_scale: 1.0,
-            pause_on_focus_lost: true,
-
             cursor_color: "#ffff32".to_owned(),
 
             // keys
             key_offset_up: Key::Equals,
             key_offset_down: Key::Minus,
+
+            // other
+            last_git_hash: String::new()
         }
     }
 }

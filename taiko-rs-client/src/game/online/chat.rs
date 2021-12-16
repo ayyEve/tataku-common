@@ -68,6 +68,9 @@ impl Dialog<Game> for Chat {
             ))
         }
     }
+    fn should_close(&self) -> bool {
+        false
+    }
 
     fn draw(&mut self, args:&piston::RenderArgs, depth: &f64, list: &mut Vec<Box<dyn Renderable>>) {
         if !self.visible {return}

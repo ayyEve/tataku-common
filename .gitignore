@@ -11,3 +11,4 @@ taiko-rs.db
 settings.json
 
 test-commits.rs
+commits.rs

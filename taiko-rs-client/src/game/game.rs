@@ -184,6 +184,9 @@ impl Game {
         menu_init_benchmark.log("settings menu created", true);
 
 
+        // check git updates
+        self.add_dialog(Box::new(ChangelogDialog::new()));
+
         // load background images
         match std::fs::read_dir("resources/wallpapers") {
             Ok(list) => {
@@ -322,7 +325,6 @@ impl Game {
         // update any dialogs
         let mut dialog_list = std::mem::take(&mut self.dialogs);
         for d in dialog_list.iter_mut().rev() {
-            
             // kb events
             keys_down.retain(|k| !d.on_key_press(k, &mods, self));
             keys_up.retain(|k| !d.on_key_release(k,  &mods, self));
@@ -334,8 +336,14 @@ impl Game {
                 mouse_down.retain(|button| !d.on_mouse_down(&mouse_pos, &button, &mods, self));
                 mouse_up.retain(|button| !d.on_mouse_up(&mouse_pos, &button, &mods, self));
                 if scroll_delta != 0.0 && d.on_mouse_scroll(&scroll_delta, self) {scroll_delta = 0.0}
+
+                mouse_down.clear();
+                mouse_up.clear();
             }
+            d.update(self)
         }
+        // remove any dialogs which should be closed
+        dialog_list.retain(|d|!d.should_close());
         self.dialogs = std::mem::take(&mut dialog_list);
 
 
@@ -662,9 +670,9 @@ impl Game {
         }
 
 
-        // update any dialogs
+        // draw any dialogs
         let mut dialog_list = std::mem::take(&mut self.dialogs);
-        let mut current_depth = -5000.0;
+        let mut current_depth = -50000000.0;
         const DIALOG_DEPTH_DIFF:f64 = 50.0;
         for d in dialog_list.iter_mut().rev() {
             d.draw(&args, &current_depth, &mut self.render_queue);

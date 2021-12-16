@@ -1,12 +1,16 @@
 use crate::prelude::*;
 
-/// a dialog is basically just a menu, except it does not occupy a whole gamemode, and can be drawn overtop every other menu
 
+// toolbar options
+const TOOLBAR_HEIGHT:f64 = 20.0;
+
+/// a dialog is basically just a menu, except it does not occupy a whole gamemode, and can be drawn overtop every other menu
 pub trait Dialog<G> {
     /// helpful for determining what menu this is
     fn update(&mut self, _g:&mut G) {}
     fn draw(&mut self, args:&RenderArgs, depth: &f64, list: &mut Vec<Box<dyn Renderable>>);
     fn get_bounds(&self) -> Rectangle;
+    fn should_close(&self) -> bool;
 
     // input handlers
     fn on_mouse_move(&mut self, _pos:&Vector2, _g:&mut G) {}
@@ -18,3 +22,13 @@ pub trait Dialog<G> {
     fn on_key_press(&mut self, _key:&Key, _mods:&KeyModifiers, _g:&mut G) -> bool {false}
     fn on_key_release(&mut self, _key:&Key, _mods:&KeyModifiers, _g:&mut G) -> bool {false}
 }
+
+// /// top bar helper, close, move, etc
+// pub struct DialogBar {
+//     pub move_start: Option<Vector2>
+// }
+// impl DialogBar {
+//     fn update<G, D:Dialog<G>>(&self, dialog: D) {
+
+//     }
+// }
