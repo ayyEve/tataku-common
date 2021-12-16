@@ -838,6 +838,7 @@ impl Test {
         let duration = 1000.0;
 
         let easing = TransformEasing::EaseInOutBack(1.70158, 2.70158);
+        // let easing = TransformEasing::EaseInOutSine;
 
         for _i in 0..100 {
             // top left -> bottom left
@@ -884,8 +885,8 @@ impl Test {
                 time,
                 duration,
                 TransformType::Position {
-                    end: Vector2::new(500.0, 100.0),
-                    start: Vector2::new(100.0, 100.0), 
+                    start: Vector2::new(500.0, 100.0),
+                    end: Vector2::new(100.0, 100.0), 
                 },
                 easing,
                 0.0

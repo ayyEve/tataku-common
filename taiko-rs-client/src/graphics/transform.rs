@@ -38,11 +38,11 @@ impl Transformation {
 
         match self.trans_type {
             TransformType::Position { start, end } => 
-                TransformValueResult::Vector2(self.run_easing_fn(end, start, factor)),
+                TransformValueResult::Vector2(self.run_easing_fn(start, end, factor)),
 
             TransformType::Rotation { start, end }
             | TransformType::Scale { start, end }  => 
-                TransformValueResult::F64(self.run_easing_fn(end, start, factor)),
+                TransformValueResult::F64(self.run_easing_fn( start, end, factor)),
 
             TransformType::None => TransformValueResult::None,
             TransformType::Color { start, end } => todo!(),
@@ -51,41 +51,41 @@ impl Transformation {
 
 
     // thank god i got this working lmao
-    pub fn run_easing_fn<I:Interpolation>(&self, target:I, current:I, factor: f64) -> I {
+    pub fn run_easing_fn<I:Interpolation>(&self, current:I, target:I, factor: f64) -> I {
         match self.easing_type {
-            TransformEasing::Linear => Interpolation::lerp(target, current, factor),
+            TransformEasing::Linear => Interpolation::lerp(current, target, factor),
 
-            TransformEasing::EaseInSine => Interpolation::easein_sine(target, current, factor),
-            TransformEasing::EaseOutSine => Interpolation::easeout_sine(target, current, factor),
-            TransformEasing::EaseInOutSine => Interpolation::easeinout_sine(target, current, factor),
+            TransformEasing::EaseInSine => Interpolation::easein_sine(current, target, factor),
+            TransformEasing::EaseOutSine => Interpolation::easeout_sine(current, target, factor),
+            TransformEasing::EaseInOutSine => Interpolation::easeinout_sine(current, target, factor),
 
-            TransformEasing::EaseInQuadratic => Interpolation::easein_quadratic(target, current, factor),
-            TransformEasing::EaseOutQuadratic => Interpolation::easeout_quadratic(target, current, factor),
-            TransformEasing::EaseInOutQuadratic => Interpolation::easeinout_quadratic(target, current, factor),
+            TransformEasing::EaseInQuadratic => Interpolation::easein_quadratic(current, target, factor),
+            TransformEasing::EaseOutQuadratic => Interpolation::easeout_quadratic(current, target, factor),
+            TransformEasing::EaseInOutQuadratic => Interpolation::easeinout_quadratic(current, target, factor),
 
-            TransformEasing::EaseInCubic => Interpolation::easein_cubic(target, current, factor),
-            TransformEasing::EaseOutCubic => Interpolation::easeout_cubic(target, current, factor),
-            TransformEasing::EaseInOutCubic => Interpolation::easeinout_cubic(target, current, factor),
+            TransformEasing::EaseInCubic => Interpolation::easein_cubic(current, target, factor),
+            TransformEasing::EaseOutCubic => Interpolation::easeout_cubic(current, target, factor),
+            TransformEasing::EaseInOutCubic => Interpolation::easeinout_cubic(current, target, factor),
 
-            TransformEasing::EaseInQuartic => Interpolation::easein_quartic(target, current, factor),
-            TransformEasing::EaseOutQuartic => Interpolation::easeout_quartic(target, current, factor),
-            TransformEasing::EaseInOutQuartic => Interpolation::easeinout_quartic(target, current, factor),
+            TransformEasing::EaseInQuartic => Interpolation::easein_quartic(current, target, factor),
+            TransformEasing::EaseOutQuartic => Interpolation::easeout_quartic(current, target, factor),
+            TransformEasing::EaseInOutQuartic => Interpolation::easeinout_quartic(current, target, factor),
 
-            TransformEasing::EaseInQuintic => Interpolation::easein_quintic(target, current, factor),
-            TransformEasing::EaseOutQuintic => Interpolation::easeout_quintic(target, current, factor),
-            TransformEasing::EaseInOutQuintic => Interpolation::easeinout_quintic(target, current, factor),
+            TransformEasing::EaseInQuintic => Interpolation::easein_quintic(current, target, factor),
+            TransformEasing::EaseOutQuintic => Interpolation::easeout_quintic(current, target, factor),
+            TransformEasing::EaseInOutQuintic => Interpolation::easeinout_quintic(current, target, factor),
 
-            TransformEasing::EaseInExponential => Interpolation::easein_exponential(target, current, factor),
-            TransformEasing::EaseOutExponential => Interpolation::easeout_exponential(target, current, factor),
-            TransformEasing::EaseInOutExponential => Interpolation::easeinout_exponential(target, current, factor),
+            TransformEasing::EaseInExponential => Interpolation::easein_exponential(current, target, factor),
+            TransformEasing::EaseOutExponential => Interpolation::easeout_exponential(current, target, factor),
+            TransformEasing::EaseInOutExponential => Interpolation::easeinout_exponential(current, target, factor),
 
-            TransformEasing::EaseInCircular => Interpolation::easein_circular(target, current, factor),
-            TransformEasing::EaseOutCircular => Interpolation::easeout_circular(target, current, factor),
-            TransformEasing::EaseInOutCircular => Interpolation::easeinout_circular(target, current, factor),
+            TransformEasing::EaseInCircular => Interpolation::easein_circular(current, target, factor),
+            TransformEasing::EaseOutCircular => Interpolation::easeout_circular(current, target, factor),
+            TransformEasing::EaseInOutCircular => Interpolation::easeinout_circular(current, target, factor),
 
-            TransformEasing::EaseInBack(c1, c2) => Interpolation::easein_back(target, current, factor, c1, c2),
-            TransformEasing::EaseOutBack(c1, c2) => Interpolation::easeout_back(target, current, factor, c1, c2),
-            TransformEasing::EaseInOutBack(c1, c2) => Interpolation::easeinout_back(target, current, factor, c1, c2),
+            TransformEasing::EaseInBack(c1, c2) => Interpolation::easein_back(current, target, factor, c1, c2),
+            TransformEasing::EaseOutBack(c1, c2) => Interpolation::easeout_back(current, target, factor, c1, c2),
+            TransformEasing::EaseInOutBack(c1, c2) => Interpolation::easeinout_back(current, target, factor, c1, c2),
         }
     }
 }
