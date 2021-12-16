@@ -38,7 +38,7 @@ pub struct StandardGame {
     move_playfield: Option<(Vector2, Vector2)>,
 
     /// how many keys are being held?
-    hold_count: u8,
+    hold_count: u16,
 
     /// scaling helper to help with scaling
     scaling_helper: ScalingHelper,

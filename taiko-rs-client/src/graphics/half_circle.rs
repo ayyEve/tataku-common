@@ -34,6 +34,7 @@ impl Renderable for HalfCircle {
 
     fn draw(&mut self, g: &mut GlGraphics, c: Context) {
         let start_angle:f64 = if self.left_side {std::f64::consts::PI/2.0} else {std::f64::consts::PI*1.5} as f64;
+        
         graphics::circle_arc(
             self.color.into(), 
             self.radius/2.0,

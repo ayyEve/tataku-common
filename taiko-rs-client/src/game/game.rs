@@ -265,7 +265,7 @@ impl Game {
         }
     }
 
-    fn update(&mut self, delta:f64) {
+    fn update(&mut self, _delta:f64) {
         self.test.update();
         // let timer = Instant::now();
         let elapsed = self.game_start.elapsed().as_millis() as u64;
@@ -792,7 +792,7 @@ impl Game {
 
 
 pub enum GameState {
-    None, // use this as the inital game mode, but me sure to change it after
+    None, // use this as the inital game mode, but be sure to change it after
     Closing,
     Ingame(IngameManager),
     InMenu(Arc<Mutex<dyn Menu<Game>>>),
@@ -840,7 +840,19 @@ impl Test {
         // let easing = TransformEasing::EaseInOutBack(1.70158, 2.70158);
         let easing = TransformEasing::EaseInOutExponential;
 
+
         for _i in 0..100 {
+            man.transforms.push(Transformation::new(
+                time,
+                duration,
+                TransformType::Transparency {
+                    start: 1.0, 
+                    end: 0.0
+                },
+                TransformEasing::EaseOutExponential,
+                0.0
+            ));
+            
             // top left -> bottom left
             man.transforms.push(Transformation::new(
                 time,
@@ -866,6 +878,17 @@ impl Test {
                 0.0
             ));
             time += duration;
+            
+            man.transforms.push(Transformation::new(
+                time,
+                duration,
+                TransformType::Transparency {
+                    start: 0.0, 
+                    end: 1.0
+                },
+                TransformEasing::EaseInExponential,
+                0.0
+            ));
 
             // bottom right -> right right
             man.transforms.push(Transformation::new(
@@ -892,7 +915,6 @@ impl Test {
                 0.0
             ));
             time += duration;
-
         }
         
         
