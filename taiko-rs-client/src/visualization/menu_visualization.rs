@@ -4,12 +4,6 @@ use crate::prelude::*;
 use super::{FFTEntry, Visualization};
 
 const CUTOFF:f32 = 0.1;
-// const COLORS:[Color; 3] = [
-//     Color::RED,
-//     Color::BLUE,
-//     Color::GREEN,
-// ];
-const INNER_RADIUS:f64 = 100.0;
 
 
 pub struct MenuVisualization {
@@ -20,20 +14,25 @@ pub struct MenuVisualization {
     rotation: f64,
 
     cookie: Image,
+    initial_inner_radius: f64,
+    current_inner_radius: f64,
 
     ripples: Vec<TransformGroup>,
     last_ripple_at: f32,
-    current_timing_point: TimingPoint
+    current_timing_point: TimingPoint,
 }
 impl MenuVisualization {
     pub fn new() -> Self {
+        let initial_inner_radius  = Settings::window_size().y / 6.0;
         Self {
             rotation: 0.0,
             data: Vec::new(),
             timer: Instant::now(),
-            cookie: Image::new(Vector2::zero(), 0.0, Texture::empty(&TextureSettings::new()).unwrap(), Vector2::new(INNER_RADIUS, INNER_RADIUS)),
+            cookie: Image::new(Vector2::zero(), 0.0, Texture::empty(&TextureSettings::new()).unwrap(), Vector2::new(initial_inner_radius, initial_inner_radius)),
 
             bar_height: 1.0, //(Settings::get_mut().window_size[1] - INNER_RADIUS) / 128.0,
+            initial_inner_radius,
+            current_inner_radius: initial_inner_radius,
 
             // ripple things
             ripples: Vec::new(),
@@ -42,70 +41,60 @@ impl MenuVisualization {
         }
     }
 
-    pub fn song_changed(&mut self) {
+    fn check_ripple(&mut self, time: f32) {
+        let next_ripple = self.last_ripple_at + self.current_timing_point.beat_length;
+
+        if self.last_ripple_at == 0.0 || time >= next_ripple {
+            self.last_ripple_at = time;
+            let mut group = TransformGroup::new();
+            let duration = 1000.0;
+
+            let mut circle = Circle::new(
+                Color::TRANSPARENT_BLACK,
+                10.0,
+                Settings::window_size() / 2.0,
+                self.current_inner_radius
+            );
+            circle.border = Some(Border::new(Color::WHITE, 2.0));
+            group.items.push(DrawItem::Circle(circle));
+            group.ripple(0.0, duration, time as f64, 5.0, true);
+
+            self.ripples.push(group);
+        }
+
+        let time = time as f64;
+        self.ripples.retain_mut(|ripple| {
+            ripple.update(time);
+            ripple.items[0].visible()
+        });
+    }
+
+    pub fn song_changed(&mut self, new_manager: &mut Option<IngameManager>) {
         self.last_ripple_at = 0.0;
         self.ripples.clear();
+        if let Some(new_manager) = new_manager {
+            let time = new_manager.time();
+            self.current_timing_point = new_manager.timing_point_at(time, false).clone();
+        }
     }
 
     pub fn update(&mut self, manager: &mut Option<IngameManager>) {
         // update ripples
         if let Some(manager) = manager {
             let time = manager.time();
-
             let current_timing_point = manager.timing_point_at(time, false);
-            let next_ripple = self.last_ripple_at + current_timing_point.beat_length;
 
             // timing point changed
             if current_timing_point.time != self.current_timing_point.time {
                 self.last_ripple_at = 0.0;
                 self.current_timing_point = current_timing_point.clone();
             }
-
-            if self.last_ripple_at == 0.0 || time >= next_ripple {
-                self.last_ripple_at = time;
-                let mut group = TransformGroup::new();
-                let duration = 1000.0;
-
-                let mut circle = Circle::new(
-                    Color::TRANSPARENT_BLACK,
-                    -100000000000.0,
-                    Settings::window_size() / 2.0,
-                    INNER_RADIUS
-                );
-                circle.border = Some(Border::new(Color::WHITE, 2.0));
-                group.items.push(DrawItem::Circle(circle));
-                group.ripple(0.0, duration, time as f64, 5.0, true);
-
-                // dm.transforms.push(Transformation::new(
-                //     0.0,
-                //     duration,
-                //     TransformType::BorderTransparency {start: 1.0, end: 0.0},
-                //     TransformEasing::EaseOutSine,
-                //     time
-                // ));
-                // dm.transforms.push(Transformation::new(
-                //     0.0,
-                //     duration * 1.1,
-                //     TransformType::Scale {start: 1.0, end: 5.0},
-                //     TransformEasing::Linear,
-                //     time
-                // ));
-                // dm.transforms.push(Transformation::new(
-                //     0.0,
-                //     duration * 1.1,
-                //     TransformType::BorderSize {start: 2.0, end: 0.0},
-                //     TransformEasing::EaseInSine,
-                //     time
-                // ));
-
-                self.ripples.push(group);
+            
+            self.check_ripple(time);
+        } else if let Some(song) = Audio::get_song() {
+            if let Ok(pos) = song.get_position() {
+                self.check_ripple(pos as f32)
             }
-        
-            let time = time as f64;
-            self.ripples.retain_mut(|ripple| {
-                ripple.update(time);
-                ripple.items[0].visible()
-            });
         }
     }
 }
@@ -119,13 +108,18 @@ impl Visualization for MenuVisualization {
         let since_last = self.timer.elapsed().as_secs_f64();
         self.update_data();
 
+        let min = self.initial_inner_radius / 1.1;
+        let max = self.initial_inner_radius * 1.1;
+
+        let val = self.data[3] as f64 / 500.0;
+        self.current_inner_radius = f64::lerp(min, max, val).clamp(min, max);
+
         let rotation_increment = 0.2;
         self.rotation += rotation_increment * since_last;
 
         for ripple in self.ripples.iter_mut() {
             ripple.draw(list)
         }
-
 
         // let mut mirror = self.data.clone();
         // mirror.reverse();
@@ -147,7 +141,7 @@ impl Visualization for MenuVisualization {
 
 
         let a = (2.0 * PI) / self.data.len() as f64;
-        let n = (2.0 * PI * INNER_RADIUS) / self.data.len() as f64 / 2.0;
+        let n = (2.0 * PI * self.current_inner_radius) / self.data.len() as f64 / 2.0;
 
         for i in 0..self.data.len() {
             #[cfg(feature="bass_audio")]
@@ -159,14 +153,14 @@ impl Visualization for MenuVisualization {
             if val <= CUTOFF {continue}
 
             let factor = (i as f64 + 2.0).log10();
-            let l = INNER_RADIUS + val as f64 * factor * self.bar_height;
+            let l = self.current_inner_radius + val as f64 * factor * self.bar_height;
 
             let theta = self.rotation + a * i as f64;
             let cos = theta.cos();
             let sin = theta.sin();
             let p1 = pos + Vector2::new(
-                cos * INNER_RADIUS,
-                sin * INNER_RADIUS
+                cos * self.current_inner_radius,
+                sin * self.current_inner_radius
             );
 
             let p2 = pos + Vector2::new(

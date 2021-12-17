@@ -41,7 +41,6 @@ impl MainMenu {
 
     fn setup_manager(&mut self, called_by: &str) {
         println!("setup manager called by {}", called_by);
-        self.visualization.song_changed();
 
         let settings = Settings::get().background_game_settings;
         if !settings.enabled {return}
@@ -63,8 +62,12 @@ impl MainMenu {
                 println!("manager started");
 
                 self.background_game = Some(manager);
+                self.visualization.song_changed(&mut self.background_game);
             },
-            Err(e) => NotificationManager::add_error_notification("Error loading beatmap", e)
+            Err(e) => {
+                self.visualization.song_changed(&mut None);
+                NotificationManager::add_error_notification("Error loading beatmap", e);
+            }
         }
         println!("manager setup");
     }

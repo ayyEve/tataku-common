@@ -180,7 +180,8 @@ impl HitObject for StandardNote {
         let alpha = alpha * self.alpha_mult;
 
         // timing circle
-        list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth, self.scaling_scale, alpha));
+        let approach_circle_color = if self.standard_settings.approach_combo_color {self.color} else {Color::WHITE};
+        list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.base_depth, self.scaling_scale, alpha, approach_circle_color));
 
 
         // combo number
@@ -662,7 +663,8 @@ impl HitObject for StandardSlider {
         if self.time - self.map_time > 0.0 {
             
             // timing circle
-            list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.circle_depth, self.scaling_helper.scale, alpha));
+            let approach_circle_color = if self.standard_settings.approach_combo_color {self.color} else {Color::WHITE};
+            list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.circle_depth, self.scaling_helper.scale, alpha, approach_circle_color));
 
             // combo number
             self.combo_text.color.a = alpha;
@@ -1195,6 +1197,11 @@ impl StandardHitObject for StandardSpinner {
     } 
 
     fn pos_at(&self, time: f32, scaling_helper:&ScalingHelper) -> Vector2 {
+
+        if time < self.time || time > self.end_time {
+            return self.pos
+        }
+
         let r = self.last_rotation_val + (time - self.last_update) as f64 / (4.0*PI);
         self.pos + Vector2::new(
             r.cos(),
@@ -1204,14 +1211,14 @@ impl StandardHitObject for StandardSpinner {
 }
 
 
-fn approach_circle(pos:Vector2, radius:f64, time_diff:f32, time_preempt:f32, depth:f64, scale:f64, alpha: f32) -> Box<Circle> {
+fn approach_circle(pos:Vector2, radius:f64, time_diff:f32, time_preempt:f32, depth:f64, scale:f64, alpha: f32, color: Color) -> Box<Circle> {
     let mut c = Circle::new(
         Color::TRANSPARENT_WHITE,
         depth - 100.0,
         pos,
         radius + (time_diff as f64 / time_preempt as f64) * (HITWINDOW_CIRCLE_RADIUS * scale)
     );
-    c.border = Some(Border::new(Color::WHITE.alpha(alpha), NOTE_BORDER_SIZE * scale));
+    c.border = Some(Border::new(color.alpha(alpha), NOTE_BORDER_SIZE * scale));
     Box::new(c)
 }
 

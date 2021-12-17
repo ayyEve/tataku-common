@@ -22,7 +22,8 @@ pub struct StandardSettings {
     // special effects
     pub hit_ripples: bool,
     pub ripple_scale: f64,
-    pub slider_tick_ripples: bool
+    pub slider_tick_ripples: bool,
+    pub approach_combo_color: bool,
 }
 impl StandardSettings {
     pub fn get_playfield(&self) -> (f64, Vector2) {
@@ -55,6 +56,7 @@ impl Default for StandardSettings {
             hit_ripples: true,
             ripple_scale: 2.0,
             slider_tick_ripples: true,
+            approach_combo_color: true,
         }
     }
 }
