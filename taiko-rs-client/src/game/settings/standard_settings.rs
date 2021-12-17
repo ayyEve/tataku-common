@@ -18,6 +18,11 @@ pub struct StandardSettings {
     // display
     pub draw_follow_points: bool,
     pub combo_colors: Vec<String>,
+
+    // special effects
+    pub hit_ripples: bool,
+    pub ripple_scale: f64,
+    pub slider_tick_ripples: bool
 }
 impl StandardSettings {
     pub fn get_playfield(&self) -> (f64, Vector2) {
@@ -45,7 +50,11 @@ impl Default for StandardSettings {
                 "#CCCC00".to_owned(),
                 "#00CCCC".to_owned(),
                 "#0000CC".to_owned()
-            ]
+            ],
+
+            hit_ripples: true,
+            ripple_scale: 2.0,
+            slider_tick_ripples: true,
         }
     }
 }

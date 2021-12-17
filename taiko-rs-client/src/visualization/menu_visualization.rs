@@ -21,7 +21,7 @@ pub struct MenuVisualization {
 
     cookie: Image,
 
-    ripples: Vec<DrawingManager>,
+    ripples: Vec<TransformGroup>,
     last_ripple_at: f32,
     current_timing_point: TimingPoint
 }
@@ -63,8 +63,7 @@ impl MenuVisualization {
 
             if self.last_ripple_at == 0.0 || time >= next_ripple {
                 self.last_ripple_at = time;
-                let time = time as f64;
-                let mut dm = DrawingManager::new();
+                let mut group = TransformGroup::new();
                 let duration = 1000.0;
 
                 let mut circle = Circle::new(
@@ -74,31 +73,32 @@ impl MenuVisualization {
                     INNER_RADIUS
                 );
                 circle.border = Some(Border::new(Color::WHITE, 2.0));
-                dm.items.push(DrawItem::Circle(circle));
+                group.items.push(DrawItem::Circle(circle));
+                group.ripple(0.0, duration, time as f64, 5.0, true);
 
-                dm.transforms.push(Transformation::new(
-                    0.0,
-                    duration,
-                    TransformType::BorderTransparency {start: 1.0, end: 0.0},
-                    TransformEasing::EaseOutSine,
-                    time
-                ));
-                dm.transforms.push(Transformation::new(
-                    0.0,
-                    duration * 1.1,
-                    TransformType::Scale {start: 1.0, end: 5.0},
-                    TransformEasing::Linear,
-                    time
-                ));
-                dm.transforms.push(Transformation::new(
-                    0.0,
-                    duration * 1.1,
-                    TransformType::BorderSize {start: 2.0, end: 0.0},
-                    TransformEasing::EaseInSine,
-                    time
-                ));
+                // dm.transforms.push(Transformation::new(
+                //     0.0,
+                //     duration,
+                //     TransformType::BorderTransparency {start: 1.0, end: 0.0},
+                //     TransformEasing::EaseOutSine,
+                //     time
+                // ));
+                // dm.transforms.push(Transformation::new(
+                //     0.0,
+                //     duration * 1.1,
+                //     TransformType::Scale {start: 1.0, end: 5.0},
+                //     TransformEasing::Linear,
+                //     time
+                // ));
+                // dm.transforms.push(Transformation::new(
+                //     0.0,
+                //     duration * 1.1,
+                //     TransformType::BorderSize {start: 2.0, end: 0.0},
+                //     TransformEasing::EaseInSine,
+                //     time
+                // ));
 
-                self.ripples.push(dm);
+                self.ripples.push(group);
             }
         
             let time = time as f64;

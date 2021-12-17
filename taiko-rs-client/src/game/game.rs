@@ -818,11 +818,11 @@ pub enum SpectatorState {
 
 struct Test {
     timer: Instant,
-    man: DrawingManager,
+    man: TransformGroup,
 }
 impl Test {
     fn new() -> Self {
-        let mut man = DrawingManager::new();
+        let mut man = TransformGroup::new();
         let mut circle = Circle::new(
             Color::BLUE,
             -10000000.0,
@@ -933,11 +933,10 @@ impl Test {
     }
 
     fn update(&mut self) {
-        let time = self.timer.elapsed().as_secs_f64() * 1000.0;
-
-        self.man.update(time);
+        // let time = self.timer.elapsed().as_secs_f64() * 1000.0;
+        // self.man.update(time);
     }
     fn draw(&mut self, list: &mut Vec<Box<dyn Renderable>>) {
-        self.man.draw(list);
+        // self.man.draw(list);
     }
 }

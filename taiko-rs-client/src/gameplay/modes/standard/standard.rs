@@ -79,6 +79,8 @@ impl GameMode for StandardGame {
 
         match map {
             Beatmap::Osu(beatmap) => {
+                let std_settings = Arc::new(settings.clone());
+
                 let mut s = Self {
                     notes: Vec::new(),
                     mouse_pos:Vector2::zero(),
@@ -153,7 +155,7 @@ impl GameMode for StandardGame {
                     a_time.partial_cmp(&b_time).unwrap()
                 });
         
-        
+
                 // add notes
                 let mut combo_num = 0;
                 let mut combo_change = 0;
@@ -188,7 +190,8 @@ impl GameMode for StandardGame {
                             color,
                             combo_num as u16,
                             &scaling_helper,
-                            depth
+                            depth,
+                            std_settings.clone()
                         )));
                     }
                     if let Some(slider) = slider {
@@ -211,7 +214,8 @@ impl GameMode for StandardGame {
                                 Color::new(0.0, 0.0, 0.0, 1.0),
                                 combo_num as u16,
                                 &scaling_helper,
-                                depth
+                                depth,
+                                std_settings.clone()
                             )));
                         } else {
                             let slider_depth = SLIDER_DEPTH.start + (slider.time as f64 / end_time) * SLIDER_DEPTH.end;
@@ -226,10 +230,11 @@ impl GameMode for StandardGame {
                                 combo_num as u16,
                                 scaling_helper.clone(),
                                 slider_depth,
-                                depth
+                                depth,
+                                std_settings.clone()
                             )))
                         }
-        
+                        
                     }
                     if let Some(spinner) = spinner {
                         s.notes.push(Box::new(StandardSpinner::new(
@@ -237,7 +242,7 @@ impl GameMode for StandardGame {
                             &scaling_helper
                         )))
                     }
-        
+                    
                     counter += 1;
                 }
         

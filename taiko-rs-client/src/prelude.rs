@@ -22,12 +22,12 @@ pub use serde::{Serialize, Deserialize};
 
 // ui imports
 pub use ayyeve_piston_ui::menu::*;
-pub use ayyeve_piston_ui::render::{Renderable, Vector2, Color};
 pub use ayyeve_piston_ui::menu::menu_elements::*;
+pub use ayyeve_piston_ui::render::{Renderable, Vector2, Color};
 
 // font things
-pub type Font = Arc<Mutex<opengl_graphics::GlyphCache<'static>>>;
 pub use ayyeve_piston_ui::render::fonts::get_font;
+pub type Font = Arc<Mutex<opengl_graphics::GlyphCache<'static>>>;
 
 // taiko-rs-common imports
 pub use taiko_rs_common::types::*;
@@ -41,9 +41,9 @@ pub use crate::game::{AudioHandle, Sound};
 pub use crate::game::audio::fft::*;
 
 // game and helper imports
-pub use crate::graphics::*;
 pub use crate::menu::*;
 pub use crate::game::*;
+pub use crate::graphics::*;
 pub use crate::game::audio::*;
 pub use crate::game::managers::*;
 pub use crate::game::helpers::{*, io::*, math::*, curve::*, key_counter::*};

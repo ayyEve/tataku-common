@@ -1,10 +1,11 @@
 use crate::prelude::*;
 
-pub struct DrawingManager {
+#[derive(Clone)]
+pub struct TransformGroup {
     pub items: Vec<DrawItem>,
     pub transforms: Vec<Transformation>
 }
-impl DrawingManager {
+impl TransformGroup {
     pub fn new() -> Self {
         Self {
             items: Vec::new(),
@@ -13,15 +14,6 @@ impl DrawingManager {
     }
 
     pub fn update(&mut self, game_time: f64) {
-        // going to need to figure out how to properly do this.
-        // will need to store the original position somehow
-        // alternatively, 
-        // could apply these transforms to a clone of the arrays in the draw fn
-
-        // though i think it might be best to redo these graphics structs
-        // from use in taiko-rs
-
-        // shouldnt be too terrible, just annoying tbh
         let mut transforms = std::mem::take(&mut self.transforms);
         transforms.retain(|transform| {
             let start_time = transform.start_time();
@@ -45,17 +37,42 @@ impl DrawingManager {
             if !i.visible() {continue}
             list.push(i.to_renderable());
         }
-        // list.extend(&self.items);
     }
 }
+// premade transforms
+impl TransformGroup {
+    pub fn ripple(&mut self, offset:f64, duration:f64, time: f64, end_scale: f64, do_border_size: bool) {
+        
+        // border transparency
+        self.transforms.push(Transformation::new(
+            offset,
+            duration,
+            TransformType::BorderTransparency {start: 1.0, end: 0.0},
+            TransformEasing::EaseOutSine,
+            time
+        ));
 
-// fn to_boxed<R:'static+Transformable + Clone>(list:&Vec<R>) -> Vec<Box<dyn Renderable>> {
-//     let mut output:Vec<Box<dyn Renderable>> = Vec::new();
-//     for i in list {
-//         output.push(Box::new(i.clone()))
-//     }
-//     output
-// } 
+        // scale
+        self.transforms.push(Transformation::new(
+            0.0,
+            duration * 1.1,
+            TransformType::Scale {start: 1.0, end: end_scale},
+            TransformEasing::Linear,
+            time
+        ));
+
+        // border size
+        if do_border_size {
+            self.transforms.push(Transformation::new(
+                0.0,
+                duration * 1.1,
+                TransformType::BorderSize {start: 2.0, end: 0.0},
+                TransformEasing::EaseInSine,
+                time
+            ));
+        }
+    }
+}
 
 #[derive(Clone)]
 pub enum DrawItem {

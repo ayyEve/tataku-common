@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use crate::prelude::*;
 use super::prelude::*;
 
@@ -7,7 +5,7 @@ use super::prelude::*;
 pub struct Image {
     size: Vector2,
     pub depth: f64,
-    pub tex: Rc<Texture>,
+    pub tex: Arc<Texture>,
 
     
     // initial
@@ -47,7 +45,7 @@ impl Image {
 
             size,
             depth,
-            tex: Rc::new(tex),
+            tex: Arc::new(tex),
             spawn_time: 0,
         }
     }

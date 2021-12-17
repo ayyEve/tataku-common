@@ -1,7 +1,4 @@
 use crate::prelude::*;
-use crate::gameplay::{HitObject, modes::ScalingHelper};
-use crate::beatmaps::common::{NoteType, map_difficulty};
-use crate::beatmaps::osu::hitobject_defs::{HitSamples, NoteDef, SliderDef, SpinnerDef};
 
 const SPINNER_RADIUS:f64 = 200.0;
 const SLIDER_DOT_RADIUS:f64 = 8.0;
@@ -80,9 +77,14 @@ pub struct StandardNote {
 
     /// alpha multiplier, used for background game
     alpha_mult: f32,
+
+    /// cached settings for this game
+    standard_settings: Arc<StandardSettings>,
+    /// list of shapes to be drawn
+    shapes: Vec<TransformGroup>
 }
 impl StandardNote {
-    pub fn new(def:NoteDef, ar:f32, color:Color, combo_num:u16, scaling_helper: &ScalingHelper, base_depth:f64) -> Self {
+    pub fn new(def:NoteDef, ar:f32, color:Color, combo_num:u16, scaling_helper:&ScalingHelper, base_depth:f64, standard_settings:Arc<StandardSettings>) -> Self {
         let time = def.time;
         let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
 
@@ -122,6 +124,31 @@ impl StandardNote {
             alpha_mult: 1.0,
             
             combo_text,
+
+            standard_settings,
+            shapes: Vec::new()
+        }
+    }
+
+    fn do_hit(&mut self, time: f32) {
+        self.hit = true;
+
+        if self.standard_settings.hit_ripples {
+            let mut group = TransformGroup::new();
+
+            let mut ripple = Circle::new(
+                Color::TRANSPARENT_WHITE,
+                self.base_depth,
+                self.pos,
+                self.radius
+            );
+            ripple.border = Some(Border::new(self.color, 2.0));
+            group.items.push(DrawItem::Circle(ripple));
+
+            let duration = 500.0;
+            group.ripple(0.0, duration, time as f64, self.standard_settings.ripple_scale, true);
+
+            self.shapes.push(group);
         }
     }
 }
@@ -129,10 +156,24 @@ impl HitObject for StandardNote {
     fn note_type(&self) -> NoteType {NoteType::Note}
     fn time(&self) -> f32 {self.time}
     fn end_time(&self, hw_miss:f32) -> f32 {self.time + hw_miss}
-    fn update(&mut self, beatmap_time: f32) {self.map_time = beatmap_time}
+    fn update(&mut self, beatmap_time: f32) {
+        self.map_time = beatmap_time;
+        
+        let time = beatmap_time as f64;
+        self.shapes.retain_mut(|shape| {
+            shape.update(time);
+            shape.items.find(|di|di.visible()).is_some()
+        });
+    }
     fn set_alpha(&mut self, alpha: f32) {self.alpha_mult = alpha}
 
     fn draw(&mut self, _args:RenderArgs, list:&mut Vec<Box<dyn Renderable>>) {
+        // draw shapes
+        for shape in self.shapes.iter_mut() {
+            shape.draw(list)
+        }
+
+        // if its not time to draw anything else, leave
         if self.time - self.map_time > self.time_preempt || self.time - self.map_time < 0.0 || self.hit {return}
 
         let alpha = (1.0 - ((self.time - (self.time_preempt * (2.0/3.0))) - self.map_time) / (self.time_preempt * (1.0/3.0))).clamp(0.0, 1.0);
@@ -155,6 +196,7 @@ impl HitObject for StandardNote {
         );
         note.border = Some(Border::new(Color::BLACK.alpha(alpha), NOTE_BORDER_SIZE * self.scaling_scale));
         list.push(Box::new(note));
+
     }
 
     fn reset(&mut self) {
@@ -180,13 +222,13 @@ impl StandardHitObject for StandardNote {
         if distance > self.radius {return ScoreHit::None}
 
         if diff < hitwindow_300 {
-            self.hit = true;
+            self.do_hit(time);
             ScoreHit::X300
         } else if diff < hitwindow_100 {
-            self.hit = true;
+            self.do_hit(time);
             ScoreHit::X100
         } else if diff < hitwindow_50 {
-            self.hit = true;
+            self.do_hit(time);
             ScoreHit::X50
         } else if diff < hitwindow_miss { // too early, miss
             self.missed = true;
@@ -305,9 +347,15 @@ pub struct StandardSlider {
     // circles_cache: Vec<Box<Circle>>
     slider_draw: SliderPath,
     // slider_draw2: SliderPath,
+
+
+    /// cached settings for this game
+    standard_settings: Arc<StandardSettings>,
+    /// list of shapes to be drawn
+    shapes: Vec<TransformGroup>
 }
 impl StandardSlider {
-    pub fn new(def:SliderDef, curve:Curve, ar:f32, color:Color, combo_num: u16, scaling_helper:ScalingHelper, slider_depth:f64, circle_depth:f64) -> Self {
+    pub fn new(def:SliderDef, curve:Curve, ar:f32, color:Color, combo_num: u16, scaling_helper:ScalingHelper, slider_depth:f64, circle_depth:f64, standard_settings:Arc<StandardSettings>) -> Self {
         let time = def.time;
         let time_preempt = map_difficulty(ar, 1800.0, 1200.0, PREEMPT_MIN);
         
@@ -453,14 +501,18 @@ impl StandardSlider {
             // lines_cache,
             // circles_cache,
             slider_draw: SliderPath::new(full, Color::BLUE, slider_depth),
-            // slider_draw2: SliderPath::new(side2, Color::GREEN, slider_depth)
+            // slider_draw2: SliderPath::new(side2, Color::GREEN, slider_depth),
+
+
+            standard_settings,
+            shapes: Vec::new()
         };
     
-        slider.slider_dots();
+        slider.make_dots();
         slider
     }
 
-    fn slider_dots(&mut self) {
+    fn make_dots(&mut self) {
         self.hit_dots.clear();
 
         let mut slide_counter = 0;
@@ -473,7 +525,12 @@ impl StandardSlider {
             if current_moving_forwards != moving_forwards {
                 slide_counter += 1;
                 moving_forwards = current_moving_forwards;
+                // dont add dot if it conflicts with a repeat point
+                continue
             }
+
+            // dont add dot if it conflicts with the end circle
+            if *t == self.end_time(0.0) {continue}
 
             let dot = SliderDot::new(
                 *t,
@@ -485,6 +542,31 @@ impl StandardSlider {
             self.hit_dots.push(dot);
         }
     }
+
+    
+    fn add_ripple(&mut self, time: f32, pos: Vector2, is_tick: bool) {
+        if self.standard_settings.hit_ripples {
+            let mut group = TransformGroup::new();
+
+            // border is white if ripple caused by slider tick
+            let border_color = if is_tick {Color::WHITE} else {self.color};
+
+            let mut ripple = Circle::new(
+                Color::TRANSPARENT_WHITE,
+                self.slider_depth, // slider depth?
+                pos,
+                self.radius
+            );
+
+            ripple.border = Some(Border::new(border_color, 2.0));
+            group.items.push(DrawItem::Circle(ripple));
+
+            let duration = 500.0;
+            group.ripple(0.0, duration, time as f64, self.standard_settings.ripple_scale, true);
+
+            self.shapes.push(group);
+        }
+    }
 }
 impl HitObject for StandardSlider {
     fn note_type(&self) -> NoteType {NoteType::Slider}
@@ -494,6 +576,13 @@ impl HitObject for StandardSlider {
 
     fn update(&mut self, beatmap_time: f32) {
         self.map_time = beatmap_time;
+
+        // update shapes
+        let time = beatmap_time as f64;
+        self.shapes.retain_mut(|shape| {
+            shape.update(time);
+            shape.items.find(|di|di.visible()).is_some()
+        });
 
         // check sliding ok
         self.slider_ball_pos = self.scaling_helper.scale_coords(self.curve.position_at_time(beatmap_time));
@@ -525,6 +614,7 @@ impl HitObject for StandardSlider {
                     self.get_hitsound(),
                     self.get_hitsamples().clone()
                 ));
+                self.add_ripple(beatmap_time, self.slider_ball_pos, false);
             } else {
                 // set it to negative, we broke combo
                 self.pending_combo = -1;
@@ -541,8 +631,10 @@ impl HitObject for StandardSlider {
             filename: Some(format!("{}-slidertick.wav", SAMPLE_SETS[hitsamples.addition_set as usize]))
         };
 
-        for dot in self.hit_dots.iter_mut() {
+        let mut dots = std::mem::take(&mut self.hit_dots);
+        for dot in dots.iter_mut() {
             if dot.update(beatmap_time, self.holding) {
+                self.add_ripple(beatmap_time, dot.pos, true);
                 self.sound_queue.push((
                     beatmap_time,
                     0,
@@ -550,9 +642,16 @@ impl HitObject for StandardSlider {
                 ));
             }
         }
+        self.hit_dots = dots;
     }
 
     fn draw(&mut self, _args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
+        // draw shapes
+        for shape in self.shapes.iter_mut() {
+            shape.draw(list)
+        }
+
+        // if its not time to draw anything else, leave
         if self.time - self.map_time > self.time_preempt || self.curve.end_time < self.map_time {return}
 
         // let alpha = (self.time_preempt / 4.0) / ((self.time - self.time_preempt / 4.0) - self.map_time).clamp(0.0, 1.0);
@@ -715,7 +814,7 @@ impl HitObject for StandardSlider {
         self.slides_complete = 0;
         self.moving_forward = true;
         
-        self.slider_dots();
+        self.make_dots();
     }
 }
 impl StandardHitObject for StandardSlider {
@@ -753,6 +852,7 @@ impl StandardHitObject for StandardSlider {
                 if distance > self.radius * 2.0 {println!("slider end miss (out of radius)")}
                 if !self.holding {println!("slider end miss (not held)")}
             }
+            self.add_ripple(time, self.visual_end_pos, false);
 
             return if distance > self.radius * 2.0 || !self.holding {
                 ScoreHit::X100
@@ -816,11 +916,16 @@ impl StandardHitObject for StandardSlider {
         // get the points
         let diff = (time - judgement_time).abs();
 
+        let ripple_pos = if self.end_checked {self.visual_end_pos} else {self.pos};
+
         if diff < h300 {
+            self.add_ripple(time, ripple_pos, false);
             ScoreHit::X300
         } else if diff < h100 {
+            self.add_ripple(time, ripple_pos, false);
             ScoreHit::X100
         } else if diff < h50 {
+            self.add_ripple(time, ripple_pos, false);
             ScoreHit::X50
         } else {
             ScoreHit::Miss
@@ -857,7 +962,7 @@ impl StandardHitObject for StandardSlider {
         ));
 
         self.combo_text = combo_text;
-        self.slider_dots();
+        self.make_dots();
     }
 
     fn pos_at(&self, time: f32, scaling_helper:&ScalingHelper) -> Vector2 {
