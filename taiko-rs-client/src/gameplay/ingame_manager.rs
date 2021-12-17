@@ -138,6 +138,20 @@ impl IngameManager {
         self.timing_points[self.timing_point_index]
     }
 
+    pub fn timing_point_at(&self, time: f32, allow_inherited: bool) -> &TimingPoint {
+        let mut tp = &self.timing_points[0];
+
+        for i in self.timing_points.iter() {
+            if i.is_inherited() && !allow_inherited {continue}
+            if i.time <= time {
+                tp = i
+            }
+        }
+
+        tp
+    }
+
+
     pub fn time(&mut self) -> f32 {
         #[cfg(feature="bass_audio")]
         let t = self.song.get_position().unwrap() as f32;

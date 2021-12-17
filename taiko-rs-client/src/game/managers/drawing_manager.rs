@@ -27,39 +27,23 @@ impl DrawingManager {
             let start_time = transform.start_time();
             // transform hasnt started, ignore
             if game_time >= start_time {
+                let trans_val = transform.get_value(game_time);
                 for i in self.items.iter_mut() {
-                    match i {
-                        // DrawItem::Line(a) => a.apply_transform(transform, game_time),
-                        // DrawItem::Text(a) => a.apply_transform(transform, game_time),
-                        // DrawItem::Image(a) => a.apply_transform(transform, game_time),
-                        DrawItem::Circle(a) => a.apply_transform(transform, game_time),
-                        // DrawItem::Rectangle(a) => a.apply_transform(transform, game_time),
-                        // DrawItem::HalfCircle(a) => a.apply_transform(transform, game_time),
-                        _ => {}
-                    };
+                    i.apply_transform(transform, trans_val.clone())
                 }
             }
 
             game_time < start_time + transform.duration
         });
         self.transforms = transforms;
-        // for transform in self.transforms.iter_mut() {
-        // }
     }
 
     //TODO: maybe this could be improved?
     pub fn draw(&mut self, list: &mut Vec<Box<dyn Renderable>>) {
         list.reserve(self.items.len());
         for i in self.items.iter() {
-            let new_item:Box<dyn Renderable> = match i {
-                DrawItem::Line(a) => Box::new(a.clone()),
-                DrawItem::Text(a) => Box::new(a.clone()),
-                DrawItem::Image(a) => Box::new(a.clone()),
-                DrawItem::Circle(a) => Box::new(a.clone()),
-                DrawItem::Rectangle(a) => Box::new(a.clone()),
-                DrawItem::HalfCircle(a) => Box::new(a.clone()),
-            };
-            list.push(new_item);
+            if !i.visible() {continue}
+            list.push(i.to_renderable());
         }
         // list.extend(&self.items);
     }
@@ -81,4 +65,42 @@ pub enum DrawItem {
     Circle(Circle),
     Rectangle(Rectangle),
     HalfCircle(HalfCircle),
+}
+impl DrawItem {
+    pub fn apply_transform(&mut self, transform: &Transformation, trans_val: TransformValueResult) {
+        match self {
+            // DrawItem::Line(a) => a.apply_transform(transform, trans_val),
+            // DrawItem::Text(a) => a.apply_transform(transform, trans_val),
+            // DrawItem::Image(a) => a.apply_transform(transform, trans_val),
+            DrawItem::Circle(a) => a.apply_transform(transform, trans_val),
+            // DrawItem::Rectangle(a) => a.apply_transform(transform, trans_val),
+            // DrawItem::HalfCircle(a) => a.apply_transform(transform, trans_val),
+            _ => {}
+        };
+    }
+
+    pub fn to_renderable(&self) -> Box<dyn Renderable> {
+        let new_item:Box<dyn Renderable> = match self {
+            DrawItem::Line(a) => Box::new(a.clone()),
+            DrawItem::Text(a) => Box::new(a.clone()),
+            DrawItem::Image(a) => Box::new(a.clone()),
+            DrawItem::Circle(a) => Box::new(a.clone()),
+            DrawItem::Rectangle(a) => Box::new(a.clone()),
+            DrawItem::HalfCircle(a) => Box::new(a.clone()),
+        };
+
+        new_item
+    }
+
+    pub fn visible(&self) -> bool {
+        match self {
+            // DrawItem::Line(a) => a.apply_transform(transform, trans_val),
+            // DrawItem::Text(a) => a.apply_transform(transform, trans_val),
+            // DrawItem::Image(a) => a.apply_transform(transform, trans_val),
+            DrawItem::Circle(a) => a.visible(),
+            // DrawItem::Rectangle(a) => a.apply_transform(transform, trans_val),
+            // DrawItem::HalfCircle(a) => a.apply_transform(transform, trans_val),
+            _ => {true}
+        }
+    }
 }

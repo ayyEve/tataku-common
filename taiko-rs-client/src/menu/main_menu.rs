@@ -41,6 +41,7 @@ impl MainMenu {
 
     fn setup_manager(&mut self, called_by: &str) {
         println!("setup manager called by {}", called_by);
+        self.visualization.song_changed();
 
         let settings = Settings::get().background_game_settings;
         if !settings.enabled {return}
@@ -110,7 +111,7 @@ impl Menu<Game> for MainMenu {
             self.setup_manager("update new map");
         }
 
-        self.visualization.update();
+        self.visualization.update(&mut self.background_game);
 
         if let Some(manager) = self.background_game.as_mut() {
             manager.update();

@@ -1,5 +1,3 @@
-use std::ops::Add;
-
 use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
@@ -929,16 +927,17 @@ impl Test {
         
         
         Self {
+            man,
             timer: Instant::now(),
-            man
         }
     }
 
     fn update(&mut self) {
         let time = self.timer.elapsed().as_secs_f64() * 1000.0;
-        self.man.update(time)
+
+        self.man.update(time);
     }
     fn draw(&mut self, list: &mut Vec<Box<dyn Renderable>>) {
-        self.man.draw(list)
+        self.man.draw(list);
     }
 }

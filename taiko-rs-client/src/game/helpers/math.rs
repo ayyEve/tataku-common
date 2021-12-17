@@ -260,6 +260,19 @@ pub(crate) fn circle_point(center:Vector2, radius:f64, a:f64) -> Vector2 {
     ) + center
 }
 
+
+macro_rules! check_bounds {
+    ($current:expr, $target:expr, $amount:expr) => {
+        if $amount == 0.0 {
+            return $current
+        }
+        if $amount == 1.0 {
+            return $target
+        }
+    };
+}
+
+
 // help
 pub trait Interpolation {
     fn lerp(current: Self, target: Self, amount: f64) -> Self;
@@ -319,12 +332,15 @@ impl<T> Interpolation for T where T: Copy + std::ops::Add<Output=T> + std::ops::
 
     // helpers
     fn ease_in_exp(current:T, target:T, amount:f64, pow:i32) -> T {
+        check_bounds!(current, target, amount);
         Self::lerp(current, target, amount.powi(pow))
     }
     fn ease_out_exp(current:T, target:T, amount:f64, pow:i32) -> T {
+        check_bounds!(current, target, amount);
         Self::lerp(current, target, 1.0 - (1.0 - amount).powi(pow))
     }
     fn ease_inout_exp(current:T, target:T, amount:f64, pow:i32) -> T {
+        check_bounds!(current, target, amount);
         let amount = if amount < 0.5 {
             2.0f64.powi(pow - 1) * amount.powi(pow)
         } else {
@@ -335,85 +351,91 @@ impl<T> Interpolation for T where T: Copy + std::ops::Add<Output=T> + std::ops::
 
     // sine
     fn easein_sine(current:T, target:T, amount:f64) -> T {
+        check_bounds!(current, target, amount);
         Self::lerp(current, target, 1.0 - ((amount * PI) / 2.0).cos())
     }
     fn easeout_sine(current:T, target:T, amount:f64) -> T {
+        check_bounds!(current, target, amount);
         Self::lerp(current, target, ((amount * PI) / 2.0).sin())
     }
     fn easeinout_sine(current:T, target:T, amount:f64) -> T {
+        check_bounds!(current, target, amount);
         Self::lerp(current, target, -((amount * PI).cos() - 1.0) / 2.0)
     }
 
     // quad
     fn easein_quadratic(current:T, target:T, amount:f64) -> T {
+        check_bounds!(current, target, amount);
         Self::ease_in_exp(current, target, amount, 2)
-        // Self::lerp(current, target, amount.powi(2))
     }
     fn easeout_quadratic(current:T, target:T, amount:f64) -> T {
+        check_bounds!(current, target, amount);
         Self::ease_out_exp(current, target, amount, 2)
-        // Self::lerp(current, target, 1.0 - (1.0 - amount).powi(2))
     }
     fn easeinout_quadratic(current:T, target:T, amount:f64) -> T {
+        check_bounds!(current, target, amount);
         Self::ease_inout_exp(current, target, amount, 2)
-        // let amount = if amount < 0.5 {
-        //     4.0 * amount.powi(3)
-        // } else {
-        //     (-2.0 * amount + 2.0).powi(3) / 2.0
-        // };
-        // Self::lerp(current, target, amount)
     }
 
     // cubic
     fn easein_cubic(current:T, target:T, amount:f64) -> T {
+        check_bounds!(current, target, amount);
         Self::ease_in_exp(current, target, amount, 3)
     }
     fn easeout_cubic(current:T, target:T, amount:f64) -> T {
+        check_bounds!(current, target, amount);
         Self::ease_out_exp(current, target, amount, 3)
     }
     fn easeinout_cubic(current:T, target:T, amount:f64) -> T {
+        check_bounds!(current, target, amount);
         Self::ease_inout_exp(current, target, amount, 3)
     }
 
     // quart
     fn easein_quartic(current:T, target:T, amount:f64) -> T {
+        check_bounds!(current, target, amount);
         Self::ease_in_exp(current, target, amount, 4)
     }
     fn easeout_quartic(current:T, target:T, amount:f64) -> T {
+        check_bounds!(current, target, amount);
         Self::ease_out_exp(current, target, amount, 4)
     }
     fn easeinout_quartic(current:T, target:T, amount:f64) -> T {
+        check_bounds!(current, target, amount);
         Self::ease_inout_exp(current, target, amount, 4)
     }
 
     // quint
     fn easein_quintic(current:T, target:T, amount:f64) -> T {
+        check_bounds!(current, target, amount);
         Self::ease_in_exp(current, target, amount, 5)
     }
     fn easeout_quintic(current:T, target:T, amount:f64) -> T {
+        check_bounds!(current, target, amount);
         Self::ease_out_exp(current, target, amount, 5)
     }
     fn easeinout_quintic(current:T, target:T, amount:f64) -> T {
+        check_bounds!(current, target, amount);
         Self::ease_inout_exp(current, target, amount, 5)
     }
 
     // expo
     fn easein_exponential(current:T, target:T, amount:f64) -> T {
+        check_bounds!(current, target, amount);
         let amount = if amount == 0.0 {0.0} else {
             2f64.powf(amount * 10.0  - 10.0)
         };
         Self::lerp(current, target, amount)
     }
     fn easeout_exponential(current:T, target:T, amount:f64) -> T {
-        // return x === 1 ? 1 : 1 - pow(2, -10 * x);
+        check_bounds!(current, target, amount);
         let amount = if amount == 1.0 {1.0} else {
             1.0 - 2f64.powf(amount * -10.0)
         };
         Self::lerp(current, target, amount)
     }
     fn easeinout_exponential(current:T, target:T, amount:f64) -> T {
-        // return x === 0 ? 0 : (x === 1 ? 1
-        // : x < 0.5 ? pow(2, 20 * x - 10) / 2)
-        // : (2 - pow(2, -20 * x + 10)) / 2;
+        check_bounds!(current, target, amount);
         let amount = 
             if amount == 0.0 {0.0}
             else if amount == 1.0 {1.0}
@@ -427,13 +449,15 @@ impl<T> Interpolation for T where T: Copy + std::ops::Add<Output=T> + std::ops::
 
     // circular
     fn easein_circular(current:T, target: T, amount: f64) -> T {
-        // return 1 - sqrt(1 - pow(x, 2));
+        check_bounds!(current, target, amount);
         Self::lerp(current, target, 1.0 - (1.0 - amount.powi(2)).sqrt())
     }
     fn easeout_circular(current:T, target: T, amount: f64) -> T {
+        check_bounds!(current, target, amount);
         Self::lerp(current, target, 1.0 - ((amount - 1.0).powi(2)).sqrt())
     }
     fn easeinout_circular(current:T, target: T, amount: f64) -> T {
+        check_bounds!(current, target, amount);
         let amount = if amount < 0.5 {
             (1.0 - (1.0 - (2.0 * amount).powi(2)).sqrt()) / 2.0
         } else {
@@ -444,14 +468,15 @@ impl<T> Interpolation for T where T: Copy + std::ops::Add<Output=T> + std::ops::
 
     // back
     fn easein_back(current:T, target: T, amount: f64, c1:f64, c3:f64) -> T {
-        // c3 * x * x * x - c1 * x * x
+        check_bounds!(current, target, amount);
         Self::lerp(current, target, c3 * amount.powi(3) - c1 * amount.powi(2))
     }
     fn easeout_back(current:T, target: T, amount: f64, c1:f64, c3: f64) -> T {
-        // 1 + c3 * pow(x - 1, 3) + c1 * pow(x - 1, 2);
+        check_bounds!(current, target, amount);
         Self::lerp(current, target, 1.0 + c3 * (amount - 1.0).powi(3) - c1 * (amount - 1.0).powi(2))
     }
     fn easeinout_back(current:T, target: T, amount: f64, _c1:f64, c2: f64) -> T {
+        check_bounds!(current, target, amount);
         let amount = if amount < 0.5 {
             (
                 (2.0 * amount).powi(2) 

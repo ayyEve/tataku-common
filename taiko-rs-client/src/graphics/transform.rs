@@ -97,7 +97,7 @@ impl Transformation {
     }
 }
 
-
+#[derive(Copy, Clone)]
 pub enum TransformValueResult {
     None,
     Vector2(Vector2),
@@ -203,5 +203,11 @@ impl Default for TransformEasing {
 }
 
 pub trait Transformable: Renderable {
-    fn apply_transform(&mut self, transform: &Transformation, game_time:f64);
+    fn apply_transform(&mut self, transform: &Transformation, value: TransformValueResult);
+
+    /// is this item visible
+    fn visible(&self) -> bool;
+
+    /// should this item be removed from the draw list?
+    fn should_remove(&self) -> bool {false}
 }
