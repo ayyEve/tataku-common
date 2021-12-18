@@ -33,6 +33,9 @@ pub trait StandardHitObject: HitObject {
     fn get_hitsound(&self) -> u8;
     fn get_hitsamples(&self) -> HitSamples;
     fn get_sound_queue(&mut self) -> Vec<(f32, u8, HitSamples)> {vec![]}
+
+
+    fn set_hitwindow_miss(&mut self, window: f32);
 }
 
 
@@ -45,6 +48,8 @@ pub struct StandardNote {
     pos: Vector2,
     /// note time in ms
     time: f32,
+
+    hitwindow_miss: f32,
 
     /// was the note hit?
     hit: bool,
@@ -119,6 +124,7 @@ impl StandardNote {
             mouse_pos: Vector2::zero(),
 
             time_preempt,
+            hitwindow_miss: 0.0,
             radius,
             scaling_scale: scaling_helper.scale,
             alpha_mult: 1.0,
@@ -174,10 +180,18 @@ impl HitObject for StandardNote {
         }
 
         // if its not time to draw anything else, leave
-        if self.time - self.map_time > self.time_preempt || self.time - self.map_time < 0.0 || self.hit {return}
+        if self.time - self.map_time > self.time_preempt || self.time + self.hitwindow_miss < self.map_time || self.hit {return}
 
-        let alpha = (1.0 - ((self.time - (self.time_preempt * (2.0/3.0))) - self.map_time) / (self.time_preempt * (1.0/3.0))).clamp(0.0, 1.0);
-        let alpha = alpha * self.alpha_mult;
+        // fade im
+        let mut alpha = (1.0 - ((self.time - (self.time_preempt * (2.0/3.0))) - self.map_time) / (self.time_preempt * (1.0/3.0))).clamp(0.0, 1.0);
+
+        // if after time, fade out
+        if self.map_time >= self.time {
+            alpha = ((self.time + self.hitwindow_miss) - self.map_time) / self.hitwindow_miss;
+            println!("fading out: {}", alpha)
+        }
+
+        alpha *= self.alpha_mult;
 
         // timing circle
         let approach_circle_color = if self.standard_settings.approach_combo_color {self.color} else {Color::WHITE};
@@ -214,6 +228,9 @@ impl StandardHitObject for StandardNote {
     fn causes_miss(&self) -> bool {true}
     fn mouse_move(&mut self, pos:Vector2) {self.mouse_pos = pos}
     fn get_preempt(&self) -> f32 {self.time_preempt}
+    fn set_hitwindow_miss(&mut self, window: f32) {
+        self.hitwindow_miss = window;
+    }
 
     fn get_points(&mut self, _is_press:bool, time:f32, (hitwindow_miss, hitwindow_50, hitwindow_100, hitwindow_300):(f32,f32,f32,f32)) -> ScoreHit {
         let diff = (time - self.time).abs();
@@ -264,6 +281,7 @@ impl StandardHitObject for StandardNote {
     fn pos_at(&self, _time: f32, _scaling_helper:&ScalingHelper) -> Vector2 {
         self.pos
     }
+
 }
 
 
@@ -842,6 +860,9 @@ impl StandardHitObject for StandardSlider {
     fn press(&mut self, _:f32) {self.holding = true}
     fn release(&mut self, _:f32) {self.holding = false}
     fn mouse_move(&mut self, pos:Vector2) {self.mouse_pos = pos}
+    fn set_hitwindow_miss(&mut self, window: f32) {
+        
+    }
 
     // called on hit and release
     fn get_points(&mut self, is_press:bool, time:f32, (h_miss, h50, h100, h300):(f32,f32,f32,f32)) -> ScoreHit {
@@ -1177,6 +1198,7 @@ impl StandardHitObject for StandardSpinner {
     fn get_preempt(&self) -> f32 {0.0}
     fn point_draw_pos(&self, _: f32) -> Vector2 {Vector2::zero()} //TODO
     fn causes_miss(&self) -> bool {self.rotations_completed < self.rotations_required} // if the spinner wasnt completed in time, cause a miss
+    fn set_hitwindow_miss(&mut self, window: f32) {}
 
     fn get_points(&mut self, _is_press:bool, _:f32, _:(f32,f32,f32,f32)) -> ScoreHit {
         ScoreHit::Other(100, false)
@@ -1223,12 +1245,6 @@ fn approach_circle(pos:Vector2, radius:f64, time_diff:f32, time_preempt:f32, dep
     c.border = Some(Border::new(color.alpha(alpha), NOTE_BORDER_SIZE * scale));
     Box::new(c)
 }
-
-fn center_combo_text(text:&mut Box<Text>, rect:Rectangle) {
-    text.center_text(rect)
-}
-
-
 
 
 #[derive(Clone)]

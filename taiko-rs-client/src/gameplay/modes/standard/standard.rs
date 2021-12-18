@@ -211,6 +211,7 @@ impl GameMode for StandardGame {
                             s.notes.push(Box::new(StandardNote::new(
                                 note.clone(),
                                 ar,
+
                                 Color::new(0.0, 0.0, 0.0, 1.0),
                                 combo_num as u16,
                                 &scaling_helper,
@@ -722,10 +723,6 @@ impl GameMode for StandardGame {
     }
 
     fn reset(&mut self, beatmap:&Beatmap) {
-        // reset notes
-        for note in self.notes.as_mut_slice() {
-            note.reset();
-        }
         
         // setup hitwindows
         let od = beatmap.get_beatmap_meta().od;
@@ -733,6 +730,13 @@ impl GameMode for StandardGame {
         self.hitwindow_50   = map_difficulty(od, 200.0, 150.0, 100.0);
         self.hitwindow_100  = map_difficulty(od, 140.0, 100.0, 60.0);
         self.hitwindow_300  = map_difficulty(od, 80.0, 50.0, 20.0);
+
+        // reset notes
+        let hwm = self.hitwindow_miss;
+        for note in self.notes.iter_mut() {
+            note.reset();
+            note.set_hitwindow_miss(hwm);
+        }
 
         self.draw_points.clear();
     }

@@ -85,7 +85,6 @@ pub enum DrawItem {
     HalfCircle(HalfCircle),
 }
 impl DrawItem {
-
     pub fn get_pos(&self) -> Vector2 {
         match self {
             // DrawItem::Line(a) => a.current_pos,
