@@ -74,14 +74,13 @@ impl VolumeControl {
             // text 100px wide, bar 190px (10px padding)
             let border_padding = 10.0;
             let border_size = Vector2::new(200.0 - border_padding, 20.0);
-            const TEXT_YOFFSET:f64 = -17.0; // bc font measuring broken
             
             // == master bar ==
             // text
             let mut master_text = Text::new(
                 Color::BLACK,
                 -9.0,
-                window_size - Vector2::new(300.0, 90.0+TEXT_YOFFSET),
+                window_size - Vector2::new(300.0, 90.0),
                 20,
                 "Master:".to_owned(),
                 font.clone(),
@@ -108,7 +107,7 @@ impl VolumeControl {
             let mut effect_text = Text::new(
                 Color::BLACK,
                 -9.0,
-                window_size - Vector2::new(300.0, 60.0+TEXT_YOFFSET),
+                window_size - Vector2::new(300.0, 60.0),
                 20,
                 "Effects:".to_owned(),
                 font.clone()
@@ -135,7 +134,7 @@ impl VolumeControl {
             let mut music_text = Text::new(
                 Color::BLACK,
                 -9.0,
-                window_size - Vector2::new(300.0, 30.0+TEXT_YOFFSET),
+                window_size - Vector2::new(300.0, 30.0),
                 20,
                 "Music:".to_owned(),
                 font.clone()

@@ -30,7 +30,7 @@ impl MenuVisualization {
             data: Vec::new(),
             timer: Instant::now(),
             //TODO!: skins
-            cookie: Image::from_path("./resources/icon-small.png", Vector2::zero(), 0.0, Vector2::one() * initial_inner_radius).unwrap(),
+            cookie: Image::from_path("./resources/icon.png", Vector2::zero(), 0.0, Vector2::one() * initial_inner_radius).unwrap(),
 
             bar_height: 1.0, //(Settings::get_mut().window_size[1] - INNER_RADIUS) / 128.0,
             initial_inner_radius,
@@ -55,7 +55,7 @@ impl MenuVisualization {
                 Color::TRANSPARENT_BLACK,
                 10.0,
                 Settings::window_size() / 2.0,
-                self.current_inner_radius
+                self.initial_inner_radius / SIZE_FACTOR
             );
             circle.border = Some(Border::new(Color::WHITE, 2.0));
             group.items.push(DrawItem::Circle(circle));
@@ -99,6 +99,15 @@ impl MenuVisualization {
             }
         }
     }
+
+    pub fn on_click(&self, pos:Vector2) -> bool {
+        let circle_pos = Settings::window_size() / 2.0;
+
+        let dist = (pos.x - circle_pos.x).powi(2) + (pos.y - circle_pos.y).powi(2);
+        let radius = self.current_inner_radius.powi(2);
+
+        dist <= radius
+    }
 }
 
 impl Visualization for MenuVisualization {
@@ -127,10 +136,10 @@ impl Visualization for MenuVisualization {
         //     s2.y.clamp(s.y / 1.1, s.y * 1.1)
         // );
 
-        self.cookie.depth = depth;
+        self.cookie.depth = depth - 1.0;
         self.cookie.current_pos = pos;
         self.cookie.current_rotation = self.rotation * 2.0;
-        self.cookie.set_size(Vector2::one() * self.current_inner_radius * 2.0);
+        self.cookie.set_size(Vector2::one() * self.current_inner_radius * 2.05);
         list.push(Box::new(self.cookie.clone()));
 
         // draw ripples

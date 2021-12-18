@@ -37,7 +37,7 @@ impl Text {
         let initial_scale = Vector2::one();
         let current_scale = Vector2::one();
 
-        let text_size = measure_text(font.clone(), font_size, &text);
+        let text_size = measure_text(font.clone(), font_size, &text, Vector2::one());
         let origin = text_size / 2.0;
 
 
@@ -62,23 +62,24 @@ impl Text {
         }
     }
     pub fn measure_text(&self) -> Vector2 {
-        let mut text_size = Vector2::zero();
-        let mut font = self.font.lock();
+        // let mut text_size = Vector2::zero();
+        // let mut font = self.font.lock();
 
-        // let block_char = '█';
-        // let character = font.character(self.font_size, block_char).unwrap();
+        // // let block_char = '█';
+        // // let character = font.character(self.font_size, block_char).unwrap();
 
-        for _ch in self.text.chars() {
-            let character = font.character(self.font_size, _ch).unwrap();
-            text_size.x += character.advance_width();
-            // text_size.y = text_size.y.max(character.offset[1]); //character.advance_height();
-        }
+        // for _ch in self.text.chars() {
+        //     let character = font.character(self.font_size, _ch).unwrap();
+        //     text_size.x += character.advance_width();
+        //     // text_size.y = text_size.y.max(character.offset[1]); //character.advance_height();
+        // }
         
-        text_size
+        // text_size
+        measure_text(self.font.clone(), self.font_size, &self.text, self.current_scale) 
     }
     pub fn center_text(&mut self, rect:Rectangle) {
         let text_size = self.measure_text();
-        self.initial_pos = rect.pos + (rect.size - text_size)/2.0 + Vector2::new(0.0, text_size.y);
+        self.initial_pos = rect.pos + (rect.size - text_size)/2.0; // + Vector2::new(0.0, text_size.y);
         self.current_pos = self.initial_pos;
     }
 }
@@ -90,8 +91,9 @@ impl Renderable for Text {
     fn get_spawn_time(&self) -> u64 {self.spawn_time}
 
     fn draw(&mut self, g: &mut GlGraphics, c: Context) {
-
+        // from image
         let pre_rotation = self.current_pos / self.current_scale + self.origin;
+
         let transform = c
             .transform
             // scale to size
@@ -102,9 +104,9 @@ impl Renderable for Text {
 
             // rotate to rotate
             .rot_rad(self.current_rotation)
-
+            
             // apply origin
-            .trans(-self.origin.x, -self.origin.y)
+            .trans(-self.origin.x, -self.origin.y + self.measure_text().y)
         ;
 
         graphics::text(
@@ -172,7 +174,7 @@ impl Transformable for Text {
 
 
 
-fn measure_text(font:Font, font_size: u32, text: &String) -> Vector2 {
+fn measure_text(font:Font, font_size: u32, text: &String, scale: Vector2) -> Vector2 {
     let mut text_size = Vector2::zero();
     let mut font = font.lock();
 
@@ -185,6 +187,6 @@ fn measure_text(font:Font, font_size: u32, text: &String) -> Vector2 {
         text_size.y = text_size.y.max(character.offset[1]); //character.advance_height();
     }
     
-    text_size
+    text_size * scale
 }
 

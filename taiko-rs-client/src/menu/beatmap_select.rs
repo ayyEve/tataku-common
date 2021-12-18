@@ -294,7 +294,7 @@ impl Menu<Game> for BeatmapSelectMenu {
             items.push(Box::new(Text::new(
                 Color::BLACK,
                 -10.0,
-                Vector2::new(0.0, 30.0),
+                Vector2::new(0.0, 5.0),
                 25,
                 meta.version_string(),
                 font.clone()
@@ -304,7 +304,7 @@ impl Menu<Game> for BeatmapSelectMenu {
             items.push(Box::new(Text::new(
                 Color::BLACK,
                 -10.0,
-                Vector2::new(0.0, 55.0),
+                Vector2::new(0.0, 35.0),
                 15,
                 meta.diff_string(),
                 font.clone()
@@ -583,7 +583,7 @@ impl ScrollableItem for BeatmapsetItem {
         items.push(Box::new(Rectangle::new(
             [0.2, 0.2, 0.2, 1.0].into(),
             parent_depth + 5.0,
-            self.pos+pos_offset,
+            self.pos + pos_offset,
             BEATMAPSET_ITEM_SIZE,
             if self.hover {
                 Some(Border::new(Color::RED, 1.0))
@@ -598,7 +598,7 @@ impl ScrollableItem for BeatmapsetItem {
         items.push(Box::new(Text::new(
             Color::WHITE,
             parent_depth + 4.0,
-            self.pos+pos_offset + Vector2::new(5.0, 20.0),
+            self.pos + pos_offset + Vector2::new(5.0, 5.0),
             15,
             format!("{} // {} - {}", meta.creator, meta.artist, meta.title),
             font.clone()
@@ -639,7 +639,7 @@ impl ScrollableItem for BeatmapsetItem {
                 items.push(Box::new(Text::new(
                     Color::WHITE,
                     parent_depth + 4.0,
-                    pos + Vector2::new(5.0, 20.0),
+                    pos + Vector2::new(5.0, 5.0),
                     12,
                     format!("({:?}) - {}", meta.mode, meta.version),
                     font.clone()
@@ -714,11 +714,13 @@ impl ScrollableItem for LeaderboardItem {
     fn draw(&mut self, _args:RenderArgs, pos_offset:Vector2, parent_depth:f64) -> Vec<Box<dyn Renderable>> {
         let mut items: Vec<Box<dyn Renderable>> = Vec::new();
 
+        const PADDING:Vector2 = Vector2::new(5.0, 5.0);
+
         // bounding rect
         items.push(Box::new(Rectangle::new(
             [0.2, 0.2, 0.2, 1.0].into(),
             parent_depth + 5.0,
-            self.pos+pos_offset,
+            self.pos + pos_offset,
             LEADERBOARD_ITEM_SIZE,
             if self.hover {Some(Border::new(Color::RED, 1.0))} else {None}
         )));
@@ -727,7 +729,7 @@ impl ScrollableItem for LeaderboardItem {
         items.push(Box::new(Text::new(
             Color::WHITE,
             parent_depth + 4.0,
-            self.pos+pos_offset + Vector2::new(5.0, 20.0),
+            self.pos + pos_offset + PADDING,
             15,
             format!("{}: {}", self.score.username, crate::format(self.score.score)),
             self.font.clone()
@@ -737,7 +739,7 @@ impl ScrollableItem for LeaderboardItem {
         items.push(Box::new(Text::new(
             Color::WHITE,
             parent_depth + 4.0,
-            self.pos+pos_offset+Vector2::new(5.0, 40.0),
+            self.pos + pos_offset + PADDING + Vector2::new(0.0, PADDING.y + 15.0),
             12,
             format!("{}x, {:.2}%", crate::format(self.score.max_combo), self.score.acc() * 100.0),
             self.font.clone()

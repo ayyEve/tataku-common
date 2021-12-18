@@ -642,7 +642,7 @@ impl IngameManager {
         list.push(Box::new(Text::new(
             Color::BLACK,
             0.0,
-            Vector2::new(window_size.x - 200.0, 40.0),
+            Vector2::new(window_size.x - 200.0, 10.0),
             30,
             crate::format(self.score.score),
             font.clone()
@@ -652,7 +652,7 @@ impl IngameManager {
         list.push(Box::new(Text::new(
             Color::BLACK,
             0.0,
-            Vector2::new(window_size.x - 200.0, 70.0),
+            Vector2::new(window_size.x - 200.0, 40.0),
             30,
             format!("{:.2}%", self.score.acc()*100.0),
             font.clone()

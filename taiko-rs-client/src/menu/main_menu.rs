@@ -20,13 +20,18 @@ impl MainMenu {
         let middle = Settings::window_size().x /2.0 - BUTTON_SIZE.x/2.0;
         let mut counter = 1.0;
         
-        let play_button = MenuButton::new(Vector2::new(middle, (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Play");
+        let mut play_button = MenuButton::new(Vector2::new(middle, (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Play");
         counter += 1.0;
-        let direct_button = MenuButton::new(Vector2::new(middle, (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "osu!Direct");
+        let mut direct_button = MenuButton::new(Vector2::new(middle, (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "osu!Direct");
         counter += 1.0;
-        let settings_button = MenuButton::new(Vector2::new(middle, (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Settings");
+        let mut settings_button = MenuButton::new(Vector2::new(middle, (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Settings");
         counter += 1.0;
-        let exit_button = MenuButton::new(Vector2::new(middle, (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Exit");
+        let mut exit_button = MenuButton::new(Vector2::new(middle, (BUTTON_SIZE.y + Y_MARGIN) * counter + Y_OFFSET), BUTTON_SIZE, "Exit");
+
+        play_button.visible = false;
+        direct_button.visible = false;
+        settings_button.visible = false;
+        exit_button.visible = false;
 
         MainMenu {
             play_button,
@@ -174,6 +179,14 @@ impl Menu<Game> for MainMenu {
     }
 
     fn on_click(&mut self, pos:Vector2, button:MouseButton, mods:KeyModifiers, game:&mut Game) {
+        if self.visualization.on_click(pos) {
+            self.play_button.show();
+            self.direct_button.show();
+            self.settings_button.show();
+            self.exit_button.show();
+        }
+
+
         // switch to beatmap selection
         if self.play_button.on_click(pos, button, mods) {
             let menu = game.menus.get("beatmap").unwrap().clone();
@@ -283,7 +296,6 @@ pub struct MenuButton {
 
     shapes: TransformGroup,
     disposable_shapes: Vec<TransformGroup>,
-    hover_shapes: Vec<TransformGroup>,
     visible: bool,
     timer: Instant
 }
@@ -297,7 +309,7 @@ impl MenuButton {
             1.0,
             pos,
             size,
-            None, //if self.hover {Some(Border::new(Color::RED, 1.0))} else {None}
+            Some(Border::new(Color::RED, 0.0))
         );
         
         // draw text
@@ -316,15 +328,6 @@ impl MenuButton {
         shapes.items.push(DrawItem::Rectangle(r));
         shapes.items.push(DrawItem::Text(txt));
 
-        shapes.transforms.push(Transformation::new(
-            0.0,
-            5000.0,
-            TransformType::Rotation {start: 0.0, end: PI * 2.0},
-            TransformEasing::EaseInSine,
-            0.0
-        ));
-
-
         MenuButton {
             pos, 
             size, 
@@ -335,10 +338,52 @@ impl MenuButton {
 
             shapes,
             disposable_shapes: Vec::new(),
-            hover_shapes: Vec::new(),
             visible: true,
             timer: Instant::now()
         }
+    }
+
+    pub fn show(&mut self) {
+        if self.visible {return}
+        self.visible = true;
+
+        let time = self.time();
+        let transform = Transformation::new(
+            0.0,
+            500.0,
+            TransformType::Transparency {start: 0.0, end: 1.0},
+            TransformEasing::EaseInSine,
+            time
+        );
+
+        let transform2 = Transformation::new(
+            0.0,
+            500.0,
+            TransformType::Rotation {start: 0.0, end: PI * 2.0},
+            TransformEasing::Linear,
+            time
+        );
+
+        // let transform3 = Transformation::new(
+        //     500.0,
+        //     500.0,
+        //     TransformType::Scale {start: 1.0, end: 3.0},
+        //     TransformEasing::Linear,
+        //     time
+        // );
+
+        self.shapes.transforms.push(transform);
+        self.shapes.transforms.push(transform2);
+        // self.shapes.transforms.push(transform3);
+        for i in self.disposable_shapes.iter_mut() {
+            i.transforms.push(transform);
+            i.transforms.push(transform2);
+            // i.transforms.push(transform3);
+        }
+    }
+
+    pub fn time(&self) -> f64 {
+        self.timer.elapsed().as_secs_f64() * 1000.0
     }
 }
 impl ScrollableItem for MenuButton {
@@ -351,21 +396,21 @@ impl ScrollableItem for MenuButton {
         if !self.visible {hover = false}
         self.hover = hover;
 
-        if hover {
-            let mut group = TransformGroup::new();
-            group.items.push(DrawItem::Rectangle(Rectangle::new(
-                Color::TRANSPARENT_WHITE,
-                0.0,
-                self.pos,
-                self.size,
-                Some(Border::new(Color::RED, 1.0))
-            )));
-            group.transforms.extend(self.shapes.transforms.iter());
-
-            self.hover_shapes.push(group);
+        let size = if hover {
+            1.0
         } else {
-            self.hover_shapes.clear();
-        }
+            0.0
+        };
+
+        let transform = Transformation::new(
+            0.0, 
+            1.0,
+            TransformType::BorderSize {start: size, end: size},
+            TransformEasing::Linear,
+            self.time()
+        );
+
+        self.shapes.transforms.push(transform);
     }
     fn get_selected(&self) -> bool {self.selected}
     fn set_selected(&mut self, selected:bool) {self.selected = selected}
@@ -375,9 +420,6 @@ impl ScrollableItem for MenuButton {
         let time = self.timer.elapsed().as_secs_f64() * 1000.0;
         self.shapes.update(time);
 
-        for i in self.hover_shapes.iter_mut() {
-            i.update(time);
-        }
         self.disposable_shapes.retain_mut(|i|{
             i.update(time);
             i.items.find(|s|s.visible()).is_some()
@@ -389,9 +431,6 @@ impl ScrollableItem for MenuButton {
         if !self.visible {return list}
         self.shapes.draw(&mut list);
 
-        for i in self.hover_shapes.iter_mut() {
-            i.draw(&mut list);
-        }
         for i in self.disposable_shapes.iter_mut() {
             i.draw(&mut list);
         }

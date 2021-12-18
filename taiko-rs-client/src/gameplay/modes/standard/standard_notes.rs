@@ -99,7 +99,7 @@ impl StandardNote {
             format!("{}", combo_num),
             get_font("main")
         ));
-        center_combo_text(&mut combo_text, Rectangle::bounds_only(
+        combo_text.center_text(Rectangle::bounds_only(
             pos - Vector2::one() * radius / 2.0,
             Vector2::one() * radius,
         ));
@@ -252,7 +252,7 @@ impl StandardHitObject for StandardNote {
             format!("{}", self.combo_num),
             get_font("main")
         ));
-        center_combo_text(&mut combo_text, Rectangle::bounds_only(
+        combo_text.center_text(Rectangle::bounds_only(
             self.pos - Vector2::one() * self.radius / 2.0,
             Vector2::one() * self.radius,
         ));
@@ -373,7 +373,7 @@ impl StandardSlider {
             format!("{}", combo_num),
             get_font("main")
         ));
-        center_combo_text(&mut combo_text, Rectangle::bounds_only(
+        combo_text.center_text(Rectangle::bounds_only(
             pos - Vector2::one() * radius / 2.0,
             Vector2::one() * radius,
         ));
@@ -958,7 +958,7 @@ impl StandardHitObject for StandardSlider {
             format!("{}", self.combo_num),
             get_font("main")
         ));
-        center_combo_text(&mut combo_text, Rectangle::bounds_only(
+        combo_text.center_text(Rectangle::bounds_only(
             self.pos - Vector2::one() * self.radius / 2.0,
             Vector2::one() * self.radius,
         ));
@@ -1223,17 +1223,7 @@ fn approach_circle(pos:Vector2, radius:f64, time_diff:f32, time_preempt:f32, dep
 }
 
 fn center_combo_text(text:&mut Box<Text>, rect:Rectangle) {
-    let mut text_size = Vector2::zero();
-    let mut font = text.font.lock();
-
-    for _ch in text.text.chars() {
-        let character = font.character(text.font_size, _ch).unwrap();
-        text_size.x += character.advance_width();
-        text_size.y = text_size.y.max(character.offset[1]); //character.advance_height();
-    }
-
-    text.initial_pos = rect.pos + (rect.size - text_size)/2.0
-         + Vector2::new(0.0, text_size.y); // account for y offset
+    text.center_text(rect)
 }
 
 

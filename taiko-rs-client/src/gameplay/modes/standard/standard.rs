@@ -762,7 +762,7 @@ impl GameMode for StandardGame {
     fn combo_bounds(&self) -> Rectangle {
         let size = Vector2::new(100.0, 30.0);
         Rectangle::bounds_only(
-            Vector2::new(0.0, Settings::window_size().y - (size.y + DURATION_HEIGHT)),
+            Vector2::new(0.0, Settings::window_size().y - (size.y + DURATION_HEIGHT + 10.0)),
             size
         )
     }

@@ -1,6 +1,7 @@
 use crate::prelude::*;
 
 const SIZE:Vector2 = Vector2::new(180.0, 20.0);
+const TEXT_PADDING:Vector2 = Vector2::new(0.0, 2.0);
 
 /// fps display helper, cleans up some of the code in game
 pub struct FpsDisplay {
@@ -58,7 +59,7 @@ impl FpsDisplay {
         list.push(Box::new(Text::new(
             Color::BLACK,
             -99_999_999.99, // should be on top of everything
-            self.pos + Vector2::new(0.0, 15.0),
+            self.pos + TEXT_PADDING,
             12,
             format!("{:.2}{} ({:.2}ms)", self.last, self.name, self.frametime_last),
             font.clone()
