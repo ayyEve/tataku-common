@@ -151,7 +151,7 @@ impl ProcessedNotif {
             lines.push(Text::new(
                 Color::WHITE,
                 NOTIF_DEPTH - 0.1,
-                Vector2::new(2.0, 15.0 + NOTIF_TEXT_HEIGHT * i as f64 ),
+                Vector2::new(2.0, NOTIF_TEXT_HEIGHT * i as f64),
                 NOTIF_TEXT_SIZE,
                 split[i].to_owned(),
                 font.clone()
@@ -192,7 +192,13 @@ impl ProcessedNotif {
 
         for text in self.lines.iter() {
             let mut text = text.clone();
-            text.initial_pos += self.pos;
+
+            let txt_pos = self.pos + Vector2::new(
+                0.0, 
+                (self.size.y - text.font_size as f64) / 2.0
+            );
+            text.initial_pos = txt_pos;
+            text.current_pos = txt_pos;
             list.push(Box::new(text));
         }
     }

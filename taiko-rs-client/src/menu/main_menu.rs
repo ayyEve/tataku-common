@@ -180,10 +180,10 @@ impl Menu<Game> for MainMenu {
 
     fn on_click(&mut self, pos:Vector2, button:MouseButton, mods:KeyModifiers, game:&mut Game) {
         if self.visualization.on_click(pos) {
-            self.play_button.show();
-            self.direct_button.show();
-            self.settings_button.show();
-            self.exit_button.show();
+            self.play_button.show(0, 4);
+            self.direct_button.show(1, 4);
+            self.settings_button.show(2, 4);
+            self.exit_button.show(3, 4);
         }
 
 
@@ -222,7 +222,6 @@ impl Menu<Game> for MainMenu {
         self.settings_button.check_hover(pos);
         self.exit_button.check_hover(pos);
     }
-
 
     fn on_key_press(&mut self, key:piston::Key, game:&mut Game, mods:KeyModifiers) {
         use piston::Key::*;
@@ -302,6 +301,7 @@ pub struct MenuButton {
 impl MenuButton {
     pub fn new(pos: Vector2, size: Vector2, text:&str) -> MenuButton {
         let font_size: u32 = 12;
+        let pos = Vector2::zero();
         
         // draw box
         let r = Rectangle::new(
@@ -343,11 +343,44 @@ impl MenuButton {
         }
     }
 
-    pub fn show(&mut self) {
+    /// num: this button number, count: number of buttons
+    pub fn show(&mut self, num: usize, count: usize) {
         if self.visible {return}
         self.visible = true;
-
         let time = self.time();
+
+
+        const X_OFFSET:f64 = 10.0;
+        let radius = crate::visualization::initial_radius() * crate::visualization::SIZE_FACTOR + X_OFFSET;
+        let center = Settings::window_size() / 2.0;
+
+        const ITEM_PADDING:usize = 2;
+
+        let height = self.size.y;
+        let angle = (PI / (count + 2 * ITEM_PADDING - 1) as f64) * (num + ITEM_PADDING) as f64 - PI / 2.0;
+
+
+        let end = center + Vector2::new(
+            angle.cos() * radius,
+            angle.sin() * radius,
+        ) - Vector2::new(0.0, height / 2.0);
+
+        let start = Vector2::new(
+            center.x,
+            end.y
+        );
+
+        let t1 = Transformation::new(
+            0.0,
+            500.0,
+            TransformType::Position {start, end},
+            TransformEasing::Linear,
+            time
+        );
+
+
+
+
         let transform = Transformation::new(
             0.0,
             500.0,
@@ -364,20 +397,22 @@ impl MenuButton {
             time
         );
 
-        // let transform3 = Transformation::new(
-        //     500.0,
-        //     500.0,
-        //     TransformType::Scale {start: 1.0, end: 3.0},
-        //     TransformEasing::Linear,
-        //     time
-        // );
+        let transform3 = Transformation::new(
+            500.0,
+            500.0,
+            TransformType::Scale {start: 1.0, end: 3.0},
+            TransformEasing::Linear,
+            time
+        );
 
-        self.shapes.transforms.push(transform);
-        self.shapes.transforms.push(transform2);
+        self.shapes.transforms.push(t1);
+        // self.shapes.transforms.push(transform);
+        // self.shapes.transforms.push(transform2);
         // self.shapes.transforms.push(transform3);
         for i in self.disposable_shapes.iter_mut() {
-            i.transforms.push(transform);
-            i.transforms.push(transform2);
+            i.transforms.push(t1);
+            // i.transforms.push(transform);
+            // i.transforms.push(transform2);
             // i.transforms.push(transform3);
         }
     }
@@ -388,8 +423,7 @@ impl MenuButton {
 }
 impl ScrollableItem for MenuButton {
     fn size(&self) -> Vector2 {self.size}
-    fn get_pos(&self) -> Vector2 {self.pos}
-    fn set_pos(&mut self, pos:Vector2) {self.pos = pos}
+    fn get_pos(&self) -> Vector2 {self.shapes.items[0].get_pos()}
 
     fn get_hover(&self) -> bool {self.hover}
     fn set_hover(&mut self, mut hover:bool) {

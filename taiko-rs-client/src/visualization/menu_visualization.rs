@@ -4,7 +4,11 @@ use super::{FFTEntry, Visualization};
 const CUTOFF:f32 = 0.1;
 
 
-const SIZE_FACTOR:f64 = 1.2;
+pub const SIZE_FACTOR:f64 = 1.2;
+
+pub fn initial_radius() -> f64 {
+    Settings::window_size().y / 6.0
+}
 
 
 pub struct MenuVisualization {
@@ -24,7 +28,7 @@ pub struct MenuVisualization {
 }
 impl MenuVisualization {
     pub fn new() -> Self {
-        let initial_inner_radius  = Settings::window_size().y / 6.0;
+        let initial_inner_radius  = initial_radius();
         Self {
             rotation: 0.0,
             data: Vec::new(),

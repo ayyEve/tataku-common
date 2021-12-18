@@ -97,7 +97,7 @@ impl Renderable for Text {
         let transform = c
             .transform
             // scale to size
-            .scale(self.current_scale.x, self.current_scale.y)
+            // .scale(self.current_scale.x, self.current_scale.y)
 
             // move to pos
             .trans(pre_rotation.x, pre_rotation.y)
@@ -111,7 +111,7 @@ impl Renderable for Text {
 
         graphics::text(
             self.color.into(),
-            self.font_size,
+            self.font_size * self.current_scale.y as u32,
             self.text.as_str(),
             &mut *self.font.lock(),
             transform,
@@ -187,6 +187,6 @@ fn measure_text(font:Font, font_size: u32, text: &String, scale: Vector2) -> Vec
         text_size.y = text_size.y.max(character.offset[1]); //character.advance_height();
     }
     
-    text_size * scale
+    text_size
 }
 

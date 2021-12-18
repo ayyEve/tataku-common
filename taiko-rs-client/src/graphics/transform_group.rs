@@ -85,6 +85,19 @@ pub enum DrawItem {
     HalfCircle(HalfCircle),
 }
 impl DrawItem {
+
+    pub fn get_pos(&self) -> Vector2 {
+        match self {
+            // DrawItem::Line(a) => a.current_pos,
+            DrawItem::Text(a) => a.current_pos,
+            DrawItem::Image(a) => a.current_pos,
+            DrawItem::Circle(a) => a.current_pos,
+            DrawItem::Rectangle(a) => a.current_pos,
+            // DrawItem::HalfCircle(a) => a.current_pos,
+            _ => Vector2::zero()
+        }
+    }
+
     pub fn apply_transform(&mut self, transform: &Transformation, trans_val: TransformValueResult) {
         match self {
             // DrawItem::Line(a) => a.apply_transform(transform, trans_val),
