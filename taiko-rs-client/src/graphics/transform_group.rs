@@ -88,10 +88,10 @@ impl DrawItem {
     pub fn apply_transform(&mut self, transform: &Transformation, trans_val: TransformValueResult) {
         match self {
             // DrawItem::Line(a) => a.apply_transform(transform, trans_val),
-            // DrawItem::Text(a) => a.apply_transform(transform, trans_val),
-            // DrawItem::Image(a) => a.apply_transform(transform, trans_val),
+            DrawItem::Text(a) => a.apply_transform(transform, trans_val),
+            DrawItem::Image(a) => a.apply_transform(transform, trans_val),
             DrawItem::Circle(a) => a.apply_transform(transform, trans_val),
-            // DrawItem::Rectangle(a) => a.apply_transform(transform, trans_val),
+            DrawItem::Rectangle(a) => a.apply_transform(transform, trans_val),
             // DrawItem::HalfCircle(a) => a.apply_transform(transform, trans_val),
             _ => {}
         };
@@ -112,12 +112,12 @@ impl DrawItem {
 
     pub fn visible(&self) -> bool {
         match self {
-            // DrawItem::Line(a) => a.apply_transform(transform, trans_val),
-            // DrawItem::Text(a) => a.apply_transform(transform, trans_val),
-            // DrawItem::Image(a) => a.apply_transform(transform, trans_val),
+            // DrawItem::Line(a) => a.visible(),
+            DrawItem::Text(a) => a.visible(),
+            DrawItem::Image(a) => a.visible(),
             DrawItem::Circle(a) => a.visible(),
-            // DrawItem::Rectangle(a) => a.apply_transform(transform, trans_val),
-            // DrawItem::HalfCircle(a) => a.apply_transform(transform, trans_val),
+            DrawItem::Rectangle(a) => a.visible(),
+            // DrawItem::HalfCircle(a) => a.visible(),
             _ => {true}
         }
     }

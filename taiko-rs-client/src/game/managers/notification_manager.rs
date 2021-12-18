@@ -192,7 +192,7 @@ impl ProcessedNotif {
 
         for text in self.lines.iter() {
             let mut text = text.clone();
-            text.pos = text.pos + self.pos;
+            text.initial_pos += self.pos;
             list.push(Box::new(text));
         }
     }

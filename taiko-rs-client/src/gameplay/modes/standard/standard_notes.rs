@@ -1232,7 +1232,7 @@ fn center_combo_text(text:&mut Box<Text>, rect:Rectangle) {
         text_size.y = text_size.y.max(character.offset[1]); //character.advance_height();
     }
 
-    text.pos = rect.pos + (rect.size - text_size)/2.0
+    text.initial_pos = rect.pos + (rect.size - text_size)/2.0
          + Vector2::new(0.0, text_size.y); // account for y offset
 }
 

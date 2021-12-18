@@ -82,6 +82,13 @@ impl Menu<Game> for MainMenu {
     fn update(&mut self, g:&mut Game) {
         let mut song_done = false;
 
+        // run updates on the transforms
+        self.play_button.update();
+        self.direct_button.update();
+        self.settings_button.update();
+        self.exit_button.update();
+
+
         #[cfg(feature = "bass_audio")]
         match Audio::get_song() {
             Some(song) => {
@@ -131,23 +138,23 @@ impl Menu<Game> for MainMenu {
         let depth = 0.0;
         let window_size = Settings::window_size();
 
-        // draw welcome text
-        let mut welcome_text = Text::new(
-            Color::BLACK,
-            depth-1.0,
-            pos_offset,
-            40,
-            "Welcome to Taiko.rs".to_owned(),
-            get_font("main")
-        );
-        welcome_text.center_text(Rectangle::bounds_only(Vector2::new(0.0, 30.0), Vector2::new(window_size.x , 50.0)));
+        // // draw welcome text
+        // let mut welcome_text = Text::new(
+        //     Color::BLACK,
+        //     depth-1.0,
+        //     pos_offset,
+        //     40,
+        //     "Welcome to Taiko.rs".to_owned(),
+        //     get_font("main")
+        // );
+        // welcome_text.center_text(Rectangle::bounds_only(Vector2::new(0.0, 30.0), Vector2::new(window_size.x , 50.0)));
         
-        list.push(visibility_bg(
-            welcome_text.pos - Vector2::new(0.0, 40.0), 
-            Vector2::new(welcome_text.measure_text().x , 50.0),
-            depth+10.0
-        ));
-        list.push(Box::new(welcome_text));
+        // list.push(visibility_bg(
+        //     welcome_text.initial_pos - Vector2::new(0.0, 40.0), 
+        //     Vector2::new(welcome_text.measure_text().x , 50.0),
+        //     depth+10.0
+        // ));
+        // list.push(Box::new(welcome_text));
 
         // draw buttons
         list.extend(self.play_button.draw(args, pos_offset, depth));
@@ -261,5 +268,134 @@ impl Menu<Game> for MainMenu {
         if needs_manager_setup {
             self.setup_manager("key press");
         }
+    }
+}
+
+
+
+#[derive(Clone)]
+pub struct MenuButton {
+    pos: Vector2,
+    size: Vector2,
+    hover: bool,
+    selected: bool,
+    text: String,
+
+    shapes: TransformGroup,
+    disposable_shapes: Vec<TransformGroup>,
+    hover_shapes: Vec<TransformGroup>,
+    visible: bool,
+    timer: Instant
+}
+impl MenuButton {
+    pub fn new(pos: Vector2, size: Vector2, text:&str) -> MenuButton {
+        let font_size: u32 = 12;
+        
+        // draw box
+        let r = Rectangle::new(
+            [0.2, 0.2, 0.2, 1.0].into(),
+            1.0,
+            pos,
+            size,
+            None, //if self.hover {Some(Border::new(Color::RED, 1.0))} else {None}
+        );
+        
+        // draw text
+        let mut txt = Text::new(
+            Color::WHITE,
+            0.0,
+            Vector2::zero(),
+            font_size,
+            text.to_owned(),
+            get_font("main")
+        );
+        txt.center_text(r);
+
+
+        let mut shapes = TransformGroup::new();
+        shapes.items.push(DrawItem::Rectangle(r));
+        shapes.items.push(DrawItem::Text(txt));
+
+        shapes.transforms.push(Transformation::new(
+            0.0,
+            5000.0,
+            TransformType::Rotation {start: 0.0, end: PI * 2.0},
+            TransformEasing::EaseInSine,
+            0.0
+        ));
+
+
+        MenuButton {
+            pos, 
+            size, 
+            text: text.to_owned(),
+
+            hover: false,
+            selected: false,
+
+            shapes,
+            disposable_shapes: Vec::new(),
+            hover_shapes: Vec::new(),
+            visible: true,
+            timer: Instant::now()
+        }
+    }
+}
+impl ScrollableItem for MenuButton {
+    fn size(&self) -> Vector2 {self.size}
+    fn get_pos(&self) -> Vector2 {self.pos}
+    fn set_pos(&mut self, pos:Vector2) {self.pos = pos}
+
+    fn get_hover(&self) -> bool {self.hover}
+    fn set_hover(&mut self, mut hover:bool) {
+        if !self.visible {hover = false}
+        self.hover = hover;
+
+        if hover {
+            let mut group = TransformGroup::new();
+            group.items.push(DrawItem::Rectangle(Rectangle::new(
+                Color::TRANSPARENT_WHITE,
+                0.0,
+                self.pos,
+                self.size,
+                Some(Border::new(Color::RED, 1.0))
+            )));
+            group.transforms.extend(self.shapes.transforms.iter());
+
+            self.hover_shapes.push(group);
+        } else {
+            self.hover_shapes.clear();
+        }
+    }
+    fn get_selected(&self) -> bool {self.selected}
+    fn set_selected(&mut self, selected:bool) {self.selected = selected}
+    fn get_selectable(&self) -> bool {false}
+
+    fn update(&mut self) {
+        let time = self.timer.elapsed().as_secs_f64() * 1000.0;
+        self.shapes.update(time);
+
+        for i in self.hover_shapes.iter_mut() {
+            i.update(time);
+        }
+        self.disposable_shapes.retain_mut(|i|{
+            i.update(time);
+            i.items.find(|s|s.visible()).is_some()
+        });
+    }
+
+    fn draw(&mut self, _args:piston::RenderArgs, _pos_offset:Vector2, _parent_depth:f64) -> Vec<Box<dyn Renderable>> {
+        let mut list:Vec<Box<dyn Renderable>> = Vec::new();
+        if !self.visible {return list}
+        self.shapes.draw(&mut list);
+
+        for i in self.hover_shapes.iter_mut() {
+            i.draw(&mut list);
+        }
+        for i in self.disposable_shapes.iter_mut() {
+            i.draw(&mut list);
+        }
+
+        list
     }
 }
