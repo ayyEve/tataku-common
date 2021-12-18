@@ -748,6 +748,11 @@ impl Game {
             self.background_image = Some(self.wallpapers[0].clone());
         }
 
+        if let Some(bg) = self.background_image.as_mut() {
+            bg.origin = Vector2::zero();
+        }
+        
+
 
         // let settings = opengl_graphics::TextureSettings::new();
         // // helper.log("settings made", true);

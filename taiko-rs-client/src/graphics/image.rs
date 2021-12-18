@@ -1,11 +1,15 @@
 use crate::prelude::*;
 use super::prelude::*;
+use opengl_graphics::{TextureSettings};
 
 #[derive(Clone)]
 pub struct Image {
     size: Vector2,
     pub depth: f64,
     pub tex: Arc<Texture>,
+
+    // rotation of origin, relative to image size
+    pub origin: Vector2,
 
     
     // initial
@@ -21,9 +25,10 @@ pub struct Image {
     spawn_time:u64,
 }
 impl Image {
-    pub fn new(pos: Vector2, depth: f64, tex:Texture, size:Vector2) -> Image {
+    pub fn new(pos:Vector2, depth:f64, tex:Texture, size:Vector2) -> Image {
         // let scale = Vector2::new(tex.get_width() as f64 / size.x, tex.get_height() as f64 / size.y);
-        let scale = Vector2::new(size.x / tex.get_width() as f64, size.y / tex.get_height() as f64);
+        let tex_size = Vector2::new(tex.get_width() as f64, tex.get_height() as f64);
+        let scale = size / tex_size;
 
         let initial_pos = pos;
         let initial_scale = scale;
@@ -33,6 +38,8 @@ impl Image {
 
         let initial_rotation = 0.0;
         let current_rotation = 0.0;
+
+        let origin = tex_size / 2.0;
 
         Image {
             initial_pos,
@@ -45,6 +52,7 @@ impl Image {
 
             size,
             depth,
+            origin,
             tex: Arc::new(tex),
             spawn_time: 0,
         }
@@ -52,6 +60,21 @@ impl Image {
 
     pub fn size(&self) -> Vector2 {
         self.size * self.current_scale
+    }
+    pub fn set_size(&mut self, size: Vector2) {
+        let tex_size = Vector2::new(
+            self.tex.get_width() as f64, 
+            self.tex.get_height() as f64
+        );
+        let scale = size / tex_size;
+        self.initial_scale = scale;
+        self.current_scale = scale;
+    }
+
+    pub fn from_path<P: AsRef<Path>>(path: P, pos:Vector2, depth:f64, size: Vector2) -> TaikoResult<Self> {
+        let settings = TextureSettings::new();
+        let tex = Texture::from_path(path, &settings)?;
+        Ok(Self::new(pos, depth, tex, size))
     }
 }
 impl Renderable for Image {
@@ -61,15 +84,29 @@ impl Renderable for Image {
     fn set_spawn_time(&mut self, time:u64) {self.spawn_time = time}
     fn get_depth(&self) -> f64 {self.depth}
     fn draw(&mut self, g: &mut GlGraphics, c: Context) {
-        graphics::image(
-        self.tex.as_ref(), 
-        c
+
+        let pre_rotation = self.current_pos / self.current_scale;
+
+        let transform = c
             .transform
-            .trans(self.current_pos.x, self.current_pos.y)
+            // scale to size
             .scale(self.current_scale.x, self.current_scale.y)
+
+            // move to pos
+            .trans(pre_rotation.x, pre_rotation.y)
+
+            // rotate to rotate
             .rot_rad(self.current_rotation)
-            , 
-        g);
+            
+            // apply origin
+            .trans(-self.origin.x, -self.origin.y)
+        ;
+
+        graphics::image(
+            self.tex.as_ref(), 
+            transform, 
+            g
+        );
     }
 }
 impl Transformable for Image {

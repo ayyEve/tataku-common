@@ -1,9 +1,10 @@
-use opengl_graphics::{Texture, TextureSettings};
-
 use crate::prelude::*;
 use super::{FFTEntry, Visualization};
 
 const CUTOFF:f32 = 0.1;
+
+
+const SIZE_FACTOR:f64 = 1.2;
 
 
 pub struct MenuVisualization {
@@ -28,7 +29,8 @@ impl MenuVisualization {
             rotation: 0.0,
             data: Vec::new(),
             timer: Instant::now(),
-            cookie: Image::new(Vector2::zero(), 0.0, Texture::empty(&TextureSettings::new()).unwrap(), Vector2::new(initial_inner_radius, initial_inner_radius)),
+            //TODO!: skins
+            cookie: Image::from_path("./resources/icon-small.png", Vector2::zero(), 0.0, Vector2::one() * initial_inner_radius).unwrap(),
 
             bar_height: 1.0, //(Settings::get_mut().window_size[1] - INNER_RADIUS) / 128.0,
             initial_inner_radius,
@@ -57,7 +59,7 @@ impl MenuVisualization {
             );
             circle.border = Some(Border::new(Color::WHITE, 2.0));
             group.items.push(DrawItem::Circle(circle));
-            group.ripple(0.0, duration, time as f64, 5.0, true);
+            group.ripple(0.0, duration, time as f64, 2.0, true);
 
             self.ripples.push(group);
         }
@@ -108,8 +110,8 @@ impl Visualization for MenuVisualization {
         let since_last = self.timer.elapsed().as_secs_f64();
         self.update_data();
 
-        let min = self.initial_inner_radius / 1.1;
-        let max = self.initial_inner_radius * 1.1;
+        let min = self.initial_inner_radius / SIZE_FACTOR;
+        let max = self.initial_inner_radius * SIZE_FACTOR;
 
         let val = self.data[3] as f64 / 500.0;
         self.current_inner_radius = f64::lerp(min, max, val).clamp(min, max);
@@ -117,6 +119,21 @@ impl Visualization for MenuVisualization {
         let rotation_increment = 0.2;
         self.rotation += rotation_increment * since_last;
 
+        // draw cookie
+        // let s = self.cookie.initial_scale;
+        // let s2 = s * val;
+        // self.cookie.current_scale = Vector2::new(
+        //     s2.x.clamp(s.x / 1.1, s.x * 1.1), 
+        //     s2.y.clamp(s.y / 1.1, s.y * 1.1)
+        // );
+
+        self.cookie.depth = depth;
+        self.cookie.current_pos = pos;
+        self.cookie.current_rotation = self.rotation * 2.0;
+        self.cookie.set_size(Vector2::one() * self.current_inner_radius * 2.0);
+        list.push(Box::new(self.cookie.clone()));
+
+        // draw ripples
         for ripple in self.ripples.iter_mut() {
             ripple.draw(list)
         }

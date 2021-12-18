@@ -19,7 +19,9 @@ pub enum TaikoError {
 
     Audio(AudioError),
 
-    Image(ImageError)
+    Image(ImageError),
+
+    String(String)
 }
 
 impl Display for TaikoError {
@@ -30,6 +32,7 @@ impl Display for TaikoError {
             TaikoError::IO(e) => write!(f, "{}", e),
             TaikoError::Image(e) => write!(f, "{:?}", e),
             TaikoError::Audio(e) =>  write!(f, "{:?}", e),
+            TaikoError::String(e) =>  write!(f, "{:?}", e),
         }
     }
 }
@@ -55,4 +58,7 @@ impl From<BassError> for TaikoError {
 
 impl From<BeatmapError> for TaikoError {
     fn from(e: BeatmapError) -> Self {TaikoError::Beatmap(e)}
+}
+impl From<String> for TaikoError {
+    fn from(e: String) -> Self {TaikoError::String(e)}
 }
