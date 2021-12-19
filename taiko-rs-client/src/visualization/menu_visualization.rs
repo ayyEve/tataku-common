@@ -126,6 +126,8 @@ impl Visualization for MenuVisualization {
         let min = self.initial_inner_radius / SIZE_FACTOR;
         let max = self.initial_inner_radius * SIZE_FACTOR;
 
+        if self.data.len() < 3 {return}
+
         let val = self.data[3] as f64 / 500.0;
         self.current_inner_radius = f64::lerp(min, max, val).clamp(min, max);
 
