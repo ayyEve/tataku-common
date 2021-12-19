@@ -110,7 +110,7 @@ impl LoadingMenu {
             for meta in rows {
                 // verify the map exists
                 if !std::path::Path::new(&meta.file_path).exists() {
-                    println!("beatmap exists in db but not in songs folder: {}", meta.file_path);
+                    // println!("beatmap exists in db but not in songs folder: {}", meta.file_path);
                     continue
                 }
 

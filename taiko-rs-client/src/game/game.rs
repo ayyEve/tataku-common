@@ -96,7 +96,7 @@ impl Game {
         }
 
 
-        let graphics = GlGraphics::new(opengl);
+        let mut graphics = GlGraphics::new(opengl);
         game_init_benchmark.log("graphics created", true);
 
         let input_manager = InputManager::new();
@@ -106,7 +106,7 @@ impl Game {
         game_init_benchmark.log("online manager created", true);
 
         let mut g = Game {
-            test: Test::new(),
+            test: Test::new(&mut graphics),
             // engine
             window,
             graphics,
@@ -822,126 +822,21 @@ pub enum SpectatorState {
 
 
 struct Test {
-    timer: Instant,
-    man: TransformGroup,
+    // timer: Instant,
+    // man: TransformGroup,
+
+    // image: Image,
+    // rt: RenderTarget
 }
 impl Test {
-    fn new() -> Self {
-        let mut man = TransformGroup::new();
-        let mut circle = Circle::new(
-            Color::BLUE,
-            -10000000.0,
-            Vector2::new(100.0, 100.0),
-            100.0
-        );
-        circle.border = Some(Border::new(Color::WHITE, 2.0));
-        man.items.push(DrawItem::Circle(circle));
+    fn new(graphics: &mut GlGraphics) -> Self {
 
-        let mut time = 0.0;
-        let duration = 1000.0;
-
-        // let easing = TransformEasing::EaseInOutBack(1.70158, 2.70158);
-        let easing = TransformEasing::EaseInOutExponential;
-
-
-        for _i in 0..100 {
-            man.transforms.push(Transformation::new(
-                time,
-                duration,
-                TransformType::Transparency {
-                    start: 1.0, 
-                    end: 0.0
-                },
-                TransformEasing::EaseOutExponential,
-                0.0
-            ));
-            man.transforms.push(Transformation::new(
-                time,
-                duration,
-                TransformType::BorderSize {
-                    start: 1.0, 
-                    end: 10.0
-                },
-                TransformEasing::EaseOutExponential,
-                0.0
-            ));
-            
-            // top left -> bottom left
-            man.transforms.push(Transformation::new(
-                time,
-                duration,
-                TransformType::Position {
-                    start: Vector2::new(100.0, 100.0), 
-                    end: Vector2::new(100.0, 500.0)
-                },
-                easing,
-                0.0
-            ));
-            time += duration;
-
-            // bottom left -> bottom right
-            man.transforms.push(Transformation::new(
-                time,
-                duration,
-                TransformType::Position {
-                    start: Vector2::new(100.0, 500.0), 
-                    end: Vector2::new(500.0, 500.0)
-                },
-                easing,
-                0.0
-            ));
-            time += duration;
-            
-            man.transforms.push(Transformation::new(
-                time,
-                duration,
-                TransformType::Transparency {
-                    start: 0.0, 
-                    end: 1.0
-                },
-                TransformEasing::EaseInExponential,
-                0.0
-            ));
-
-            // bottom right -> right right
-            man.transforms.push(Transformation::new(
-                time,
-                duration,
-                TransformType::Position {
-                    start: Vector2::new(500.0, 500.0), 
-                    end: Vector2::new(500.0, 100.0)
-                },
-                easing,
-                0.0
-            ));
-            time += duration;
-
-            // bottom right -> right right
-            man.transforms.push(Transformation::new(
-                time,
-                duration,
-                TransformType::Position {
-                    start: Vector2::new(500.0, 100.0),
-                    end: Vector2::new(100.0, 100.0), 
-                },
-                easing,
-                0.0
-            ));
-            time += duration;
-        }
-        
-        
         Self {
-            man,
-            timer: Instant::now(),
         }
     }
 
     fn update(&mut self) {
-        // let time = self.timer.elapsed().as_secs_f64() * 1000.0;
-        // self.man.update(time);
     }
     fn draw(&mut self, list: &mut Vec<Box<dyn Renderable>>) {
-        // self.man.draw(list);
     }
 }

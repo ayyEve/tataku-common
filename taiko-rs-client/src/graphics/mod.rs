@@ -7,6 +7,7 @@ mod prelude;
 mod rectangle;
 mod transform;
 mod half_circle;
+mod render_target;
 mod transform_group;
 
 pub use line::*;
@@ -18,4 +19,5 @@ pub use rectangle::*;
 pub use transform::*;
 pub use half_circle::*;
 pub use self::image::*;
+pub use render_target::*;
 pub use transform_group::*;

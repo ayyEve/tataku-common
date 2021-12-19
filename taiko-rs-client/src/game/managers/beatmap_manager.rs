@@ -297,6 +297,16 @@ impl BeatmapManager {
 
 
 fn insert_metadata(map: &BeatmapMeta) -> String {
+
+    let mut bpm_min = map.bpm_min;
+    let mut bpm_max = map.bpm_max;
+    if !bpm_min.is_normal() {
+        bpm_min = 0.0;
+    }
+    if !bpm_max.is_normal() {
+        bpm_max = 99999999.0;
+    }
+
     format!(
         "INSERT INTO beatmaps (
             beatmap_path, beatmap_hash,
@@ -342,7 +352,7 @@ fn insert_metadata(map: &BeatmapMeta) -> String {
         map.hp, map.od, map.cs, map.ar,
 
         map.slider_multiplier, map.slider_tick_rate,
-        map.bpm_min, map.bpm_max
+        bpm_min, bpm_max
     )
 }
 

@@ -18,10 +18,10 @@ pub enum TaikoError {
     Serde(JsonError),
 
     Audio(AudioError),
-
     Image(ImageError),
+    GlError(GlError),
 
-    String(String)
+    String(String),
 }
 
 impl Display for TaikoError {
@@ -31,8 +31,9 @@ impl Display for TaikoError {
             TaikoError::Serde(e) => write!(f, "{:?}", e),
             TaikoError::IO(e) => write!(f, "{}", e),
             TaikoError::Image(e) => write!(f, "{:?}", e),
-            TaikoError::Audio(e) =>  write!(f, "{:?}", e),
-            TaikoError::String(e) =>  write!(f, "{:?}", e),
+            TaikoError::Audio(e) => write!(f, "{:?}", e),
+            TaikoError::String(e) => write!(f, "{:?}", e),
+            TaikoError::GlError(e) => write!(f, "{:?}", e),
         }
     }
 }
@@ -58,6 +59,9 @@ impl From<BassError> for TaikoError {
 
 impl From<BeatmapError> for TaikoError {
     fn from(e: BeatmapError) -> Self {TaikoError::Beatmap(e)}
+}
+impl From<GlError> for TaikoError {
+    fn from(e: GlError) -> Self {TaikoError::GlError(e)}
 }
 impl From<String> for TaikoError {
     fn from(e: String) -> Self {TaikoError::String(e)}

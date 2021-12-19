@@ -371,7 +371,9 @@ pub struct StandardSlider {
     /// cached settings for this game
     standard_settings: Arc<StandardSettings>,
     /// list of shapes to be drawn
-    shapes: Vec<TransformGroup>
+    shapes: Vec<TransformGroup>,
+
+    hitwindow_miss: f32
 }
 impl StandardSlider {
     pub fn new(def:SliderDef, curve:Curve, ar:f32, color:Color, combo_num: u16, scaling_helper:ScalingHelper, slider_depth:f64, circle_depth:f64, standard_settings:Arc<StandardSettings>) -> Self {
@@ -524,7 +526,8 @@ impl StandardSlider {
 
 
             standard_settings,
-            shapes: Vec::new()
+            shapes: Vec::new(),
+            hitwindow_miss: 0.0,
         };
     
         slider.make_dots();
@@ -671,15 +674,20 @@ impl HitObject for StandardSlider {
         }
 
         // if its not time to draw anything else, leave
-        if self.time - self.map_time > self.time_preempt || self.curve.end_time < self.map_time {return}
+        if self.time - self.map_time > self.time_preempt || self.map_time > self.curve.end_time + self.hitwindow_miss {return}
 
         // let alpha = (self.time_preempt / 4.0) / ((self.time - self.time_preempt / 4.0) - self.map_time).clamp(0.0, 1.0);
-        let alpha = (1.0 - ((self.time - (self.time_preempt * (2.0/3.0))) - self.map_time) / (self.time_preempt * (1.0/3.0))).clamp(0.0, 1.0);
+        let mut alpha = (1.0 - ((self.time - (self.time_preempt * (2.0/3.0))) - self.map_time) / (self.time_preempt * (1.0/3.0))).clamp(0.0, 1.0);
+        
+        
+        if self.map_time >= self.curve.end_time {
+            alpha = ((self.curve.end_time + self.hitwindow_miss) - self.map_time) / self.hitwindow_miss;
+        }
+        
         let alpha = alpha * self.alpha_mult;
         let color = self.color.alpha(alpha);
 
-        if self.time - self.map_time > 0.0 {
-            
+        if self.time > self.map_time {
             // timing circle
             let approach_circle_color = if self.standard_settings.approach_combo_color {self.color} else {Color::WHITE};
             list.push(approach_circle(self.pos, self.radius, self.time - self.map_time, self.time_preempt, self.circle_depth, self.scaling_helper.scale, alpha, approach_circle_color));
@@ -687,8 +695,7 @@ impl HitObject for StandardSlider {
             // combo number
             self.combo_text.color.a = alpha;
             list.push(self.combo_text.clone());
-        } else {
-
+        } else if self.map_time < self.curve.end_time {
             // slider ball
             let mut inner = Circle::new(
                 color,
@@ -737,7 +744,7 @@ impl HitObject for StandardSlider {
                 p2,
                 self.radius,
                 self.slider_depth,
-                self.color
+                color
             );
             list.push(Box::new(l));
 
@@ -861,7 +868,7 @@ impl StandardHitObject for StandardSlider {
     fn release(&mut self, _:f32) {self.holding = false}
     fn mouse_move(&mut self, pos:Vector2) {self.mouse_pos = pos}
     fn set_hitwindow_miss(&mut self, window: f32) {
-        
+        self.hitwindow_miss = window;
     }
 
     // called on hit and release
