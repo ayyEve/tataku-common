@@ -18,13 +18,10 @@ impl SettingsMenu {
         let p = Vector2::new(10.0 + SECTION_XOFFSET, 0.0); // scroll area edits the y
         let window_size = Settings::window_size();
 
-        let mut finalize_list:Vec<Arc<dyn OnFinalize>> = Vec::new();
-
         // setup items
         let mut scroll_area = ScrollableArea::new(Vector2::new(10.0, SCROLLABLE_YOFFSET), Vector2::new(window_size.x - 20.0, window_size.y - SCROLLABLE_YOFFSET*2.0), true);
-        
+        let mut finalize_list:Vec<Arc<dyn OnFinalize>> = Vec::new();
 
-    
         let mut tag_counter = 0;
 
         let mut make_tag = || {
@@ -177,64 +174,19 @@ impl SettingsMenu {
 
         // sv
         add_item!("No Sv Changes", Checkbox, taiko_settings, static_sv, bool, TaikoSvChange, |_|{});
-        add_item!("Slider Multiplier", Slider, taiko_settings, sv_multiplier, f32, TaikoSliderMultiplier, |thing:&mut Slider|{
+        add_item!("Slider Multiplier", Slider, taiko_settings, sv_multiplier, f32, TaikoSliderMultiplier, |thing:&mut Slider| {
             // thing.range = Some(0.1..2.0);
         });
 
         // bg
         add_item!("Background", MenuSection);
-        add_item!("Background Dim", Slider, background_dim, f32, BackgroundDim, |_thing:&mut Slider|{
+        add_item!("Background Dim", Slider, background_dim, f32, BackgroundDim, |_thing:&mut Slider| {
             // thing.range = Some(0.0..1.0);
         });
 
-
-
-        // osu
-        // let mut username_input = TextInput::new(p, Vector2::new(600.0, 50.0), "Username", &settings.osu_username);
-        // let mut password_input = PasswordInput::new(p, Vector2::new(600.0, 50.0), "Password", &settings.osu_password);
-        // keys
-        // let mut left_kat_btn = KeyButton::new(p, KEYBUTTON_SIZE, taiko_settings.left_kat, "Left Kat");
-        // let mut left_don_btn = KeyButton::new(p, KEYBUTTON_SIZE, taiko_settings.left_don, "Left Don");
-        // let mut right_don_btn = KeyButton::new(p, KEYBUTTON_SIZE, taiko_settings.right_don, "Right Don");
-        // let mut right_kat_btn = KeyButton::new(p, KEYBUTTON_SIZE, taiko_settings.right_kat, "Right Kat");
-        // // sv
-        // let mut static_sv = Checkbox::new(p, Vector2::new(200.0, BUTTON_SIZE.y), "No Sv Changes", taiko_settings.static_sv);
-        // let mut sv_mult = Slider::new(p, Vector2::new(400.0, BUTTON_SIZE.y), "Slider Multiplier", taiko_settings.sv_multiplier as f64, Some(0.1..2.0), None);
-        // bg
-        // let mut bg_dim = Slider::new(p, Vector2::new(400.0, BUTTON_SIZE.y), "Background Dim", settings.background_dim as f64, Some(0.0..1.0), None);
-
         // done button
-        let mut done_button =  MenuButton::new(p, BUTTON_SIZE, "Done");
-
-        // add tags
-        // username_input.set_tag("username");
-        // password_input.set_tag("password");
-        // left_kat_btn.set_tag("left_kat");
-        // left_don_btn.set_tag("left_don");
-        // right_don_btn.set_tag("right_don");
-        // right_kat_btn.set_tag("right_kat");
-        // static_sv.set_tag("static_sv");
-        // sv_mult.set_tag("sv_mult");
-        // bg_dim.set_tag("bg_dim");
+        let mut done_button = MenuButton::new(p, BUTTON_SIZE, "Done");
         done_button.set_tag("done");
-
-        // add to scroll area
-        // scroll_area.add_item(Box::new(MenuSection::new(p - Vector2::new(SECTION_XOFFSET, 0.0), SECTION_HEIGHT, "osu! login")));
-        // scroll_area.add_item(Box::new(username_input));
-        // scroll_area.add_item(Box::new(password_input));
-        // scroll_area.add_item(Box::new(MenuSection::new(p - Vector2::new(SECTION_XOFFSET, 0.0), SECTION_HEIGHT, "Key bindings")));
-        // scroll_area.add_item(Box::new(left_kat_btn));
-        // scroll_area.add_item(Box::new(left_don_btn));
-        // scroll_area.add_item(Box::new(right_don_btn));
-        // scroll_area.add_item(Box::new(right_kat_btn));
-        // scroll_area.add_item(Box::new(MenuSection::new(p - Vector2::new(SECTION_XOFFSET, 0.0), SECTION_HEIGHT, "Slider Velocity")));
-        // scroll_area.add_item(Box::new(static_sv));
-        // scroll_area.add_item(Box::new(sv_mult)); // broken
-        // scroll_area.add_item(Box::new(bg_dim));
-
-
-
-
         //TODO: make this not part of the scrollable?!?!
         scroll_area.add_item(Box::new(done_button));
 
@@ -252,48 +204,6 @@ impl SettingsMenu {
         for i in list {
             i.on_finalize(self, &mut settings)
         }
-
-        // macro_rules! add_shit {
-        //     ($tag:expr, $t:ty, $setting:expr) => {
-        //     }
-        // }
-
-        // // add_shit!("username", String, settings.osu_username);
-
-        // //TODO: can we setup a macro for this?
-        // if let Some(username) = self.scroll_area.get_tagged("username".to_owned()).first().unwrap().get_value().downcast_ref::<String>() {
-        //     settings.osu_username = username.to_owned();
-        // }
-        // if let Some(password) = self.scroll_area.get_tagged("password".to_owned()).first().unwrap().get_value().downcast_ref::<String>() {
-        //     settings.osu_password = password.to_owned();
-        // }
-
-        // if let Some(key) = self.scroll_area.get_tagged("left_kat".to_owned()).first().unwrap().get_value().downcast_ref::<piston::Key>() {
-        //     settings.taiko_settings.left_kat = key.clone();
-        // }
-        // if let Some(key) = self.scroll_area.get_tagged("left_don".to_owned()).first().unwrap().get_value().downcast_ref::<piston::Key>() {
-        //     settings.taiko_settings.left_don = key.clone();
-        // } 
-        // if let Some(key) = self.scroll_area.get_tagged("right_don".to_owned()).first().unwrap().get_value().downcast_ref::<piston::Key>() {
-        //     settings.taiko_settings.right_don = key.clone();
-        // }
-        // if let Some(key) = self.scroll_area.get_tagged("right_kat".to_owned()).first().unwrap().get_value().downcast_ref::<piston::Key>() {
-        //     settings.taiko_settings.right_kat = key.clone();
-        // }
-
-        // // sv
-        // if let Some(val) = self.scroll_area.get_tagged("static_sv".to_owned()).first().unwrap().get_value().downcast_ref::<bool>() {
-        //     // println!("rk => {:?}", key);
-        //     settings.taiko_settings.static_sv = val.clone();
-        // }
-        // if let Some(val) = self.scroll_area.get_tagged("sv_mult".to_owned()).first().unwrap().get_value().downcast_ref::<f64>() {
-        //     settings.taiko_settings.sv_multiplier = val.clone() as f32;
-        // }
-
-        // // bg dim
-        // if let Some(val) = self.scroll_area.get_tagged("bg_dim".to_owned()).first().unwrap().get_value().downcast_ref::<f64>() {
-        //     settings.background_dim = val.clone() as f32;
-        // }
         settings.save();
 
         let menu = game.menus.get("main").unwrap().clone();
@@ -340,8 +250,6 @@ impl Menu<Game> for SettingsMenu {
     fn on_scroll(&mut self, delta:f64, _game:&mut Game) {self.scroll_area.on_scroll(delta);}
     fn on_text(&mut self, text:String) {self.scroll_area.on_text(text)}
 }
-
-
 
 trait OnFinalize {
     fn on_finalize(&self, menu: &SettingsMenu, settings: &mut Settings);
