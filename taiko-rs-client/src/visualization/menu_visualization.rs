@@ -2,8 +2,6 @@ use crate::prelude::*;
 use super::{FFTEntry, Visualization};
 
 const CUTOFF:f32 = 0.1;
-
-
 pub const SIZE_FACTOR:f64 = 1.2;
 
 pub fn initial_radius() -> f64 {
@@ -56,14 +54,14 @@ impl MenuVisualization {
             let duration = 1000.0;
 
             let mut circle = Circle::new(
-                Color::TRANSPARENT_BLACK,
+                Color::WHITE.alpha(0.5),
                 10.0,
                 Settings::window_size() / 2.0,
                 self.initial_inner_radius / SIZE_FACTOR
             );
             circle.border = Some(Border::new(Color::WHITE, 2.0));
             group.items.push(DrawItem::Circle(circle));
-            group.ripple(0.0, duration, time as f64, 2.0, true);
+            group.ripple(0.0, duration, time as f64, 2.0, true, Some(0.5));
 
             self.ripples.push(group);
         }
@@ -175,6 +173,8 @@ impl Visualization for MenuVisualization {
         let a = (2.0 * PI) / self.data.len() as f64;
         let n = (2.0 * PI * self.current_inner_radius) / self.data.len() as f64 / 2.0;
 
+        const BAR_MULT:f64 = 1.5;
+
         for i in 0..self.data.len() {
             #[cfg(feature="bass_audio")]
             let val = self.data[i];
@@ -185,7 +185,7 @@ impl Visualization for MenuVisualization {
             if val <= CUTOFF {continue}
 
             let factor = (i as f64 + 2.0).log10();
-            let l = self.current_inner_radius + val as f64 * factor * self.bar_height;
+            let l = self.current_inner_radius + val as f64 * factor * self.bar_height * BAR_MULT;
 
             let theta = self.rotation + a * i as f64;
             let cos = theta.cos();
@@ -206,7 +206,7 @@ impl Visualization for MenuVisualization {
                 n,
                 depth,
                 // COLORS[i % COLORS.len()]
-                Color::BLUE
+                Color::from_hex("#27bfc2")
             )));
         }
     }

@@ -110,7 +110,6 @@ impl StandardGame {
 
                     // self.notes[n].set_stack_count(0)
                 }
-
             }
 
 
@@ -131,7 +130,7 @@ impl StandardGame {
         
         // Reverse pass for stack calculation.
         let extended_start_index = self.notes.len() - 1;
-        
+
     }
 }
 

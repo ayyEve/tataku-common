@@ -42,8 +42,19 @@ impl TransformGroup {
 }
 // premade transforms
 impl TransformGroup {
-    pub fn ripple(&mut self, offset:f64, duration:f64, time: f64, end_scale: f64, do_border_size: bool) {
+    pub fn ripple(&mut self, offset:f64, duration:f64, time: f64, end_scale: f64, do_border_size: bool, do_inner_transparency: Option<f32>) {
         
+        // border transparency
+        if let Some(start_a) = do_inner_transparency {
+            self.transforms.push(Transformation::new(
+                offset,
+                duration,
+                TransformType::Transparency {start: start_a as f64, end: 0.0},
+                TransformEasing::EaseOutSine,
+                time
+            ));
+        }
+
         // border transparency
         self.transforms.push(Transformation::new(
             offset,

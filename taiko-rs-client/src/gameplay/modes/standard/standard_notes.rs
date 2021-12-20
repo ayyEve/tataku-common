@@ -152,7 +152,7 @@ impl StandardNote {
             group.items.push(DrawItem::Circle(ripple));
 
             let duration = 500.0;
-            group.ripple(0.0, duration, time as f64, self.standard_settings.ripple_scale, true);
+            group.ripple(0.0, duration, time as f64, self.standard_settings.ripple_scale, true, None);
 
             self.shapes.push(group);
         }
@@ -437,6 +437,13 @@ impl StandardSlider {
         for (i, line) in curve.path.iter().enumerate() {
             let p1 = scaling_helper.scale_coords(line.p1);
             let p2 = scaling_helper.scale_coords(line.p2);
+            let p3 = scaling_helper.scale_coords(
+                if i + 1 < curve.path.len() {
+                    curve.path[i + 1].p2
+                } else {
+                    p2
+                }
+            );
 
             let direction = Vector2::normalize(p2 - p1);
             let perpendicular1 = Vector2::new(direction.y, -direction.x);
@@ -584,7 +591,7 @@ impl StandardSlider {
             group.items.push(DrawItem::Circle(ripple));
 
             let duration = 500.0;
-            group.ripple(0.0, duration, time as f64, self.standard_settings.ripple_scale, true);
+            group.ripple(0.0, duration, time as f64, self.standard_settings.ripple_scale, true, None);
 
             self.shapes.push(group);
         }
@@ -736,6 +743,7 @@ impl HitObject for StandardSlider {
 
         
         // curve
+
         for line in self.curve.path.iter() {
             let p1 = self.scaling_helper.scale_coords(line.p1);
             let p2 = self.scaling_helper.scale_coords(line.p2);
@@ -749,7 +757,7 @@ impl HitObject for StandardSlider {
             list.push(Box::new(l));
 
             // let line = Line::new(
-            //     self.scaling_helper.scale_coords(line.p1),
+            //     line.p1,
             //     p2,
             //     5.0,
             //     self.slider_depth - 1.0,
@@ -765,6 +773,21 @@ impl HitObject for StandardSlider {
                 self.radius,
             )))
         }
+
+        
+        // for line in self.curve.path.iter() {
+        //     let p1 = self.scaling_helper.scale_coords(line.p1);
+        //     let p2 = self.scaling_helper.scale_coords(line.p2);
+            
+        //     let line = Line::new(
+        //         p1,
+        //         p2,
+        //         5.0,
+        //         self.slider_depth - 1.0,
+        //         Color::YELLOW
+        //     );
+        //     list.push(Box::new(line));
+        // }
 
 
         // start and end circles
@@ -1279,7 +1302,7 @@ impl Renderable for SliderPath {
     fn draw(&mut self, g: &mut opengl_graphics::GlGraphics, c:graphics::Context) {
         graphics::polygon(self.color.into(), &self.path, c.transform, g);
 
-        for i in 0..self.path.len() - 2 {
+        for i in 0..self.path.len() - 1 {
             graphics::line(
                 Color::BLACK.into(),
                 1.0,
