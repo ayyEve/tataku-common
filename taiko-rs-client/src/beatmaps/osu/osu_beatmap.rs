@@ -83,6 +83,7 @@ impl OsuBeatmap {
 
                         if key == "AudioFilename" {beatmap.metadata.audio_filename = parent_dir.join(val).to_str().unwrap().to_owned()}
                         if key == "PreviewTime" {beatmap.metadata.audio_preview = val.parse().unwrap_or(0.0)}
+                        if key == "StackLeniency" {beatmap.metadata.stack_leniency = val.parse().unwrap_or(0.0)}
                         if key == "Mode" {
                             let m = val.parse::<u8>().unwrap();
                             beatmap.metadata.mode = m.into();

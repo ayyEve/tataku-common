@@ -31,6 +31,7 @@ pub struct BeatmapMeta {
 
     pub slider_multiplier: f32,
     pub slider_tick_rate: f32,
+    pub stack_leniency: f32,
 
     pub bpm_min: f32,
     pub bpm_max: f32,
@@ -59,6 +60,7 @@ impl BeatmapMeta {
             cs: -1.0,
             slider_multiplier: 1.4,
             slider_tick_rate: 1.0,
+            stack_leniency: 1.0,
 
             duration: 0.0,
             bpm_min: 0.0,

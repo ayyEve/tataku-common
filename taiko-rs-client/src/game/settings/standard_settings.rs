@@ -4,6 +4,7 @@ use crate::prelude::*;
 #[serde(default)]
 pub struct StandardSettings {
     // input
+    // #[setting(name="Left Key", input_type="KeyInput")]
     pub left_key: Key,
     pub right_key: Key,
     pub ignore_mouse_buttons: bool,

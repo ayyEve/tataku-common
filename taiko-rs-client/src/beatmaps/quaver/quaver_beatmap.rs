@@ -98,6 +98,7 @@ impl TaikoRsBeatmap for QuaverBeatmap {
             ar: 0.0, 
             slider_multiplier: 1.0, 
             slider_tick_rate: 1.0,
+            stack_leniency: 0.0,
 
             bpm_min,
             bpm_max

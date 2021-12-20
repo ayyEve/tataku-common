@@ -521,5 +521,11 @@ pub trait VectorHelpers {
         if magnitude == 0.0 { v }
         else { v / magnitude }
     }
+
+    fn distance(&self, v2: Vector2) -> f64;
 }
-impl VectorHelpers for Vector2 {}
+impl VectorHelpers for Vector2 {
+    fn distance(&self, v2: Vector2) -> f64 {
+        distance(*self, v2)
+    }
+}

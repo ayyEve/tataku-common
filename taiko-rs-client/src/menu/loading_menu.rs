@@ -91,6 +91,7 @@ impl LoadingMenu {
                     cs: r.get("cs")?,
                     slider_multiplier: r.get("slider_multiplier")?,
                     slider_tick_rate: r.get("slider_tick_rate")?,
+                    stack_leniency: r.get("stack_leniency").unwrap_or(0.0),
         
                     duration: r.get("duration")?,
                     bpm_min: r.get("bpm_min").unwrap_or(0.0),

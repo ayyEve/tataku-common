@@ -16,6 +16,8 @@ const NOTE_DEPTH:Range<f64> = 100.0..200.0;
 pub const SLIDER_DEPTH:Range<f64> = 200.0..300.0;
 
 
+const STACK_LENIENCY:u32 = 3;
+
 
 pub struct StandardGame {
     // lists
@@ -44,6 +46,7 @@ pub struct StandardGame {
     scaling_helper: ScalingHelper,
     /// needed for scaling recalc
     cs: f32,
+    stack_leniency: f32,
 
     /// cached settings, saves on locking
     settings: StandardSettings,
@@ -64,6 +67,72 @@ impl StandardGame {
             note.playfield_changed(&new_scale);
         }
     }
+
+    fn apply_stacking(&mut self) {
+        let stack_offset = self.scaling_helper.scaled_cs / 10.0;
+
+        let stack_vector = Vector2::one() * stack_offset;
+
+        // let stack_threshhold = self.preempt * self.beatmap.stack_leniency
+
+        // // reset stack counters
+        // for note in self.notes.iter_mut() {
+        //     note.set_stack_count(0)
+        // }
+
+        
+        // Extend the end index to include objects they are stacked on
+        let mut extended_end_index = self.notes.len();
+
+        let mut stack_base_index = self.notes.len();
+        loop {
+            for n in (stack_base_index + 1)..self.notes.len() {
+                let obj = &self.notes[stack_base_index];
+                if obj.note_type() == NoteType::Spinner {break}
+
+                let obj_n = &self.notes[n];
+                if obj_n.note_type() == NoteType::Spinner {break}
+
+                let stack_threshhold = obj_n.get_preempt() * self.stack_leniency;
+
+                if obj_n.time() - obj.time() > stack_threshhold {
+                    // outside stack threshhold
+                    break;
+                }
+
+                let obj_pos = obj.pos_at(obj.time(), &self.scaling_helper);
+                let obj_n_pos = obj.pos_at(obj.time(), &self.scaling_helper);
+                let obj_is_slider = obj.note_type() == NoteType::Slider;
+                let obj_end_pos = obj.pos_at(obj.end_time(0.0), &self.scaling_helper);
+
+                if obj_pos.distance(obj_n_pos) < STACK_LENIENCY as f64 || (obj_is_slider && obj_end_pos.distance(obj_n_pos) < STACK_LENIENCY as f64) {
+                    stack_base_index = n;
+
+                    // self.notes[n].set_stack_count(0)
+                }
+
+            }
+
+
+            if stack_base_index > extended_end_index {
+                extended_end_index = stack_base_index;
+                if extended_end_index == self.notes.len() - 1 {break}
+            }
+
+            // check loop
+            if stack_base_index >= 0 {
+                stack_base_index -= 1
+            } else {
+                break
+            }
+        }
+
+
+        
+        // Reverse pass for stack calculation.
+        let extended_start_index = self.notes.len() - 1;
+        
+    }
 }
 
 impl GameMode for StandardGame {
@@ -72,6 +141,7 @@ impl GameMode for StandardGame {
     fn new(map:&Beatmap) -> Result<Self, crate::errors::TaikoError> {
         let metadata = map.get_beatmap_meta();
         let ar = metadata.ar;
+        let stack_leniency = metadata.stack_leniency;
         let settings = Settings::get_mut("StandardGame::new()").standard_settings.clone();
         let scaling_helper = ScalingHelper::new(metadata.cs, PlayMode::Standard);
 
@@ -112,7 +182,8 @@ impl GameMode for StandardGame {
         
                     settings,
                     auto_helper: StandardAutoHelper::new(),
-                    new_combos: Vec::new()
+                    new_combos: Vec::new(),
+                    stack_leniency
                 };
         
                 // join notes and sliders into a single array
