@@ -8,7 +8,6 @@ pub mod io;
 pub mod math;
 pub mod curve;
 pub mod key_counter;
-pub mod skin_helper;
 pub mod centered_text_helper;
 
 pub use fps_display::*;

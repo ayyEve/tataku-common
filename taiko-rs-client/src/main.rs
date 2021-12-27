@@ -11,6 +11,7 @@ mod beatmaps;
 mod gameplay;
 mod databases;
 pub mod commits;
+pub mod skinning;
 mod visualization;
 
 // folders

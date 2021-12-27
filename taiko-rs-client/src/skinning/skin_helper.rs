@@ -1,8 +1,17 @@
+use parking_lot::RwLock;
+
 #[allow(unused, dead_code)]
 use crate::prelude::*;
 
 const SKIN_FOLDER:&str = "./skins";
 const DEFAULT_SKIN:&str = "default";
+
+
+lazy_static::lazy_static! {
+    static ref SKIN_MANAGER: RwLock<SkinHelper> = RwLock::new(SkinHelper::new());
+}
+
+
 
 fn get_tex_path(name:&String, skin_name:&String) -> String {
     format!("{}/{}/{}.png", SKIN_FOLDER, skin_name, name)
