@@ -152,7 +152,8 @@ async fn create_server_score_update_packet(user_id: u32, mode: PlayMode) -> Mess
         .write(user_accuracy)
         .write(play_count)
         .write(rank)
-        .done())
+        .done()
+    )
 }
 
 fn create_server_status_update_packet (user: &UserConnection) -> Message {
@@ -175,7 +176,7 @@ async fn get_user_score_info(user_id: u32, mode: PlayMode) -> (i64, i64, f64, i3
 
     match user_data_table::Entity::find()
         .filter(user_data_table::Column::Mode.eq(mode as i16))
-        .filter(user_data_table::Column::Userid.eq(user_id))
+        .filter(user_data_table::Column::UserId.eq(user_id))
         .one(DATABASE.get().unwrap())
         .await {
         Ok(user_data) => {
@@ -199,11 +200,12 @@ async fn get_user_score_info(user_id: u32, mode: PlayMode) -> (i64, i64, f64, i3
 
     let things: Vec<RankThing> = RankThing::find_by_statement(Statement::from_sql_and_values(
         DbBackend::Postgres,
-        r#"SELECT rank FROM (SELECT userid, ROW_NUMBER() OVER(ORDER BY rankedscore DESC) AS rank FROM user_data WHERE mode=$1) t WHERE userid=$2"#,
+        r#"SELECT rank FROM (SELECT user_id, ROW_NUMBER() OVER(ORDER BY ranked_score DESC) AS rank FROM user_data WHERE mode=$1) t WHERE user_id=$2"#,
         vec![(mode as i32).into(), (user_id as i32).into()],
     ))
         .all(DATABASE.get().unwrap())
-        .await.unwrap();
+        .await
+        .unwrap();
 
     match things.first() {
         Some(thing) => {
@@ -237,8 +239,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 let password:String = reader.read();
 
                 // verify username and password
-
-                let mut user_id = -1;
+                let user_id;
 
                 let user: Option<users_table::Model> = users_table::Entity::find()
                     .filter(users_table::Column::Username.eq(username.clone()))
@@ -249,9 +250,14 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 match user {
                     None => {
                         // Send the user not found response
-                        writer.send(
-                            Message::Binary(SimpleWriter::new().write(PacketId::Server_LoginResponse).write(-1 as i32).done()
-                            )).await.expect("poop");
+                        writer.send(Message::Binary(SimpleWriter::new()
+                            .write(PacketId::Server_LoginResponse)
+                            .write(-1 as i32)
+                            .done()
+                        ))
+                            .await
+                            .expect("poop");
+                        println!("user not found");
 
                         return;
                     }
@@ -261,11 +267,14 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                         let argon2 = Argon2::default();
 
                         let parsed_hash = PasswordHash::new(&user.password).unwrap();
-                        if !argon2.verify_password(password.as_ref(), &parsed_hash).is_ok() {
+                        if let Err(e) = argon2.verify_password(password.as_ref(), &parsed_hash) {
                             // Send the password incorrect response
-                            writer.send(
-                                Message::Binary(SimpleWriter::new().write(PacketId::Server_LoginResponse).write(-2 as i32).done()
-                                )).await.expect("poop");
+                            writer.send(Message::Binary(SimpleWriter::new()
+                                .write(PacketId::Server_LoginResponse)
+                                .write(-2 as i32)
+                                .done()
+                            )).await.expect("poop");
+                            println!("password incorrect: {}", e);
 
                             return;
                         }

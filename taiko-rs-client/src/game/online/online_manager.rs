@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::collections::HashMap;
 
+use image::EncodableLayout;
 use tokio::{sync::Mutex, net::TcpStream};
 use futures_util::{SinkExt, StreamExt, stream::SplitSink};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::protocol::Message};
@@ -56,10 +57,25 @@ impl OnlineManager {
                 {
                     let mut s = s.lock().await;
                     s.writer = Some(writer);
+                    let settings = Settings::get();
+
+                    use sha2::Digest;
+                    let mut hasher = sha2::Sha512::new();
+                    hasher.update(settings.password.as_bytes());
+                    let password = hasher.finalize();
+                    let password = format!("{:02x?}", &password[..])
+                        .replace(", ", "")
+                        .trim_start_matches("[")
+                        .trim_end_matches("]")
+                        .to_owned();
+                    println!("pass: '{}'", password);
 
                     // send login packet
-                    let settings = Settings::get();
-                    let data = SimpleWriter::new().write(PacketId::Client_UserLogin).write(settings.username.clone()).write(settings.password.clone()).done();
+                    let data = SimpleWriter::new()
+                        .write(PacketId::Client_UserLogin)
+                        .write(settings.username.clone())
+                        .write(password)
+                        .done();
                     s.send_data(data).await;
                 }
 
@@ -105,7 +121,7 @@ impl OnlineManager {
 
                 // user updates
                 PacketId::Server_UserJoined => {
-                    let user_id = reader.read_u32();
+                    let user_id = reader.read_i32() as u32;
                     let username = reader.read_string();
                     println!("user id joined: {}", user_id);
                     s.lock().await.users.insert(user_id, Arc::new(Mutex::new(OnlineUser::new(user_id, username))));
@@ -117,15 +133,26 @@ impl OnlineManager {
                 },
                 PacketId::Server_UserStatusUpdate => {
                     let user_id = reader.read_u32();
-                    let action: UserAction = reader.read();
+                    let action:UserAction = reader.read();
                     let action_text = reader.read_string();
-                    println!("got user status update: {}, {:?}, {}", user_id, action, action_text);
+                    let mode: crate::PlayMode = reader.read();
+                    println!("got user status update: {}, {:?}, {} ({:?})", user_id, action, action_text, mode);
                     
                     if let Some(e) = s.lock().await.users.get_mut(&user_id) {
                         let mut a = e.lock().await;
                         a.action = Some(action);
                         a.action_text = Some(action_text);
                     }
+                }
+
+                // score 
+                PacketId::Server_ScoreUpdate => {
+                    let _user_id:i32 = reader.read();
+                    let _total_score:i64 = reader.read();
+                    let _ranked_score:i64 = reader.read();
+                    let _acc:f64 = reader.read();
+                    let _play_count:i32 = reader.read();
+                    let _rank:i32 = reader.read();
                 }
 
                 // chat

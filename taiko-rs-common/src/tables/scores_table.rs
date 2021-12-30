@@ -4,19 +4,19 @@ use sea_orm::entity::prelude::*;
 #[sea_orm(table_name = "scores")]
 pub struct Model {
     pub username: String,
-    pub beatmaphash: String,
+    pub beatmap_hash: String,
     #[sea_orm(primary_key)]
     pub id: i64,
     pub playmode: i16,
     pub score: i64,
     pub combo: i16,
-    pub maxcombo: i16,
-    pub hit50: i16,
-    pub hit100: i16,
-    pub hit300: i16,
-    pub hitgeki: i16,
-    pub hitkatu: i16,
-    pub hitmiss: i16,
+    pub max_combo: i16,
+    pub hit_50: i16,
+    pub hit_100: i16,
+    pub hit_300: i16,
+    pub hit_geki: i16,
+    pub hit_katu: i16,
+    pub hit_miss: i16,
     pub accuracy: f64
 }
 

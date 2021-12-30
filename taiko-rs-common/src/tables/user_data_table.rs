@@ -6,7 +6,7 @@ use serde::{Serialize, Deserialize};
 pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i64,
-    pub userid: i64,
+    pub user_id: i32,
     pub ranked_score: i64,
     pub total_score: i64,
     pub accuracy: f64,
