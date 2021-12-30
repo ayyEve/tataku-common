@@ -13,25 +13,18 @@ use futures_util::{SinkExt, StreamExt, stream::SplitSink};
 use sea_orm::{DbBackend, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set, Statement, FromQueryResult};
 use tokio_tungstenite::{WebSocketStream, accept_async, tungstenite::protocol::Message};
 
-use taiko_rs_common::serialization::*;
-use taiko_rs_common::packets::PacketId;
-use taiko_rs_common::types::{PlayMode, UserAction};
-
 use argon2::{
+    Argon2,
     password_hash::{
         PasswordHash,
         PasswordVerifier
-    },
-    Argon2
+    }
 };
 
 type WsWriter = SplitSink<WebSocketStream<TcpStream>, Message>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, UserConnection>>>;
 
-mod message_history_table;
-
-use taiko_rs_common::tables::{users_table};
-use taiko_rs_common::tables::{user_data_table};
+use taiko_rs_common::prelude::*;
 
 pub static DATABASE:OnceCell<DatabaseConnection> = OnceCell::const_new();
 
@@ -59,10 +52,11 @@ async fn main() -> Result<(), IoError> {
     //#endregion
 
     //#region database connection
-    let db = sea_orm::Database::connect("postgres://taiko-rs:uwu@192.168.0.201:5434/taiko-rs")
+    let db = sea_orm::Database::connect("postgres://postgres:Tacos98@192.168.0.50:5432/taikors?sslmode=disable")
         .await
         .expect("Error connecting to database");
 
+    println!("db connected");
     DATABASE.set(db).unwrap();
     //#endregion
 
@@ -187,10 +181,10 @@ async fn get_user_score_info(user_id: u32, mode: PlayMode) -> (i64, i64, f64, i3
         Ok(user_data) => {
             match user_data {
                 Some(user_data) => {
-                    ranked_score = user_data.rankedscore;
-                    total_score = user_data.totalscore;
+                    ranked_score = user_data.ranked_score;
+                    total_score = user_data.total_score;
                     accuracy = user_data.accuracy;
-                    playcount = user_data.playcount;
+                    playcount = user_data.play_count;
                 }
                 None => { }
             };
@@ -262,7 +256,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                         return;
                     }
                     Some(user) => {
-                        user_id = user.id;
+                        user_id = user.user_id;
 
                         let argon2 = Argon2::default();
 

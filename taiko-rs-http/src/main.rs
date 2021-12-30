@@ -14,8 +14,6 @@ use taiko_rs_common::{serialization::{SerializationReader, SerializationWriter},
 use tokio::sync::OnceCell;
 use sea_orm::{DbBackend, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set, Statement, FromQueryResult};
 
-mod scores_table;
-
 #[macro_use] extern crate rocket;
 
 #[get("/")]
@@ -23,14 +21,9 @@ fn index() -> &'static str {
     "How did you get here?"
 }
 
+use taiko_rs_common::prelude::*;
 
-pub use scores_table::Entity as Scores;
-pub use scores_table::Model as ScoresModel;
-pub use scores_table::ActiveModel as ScoresActiveModel;
 
-use taiko_rs_common::tables::{users_table};
-use taiko_rs_common::tables::{user_data_table};
-use taiko_rs_common::types::PlayMode;
 
 pub static DATABASE:OnceCell<DatabaseConnection> = OnceCell::const_new();
 
@@ -86,7 +79,7 @@ async fn score_submit(data:Data<'_>) -> std::io::Result<()> {
             return Err(Error::new(ErrorKind::NotFound, "User not found!"));
         }
         Some(user) => {
-            user_id = user.id;
+            user_id = user.user_id;
 
             let argon2 = Argon2::default();
 
