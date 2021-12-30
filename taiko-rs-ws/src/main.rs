@@ -478,15 +478,15 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
 
                 let locked = peer_map.lock().await;
 
-                match locked.get_mut(&host_id) {
-                    Some(u) => {
-                        let host = u.lock().await;
-                        host
-                    }
-                    None => {
-                        println!("trying to spec user that doesnt exist!");
-                    }
-                }
+                // match locked.get_mut(&host_id) {
+                //     Some(u) => {
+                //         let host = u.lock().await;
+                //         host
+                //     }
+                //     None => {
+                //         println!("trying to spec user that doesnt exist!");
+                //     }
+                // }
             }
 
             // multiplayer?
