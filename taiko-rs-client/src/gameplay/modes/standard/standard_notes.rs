@@ -188,7 +188,7 @@ impl HitObject for StandardNote {
         // if after time, fade out
         if self.map_time >= self.time {
             alpha = ((self.time + self.hitwindow_miss) - self.map_time) / self.hitwindow_miss;
-            println!("fading out: {}", alpha)
+            // println!("fading out: {}", alpha)
         }
 
         alpha *= self.alpha_mult;

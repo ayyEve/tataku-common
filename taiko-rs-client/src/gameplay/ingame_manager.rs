@@ -211,6 +211,15 @@ impl IngameManager {
         if !self.started {
             self.reset();
 
+            let frame = SpectatorFrameData::Play {
+                beatmap_hash: self.beatmap.hash(),
+                mode: self.gamemode.playmode()
+            };
+            let cloned_online = ONLINE_MANAGER.clone();
+            tokio::spawn(async move {
+                OnlineManager::send_spec_frames(cloned_online, vec![(0, frame)]).await;
+            });
+
             if self.menu_background {
                 // dont reset the song, and dont do lead in
                 self.lead_in_time = 0.0;
@@ -248,6 +257,14 @@ impl IngameManager {
             // if this is the menu, dont do anything
             if self.menu_background {return}
 
+            
+            let frame = SpectatorFrameData::UnPause;
+            let cloned_online = ONLINE_MANAGER.clone();
+            let time = self.time() as u32;
+            tokio::spawn(async move {
+                OnlineManager::send_spec_frames(cloned_online, vec![(time, frame)]).await;
+            });
+
             #[cfg(feature="bass_audio")]
             self.song.play(false).unwrap();
 
@@ -268,6 +285,13 @@ impl IngameManager {
         // is there anything else we need to do?
 
         // might mess with lead-in but meh
+
+        println!("sending pause");
+        let cloned_online = ONLINE_MANAGER.clone();
+        let time = self.time() as u32;
+        tokio::spawn(async move {
+            OnlineManager::send_spec_frames(cloned_online, vec![(time, SpectatorFrameData::Pause)]).await;
+        });
     }
     pub fn reset(&mut self) {
         let settings = Settings::get();
@@ -747,6 +771,18 @@ impl IngameManager {
         }
 
     }
+}
+// spectator stuff
+impl IngameManager {
+    pub fn outgoing_spectator_frame(&mut self, frame: SpectatorFrame) {
+        if self.menu_background || self.replaying {return}
+        let cloned = ONLINE_MANAGER.clone();
+        tokio::spawn(async move {
+            println!("outgoing frame");
+            OnlineManager::send_spec_frames(cloned, vec![frame]).await
+        });
+    }
+
 }
 impl Default for IngameManager {
     fn default() -> Self {

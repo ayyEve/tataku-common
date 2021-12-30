@@ -1,7 +1,7 @@
 pub mod audio;
 mod game;
 mod settings;
-mod online;
+pub mod online;
 pub mod helpers;
 pub mod managers;
 

@@ -11,6 +11,9 @@ pub struct UserConnection {
     pub action_text: String,
     pub mode: PlayMode,
 
+    /// list of spectator ids
+    pub spectators: Vec<u32>,
+
     pub writer: Option<Arc<Mutex<WsWriter>>>,
 }
 impl UserConnection {
@@ -22,6 +25,9 @@ impl UserConnection {
             action: UserAction::Idle,
             action_text: "Moderating the world!".to_owned(),
             mode: PlayMode::Standard,
+
+            spectators: Vec::new(),
+            
 
             writer: None
         }
@@ -36,6 +42,8 @@ impl UserConnection {
             action_text: String::new(),
             mode: PlayMode::Standard,
 
+            spectators: Vec::new(),
+            
             writer: Some(writer)
         }
     }

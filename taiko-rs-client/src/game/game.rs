@@ -3,9 +3,7 @@ use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
 
 use crate::prelude::*;
-use crate::DOWNLOADS_DIR;
 use crate::databases::{save_replay, save_score};
-use crate::game::online::{USER_ITEM_SIZE, OnlineManager};
 
 
 /// background color
@@ -21,7 +19,6 @@ pub struct Game {
     pub window: AppWindow,
     pub graphics: GlGraphics,
     pub input_manager: InputManager,
-    pub online_manager: Arc<tokio::sync::Mutex<OnlineManager>>,
     pub volume_controller: VolumeControl,
     
     pub menus: HashMap<&'static str, Arc<Mutex<dyn Menu<Game>>>>,
@@ -102,16 +99,12 @@ impl Game {
         let input_manager = InputManager::new();
         game_init_benchmark.log("input manager created", true);
 
-        let online_manager = Arc::new(tokio::sync::Mutex::new(OnlineManager::new()));
-        game_init_benchmark.log("online manager created", true);
-
         let mut g = Game {
             test: Test::new(&mut graphics),
             // engine
             window,
             graphics,
             input_manager,
-            online_manager,
             volume_controller:VolumeControl::new(),
             render_queue: Vec::new(),
             dialogs: Vec::new(),
@@ -154,7 +147,7 @@ impl Game {
         // set the dialog queue
         
         // online loop
-        let clone = self.online_manager.clone();
+        let clone = ONLINE_MANAGER.clone();
         tokio::spawn(async move {
             loop {
                 OnlineManager::start(clone.clone()).await;
@@ -314,7 +307,7 @@ impl Game {
             println!("Show user list: {}", self.show_user_list);
         }
         if self.show_user_list {
-            if let Ok(om) = self.online_manager.try_lock() {
+            if let Ok(om) = ONLINE_MANAGER.try_lock() {
                 for (_, user) in &om.users {
                     if let Ok(mut u) = user.try_lock() {
                         if mouse_moved {u.on_mouse_move(mouse_pos)}
@@ -324,6 +317,17 @@ impl Game {
             }
         }
 
+        // [test] forces spectator mode
+        if keys_down.contains(&Key::F9) {
+            current_state = GameState::Spectating(SpectatorManager::new());
+
+            let clone = ONLINE_MANAGER.clone();
+            tokio::spawn(async move {
+                let mut l = clone.lock().await;
+                l.buffered_spectator_frames.clear();
+                l.last_spectator_frame = Instant::now();
+            });
+        }
 
         // update any dialogs
         let mut dialog_list = std::mem::take(&mut self.dialogs);
@@ -469,21 +473,8 @@ impl Game {
                 menu.update(self);
             }
 
-            GameState::Spectating(ref data, ref state, ref _beatmap) => {   
-                let mut data = data.lock();
-
-                // (try to) read pending data from the online manager
-                match self.online_manager.try_lock() {
-                    Ok(mut online_manager) => data.extend(online_manager.get_pending_spec_frames()),
-                    Err(e) => println!("failed to lock online manager, {}", e),
-                }
-
-                match &state {
-                    SpectatorState::Buffering => {},
-                    SpectatorState::Watching => todo!(),
-                    SpectatorState::Paused => todo!(),
-                    SpectatorState::MapChanging => todo!(),
-                }
+            GameState::Spectating(manager) => {   
+                manager.update(self);
             }
 
             GameState::None => {
@@ -511,7 +502,7 @@ impl Game {
             _ => {
                 // if the mode is being changed, clear all shapes, even ones with a lifetime
                 self.clear_render_queue(true);
-                let online_manager = self.online_manager.clone();
+                let online_manager = ONLINE_MANAGER.clone();
 
                 // let cloned_mode = self.queued_mode.clone();
                 // self.threading.spawn(async move {
@@ -623,7 +614,8 @@ impl Game {
         match &mut self.current_state {
             GameState::Ingame(manager) => manager.draw(args, &mut self.render_queue),
             GameState::InMenu(menu) => self.render_queue.extend(menu.lock().draw(args)),
-            
+            GameState::Spectating(manager) => manager.draw(args, &mut self.render_queue),
+    
             _ => {}
         }
 
@@ -658,7 +650,7 @@ impl Game {
             //TODO: move the set_pos code to update or smth
             let mut counter = 0;
             
-            if let Ok(om) = self.online_manager.try_lock() {
+            if let Ok(om) = ONLINE_MANAGER.try_lock() {
                 for (_, user) in &om.users.clone() {
                     if let Ok(mut u) = user.try_lock() {
 
@@ -803,7 +795,7 @@ pub enum GameState {
     InMenu(Arc<Mutex<dyn Menu<Game>>>),
 
     #[allow(dead_code)]
-    Spectating(Arc<Mutex<SpectatorFrames>>, SpectatorState, Option<IngameManager>), // frames awaiting replay, state, beatmap
+    Spectating(SpectatorManager), // frames awaiting replay, state, beatmap
     // Multiplaying(MultiplayerState), // wink wink nudge nudge (dont hold your breath)
 }
 impl Default for GameState {
@@ -816,6 +808,7 @@ impl Default for GameState {
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
 pub enum SpectatorState {
+    None, // Default
     Buffering, // waiting for data
     Watching, // host playing
     Paused, // host paused

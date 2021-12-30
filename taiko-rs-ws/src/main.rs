@@ -470,13 +470,47 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 }
             }
 
-            // spectator?
-            
+
+            // spectator
             PacketId::Client_Spectate => {
                 // user wants to spectate
                 let host_id = reader.read_u32();
 
-                let locked = peer_map.lock().await;
+                let mut locked = peer_map.lock().await;
+
+
+                let mut found = false;
+                for (conn, user) in locked.iter_mut() {
+                    if conn == addr {continue}
+
+                    if user.user_id == host_id {
+                        found = true;
+                        user.spectators.push(user_connection.user_id);
+
+                        if let Some(writer) = &user.writer {
+                            let _ = writer.lock().await.send(Message::Binary(SimpleWriter::new()
+                                .write(PacketId::Server_SpectatorJoined)
+                                .write(user_connection.user_id)
+                                .done())
+                            ).await;
+                        } else {
+                            // trying to spectate a bot
+                            let _ = writer.send(create_server_send_message_packet(
+                                bot_account.user_id,
+                                "You cant spectate a bot!".to_owned(),
+                                user_connection.username.clone()
+                            )).await;
+                        }
+                    }
+                }
+                if !found {
+                    // user wasnt found
+                    let _ = writer.send(create_server_send_message_packet(
+                        bot_account.user_id,
+                        "That user was not found".to_owned(),
+                        user_connection.username.clone()
+                    )).await;
+                }
 
                 // match locked.get_mut(&host_id) {
                 //     Some(u) => {
@@ -488,6 +522,32 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 //     }
                 // }
             }
+            PacketId::Client_SpectatorFrames => {
+                // let count = reader.read();
+                let frames: Vec<SpectatorFrame> = reader.read();
+                println!("forwarding {} frames to the following users: {:?}", frames.len(), user_connection.spectators);
+
+                let p = Message::Binary(SimpleWriter::new()
+                    .write(PacketId::Server_SpectatorFrames)
+                    .write(user_connection.user_id)
+                    .write(frames)
+                    .done());
+
+                
+                for (conn, user) in peer_map.lock().await.iter_mut() {
+                    if conn == addr {continue}
+                    
+                    if user_connection.spectators.contains(&user.user_id) {
+                        println!("sending to user id {}", user.user_id);
+                        if let Some(writer) = &user.writer {
+                            if let Err(e) = writer.lock().await.send(p.clone()).await {
+                                println!("error: {}", e);
+                            }
+                        }
+                    }
+                }
+            }
+
 
             // multiplayer?
 

@@ -32,6 +32,9 @@ pub type Font = Arc<Mutex<opengl_graphics::GlyphCache<'static>>>;
 // taiko-rs-common imports
 pub use taiko_rs_common::types::*;
 
+// folder imports
+pub use crate::DOWNLOADS_DIR;
+
 // audio imports
 #[cfg(feature="bass_audio")]
 pub use bass_rs::prelude::*;
@@ -64,3 +67,6 @@ pub use crate::gameplay::modes::*;
 pub use crate::beatmaps::Beatmap;
 pub use crate::beatmaps::common::*;
 pub use crate::beatmaps::osu::hitobject_defs::*;
+
+// online imports
+pub use crate::game::online::*;

@@ -11,7 +11,17 @@ use crate::prelude::*;
 
 type WsWriter = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 
+// url to connect to
 const CONNECT_URL:&str = "ws://localhost:8080";
+
+// how many frames do we buffer before sending?
+// higher means less network use, but also could cause issues with slower events (ie paused)
+// might need a workaround
+const SPECTATOR_BUFFER_FLUSH_SIZE: usize = 20;
+
+lazy_static::lazy_static! {
+    pub static ref ONLINE_MANAGER:Arc<Mutex<OnlineManager>> = Arc::new(Mutex::new(OnlineManager::new()));
+}
 
 ///
 pub struct OnlineManager {
@@ -26,7 +36,9 @@ pub struct OnlineManager {
     pub writer: Option<Arc<Mutex<WsWriter>>>,
 
     // buffers 
-    buffered_spectator_frames: SpectatorFrames,
+    /// buffer for incoming and outgoing spectator frames
+    pub(crate) buffered_spectator_frames: SpectatorFrames,
+    pub(crate) last_spectator_frame: Instant,
     
 }
 impl OnlineManager {
@@ -39,6 +51,7 @@ impl OnlineManager {
             writer: None,
             connected: false,
             buffered_spectator_frames: Vec::new(),
+            last_spectator_frame: Instant::now(),
         }
     }
     pub async fn start(s: Arc<Mutex<Self>>) {
@@ -82,14 +95,15 @@ impl OnlineManager {
                         Err(oof) => {
                             println!("oof: {}", oof);
                             s.lock().await.connected = false;
+                            s.lock().await.writer = None;
                             // reconnect?
                         }
                     }
                 }
             },
-            Err(_oof) => {
+            Err(oof) => {
                 s.lock().await.connected = false;
-                // println!("could not accept connection: {}", oof);
+                println!("could not accept connection: {}", oof);
             }
         }
     }
@@ -111,6 +125,15 @@ impl OnlineManager {
                     } else {
                         s.lock().await.user_id = user_id as u32;
                         println!("login success");
+
+                        // [test] send spec request
+                        if let Some(writer) = &s.lock().await.writer {
+                            let _ = writer.lock().await.send(Message::Binary(SimpleWriter::new()
+                                .write(PacketId::Client_Spectate)
+                                .write(1)
+                                .done()
+                            )).await;
+                        }
                     }
                 }
 
@@ -159,11 +182,22 @@ impl OnlineManager {
                     println!("got message: `{}` from user id `{}` in channel `{}`", message, user_id, channel);
                 }
 
+                
                 // spectator
                 PacketId::Server_SpectatorFrames => {
                     let _sender_id = reader.read_u32();
                     let frames:SpectatorFrames = reader.read();
+                    // println!("got {} spectator frames from the server", frames.len());
                     s.lock().await.buffered_spectator_frames.extend(frames);
+                }
+                PacketId::Server_SpectatorJoined => {
+                    let speccing_user_id:u32 = reader.read();
+                    if let Some(u) = s.lock().await.find_user_by_id(speccing_user_id) {
+                        let username = &u.lock().await.username;
+                        NotificationManager::add_text_notification(&format!("{} is now spectating", username), 2000.0, Color::GREEN);
+                    } else {
+                        NotificationManager::add_text_notification(&format!("A user is now spectating"), 2000.0, Color::GREEN);
+                    }
                 }
 
                 PacketId::Unknown => {
@@ -211,12 +245,35 @@ impl OnlineManager {
         }
     }
 
-    pub async fn _send_spec_frames(s:Arc<Mutex<Self>>, frames:SpectatorFrames) {
-        let data = SimpleWriter::new().write(PacketId::Client_SpectatorFrames).write(frames).done();
-        s.lock().await.send_data(data).await;
+    pub async fn send_spec_frames(s:Arc<Mutex<Self>>, frames:SpectatorFrames) {
+
+        let mut lock = s.lock().await;
+        lock.buffered_spectator_frames.extend(frames);
+
+        let times_up = lock.last_spectator_frame.elapsed().as_secs_f32() > 1.0;
+
+        if times_up || lock.buffered_spectator_frames.len() >= SPECTATOR_BUFFER_FLUSH_SIZE {
+            let frames = std::mem::take(&mut lock.buffered_spectator_frames);
+            if times_up {println!("sending spec buffer (time)")} else {println!("sending spec buffer (len)")}
+
+            let data = SimpleWriter::new().write(PacketId::Client_SpectatorFrames).write(frames).done();
+            lock.send_data(data).await;
+            lock.last_spectator_frame = Instant::now();
+        }
+
     }
 
     pub fn get_pending_spec_frames(&mut self) -> SpectatorFrames {
         std::mem::take(&mut self.buffered_spectator_frames)
     }
+
+    pub fn find_user_by_id(&self, user_id: u32) -> Option<Arc<Mutex<OnlineUser>>> {
+        for (&id, user) in self.users.iter() {
+            if id == user_id {
+                return Some(user.clone())
+            }
+        }
+
+        None
+    }   
 }

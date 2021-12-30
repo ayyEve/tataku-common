@@ -1,5 +1,5 @@
-use crate::serialization::Serializable;
-use super::{KeyPress, Score};
+use crate::{serialization::Serializable, ReplayFrame, PlayMode};
+use super::Score;
 
 pub type SpectatorFrame = (u32, SpectatorFrameData);
 pub type SpectatorFrames = Vec<SpectatorFrame>;
@@ -7,7 +7,7 @@ pub type SpectatorFrames = Vec<SpectatorFrame>;
 #[derive(Clone, Debug)]
 pub enum SpectatorFrameData {
     /// host started a new map
-    Play {beatmap_hash:String},
+    Play {beatmap_hash:String, mode: PlayMode},
     /// host paused current map
     Pause,
     // host unpaused the current map
@@ -20,7 +20,7 @@ pub enum SpectatorFrameData {
     /// host started spectating someone else. deal with this later
     SpectatingOther {user_id:u32},
     // host pressed a game key
-    KeyPress {key:KeyPress},
+    ReplayFrame {frame:ReplayFrame},
 
     // clear up any score innaccuracies, or update new specs with this
     ScoreSync {score:Score}
@@ -29,7 +29,7 @@ impl Serializable for SpectatorFrameData {
     fn read(sr:&mut crate::serialization::SerializationReader) -> Self {
         match sr.read_u8() {
             // play
-            0 => SpectatorFrameData::Play {beatmap_hash: sr.read_string()},
+            0 => SpectatorFrameData::Play {beatmap_hash: sr.read_string(), mode: sr.read()},
             // pause
             1 => SpectatorFrameData::Pause,
             // unpause
@@ -41,9 +41,9 @@ impl Serializable for SpectatorFrameData {
             // spectate other
             5 => SpectatorFrameData::SpectatingOther {user_id: sr.read()},
             // key_press
-            6 => SpectatorFrameData::KeyPress {key:sr.read()},
+            6 => SpectatorFrameData::ReplayFrame {frame:sr.read()},
             // score sync
-            7 => SpectatorFrameData::ScoreSync {score:sr.read()},
+            8 => SpectatorFrameData::ScoreSync {score:sr.read()},
 
             // unknown
             n => panic!("unknown replay packet num: {}", n), // unknown
@@ -52,13 +52,13 @@ impl Serializable for SpectatorFrameData {
 
     fn write(&self, sw:&mut crate::serialization::SerializationWriter) {
         match &self {
-            SpectatorFrameData::Play {beatmap_hash} => {sw.write_u8(0); sw.write(beatmap_hash.clone())},
+            SpectatorFrameData::Play {beatmap_hash, mode} => {sw.write_u8(0); sw.write(beatmap_hash.clone()); sw.write(*mode);},
             SpectatorFrameData::Pause => sw.write_u8(1),
             SpectatorFrameData::UnPause => sw.write_u8(2),
             SpectatorFrameData::Stop => sw.write_u8(3),
             SpectatorFrameData::Buffer => sw.write_u8(4),
             SpectatorFrameData::SpectatingOther {user_id} => {sw.write_u8(5); sw.write(*user_id)},
-            SpectatorFrameData::KeyPress {key} => {sw.write_u8(6); sw.write(*key)},
+            SpectatorFrameData::ReplayFrame {frame} => {sw.write_u8(6); sw.write(*frame)},
             &SpectatorFrameData::ScoreSync {score} => {sw.write_u8(7); sw.write(score.clone())}
         }
     }
