@@ -1,17 +1,13 @@
-use std::sync::Arc;
-use std::collections::HashMap;
-
-use image::EncodableLayout;
 use tokio::{sync::Mutex, net::TcpStream};
 use futures_util::{SinkExt, StreamExt, stream::SplitSink};
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::protocol::Message};
 
-use crate::game::Settings;
 use super::discord::Discord;
 use super::online_user::OnlineUser;
 use taiko_rs_common::packets::PacketId;
-use taiko_rs_common::types::{SpectatorFrames, UserAction};
 use taiko_rs_common::serialization::{SerializationReader, SimpleWriter};
+
+use crate::prelude::*;
 
 type WsWriter = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 
@@ -33,7 +29,6 @@ pub struct OnlineManager {
     buffered_spectator_frames: SpectatorFrames,
     
 }
-
 impl OnlineManager {
     pub fn new() -> OnlineManager {
         OnlineManager {
@@ -117,7 +112,7 @@ impl OnlineManager {
                         s.lock().await.user_id = user_id as u32;
                         println!("login success");
                     }
-                },
+                }
 
                 // user updates
                 PacketId::Server_UserJoined => {
@@ -125,12 +120,12 @@ impl OnlineManager {
                     let username = reader.read_string();
                     println!("user id joined: {}", user_id);
                     s.lock().await.users.insert(user_id, Arc::new(Mutex::new(OnlineUser::new(user_id, username))));
-                },
+                }
                 PacketId::Server_UserLeft => {
                     let user_id = reader.read_u32();
                     println!("user id left: {}", user_id);
                     s.lock().await.users.remove(&user_id);
-                },
+                }
                 PacketId::Server_UserStatusUpdate => {
                     let user_id = reader.read_u32();
                     let action:UserAction = reader.read();
@@ -156,6 +151,13 @@ impl OnlineManager {
                 }
 
                 // chat
+                PacketId::Server_SendMessage => {
+                    let user_id:i32 = reader.read();
+                    let message:String = reader.read();
+                    let channel:String = reader.read();
+
+                    println!("got message: `{}` from user id `{}` in channel `{}`", message, user_id, channel);
+                }
 
                 // spectator
                 PacketId::Server_SpectatorFrames => {
@@ -167,7 +169,7 @@ impl OnlineManager {
                 PacketId::Unknown => {
                     println!("got unknown packet id {}, dropping remaining packets", raw_id);
                     continue;
-                },
+                }
 
                 p => {
                     println!("Got unhandled packet: {:?}", p);
@@ -177,12 +179,17 @@ impl OnlineManager {
         }
     }
 
-    pub async fn set_action(s:Arc<Mutex<Self>>, action:UserAction, action_text:String) {
+    pub async fn set_action(s:Arc<Mutex<Self>>, action:UserAction, action_text:String, mode: PlayMode) {
         let mut s = s.lock().await;
 
         if let Some(writer) = &s.writer {
             println!("writing update");
-            let p = SimpleWriter::new().write(PacketId::Client_StatusUpdate).write(action).write(action_text.clone()).done();
+            let p = SimpleWriter::new()
+                .write(PacketId::Client_StatusUpdate)
+                .write(action)
+                .write(action_text.clone())
+                .write(mode)
+                .done();
             writer.lock().await.send(Message::Binary(p)).await.expect("error: ");
 
             if action == UserAction::Leaving {

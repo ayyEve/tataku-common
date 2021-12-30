@@ -472,7 +472,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                     //Add to the message history
                     if channel.starts_with("#") {
                         let message_history_entry: message_history_table::ActiveModel = message_history_table::ActiveModel {
-                            userid: Set(userid as i64),
+                            user_id: Set(userid as i64),
                             channel: Set(channel.clone()),
                             contents: Set(message.clone()),
                             ..Default::default()

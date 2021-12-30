@@ -25,6 +25,7 @@ pub enum PacketId {
     Server_SendMessage, // sender_id, channel_id, message
 
     // spectator?
+    /// client wants to spectate someone
     Client_Spectate, // user_id to spectate
     Server_SpectatorJoined, // user_id of spectator
     Client_SpectatorFrames, // frame_count, [SpectatorFrame]

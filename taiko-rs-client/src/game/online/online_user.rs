@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 pub const USER_ITEM_SIZE:Vector2 = Vector2::new(200.0, 100.0);
-pub const USERNAME_OFFSET:Vector2 = Vector2::new(5.0, 25.0);
+pub const USERNAME_OFFSET:Vector2 = Vector2::new(5.0, 5.0);
 
 #[derive(Clone)]
 pub struct OnlineUser {
@@ -31,7 +31,7 @@ impl OnlineUser {
 
 impl ScrollableItem for OnlineUser {
     fn size(&self) -> Vector2 {USER_ITEM_SIZE}
-    fn get_pos(&self) -> Vector2 {Vector2::zero()}
+    fn get_pos(&self) -> Vector2 {self.pos}
     fn set_pos(&mut self, pos:Vector2) {self.pos = pos}
     fn get_tag(&self) -> String {self.username.clone()}
     fn set_tag(&mut self, _tag:&str) {}
@@ -46,8 +46,10 @@ impl ScrollableItem for OnlineUser {
         let mut list:Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
 
+        let pos = self.pos + pos;
+
         // bounding box
-        let mut c = Color::new(0.5, 0.5, 0.5, 0.75);
+        let c = Color::new(0.5, 0.5, 0.5, 0.75);
         list.push(Box::new(Rectangle::new(
             c,
             depth,
@@ -68,13 +70,13 @@ impl ScrollableItem for OnlineUser {
 
         // status
         if let Some(_action) = &self.action {
-
+            
         }
         if let Some(action_text) = &self.action_text {
             list.push(Box::new(Text::new(
                 Color::BLACK,
                 depth - 1.0,
-                 USERNAME_OFFSET + pos,
+                pos + USERNAME_OFFSET + Vector2::new(0.0, 20.0),
                 20,
                 action_text.clone(),
                 font.clone()

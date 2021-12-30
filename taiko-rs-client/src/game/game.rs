@@ -535,7 +535,7 @@ impl Game {
 
                         let text = format!("{}-{}[{}]\n{}", m.artist, m.title, m.version, h);
                         tokio::spawn(async move {
-                            OnlineManager::set_action(online_manager, UserAction::Ingame, text).await;
+                            OnlineManager::set_action(online_manager, UserAction::Ingame, text, m.mode).await;
                         });
                     },
                     GameState::InMenu(_) => {
@@ -551,13 +551,13 @@ impl Game {
                         }
 
                         tokio::spawn(async move {
-                            OnlineManager::set_action(online_manager, UserAction::Idle, String::new()).await;
+                            OnlineManager::set_action(online_manager, UserAction::Idle, String::new(), PlayMode::Taiko).await;
                         });
                     },
                     GameState::Closing => {
                         // send logoff
                         tokio::spawn(async move {
-                            OnlineManager::set_action(online_manager, UserAction::Leaving, String::new()).await;
+                            OnlineManager::set_action(online_manager, UserAction::Leaving, String::new(), PlayMode::Taiko).await;
                         });
                     }
                     _ => {}
@@ -661,9 +661,11 @@ impl Game {
             if let Ok(om) = self.online_manager.try_lock() {
                 for (_, user) in &om.users.clone() {
                     if let Ok(mut u) = user.try_lock() {
-                        let x = if counter % 2 == 0 {0.0} else {USER_ITEM_SIZE.x};
-                        let y = (counter - counter % 2) as f64 * USER_ITEM_SIZE.y;
-                        u.set_pos(Vector2::new(x,y));
+
+                        let users_per_col = 2;
+                        let x = USER_ITEM_SIZE.x * (counter % users_per_col) as f64;
+                        let y = USER_ITEM_SIZE.y * (counter / users_per_col) as f64;
+                        u.set_pos(Vector2::new(x, y));
 
                         counter += 1;
                         self.render_queue.extend(u.draw(args, Vector2::zero(), -100.0));
