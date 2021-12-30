@@ -1,30 +1,8 @@
-use std::net::{Ipv4Addr, SocketAddrV4};
-use std::{
-    collections::HashMap,
-    env,
-    io::Error as IoError,
-    net::SocketAddr,
-    sync::Arc,
-};
 
-use tokio::sync::{Mutex, OnceCell};
-use tokio::net::{TcpListener, TcpStream};
-use futures_util::{SinkExt, StreamExt, stream::SplitSink};
-use sea_orm::{DbBackend, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set, Statement, FromQueryResult};
-use tokio_tungstenite::{WebSocketStream, accept_async, tungstenite::protocol::Message};
+mod prelude;
+pub(crate) mod user_connection;
 
-use argon2::{
-    Argon2,
-    password_hash::{
-        PasswordHash,
-        PasswordVerifier
-    }
-};
-
-type WsWriter = SplitSink<WebSocketStream<TcpStream>, Message>;
-type PeerMap = Arc<Mutex<HashMap<SocketAddr, UserConnection>>>;
-
-use taiko_rs_common::prelude::*;
+use prelude::*;
 
 pub static DATABASE:OnceCell<DatabaseConnection> = OnceCell::const_new();
 
@@ -230,6 +208,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
         println!("[Server] got packet id {:?}", id);
         
         match id {
+            // login
             PacketId::Client_UserLogin => {
                 // read username
                 // read password
@@ -329,7 +308,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 }
             }
 
-            // client statuses
+            // logout
             PacketId::Client_LogOut => {
                 //userid
                 let user_id = user_connection.user_id;
@@ -349,6 +328,8 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                     };
                 }
             }
+
+            // =====  client statuses  =====
 
             //Sent by a client to notify the server to update their score for everyone
             PacketId::Client_NotifyScoreUpdate => {
@@ -374,6 +355,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 }
             }
 
+            // status update
             PacketId::Client_StatusUpdate => {
                 let action: UserAction = reader.read();
                 let action_text = reader.read_string();
@@ -409,6 +391,9 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                     };
                 }
             }
+
+            
+            // =====  client statuses  =====
 
             // chat messages
             PacketId::Client_SendMessage => {
@@ -486,6 +471,23 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
             }
 
             // spectator?
+            
+            PacketId::Client_Spectate => {
+                // user wants to spectate
+                let host_id = reader.read_u32();
+
+                let locked = peer_map.lock().await;
+
+                match locked.get_mut(&host_id) {
+                    Some(u) => {
+                        let host = u.lock().await;
+                        host
+                    }
+                    None => {
+                        println!("trying to spec user that doesnt exist!");
+                    }
+                }
+            }
 
             // multiplayer?
 
@@ -498,45 +500,6 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 println!("got server packet {:?} somehow yikes", n);
                 continue;
             }
-        }
-    }
-}
-
-#[derive(Clone)]
-struct UserConnection {
-    pub bot: bool,
-    pub user_id: u32,
-    pub username: String,
-    pub action: UserAction,
-    pub action_text: String,
-    pub mode: PlayMode,
-
-    pub writer: Option<Arc<Mutex<WsWriter>>>,
-}
-impl UserConnection {
-    pub fn new_bot(bot: String) -> Self {
-        Self {
-            bot: true,
-            user_id: u32::MAX,
-            username: bot,
-            action: UserAction::Idle,
-            action_text: "Moderating the world!".to_owned(),
-            mode: PlayMode::Standard,
-
-            writer: None
-        }
-    }
-
-    pub fn new(writer:Arc<Mutex<WsWriter>>) -> Self {
-        Self {
-            bot: false,
-            user_id: 0,
-            username: String::new(),
-            action: UserAction::Idle,
-            action_text: String::new(),
-            mode: PlayMode::Standard,
-
-            writer: Some(writer)
         }
     }
 }
