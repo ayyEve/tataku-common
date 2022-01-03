@@ -52,7 +52,7 @@ impl Serializable for SpectatorFrameData {
 
     fn write(&self, sw:&mut crate::serialization::SerializationWriter) {
         match &self {
-            SpectatorFrameData::Play {beatmap_hash, mode} => {sw.write_u8(0); sw.write(beatmap_hash.clone()); sw.write(*mode);},
+            SpectatorFrameData::Play {beatmap_hash, mode} => {sw.write_u8(0); sw.write(beatmap_hash.clone()); sw.write(*mode)},
             SpectatorFrameData::Pause => sw.write_u8(1),
             SpectatorFrameData::UnPause => sw.write_u8(2),
             SpectatorFrameData::Stop => sw.write_u8(3),

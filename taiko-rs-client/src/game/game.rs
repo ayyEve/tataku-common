@@ -12,8 +12,6 @@ const GFX_CLEAR_COLOR:Color = Color::BLACK;
 const TRANSITION_TIME:u64 = 500;
 
 pub struct Game {
-    test: Test,
-
     // engine things
     render_queue: Vec<Box<dyn Renderable>>,
     pub window: AppWindow,
@@ -93,14 +91,13 @@ impl Game {
         }
 
 
-        let mut graphics = GlGraphics::new(opengl);
+        let graphics = GlGraphics::new(opengl);
         game_init_benchmark.log("graphics created", true);
 
         let input_manager = InputManager::new();
         game_init_benchmark.log("input manager created", true);
 
         let mut g = Game {
-            test: Test::new(&mut graphics),
             // engine
             window,
             graphics,
@@ -257,7 +254,6 @@ impl Game {
     }
 
     fn update(&mut self, _delta:f64) {
-        self.test.update();
         // let timer = Instant::now();
         let elapsed = self.game_start.elapsed().as_millis() as u64;
         self.update_display.increment();
@@ -698,8 +694,6 @@ impl Game {
         self.render_queue.sort_by(|a, b| b.get_depth().partial_cmp(&a.get_depth()).unwrap());
 
 
-        self.test.draw(&mut self.render_queue);
-
         // slice the queue because loops
         let queue = self.render_queue.as_mut_slice();
         self.graphics.draw(args.viewport(), |c, g| {
@@ -813,25 +807,4 @@ pub enum SpectatorState {
     Watching, // host playing
     Paused, // host paused
     MapChanging, // host is changing map
-}
-
-
-struct Test {
-    // timer: Instant,
-    // man: TransformGroup,
-
-    // image: Image,
-    // rt: RenderTarget
-}
-impl Test {
-    fn new(graphics: &mut GlGraphics) -> Self {
-
-        Self {
-        }
-    }
-
-    fn update(&mut self) {
-    }
-    fn draw(&mut self, list: &mut Vec<Box<dyn Renderable>>) {
-    }
 }

@@ -211,14 +211,17 @@ impl IngameManager {
         if !self.started {
             self.reset();
 
-            let frame = SpectatorFrameData::Play {
-                beatmap_hash: self.beatmap.hash(),
-                mode: self.gamemode.playmode()
-            };
-            let cloned_online = ONLINE_MANAGER.clone();
-            tokio::spawn(async move {
-                OnlineManager::send_spec_frames(cloned_online, vec![(0, frame)]).await;
-            });
+            if !self.replaying {
+                println!("\n\n\n\n\nsupposedly sending play frame");
+                let frame = SpectatorFrameData::Play {
+                    beatmap_hash: self.beatmap.hash(),
+                    mode: self.gamemode.playmode()
+                };
+                let cloned_online = ONLINE_MANAGER.clone();
+                tokio::spawn(async move {
+                    OnlineManager::send_spec_frames(cloned_online, vec![(0, frame)]).await;
+                });
+            }
 
             if self.menu_background {
                 // dont reset the song, and dont do lead in
@@ -778,7 +781,6 @@ impl IngameManager {
         if self.menu_background || self.replaying {return}
         let cloned = ONLINE_MANAGER.clone();
         tokio::spawn(async move {
-            println!("outgoing frame");
             OnlineManager::send_spec_frames(cloned, vec![frame]).await
         });
     }
@@ -788,12 +790,12 @@ impl Default for IngameManager {
     fn default() -> Self {
         Self { 
             #[cfg(feature="bass_audio")]
-            song: create_empty_stream(), 
+            song: create_empty_stream(),
             #[cfg(feature="neb_audio")]
             song: Weak::new(),
 
-            font: get_font("main"), 
-            combo_text_bounds: Rectangle::bounds_only(Vector2::zero(), Vector2::zero()), 
+            font: get_font("main"),
+            combo_text_bounds: Rectangle::bounds_only(Vector2::zero(), Vector2::zero()),
             timing_bar_things: (Vec::new(), (0.0, Color::WHITE)),
             
             beatmap: Default::default(),

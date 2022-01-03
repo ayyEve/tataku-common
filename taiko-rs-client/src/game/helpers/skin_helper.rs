@@ -1,4 +1,4 @@
-#[allow(unused, dead_code)]
+#![allow(unused, dead_code)]
 use crate::prelude::*;
 
 const SKIN_FOLDER:&str = "./skins";

@@ -1,3 +1,4 @@
+#![allow(unused, dead_code)]
 use crate::prelude::*;
 
 // yoinked form https://github.com/Furball-Engine/Furball.Vixie/blob/master/Furball.Vixie/Graphics/TextureRenderTarget.cs
@@ -7,7 +8,7 @@ lazy_static::lazy_static! {
     static ref CURRENT_BOUND:AtomicU32 = AtomicU32::new(0);
 }
 
-#[deprecated = "unfinidhsed"]
+// #[deprecated = "unfinidhsed"]
 pub struct RenderTarget {
     /// Unique ID of this FrameBuffer
     framebuffer_id: u32,

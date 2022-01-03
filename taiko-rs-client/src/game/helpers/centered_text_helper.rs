@@ -29,7 +29,7 @@ impl<V:Display> CenteredTextHelper<V>{
         self.value = new_value;
         self.changed_time = time;
     }
-    pub fn reset_timer(&mut self) {
+    pub fn _reset_timer(&mut self) {
         self.changed_time = 0.0;
     }
 

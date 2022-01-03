@@ -29,6 +29,9 @@ pub struct OnlineManager {
     pub users: HashMap<u32, Arc<Mutex<OnlineUser>>>, // user id is key
     pub discord: Discord,
 
+    // is this user spectating someone?
+    pub spectating: bool,
+
     // pub chat: Chat,
     user_id: u32, // this user's id
 
@@ -52,6 +55,7 @@ impl OnlineManager {
             connected: false,
             buffered_spectator_frames: Vec::new(),
             last_spectator_frame: Instant::now(),
+            spectating: false
         }
     }
     pub async fn start(s: Arc<Mutex<Self>>) {
@@ -120,19 +124,17 @@ impl OnlineManager {
                 // login
                 PacketId::Server_LoginResponse => {
                     let user_id = reader.read_i32();
-                    if user_id <= 0 {
-                        println!("got bad login");
-                    } else {
-                        s.lock().await.user_id = user_id as u32;
-                        println!("login success");
+                    match user_id {
+                        -2 => println!("[Login] user not found"),
+                        -1 => println!("[Login] auth failed"),
+                         0 => println!("[Login] Unknown Error"),
+                         _ => {
+                            s.lock().await.user_id = user_id as u32;
+                            println!("[Login] success");
+                            NotificationManager::add_text_notification("Logged in!", 2000.0, Color::GREEN);
 
-                        // [test] send spec request
-                        if let Some(writer) = &s.lock().await.writer {
-                            let _ = writer.lock().await.send(Message::Binary(SimpleWriter::new()
-                                .write(PacketId::Client_Spectate)
-                                .write(1)
-                                .done()
-                            )).await;
+                            // [test] send spec request
+                            Self::start_spectating(1).await;
                         }
                     }
                 }
@@ -188,7 +190,8 @@ impl OnlineManager {
                     let _sender_id = reader.read_u32();
                     let frames:SpectatorFrames = reader.read();
                     // println!("got {} spectator frames from the server", frames.len());
-                    s.lock().await.buffered_spectator_frames.extend(frames);
+                    let mut lock = s.lock().await;
+                    lock.buffered_spectator_frames.extend(frames);
                 }
                 PacketId::Server_SpectatorJoined => {
                     let speccing_user_id:u32 = reader.read();
@@ -202,7 +205,7 @@ impl OnlineManager {
 
                 PacketId::Unknown => {
                     println!("got unknown packet id {}, dropping remaining packets", raw_id);
-                    continue;
+                    break;
                 }
 
                 p => {
@@ -238,16 +241,13 @@ impl OnlineManager {
         }
     }
 
-
-    pub async fn send_data(&mut self, data:Vec<u8>) {
-        if let Some(writer) = &self.writer {
-            writer.lock().await.send(Message::Binary(data)).await.expect("error sending packet. oof");
-        }
-    }
-
     pub async fn send_spec_frames(s:Arc<Mutex<Self>>, frames:SpectatorFrames) {
-
         let mut lock = s.lock().await;
+        // if we arent speccing, exit
+        // hopefully resolves a bug
+        // if !lock.spectating {return}
+
+
         lock.buffered_spectator_frames.extend(frames);
 
         let times_up = lock.last_spectator_frame.elapsed().as_secs_f32() > 1.0;
@@ -263,6 +263,27 @@ impl OnlineManager {
 
     }
 
+    pub async fn start_spectating(host_id: u32) {
+        let mut s = ONLINE_MANAGER.lock().await;
+        s.spectating = true;
+        println!("speccing {}", host_id);
+
+        if let Some(writer) = &s.writer {
+            let _ = writer.lock().await.send(Message::Binary(SimpleWriter::new()
+                .write(PacketId::Client_Spectate)
+                .write(host_id)
+                .done()
+            )).await;
+        }
+    }
+}
+impl OnlineManager {
+    pub async fn send_data(&mut self, data:Vec<u8>) {
+        if let Some(writer) = &self.writer {
+            writer.lock().await.send(Message::Binary(data)).await.expect("error sending packet");
+        }
+    }
+
     pub fn get_pending_spec_frames(&mut self) -> SpectatorFrames {
         std::mem::take(&mut self.buffered_spectator_frames)
     }
@@ -275,5 +296,5 @@ impl OnlineManager {
         }
 
         None
-    }   
+    }
 }

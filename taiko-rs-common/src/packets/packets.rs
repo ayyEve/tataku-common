@@ -21,15 +21,23 @@ pub enum PacketId {
     Server_UserLeft,
 
     // chat
-    Client_SendMessage, // sender_id, channel_id, message
-    Server_SendMessage, // sender_id, channel_id, message
+    /// sender_id, channel_id, message
+    Client_SendMessage, 
+    /// sender_id, channel_id, message
+    Server_SendMessage, 
 
     // spectator?
     /// client wants to spectate someone
     Client_Spectate, // user_id to spectate
-    Server_SpectatorJoined, // user_id of spectator
+    Server_SpectatorJoined, // user_id of spectator who joined
+
+    Client_SpectatorLeft,
+    /// user_id of spectator who left
+    /// if user_id is your own, you stopped spectating
+    Server_SpectatorLeft, 
+
     Client_SpectatorFrames, // frame_count, [SpectatorFrame]
-    Server_SpectatorFrames, // sender_id, frame_count, [SpectatorFrame]
+    Server_SpectatorFrames, // host_id, frame_count, [SpectatorFrame]
 
     // multiplayer?
 }
@@ -60,11 +68,15 @@ impl From<u16> for PacketId {
             10 => Client_SendMessage,
             11 => Server_SendMessage,
 
-            // spectator?
+            // spectator
             12 => Client_Spectate,
             13 => Server_SpectatorJoined,
-            14 => Client_SpectatorFrames,
-            15 => Server_SpectatorFrames,
+            14 => Client_SpectatorLeft,
+            15 => Server_SpectatorLeft,
+            16 => Client_SpectatorFrames,
+            17 => Server_SpectatorFrames,
+
+            // multiplayer
 
             _ => Unknown
         }

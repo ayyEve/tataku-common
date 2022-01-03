@@ -24,10 +24,12 @@ impl SpectatorManager {
 
         // check all incoming frames
         for (time, frame) in std::mem::take(&mut self.frames) {
+
+            println!("spec packet: {:?}", frame);
             match frame {
                 SpectatorFrameData::Play { beatmap_hash, mode } => {
                     // user started playing a map
-                    println!("Host started playing map");
+                    println!("\n\n\n\n\n\nHost started playing map\n\n\n\n\n\n");
 
                     let mut beatmap_manager = BEATMAP_MANAGER.lock();
 
@@ -57,7 +59,6 @@ impl SpectatorManager {
                         }
                     }
 
-                    
                 }
 
                 SpectatorFrameData::Pause => {

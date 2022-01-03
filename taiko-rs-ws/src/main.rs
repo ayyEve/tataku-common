@@ -482,6 +482,9 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 let mut found = false;
                 for (conn, user) in locked.iter_mut() {
                     if conn == addr {continue}
+                    
+                    user.remove_spectator(&mut user_connection).await;
+
 
                     if user.user_id == host_id {
                         found = true;
@@ -551,14 +554,16 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
 
             // multiplayer?
 
+
+            // Other
             PacketId::Unknown => {
                 println!("got unknown packet id {}, dropping remaining packets", raw_id);
-                continue;
+                break;
             }
 
             n => {
-                println!("got server packet {:?} somehow yikes", n);
-                continue;
+                println!("got server packet {:?} somehow, dropping remaining packets", n);
+                break;
             }
         }
     }
