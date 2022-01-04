@@ -51,6 +51,10 @@ pub struct Game {
     #[allow(dead_code)]
     /// needed to prevent bass from deinitializing
     bass: bass_rs::Bass,
+
+
+    // user menu helper
+    selected_user: Option<u32>
 }
 impl Game {
     pub fn new() -> Game {
@@ -130,7 +134,9 @@ impl Game {
             game_start: Instant::now(),
             // register_timings: (0.0,0.0,0.0),
             #[cfg(feature="bass_audio")] 
-            bass
+            bass,
+
+            selected_user: None,
         };
         game_init_benchmark.log("game created", true);
 
@@ -308,22 +314,50 @@ impl Game {
                     if let Ok(mut u) = user.try_lock() {
                         if mouse_moved {u.on_mouse_move(mouse_pos)}
                         mouse_down.retain(|button| !u.on_click(mouse_pos, button.clone(), mods));
+
+                        if u.clicked {
+                            u.clicked = false;
+                            self.selected_user = Some(u.user_id);
+
+                            // user menu dialog
+                            let mut user_menu_dialog = NormalDialog::new("User Options");
+                            user_menu_dialog.add_button("Spectate", Box::new(|dialog, game| {
+                                // println!("spectate");
+                                if let Some(user_id) = game.selected_user.clone() {
+                                    tokio::spawn(async move {
+                                        OnlineManager::start_spectating(user_id).await;
+                                    });
+                                    //TODO: wait for a spec response from the server before setting the mode
+                                    game.queue_state_change(GameState::Spectating(SpectatorManager::new()));
+                                    dialog.should_close = true;
+                                    game.selected_user = None;
+                                }
+                            }));
+
+                            user_menu_dialog.add_button("Close", Box::new(|dialog, game| {
+                                // println!("close");
+                                dialog.should_close = true;
+                                game.selected_user = None;
+                            }));
+
+                            self.add_dialog(Box::new(user_menu_dialog));
+                        }
                     }
                 }
             }
         }
 
-        // [test] forces spectator mode
-        if keys_down.contains(&Key::F9) {
-            current_state = GameState::Spectating(SpectatorManager::new());
+        // // [test] forces spectator mode
+        // if keys_down.contains(&Key::F9) {
+        //     current_state = GameState::Spectating(SpectatorManager::new());
 
-            let clone = ONLINE_MANAGER.clone();
-            tokio::spawn(async move {
-                let mut l = clone.lock().await;
-                l.buffered_spectator_frames.clear();
-                l.last_spectator_frame = Instant::now();
-            });
-        }
+        //     // let clone = ONLINE_MANAGER.clone();
+        //     // tokio::spawn(async move {
+        //     //     let mut l = clone.lock().await;
+        //     //     l.buffered_spectator_frames.clear();
+        //     //     l.last_spectator_frame = Instant::now();
+        //     // });
+        // }
 
         // update any dialogs
         let mut dialog_list = std::mem::take(&mut self.dialogs);
@@ -647,9 +681,8 @@ impl Game {
             let mut counter = 0;
             
             if let Ok(om) = ONLINE_MANAGER.try_lock() {
-                for (_, user) in &om.users.clone() {
+                for (_, user) in &om.users {
                     if let Ok(mut u) = user.try_lock() {
-
                         let users_per_col = 2;
                         let x = USER_ITEM_SIZE.x * (counter % users_per_col) as f64;
                         let y = USER_ITEM_SIZE.y * (counter / users_per_col) as f64;

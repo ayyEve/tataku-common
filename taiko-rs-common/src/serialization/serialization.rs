@@ -66,12 +66,12 @@ impl<T:Serializable+Clone> Serializable for &Vec<T> {
     fn read(_sr:&mut SerializationReader) -> Self {todo!()}
 
     fn write(&self, sw:&mut SerializationWriter) {
-        println!("write vec start");
+        // println!("write vec start");
         sw.write_u64(self.len() as u64);
         for i in self.iter() {
             sw.write(i.clone())
         }
-        println!("write vec end");
+        // println!("write vec end");
     }
 }
 impl<T:Serializable+Clone> Serializable for Vec<T> {
@@ -82,12 +82,12 @@ impl<T:Serializable+Clone> Serializable for Vec<T> {
     }
 
     fn write(&self, sw:&mut SerializationWriter) {
-        println!("write vec start");
+        // println!("write vec start");
         sw.write_u64(self.len() as u64);
         for i in self.iter() {
             sw.write(i.clone())
         }
-        println!("write vec end");
+        // println!("write vec end");
     }
 }   
 // serialization for options

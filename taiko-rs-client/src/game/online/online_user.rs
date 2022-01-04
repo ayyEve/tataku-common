@@ -9,6 +9,8 @@ pub struct OnlineUser {
     hover: bool,
     selected: bool,
 
+    pub clicked: bool,
+
     pub user_id: u32,
     pub username: String,
     pub action: Option<UserAction>,
@@ -21,6 +23,8 @@ impl OnlineUser {
             username,
             action:None,
             action_text: None,
+
+            clicked: false,
 
             hover: false,
             selected: false,
@@ -87,6 +91,7 @@ impl ScrollableItem for OnlineUser {
     }
 
     fn on_click(&mut self, _pos:Vector2, _button:piston::MouseButton, _mods: KeyModifiers) -> bool {
+        if self.hover {self.clicked = true}
         self.hover
     }
 

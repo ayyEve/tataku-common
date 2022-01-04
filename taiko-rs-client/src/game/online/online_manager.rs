@@ -15,8 +15,7 @@ type WsWriter = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 const CONNECT_URL:&str = "ws://localhost:8080";
 
 // how many frames do we buffer before sending?
-// higher means less network use, but also could cause issues with slower events (ie paused)
-// might need a workaround
+// higher means less packet spam
 const SPECTATOR_BUFFER_FLUSH_SIZE: usize = 20;
 
 
@@ -140,7 +139,7 @@ impl OnlineManager {
                             NotificationManager::add_text_notification("Logged in!", 2000.0, Color::GREEN);
 
                             // [test] send spec request
-                            Self::start_spectating(1).await;
+                            // Self::start_spectating(1).await;
                         }
                     }
                 }
@@ -205,7 +204,7 @@ impl OnlineManager {
                 PacketId::Server_SpectatorFrames => {
                     let _sender_id = reader.read_u32();
                     let frames:SpectatorFrames = reader.read();
-                    // println!("got {} spectator frames from the server", frames.len());
+                    // println!("[Online] got {} spectator frames from the server", frames.len());
                     let mut lock = s.lock().await;
                     lock.buffered_spectator_frames.extend(frames);
                 }
@@ -233,6 +232,8 @@ impl OnlineManager {
                     NotificationManager::add_text_notification(&format!("{} stopped spectating", user), 2000.0, Color::GREEN);
                 }
 
+
+                // other packets
                 PacketId::Unknown => {
                     println!("[Online] got unknown packet id {}, dropping remaining packets", raw_id);
                     break;

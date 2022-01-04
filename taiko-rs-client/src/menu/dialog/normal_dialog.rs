@@ -1,16 +1,17 @@
 #![allow(unused, dead_code)]
+//TODO: name this better
 
 use crate::prelude::*;
 const Y_PADDING:f64 = 5.0;
 const BUTTON_SIZE:Vector2 = Vector2::new(100.0, 30.0);
 
-pub type ClickFn = Box<dyn Fn(&mut Game)>;
+pub type ClickFn = Box<dyn Fn(&mut NormalDialog, &mut Game)>;
 
 pub struct NormalDialog {
     bounds: Rectangle,
     buttons: Vec<MenuButton>,
     actions: HashMap<String, ClickFn>,
-    should_close: bool
+    pub should_close: bool
 }
 impl NormalDialog {
     pub fn new(_title: impl AsRef<str>) -> Self {
@@ -75,23 +76,20 @@ impl Dialog<Game> for NormalDialog {
         }
     }
     fn on_mouse_down(&mut self, pos:&Vector2, button:&MouseButton, mods:&KeyModifiers, game:&mut Game) -> bool {
-        // if self.delete_map.on_click(*pos, *button, *mods) {
-        //     println!("delete map {}", self.target_map);
+        let mut buttons = std::mem::take(&mut self.buttons);
+        let actions = std::mem::take(&mut self.actions);
 
-        //     BEATMAP_MANAGER.lock().delete_beatmap(self.target_map.clone(), game);
-        //     self.should_close = true;
-        // }
-
-
-        for m_button in self.buttons.iter_mut() {
+        for m_button in buttons.iter_mut() {
             if m_button.on_click(*pos, *button, *mods) {
                 let tag = m_button.get_tag();
-                let action = self.actions.get(&tag).unwrap();
-                action(game);
-                self.should_close = true;
+                let action = actions.get(&tag).unwrap();
+                action(self, game);
+                // self.should_close = true;
                 break
             }
         }
+        self.buttons = buttons;
+        self.actions = actions;
 
         true
     }
