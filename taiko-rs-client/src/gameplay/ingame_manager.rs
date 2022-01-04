@@ -212,15 +212,11 @@ impl IngameManager {
             self.reset();
 
             if !self.replaying {
-                println!("\n\n\n\n\nsupposedly sending play frame");
                 let frame = SpectatorFrameData::Play {
                     beatmap_hash: self.beatmap.hash(),
                     mode: self.gamemode.playmode()
                 };
-                let cloned_online = ONLINE_MANAGER.clone();
-                tokio::spawn(async move {
-                    OnlineManager::send_spec_frames(cloned_online, vec![(0, frame)]).await;
-                });
+                self.outgoing_spectator_frame((0, frame));
             }
 
             if self.menu_background {
@@ -262,11 +258,8 @@ impl IngameManager {
 
             
             let frame = SpectatorFrameData::UnPause;
-            let cloned_online = ONLINE_MANAGER.clone();
             let time = self.time() as u32;
-            tokio::spawn(async move {
-                OnlineManager::send_spec_frames(cloned_online, vec![(time, frame)]).await;
-            });
+            self.outgoing_spectator_frame((time, frame));
 
             #[cfg(feature="bass_audio")]
             self.song.play(false).unwrap();
@@ -290,11 +283,8 @@ impl IngameManager {
         // might mess with lead-in but meh
 
         println!("sending pause");
-        let cloned_online = ONLINE_MANAGER.clone();
         let time = self.time() as u32;
-        tokio::spawn(async move {
-            OnlineManager::send_spec_frames(cloned_online, vec![(time, SpectatorFrameData::Pause)]).await;
-        });
+        self.outgoing_spectator_frame_force((time, SpectatorFrameData::Pause));
     }
     pub fn reset(&mut self) {
         let settings = Settings::get();
@@ -781,7 +771,14 @@ impl IngameManager {
         if self.menu_background || self.replaying {return}
         let cloned = ONLINE_MANAGER.clone();
         tokio::spawn(async move {
-            OnlineManager::send_spec_frames(cloned, vec![frame]).await
+            OnlineManager::send_spec_frames(cloned, vec![frame], false).await
+        });
+    }
+    pub fn outgoing_spectator_frame_force(&mut self, frame: SpectatorFrame) {
+        if self.menu_background || self.replaying {return}
+        let cloned = ONLINE_MANAGER.clone();
+        tokio::spawn(async move {
+            OnlineManager::send_spec_frames(cloned, vec![frame], true).await
         });
     }
 

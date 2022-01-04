@@ -1249,7 +1249,7 @@ impl StandardHitObject for StandardSpinner {
     } 
 
     fn pos_at(&self, time: f32, scaling_helper:&ScalingHelper) -> Vector2 {
-        println!("time: {}, {}, {}", time, self.time, self.end_time);
+        // println!("time: {}, {}, {}", time, self.time, self.end_time);
 
         if time < self.time || time >= self.end_time {
             

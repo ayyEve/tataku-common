@@ -19,7 +19,9 @@ const CONNECT_URL:&str = "ws://localhost:8080";
 // might need a workaround
 const SPECTATOR_BUFFER_FLUSH_SIZE: usize = 20;
 
+
 lazy_static::lazy_static! {
+    ///TODO: somehow change this to a RwLock. it should prioritize reads, as reads will almost always be syncronous
     pub static ref ONLINE_MANAGER:Arc<Mutex<OnlineManager>> = Arc::new(Mutex::new(OnlineManager::new()));
 }
 
@@ -118,7 +120,7 @@ impl OnlineManager {
         while reader.can_read() {
             let raw_id:u16 = reader.read();
             let packet_id = PacketId::from(raw_id);
-            println!("[Client] got packet id {:?}", packet_id);
+            println!("[Online] got packet id {:?}", packet_id);
 
             match packet_id {
                 // login
@@ -143,20 +145,20 @@ impl OnlineManager {
                 PacketId::Server_UserJoined => {
                     let user_id = reader.read_i32() as u32;
                     let username = reader.read_string();
-                    println!("user id joined: {}", user_id);
+                    println!("[Online] user id {} joined", user_id);
                     s.lock().await.users.insert(user_id, Arc::new(Mutex::new(OnlineUser::new(user_id, username))));
                 }
                 PacketId::Server_UserLeft => {
                     let user_id = reader.read_u32();
-                    println!("user id left: {}", user_id);
+                    println!("[Online] user id {} left", user_id);
                     s.lock().await.users.remove(&user_id);
                 }
                 PacketId::Server_UserStatusUpdate => {
                     let user_id = reader.read_u32();
                     let action:UserAction = reader.read();
                     let action_text = reader.read_string();
-                    let mode: crate::PlayMode = reader.read();
-                    println!("got user status update: {}, {:?}, {} ({:?})", user_id, action, action_text, mode);
+                    let _mode: crate::PlayMode = reader.read();
+                    // println!("got user status update: {}, {:?}, {} ({:?})", user_id, action, action_text, mode);
                     
                     if let Some(e) = s.lock().await.users.get_mut(&user_id) {
                         let mut a = e.lock().await;
@@ -181,7 +183,7 @@ impl OnlineManager {
                     let message:String = reader.read();
                     let channel:String = reader.read();
 
-                    println!("got message: `{}` from user id `{}` in channel `{}`", message, user_id, channel);
+                    println!("[Online] got message: `{}` from user id `{}` in channel `{}`", message, user_id, channel);
                 }
 
                 
@@ -193,24 +195,38 @@ impl OnlineManager {
                     let mut lock = s.lock().await;
                     lock.buffered_spectator_frames.extend(frames);
                 }
+                // spec join/leave
                 PacketId::Server_SpectatorJoined => {
-                    let speccing_user_id:u32 = reader.read();
-                    if let Some(u) = s.lock().await.find_user_by_id(speccing_user_id) {
-                        let username = &u.lock().await.username;
-                        NotificationManager::add_text_notification(&format!("{} is now spectating", username), 2000.0, Color::GREEN);
+                    let user_id:u32 = reader.read();
+                    let user = if let Some(u) = s.lock().await.find_user_by_id(user_id) {
+                        u.lock().await.username.clone()
                     } else {
-                        NotificationManager::add_text_notification(&format!("A user is now spectating"), 2000.0, Color::GREEN);
-                    }
+                        "A user".to_owned()
+                    };
+                    
+                    NotificationManager::add_text_notification(&format!("{} is now spectating", user), 2000.0, Color::GREEN);
+                }
+                PacketId::Server_SpectatorLeft => {
+                    let user_id:u32 = reader.read();
+                    let user = if let Some(u) = s.lock().await.find_user_by_id(user_id) {
+                        u.lock().await.username.clone()
+                    } else {
+                        "A user".to_owned()
+                    };
+                    
+                    NotificationManager::add_text_notification(&format!("{} stopped spectating", user), 2000.0, Color::GREEN);
                 }
 
+
+
                 PacketId::Unknown => {
-                    println!("got unknown packet id {}, dropping remaining packets", raw_id);
+                    println!("[Online] got unknown packet id {}, dropping remaining packets", raw_id);
                     break;
                 }
 
                 p => {
-                    println!("Got unhandled packet: {:?}", p);
-                    continue;
+                    println!("[Online] Got unhandled packet: {:?}, dropping remaining packets", p);
+                    break;
                 }
             }
         }
@@ -241,7 +257,7 @@ impl OnlineManager {
         }
     }
 
-    pub async fn send_spec_frames(s:Arc<Mutex<Self>>, frames:SpectatorFrames) {
+    pub async fn send_spec_frames(s:Arc<Mutex<Self>>, frames:SpectatorFrames, force_send: bool) {
         let mut lock = s.lock().await;
         // if we arent speccing, exit
         // hopefully resolves a bug
@@ -252,9 +268,9 @@ impl OnlineManager {
 
         let times_up = lock.last_spectator_frame.elapsed().as_secs_f32() > 1.0;
 
-        if times_up || lock.buffered_spectator_frames.len() >= SPECTATOR_BUFFER_FLUSH_SIZE {
+        if force_send || times_up || lock.buffered_spectator_frames.len() >= SPECTATOR_BUFFER_FLUSH_SIZE {
             let frames = std::mem::take(&mut lock.buffered_spectator_frames);
-            if times_up {println!("sending spec buffer (time)")} else {println!("sending spec buffer (len)")}
+            if force_send {println!("sending spec buffer (force)")} else if times_up {println!("sending spec buffer (time)")} else {println!("sending spec buffer (len)")}
 
             let data = SimpleWriter::new().write(PacketId::Client_SpectatorFrames).write(frames).done();
             lock.send_data(data).await;
@@ -265,6 +281,7 @@ impl OnlineManager {
 
     pub async fn start_spectating(host_id: u32) {
         let mut s = ONLINE_MANAGER.lock().await;
+        s.buffered_spectator_frames.clear();
         s.spectating = true;
         println!("speccing {}", host_id);
 
