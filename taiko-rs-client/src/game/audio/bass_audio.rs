@@ -43,6 +43,14 @@ impl Audio {
         // check if we're already playing, if restarting is allowed
         let string_path = path.as_ref().to_owned();
 
+        // check if file exists
+        {
+            if !exists(&string_path) {
+                println!("audio file does not exist! {}", string_path);
+                return TaikoResult::Err(TaikoError::Audio(AudioError::FileDoesntExist))
+            }
+        }
+
         if let Some((c_path, audio)) = CURRENT_SONG.lock().clone() {
             if c_path != string_path {
                 println!("[audio] // play_song - pre-stopping old song");

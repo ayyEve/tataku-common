@@ -197,7 +197,7 @@ impl Menu<Game> for MainMenu {
         // open direct menu
         if self.direct_button.on_click(pos, button, mods) {
             let mode = Settings::get_mut("MainMenu::on_click").background_game_settings.mode;
-            let menu:Arc<Mutex<dyn Menu<Game>>> = Arc::new(Mutex::new(OsuDirectMenu::new(mode)));
+            let menu:Arc<Mutex<dyn Menu<Game>>> = Arc::new(Mutex::new(DirectMenu::new(mode)));
             game.queue_state_change(GameState::InMenu(menu));
             return;
         }

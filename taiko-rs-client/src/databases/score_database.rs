@@ -24,7 +24,8 @@ pub fn get_scores(hash:&String, playmode:PlayMode) -> Vec<Score> {
             accuracy: r.get("accuracy").unwrap_or_default(),
             beatmap_hash: r.get("map_hash")?,
             speed: r.get("speed").unwrap_or(1.0),
-            hit_timings: Vec::new()
+            hit_timings: Vec::new(),
+            replay_string: None
         };
 
         Ok(score)
