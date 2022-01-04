@@ -12,7 +12,7 @@ use crate::prelude::*;
 type WsWriter = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 
 // url to connect to
-const CONNECT_URL:&str = "ws://localhost:8080";
+const CONNECT_URL:&str = "wss://taikors.ayyeve.xyz";
 
 // how many frames do we buffer before sending?
 // higher means less packet spam
