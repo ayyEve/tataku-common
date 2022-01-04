@@ -31,8 +31,6 @@ pub struct OnlineManager {
     pub users: HashMap<u32, Arc<Mutex<OnlineUser>>>, // user id is key
     pub discord: Discord,
 
-    // is this user spectating someone?
-    pub spectating: bool,
 
     // pub chat: Chat,
     user_id: u32, // this user's id
@@ -40,11 +38,16 @@ pub struct OnlineManager {
     /// socket writer
     pub writer: Option<Arc<Mutex<WsWriter>>>,
 
+    // spectator specific vars
+
     // buffers 
+    // is this user spectating someone?
+    pub spectating: bool,
     /// buffer for incoming and outgoing spectator frames
     pub(crate) buffered_spectator_frames: SpectatorFrames,
     pub(crate) last_spectator_frame: Instant,
-    
+
+    pub(crate) spectator_list: Vec<(u32, String)>
 }
 impl OnlineManager {
     pub fn new() -> OnlineManager {
@@ -57,7 +60,9 @@ impl OnlineManager {
             connected: false,
             buffered_spectator_frames: Vec::new(),
             last_spectator_frame: Instant::now(),
-            spectating: false
+            spectating: false,
+
+            spectator_list: Vec::new()
         }
     }
     pub async fn start(s: Arc<Mutex<Self>>) {
@@ -82,7 +87,6 @@ impl OnlineManager {
                         .trim_start_matches("[")
                         .trim_end_matches("]")
                         .to_owned();
-                    println!("pass: '{}'", password);
 
                     // send login packet
                     let data = SimpleWriter::new()
@@ -151,14 +155,25 @@ impl OnlineManager {
                 PacketId::Server_UserLeft => {
                     let user_id = reader.read_u32();
                     println!("[Online] user id {} left", user_id);
-                    s.lock().await.users.remove(&user_id);
+
+                    let mut lock = s.lock().await;
+                    // remove from online users
+                    lock.users.remove(&user_id);
+
+                    // remove from our spec list
+                    for (i, &(id, _)) in lock.spectator_list.iter().enumerate() {
+                        if id == user_id {
+                            lock.spectator_list.swap_remove(i);
+                            break;
+                        }
+                    }
                 }
                 PacketId::Server_UserStatusUpdate => {
                     let user_id = reader.read_u32();
                     let action:UserAction = reader.read();
                     let action_text = reader.read_string();
                     let _mode: crate::PlayMode = reader.read();
-                    // println!("got user status update: {}, {:?}, {} ({:?})", user_id, action, action_text, mode);
+                    // println!("[Online] got user status update: {}, {:?}, {} ({:?})", user_id, action, action_text, mode);
                     
                     if let Some(e) = s.lock().await.users.get_mut(&user_id) {
                         let mut a = e.lock().await;
@@ -182,7 +197,6 @@ impl OnlineManager {
                     let user_id:i32 = reader.read();
                     let message:String = reader.read();
                     let channel:String = reader.read();
-
                     println!("[Online] got message: `{}` from user id `{}` in channel `{}`", message, user_id, channel);
                 }
 
@@ -203,6 +217,7 @@ impl OnlineManager {
                     } else {
                         "A user".to_owned()
                     };
+                    s.lock().await.spectator_list.push((user_id, user.clone()));
                     
                     NotificationManager::add_text_notification(&format!("{} is now spectating", user), 2000.0, Color::GREEN);
                 }
@@ -213,11 +228,10 @@ impl OnlineManager {
                     } else {
                         "A user".to_owned()
                     };
+                    s.lock().await.spectator_list.remove_item((user_id, user.clone()));
                     
                     NotificationManager::add_text_notification(&format!("{} stopped spectating", user), 2000.0, Color::GREEN);
                 }
-
-
 
                 PacketId::Unknown => {
                     println!("[Online] got unknown packet id {}, dropping remaining packets", raw_id);
@@ -236,7 +250,7 @@ impl OnlineManager {
         let mut s = s.lock().await;
 
         if let Some(writer) = &s.writer {
-            println!("writing update");
+            // println!("writing update");
             let p = SimpleWriter::new()
                 .write(PacketId::Client_StatusUpdate)
                 .write(action)
@@ -265,12 +279,11 @@ impl OnlineManager {
 
 
         lock.buffered_spectator_frames.extend(frames);
-
         let times_up = lock.last_spectator_frame.elapsed().as_secs_f32() > 1.0;
 
         if force_send || times_up || lock.buffered_spectator_frames.len() >= SPECTATOR_BUFFER_FLUSH_SIZE {
             let frames = std::mem::take(&mut lock.buffered_spectator_frames);
-            if force_send {println!("sending spec buffer (force)")} else if times_up {println!("sending spec buffer (time)")} else {println!("sending spec buffer (len)")}
+            // if force_send {println!("[Online] sending spec buffer (force)")} else if times_up {println!("[Online] sending spec buffer (time)")} else {println!("[Online] sending spec buffer (len)")}
 
             let data = SimpleWriter::new().write(PacketId::Client_SpectatorFrames).write(frames).done();
             lock.send_data(data).await;

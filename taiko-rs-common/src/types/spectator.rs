@@ -19,11 +19,14 @@ pub enum SpectatorFrameData {
     Buffer,
     /// host started spectating someone else. deal with this later
     SpectatingOther {user_id:u32},
-    // host pressed a game key
+    /// host pressed a game key
     ReplayFrame {frame:ReplayFrame},
 
-    // clear up any score innaccuracies, or update new specs with this
-    ScoreSync {score:Score}
+    /// clear up any score innaccuracies, or update new specs with this
+    ScoreSync {score:Score},
+
+    /// host is changing the map
+    ChangingMap,
 }
 impl Serializable for SpectatorFrameData {
     fn read(sr:&mut crate::serialization::SerializationReader) -> Self {
@@ -44,9 +47,11 @@ impl Serializable for SpectatorFrameData {
             6 => SpectatorFrameData::ReplayFrame {frame:sr.read()},
             // score sync
             8 => SpectatorFrameData::ScoreSync {score:sr.read()},
+            // host changing map
+            9 => SpectatorFrameData::ChangingMap,
 
             // unknown
-            n => panic!("unknown replay packet num: {}", n), // unknown
+            n => panic!("[Spectator] unknown SpectatorFrameData num: {}", n), // unknown
         }
     }
 
@@ -59,7 +64,8 @@ impl Serializable for SpectatorFrameData {
             SpectatorFrameData::Buffer => sw.write_u8(4),
             SpectatorFrameData::SpectatingOther {user_id} => {sw.write_u8(5); sw.write(*user_id)},
             SpectatorFrameData::ReplayFrame {frame} => {sw.write_u8(6); sw.write(*frame)},
-            &SpectatorFrameData::ScoreSync {score} => {sw.write_u8(7); sw.write(score.clone())}
+            &SpectatorFrameData::ScoreSync {score} => {sw.write_u8(7); sw.write(score.clone())},
+            SpectatorFrameData::ChangingMap => sw.write_u8(9),
         }
     }
 }

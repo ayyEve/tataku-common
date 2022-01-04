@@ -51,12 +51,12 @@ pub struct IngameManager {
     #[cfg(feature="neb_audio")] 
     pub hitsound_cache: HashMap<String, Option<Sound>>,
 
-    
-    
 
     // offset things
+    // TODO: merge these into one text helper, so they dont overlap
     offset: CenteredTextHelper<f32>,
     global_offset: CenteredTextHelper<f32>,
+
 
     /// (map.time, note.time - hit.time)
     pub hitbar_timings: Vec<(f32, f32)>,
@@ -68,6 +68,7 @@ pub struct IngameManager {
 
     /// if in replay mode, what replay frame are we at?
     replay_frame: u64,
+    spectator_cache: Vec<(u32, String)>,
 
     background_game_settings: BackgroundGameSettings,
 }
@@ -125,6 +126,7 @@ impl IngameManager {
             background_game_settings: settings.background_game_settings.clone(),
 
             gamemode,
+            spectator_cache: Vec::new(),
         }
     }
 
@@ -412,6 +414,12 @@ impl IngameManager {
 
         // update gamemode
         gamemode.update(self, time);
+
+
+        // update our spectator list if we can
+        if let Ok(manager) = ONLINE_MANAGER.try_lock() {
+            self.spectator_cache = manager.spectator_list.clone()
+        }
 
         // put it back
         self.gamemode = gamemode;
@@ -707,10 +715,10 @@ impl IngameManager {
         )));
 
 
+        //TODO: rework this garbage lmao
         // draw hit timings bar
         // draw hit timing colors below the bar
         let (windows, (miss, miss_color)) = &self.timing_bar_things;
-        
         //draw miss window first
         list.push(Box::new(Rectangle::new(
             *miss_color,
@@ -719,7 +727,6 @@ impl IngameManager {
             Vector2::new(HIT_TIMING_BAR_SIZE.x, HIT_TIMING_BAR_SIZE.y),
             None // for now
         )));
-
         // draw other hit windows
         for (window, color) in windows {
             let width = (window / miss) as f64 * HIT_TIMING_BAR_SIZE.x;
@@ -763,6 +770,33 @@ impl IngameManager {
             )));
         }
 
+
+        // draw spectators
+        if self.spectator_cache.len() > 0 {
+
+            const DEPTH:f64 = -1000.0;
+
+            const SPECTATOR_ITEM_SIZE:Vector2 = Vector2::new(100.0, 40.0);
+            const PADDING:f64 = 4.0;
+            const POS:Vector2 = Vector2::new(5.0, 30.0);
+
+            list.push(visibility_bg(
+                POS,
+                Vector2::new(SPECTATOR_ITEM_SIZE.x, (SPECTATOR_ITEM_SIZE.y + PADDING) * self.spectator_cache.len() as f64),
+                DEPTH
+            ));
+            for (i, (_, username)) in self.spectator_cache.iter().enumerate() {
+                // draw username
+                list.push(Box::new(Text::new(
+                    Color::WHITE, 
+                    DEPTH - 0.001, 
+                    POS + Vector2::new(0.0, (SPECTATOR_ITEM_SIZE.y + PADDING) * i as f64),
+                    30,
+                    username.clone(),
+                    font.clone()
+                )))
+            }
+        }
     }
 }
 // spectator stuff
@@ -816,6 +850,7 @@ impl Default for IngameManager {
             hitbar_timings: Default::default(),
             replay_frame: Default::default(),
             background_game_settings: Default::default(), 
+            spectator_cache: Default::default(), 
         }
     }
 }
