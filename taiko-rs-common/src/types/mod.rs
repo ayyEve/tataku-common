@@ -14,7 +14,7 @@ use crate::serialization::Serializable;
 use PlayMode::*;
 
 #[repr(u8)]
-#[derive(Debug,Clone,Copy,PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum PlayMode {
     Standard,
     Taiko,
