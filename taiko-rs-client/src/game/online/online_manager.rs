@@ -110,7 +110,7 @@ impl OnlineManager {
                         }
                     }
                 }
-            },
+            }
             Err(oof) => {
                 s.lock().await.connected = false;
                 println!("[Online] could not accept connection: {}", oof);
@@ -149,9 +149,9 @@ impl OnlineManager {
 
                 // user updates
                 PacketId::Server_UserJoined => {
-                    let user_id = reader.read_i32() as u32;
+                    let user_id = reader.read();
                     let username = reader.read_string();
-                    println!("[Online] user id {} joined", user_id);
+                    println!("[Online] user {} joined (id: {})", username, user_id);
                     s.lock().await.users.insert(user_id, Arc::new(Mutex::new(OnlineUser::new(user_id, username))));
                 }
                 PacketId::Server_UserLeft => {
@@ -242,7 +242,7 @@ impl OnlineManager {
                     s.lock().await.send_data(data).await;
                 }
                 PacketId::Pong => {
-                    println!("[Online] got pong from server");
+                    // println!("[Online] got pong from server");
                 }
 
                 // other packets
@@ -346,6 +346,7 @@ impl OnlineManager {
 
 const LOG_PINGS:bool = false;
 fn ping_handler() {
+    return;
     tokio::spawn(async move {
         let ping = SimpleWriter::new().write(PacketId::Ping).done();
         let duration = std::time::Duration::from_millis(1000);
