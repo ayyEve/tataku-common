@@ -99,20 +99,21 @@ impl OnlineManager {
                 while let Some(message) = reader.next().await {
                     match message {
                         Ok(Message::Binary(data)) => OnlineManager::handle_packet(s.clone(), data).await,
-                        Ok(message) => println!("got something else: {:?}", message),
+                        Ok(message) => println!("[Online] got something else: {:?}", message),
 
                         Err(oof) => {
-                            println!("oof: {}", oof);
+                            println!("[Online] oof: {}", oof);
                             s.lock().await.connected = false;
                             s.lock().await.writer = None;
                             // reconnect?
+                            break;
                         }
                     }
                 }
             },
             Err(oof) => {
                 s.lock().await.connected = false;
-                println!("could not accept connection: {}", oof);
+                println!("[Online] could not accept connection: {}", oof);
             }
         }
     }
@@ -137,6 +138,8 @@ impl OnlineManager {
                             s.lock().await.user_id = user_id as u32;
                             println!("[Login] success");
                             NotificationManager::add_text_notification("Logged in!", 2000.0, Color::GREEN);
+
+                            ping_handler()
 
                             // [test] send spec request
                             // Self::start_spectating(1).await;
@@ -233,6 +236,15 @@ impl OnlineManager {
                 }
 
 
+                // ping and pong
+                PacketId::Ping => {
+                    let data = SimpleWriter::new().write(PacketId::Pong).done();
+                    s.lock().await.send_data(data).await;
+                }
+                PacketId::Pong => {
+                    println!("[Online] got pong from server");
+                }
+
                 // other packets
                 PacketId::Unknown => {
                     println!("[Online] got unknown packet id {}, dropping remaining packets", raw_id);
@@ -328,4 +340,20 @@ impl OnlineManager {
 
         None
     }
+}
+
+
+
+const LOG_PINGS:bool = false;
+fn ping_handler() {
+    tokio::spawn(async move {
+        let ping = SimpleWriter::new().write(PacketId::Ping).done();
+        let duration = std::time::Duration::from_millis(1000);
+
+        loop {
+            tokio::time::sleep(duration).await;
+            if LOG_PINGS {println!("[Ping] sending ping")};
+            ONLINE_MANAGER.lock().await.send_data(ping.clone()).await;
+        }
+    });
 }

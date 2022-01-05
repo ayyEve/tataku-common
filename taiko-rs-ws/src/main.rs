@@ -1,28 +1,62 @@
-
-mod prelude;
+mod prelude; use prelude::*;
+mod helpers;
+mod settings; use settings::*;
 pub(crate) mod user_connection;
-
-use prelude::*;
+mod packet_helpers; use packet_helpers::*;
 
 pub static DATABASE:OnceCell<DatabaseConnection> = OnceCell::const_new();
 
+const CHECK_DOUBLE_LOCK:bool = true;
+macro_rules! send_packet {
+    ($writer: expr, $data:expr) => {
+        if let Some(writer) = &$writer {
+            // this is probably not very reliable but its a good first-check
+            if CHECK_DOUBLE_LOCK {
+                if let Err(e) = writer.try_lock() {
+                    println!("writer double lock! ({}:{}): {}", file!(), line!(), e)
+                }
+            }
+
+            match writer.lock().await.send(Message::Binary($data)).await {
+                Ok(_) => {true},
+                Err(e) => {
+                    println!("Error sending data ({}:{}): {}", file!(), line!(), e);
+                    false
+                },
+            }
+        } else {
+            false
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! create_packet {
+    ($($item:expr),+) => {
+        SimpleWriter::new()
+        $(.write($item))+
+        .done()
+    };
+}
+
+
 #[tokio::main]
 async fn main() -> Result<(), IoError> {
-    let addr = env::args().nth(1).unwrap_or_else(|| "0.0.0.0:8080".to_string());
+    // read settings
+    let settings = Settings::load();
+    let addr = format!("0.0.0.0:{}", settings.port);
 
-    let state = PeerMap::new(Mutex::new(HashMap::new()));
+    let state = Arc::new(Mutex::new(HashMap::new()));
 
     // Create the event loop and TCP listener we'll accept connections on.
-    let try_socket = TcpListener::bind(&addr).await;
-    let listener = try_socket.expect("Failed to bind");
-    println!("Listening on: {}", addr);
+    let listener = TcpListener::bind(&addr).await.expect("Failed to bind");
+    println!("[Startup] Listening on {}", addr);
 
     //#region bot account
-    //Create a new bot account
-    let bot = UserConnection::new_bot("Bot".to_owned());
-    let bot = Arc::new(Mutex::new(bot));
+    // Create a new bot account
+    let bot = Arc::new(Mutex::new(UserConnection::new_bot("Bot".to_owned())));
 
-    //Add the bot account
+    // Add the bot account
     state
         .lock()
         .await
@@ -30,16 +64,17 @@ async fn main() -> Result<(), IoError> {
     //#endregion
 
     //#region database connection
-    let db = sea_orm::Database::connect("postgres://postgres:Tacos98@192.168.0.50:5432/taikors?sslmode=disable")
+    let db = sea_orm::Database::connect(settings.postgres.connection_string())
         .await
         .expect("Error connecting to database");
 
-    println!("db connected");
+    println!("[Startup] db connected");
     DATABASE.set(db).unwrap();
     //#endregion
 
     // Let's spawn the handling of each connection in a separate task.
     while let Ok((stream, addr)) = listener.accept().await {
+        println!("addr: {}", addr);
         tokio::spawn(handle_connection(bot.clone(), state.clone(), stream, addr));
     }
 
@@ -49,107 +84,53 @@ async fn main() -> Result<(), IoError> {
 async fn handle_connection(bot_account: Arc<Mutex<UserConnection>>, peer_map: PeerMap, raw_stream: TcpStream, addr: SocketAddr) {
     match accept_async(raw_stream).await {
         Ok(ws_stream) => {
-
             let (writer, mut reader) = ws_stream.split();
             let writer = Arc::new(Mutex::new(writer));
 
             let user_connection = UserConnection::new(writer.clone());
             peer_map.lock().await.insert(addr, user_connection.clone());
-            
+
             while let Some(message) = reader.next().await {
                 match message {
                     Ok(Message::Binary(data)) => handle_packet(data, &bot_account.lock().await.to_owned(), &peer_map, &addr).await,
                     Ok(Message::Close(close_frame)) => {
-                        let close_reason;
+                        let close_reason = match close_frame {
+                            Some(close_frame) => close_frame.reason.to_string(),
+                            None => "Close frame not found".to_owned()
+                        };
 
-                        match close_frame {
-                            Some(close_frame) => {
-                                close_reason = close_frame.reason.to_string();
-                            },
-                            None => {
-                                close_reason = "Close frame not found".to_owned();
-                            }
-                        }
-
-                        println!("Connection closed: {}", close_reason);
+                        println!("[Connection] Connection closed: {}", close_reason);
                     }
-                    Ok(message) => println!("got something else: {:?}", message),
+                    Ok(message) => println!("[Connection] got something else: {:?}", message),
 
                     Err(oof) => {
-                        println!("oof: {:?}", oof);
+                        println!("[Connection] oof: {:?}", oof);
 
-                        let user = peer_map.lock().await.get(&addr).unwrap().clone();
-
-                        // tell everyone we left
-                        let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserLeft).write(user.user_id).done());
-                        
-                        for (_, other) in peer_map.lock().await.iter() {
-                            if user.user_id == other.user_id {continue}
-                            match &other.writer {
-                                Some(writer) => { 
-                                    let _ = writer.lock().await.send(p.clone()).await; 
-                                },
-                                
-                                None => ()
+                        if let Some(user) = peer_map.lock().await.remove(&addr) {
+                            // tell everyone we left
+                            let data = create_packet!(PacketId::Server_UserLeft, user.user_id);
+                            
+                            for (_, other) in peer_map.lock().await.iter() {
+                                send_packet!(other.writer, data.clone());
                             }
                         }
 
-                        peer_map.lock().await.remove(&addr);
-                        let _ = writer.lock().await.close();
+                        let _ = writer.lock().await.close().await;
                         break;
                     },
                 }
             }
-        },
-        Err(oof) => println!("could not accept connection: {:?}", oof),
+        }
+        Err(e) => println!("[Connection] Could not accept connection: {:?}", e),
     }
 }
 
-fn create_server_send_message_packet(id: u32, message: String, channel: String) -> Message {
-    Message::Binary(SimpleWriter::new()
-        .write(PacketId::Server_SendMessage)
-        .write(id)
-        .write(message)
-        .write(channel).done())
-}
-
-async fn create_server_score_update_packet(user_id: u32, mode: PlayMode) -> Message {
-    let user_data = get_user_score_info(user_id, mode).await;
-
-    let user_ranked_score: i64 = user_data.0;
-    let user_total_score: i64 = user_data.1;
-    let user_accuracy: f64 = user_data.2;
-    let play_count: i32 = user_data.3;
-    let rank: i32 = user_data.4;
-
-    Message::Binary(SimpleWriter::new()
-        .write(PacketId::Server_ScoreUpdate)
-        .write(user_id)
-        .write(user_total_score)
-        .write(user_ranked_score)
-        .write(user_accuracy)
-        .write(play_count)
-        .write(rank)
-        .done()
-    )
-}
-
-fn create_server_status_update_packet (user: &UserConnection) -> Message {
-    Message::Binary(SimpleWriter::new()
-        .write(PacketId::Server_UserStatusUpdate)
-        .write(user.user_id)
-        .write(user.action)
-        .write(user.action_text.clone())
-        .write(user.mode)
-        .done())
-}
 
 async fn get_user_score_info(user_id: u32, mode: PlayMode) -> (i64, i64, f64, i32, i32) {
-    let mut ranked_score = 0 as i64;
-    let mut total_score = 0 as i64;
+    let mut ranked_score = 0;
+    let mut total_score = 0;
     let mut accuracy = 0.0;
     let mut playcount = 0;
-
     let mut rank = 0;
 
     match user_data_table::Entity::find()
@@ -168,13 +149,11 @@ async fn get_user_score_info(user_id: u32, mode: PlayMode) -> (i64, i64, f64, i3
                 None => { }
             };
         },
-        Err(_e) => { }
+        Err(e) => println!("[Database] Error: {}", e)
     }
 
     #[derive(Debug, FromQueryResult)]
-    struct RankThing {
-        rank: i64
-    }
+    struct RankThing {rank: i64}
 
     let things: Vec<RankThing> = RankThing::find_by_statement(Statement::from_sql_and_values(
         DbBackend::Postgres,
@@ -185,12 +164,9 @@ async fn get_user_score_info(user_id: u32, mode: PlayMode) -> (i64, i64, f64, i3
         .await
         .unwrap();
 
-    match things.first() {
-        Some(thing) => {
-            rank = thing.rank;
-        }
-        None => { }
-    };
+    if let Some(thing) = things.first() {
+        rank = thing.rank
+    }
 
     (ranked_score, total_score, accuracy, playcount, rank as i32)
 }
@@ -199,66 +175,47 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
     let mut user_connection = peer_map.lock().await.get(addr).unwrap().clone();
     let mut reader = SerializationReader::new(data);
 
-    let writer = user_connection.writer.clone().expect("We are somehow a bot? this socket doesnt even exist");
-    let mut writer = writer.lock().await;
-
     while reader.can_read() {
         let raw_id:u16 = reader.read();
         let id = PacketId::from(raw_id);
-        println!("[Server] got packet id {:?}", id);
+        println!("[Packet] got packet id {:?}", id);
         
         match id {
             // login
             PacketId::Client_UserLogin => {
-                // read username
-                // read password
                 // get userid from database
                 // return userid if good, 0 if bad
-                let username:String = reader.read();
-                let password:String = reader.read();
+                let username:String = reader.read(); // read username
+                let password:String = reader.read(); // read password
 
                 // verify username and password
-                let user_id;
-
                 let user: Option<users_table::Model> = users_table::Entity::find()
                     .filter(users_table::Column::Username.eq(username.clone()))
                     .one(DATABASE.get().unwrap())
                     .await
                     .unwrap();
 
-                match user {
+                // TODO: would be nice if we could shorten this as well
+                let user_id = match user {
                     None => {
                         // Send the user not found response
-                        writer.send(Message::Binary(SimpleWriter::new()
-                            .write(PacketId::Server_LoginResponse)
-                            .write(-1 as i32)
-                            .done()
-                        ))
-                            .await
-                            .expect("poop");
-                        println!("user not found");
-
+                        send_packet!(user_connection.writer, create_packet!(PacketId::Server_LoginResponse, -1 as i32));
+                        println!("[Login] user not found");
                         return;
                     }
                     Some(user) => {
-                        user_id = user.user_id;
-
                         let argon2 = Argon2::default();
-
                         let parsed_hash = PasswordHash::new(&user.password).unwrap();
                         if let Err(e) = argon2.verify_password(password.as_ref(), &parsed_hash) {
                             // Send the password incorrect response
-                            writer.send(Message::Binary(SimpleWriter::new()
-                                .write(PacketId::Server_LoginResponse)
-                                .write(-2 as i32)
-                                .done()
-                            )).await.expect("poop");
-                            println!("password incorrect: {}", e);
-
+                            send_packet!(user_connection.writer, create_packet!(PacketId::Server_LoginResponse, -2 as i32));
+                            println!("[Login] password incorrect: {}", e);
                             return;
                         }
+
+                        user.user_id
                     }
-                }
+                };
 
 
                 {
@@ -268,64 +225,42 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                     u.username = username.clone();
                 }
 
-                // Send the login response packet
-                writer.send(
-                    Message::Binary(SimpleWriter::new().write(PacketId::Server_LoginResponse).write(user_id as i32).done()
-                )).await.expect("poop");
+                // Send the login response packet to the connecting user
+                send_packet!(user_connection.writer, create_packet!(PacketId::Server_LoginResponse, user_id as i32));
                 
                 // tell everyone we joined
-                let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserJoined).write(user_id as i32).write(username.clone()).done());
+                let join_packet = create_packet!(PacketId::Server_UserJoined, user_id as i32);
                 
-                for (i_addr, user) in peer_map.lock().await.iter() {
-                    if i_addr == addr {
-                        // Tell the user about their own score
-                        let p = create_server_score_update_packet(user.user_id, user.mode).await;
-                        writer.send(p).await.expect("ono");
-
-                        continue
-                    }
+                for (_, user) in peer_map.lock().await.iter() {
+                    // not sure if this is still necessary with this code
+                    // if i_addr == addr {
+                    //     // Tell the user about their own score
+                    //     send_packet!(user_connection.writer, create_server_score_update_packet(user.user_id, user.mode).await);
+                    //     continue
+                    // }
 
                     //Send all the existing users about the new user
-                    match &user.writer {
-                        Some(writer) => { 
-                            let _ = writer.lock().await.send(p.clone()).await; 
-                        },
-                        
-                        None => ()
-                    };
+                    send_packet!(user.writer, join_packet.clone());
 
                     // Tell the user that just joined about all the other users
-                    let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserJoined).write(user.user_id).write(user.username.clone()).done());
-                    writer.send(p).await.expect("ono");
+                    send_packet!(user_connection.writer, create_packet!(PacketId::Server_UserJoined, user.user_id, user.username.clone()));
 
                     // Tell the user that just joined about all the other users score values
-                    let p = create_server_score_update_packet(user.user_id, user.mode).await;
-                    writer.send(p).await.expect("ono");
+                    send_packet!(user_connection.writer, create_server_score_update_packet(user.user_id, user.mode).await);
 
                     // Update the statuses for all the users
-                    let p = create_server_status_update_packet(user);
-                    writer.send(p).await.expect("ono");
+                    send_packet!(user_connection.writer, create_server_status_update_packet(user));
                 }
             }
 
             // logout
             PacketId::Client_LogOut => {
-                //userid
-                let user_id = user_connection.user_id;
-                
                 // tell everyone we left
-                let p = Message::Binary(SimpleWriter::new().write(PacketId::Server_UserLeft).write(user_id).done());
+                let data = create_packet!(PacketId::Server_UserLeft, user_connection.user_id);
 
                 for (i_addr, user) in peer_map.lock().await.iter() {
                     if i_addr == addr {continue}
-                    
-                    match &user.writer {
-                        Some(writer) => { 
-                            let _ = writer.lock().await.send(p.clone()).await; 
-                        },
-                        
-                        None => ()
-                    };
+                    send_packet!(user.writer, data.clone());
                 }
             }
 
@@ -333,25 +268,11 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
 
             //Sent by a client to notify the server to update their score for everyone
             PacketId::Client_NotifyScoreUpdate => {
-                let user_id = user_connection.user_id;
-
-                let p = create_server_score_update_packet(user_id, user_connection.mode).await;
+                let data = create_server_score_update_packet(user_connection.user_id, user_connection.mode).await;
 
                 // Send all users the new score info
-                for (i_addr, user) in peer_map.lock().await.iter() {
-                    if i_addr == addr {
-                        let _ = writer.send(p.clone()).await;
-
-                        continue
-                    }
-
-                    match &user.writer {
-                        Some(writer) => {
-                            let _ = writer.lock().await.send(p.clone()).await;
-                        },
-
-                        None => ()
-                    };
+                for (_, user) in peer_map.lock().await.iter() {
+                    send_packet!(user.writer, data.clone());
                 }
             }
 
@@ -373,27 +294,14 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 }
                 
                 // update everyone with the new user info
-                let p = create_server_status_update_packet(&user_connection);
-
-                for (i_addr, user) in peer_map.lock().await.iter() {
-                    if i_addr == addr {
-                        let _ = writer.send(p.clone()).await;
-
-                        continue
-                    }
-
-                    match &user.writer {
-                        Some(writer) => {
-                            let _ = writer.lock().await.send(p.clone()).await; 
-                        },
-                        
-                        None => ()
-                    };
+                let data = create_server_status_update_packet(&user_connection);
+                for (_, user) in peer_map.lock().await.iter() {
+                    send_packet!(user.writer, data.clone());
                 }
             }
 
             
-            // =====  client statuses  =====
+            // =====  chat  =====
 
             // chat messages
             PacketId::Client_SendMessage => {
@@ -403,30 +311,25 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
 
                 //Makes sure we dont send a message to ourselves, that would be silly
                 if channel == user_connection.username {
-                    let _ = writer.send(create_server_send_message_packet(
+                    let data = create_server_send_message_packet(
                         bot_account.user_id,
                         "You cant send a message to yourself silly!".to_owned(),
                         user_connection.username.clone()
-                    )).await;
-
+                    );
+                    
+                    send_packet!(user_connection.writer, data);
                     return
                 }
 
                 //Create the packet to send to all clients
-                let p = create_server_send_message_packet(
+                let data = create_server_send_message_packet(
                     userid, message.clone(), channel.clone()
                 );
 
                 let mut did_send = false;
 
-                for (i_addr, user) in peer_map.lock().await.iter() {
+                for (_, user) in peer_map.lock().await.iter() {
                     //Send the message to ourselves without any more checks
-                    if i_addr == addr {
-                        let _ = writer.send(p.clone()).await;
-                    
-                        continue
-                    }
-
                     //If this is a DM and the current iter user is not the recipient, then skip
                     if !channel.starts_with("#") {
                         if user.username != channel {
@@ -437,22 +340,18 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                     did_send = true;
 
                     //Send the message to all clients
-                    match &user.writer {
-                        Some(writer) => { 
-                            let _ = writer.lock().await.send(p.clone()).await;
-                        },
-                        
-                        None => ()
-                    };
+                    send_packet!(user.writer, data.clone());
                 }
 
                 //Tell the user that the message was not delivered
                 if !did_send {
-                    let _ = writer.send(create_server_send_message_packet(
+                    let data = create_server_send_message_packet(
                         bot_account.user_id,
                         "That user/channel is not online or does not exist".to_owned(),
                         user_connection.username.clone()
-                    )).await;
+                    );
+                    
+                    send_packet!(user_connection.writer, data);
                 } else {
                     //Add to the message history
                     if channel.starts_with("#") {
@@ -471,84 +370,65 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
             }
 
 
-            // spectator
+
+            // =====  spectator  =====
             PacketId::Client_Spectate => {
                 // user wants to spectate
                 let host_id = reader.read_u32();
 
-                let mut locked = peer_map.lock().await;
-
-
                 let mut found = false;
-                for (conn, user) in locked.iter_mut() {
+                for (conn, user) in peer_map.lock().await.iter_mut() {
                     if conn == addr {continue}
                     
                     user.remove_spectator(&mut user_connection).await;
-
-
                     if user.user_id == host_id {
                         found = true;
-                        user.spectators.push(user_connection.user_id);
 
-                        if let Some(writer) = &user.writer {
-                            let _ = writer.lock().await.send(Message::Binary(SimpleWriter::new()
-                                .write(PacketId::Server_SpectatorJoined)
-                                .write(user_connection.user_id)
-                                .done())
-                            ).await;
+                        if send_packet!(user.writer, create_packet!(PacketId::Server_SpectatorJoined, user_connection.user_id)) {
+                            user.spectators.push(user_connection.user_id);
                         } else {
                             // trying to spectate a bot
-                            let _ = writer.send(create_server_send_message_packet(
+                            let data = create_server_send_message_packet(
                                 bot_account.user_id,
                                 "You cant spectate a bot!".to_owned(),
                                 user_connection.username.clone()
-                            )).await;
+                            );
+                            send_packet!(user_connection.writer, data);
                         }
                     }
                 }
                 if !found {
                     // user wasnt found
-                    let _ = writer.send(create_server_send_message_packet(
+                    let data = create_server_send_message_packet(
                         bot_account.user_id,
                         "That user was not found".to_owned(),
                         user_connection.username.clone()
-                    )).await;
+                    );
+                    send_packet!(user_connection.writer, data);
                 }
-
-                // match locked.get_mut(&host_id) {
-                //     Some(u) => {
-                //         let host = u.lock().await;
-                //         host
-                //     }
-                //     None => {
-                //         println!("trying to spec user that doesnt exist!");
-                //     }
-                // }
             }
             PacketId::Client_SpectatorFrames => {
                 // let count = reader.read();
                 let frames: Vec<SpectatorFrame> = reader.read();
-                println!("forwarding {} frames to the following users: {:?}", frames.len(), user_connection.spectators);
+                // println!("forwarding {} frames to the following users: {:?}", frames.len(), user_connection.spectators);
 
-                let p = Message::Binary(SimpleWriter::new()
-                    .write(PacketId::Server_SpectatorFrames)
-                    .write(user_connection.user_id)
-                    .write(frames)
-                    .done());
-
-                
+                let data = create_packet!(PacketId::Server_SpectatorFrames, user_connection.user_id, frames);
                 for (conn, user) in peer_map.lock().await.iter_mut() {
                     if conn == addr {continue}
                     
                     if user_connection.spectators.contains(&user.user_id) {
-                        println!("sending to user id {}", user.user_id);
-                        if let Some(writer) = &user.writer {
-                            if let Err(e) = writer.lock().await.send(p.clone()).await {
-                                println!("error: {}", e);
-                            }
-                        }
+                        send_packet!(user.writer, data.clone());
                     }
                 }
+            }
+
+            
+            // ping and pong
+            PacketId::Ping => {
+                send_packet!(user_connection.writer, create_packet!(PacketId::Pong));
+            }
+            PacketId::Pong => {
+                println!("[Packet] got pong from client");
             }
 
 
@@ -557,14 +437,15 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
 
             // Other
             PacketId::Unknown => {
-                println!("got unknown packet id {}, dropping remaining packets", raw_id);
+                println!("[Packet] got unknown packet id {}, dropping remaining packets", raw_id);
                 break;
             }
 
             n => {
-                println!("got server packet {:?} somehow, dropping remaining packets", n);
+                println!("[Packet] unhandled packet {:?}, dropping remaining packets", n);
                 break;
             }
         }
     }
 }
+

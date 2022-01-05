@@ -39,6 +39,10 @@ pub enum PacketId {
     Client_SpectatorFrames, // frame_count, [SpectatorFrame]
     Server_SpectatorFrames, // host_id, frame_count, [SpectatorFrame]
 
+
+    Ping,
+    Pong,
+
     // multiplayer?
 }
 impl PacketId {
@@ -75,6 +79,10 @@ impl From<u16> for PacketId {
             15 => Server_SpectatorLeft,
             16 => Client_SpectatorFrames,
             17 => Server_SpectatorFrames,
+
+            // ping/ping (i hate that these are here and not ids 1 and 2)
+            18 => Ping,
+            19 => Pong,
 
             // multiplayer
 

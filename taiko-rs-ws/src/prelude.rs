@@ -21,6 +21,7 @@ pub use argon2::{
     }
 };
 
+pub use crate::helpers::*;
 pub use crate::user_connection::*;
 pub use taiko_rs_common::prelude::*;
 
