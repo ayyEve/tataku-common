@@ -74,7 +74,8 @@ async fn main() -> Result<(), IoError> {
 
     // Let's spawn the handling of each connection in a separate task.
     while let Ok((stream, addr)) = listener.accept().await {
-        println!("addr: {}", addr);
+        // NOTE: addr's ip is always my reverse proxy host. i dont know if this could cause issues, 
+        // but the port is different per connection somehow so imma assume its fine lol
         tokio::spawn(handle_connection(bot.clone(), state.clone(), stream, addr));
     }
 
@@ -176,7 +177,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
     let mut reader = SerializationReader::new(data);
 
     while reader.can_read() {
-        let raw_id:u16 = reader.read();
+        let raw_id = reader.read();
         let id = PacketId::from(raw_id);
         println!("[Packet] got packet id {:?}", id);
         
