@@ -14,6 +14,7 @@ pub type TaikoResult<T> = Result<T, TaikoError>;
 #[allow(dead_code, unused)]
 pub enum TaikoError {
     Beatmap(BeatmapError),
+    GameMode(GameModeError),
     IO(IOError),
     Serde(JsonError),
 
@@ -23,7 +24,6 @@ pub enum TaikoError {
 
     String(String),
 }
-
 impl Display for TaikoError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
@@ -34,6 +34,7 @@ impl Display for TaikoError {
             TaikoError::Audio(e) => write!(f, "{:?}", e),
             TaikoError::String(e) => write!(f, "{:?}", e),
             TaikoError::GlError(e) => write!(f, "{:?}", e),
+            TaikoError::GameMode(e) => write!(f, "{:?}", e),
         }
     }
 }
@@ -56,7 +57,6 @@ impl From<BassError> for TaikoError {
     fn from(e: BassError) -> Self {TaikoError::Audio(AudioError::BassError(e))}
 }
 
-
 impl From<BeatmapError> for TaikoError {
     fn from(e: BeatmapError) -> Self {TaikoError::Beatmap(e)}
 }
@@ -65,4 +65,12 @@ impl From<GlError> for TaikoError {
 }
 impl From<String> for TaikoError {
     fn from(e: String) -> Self {TaikoError::String(e)}
+}
+impl From<GameModeError> for TaikoError {
+    fn from(e: GameModeError) -> Self {TaikoError::GameMode(e)}
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum GameModeError {
+    NotImplemented
 }

@@ -1,4 +1,9 @@
-use std::convert::TryInto;
+use std::{
+    rc::Rc,
+    sync::Arc, 
+    convert::TryInto, 
+};
+
 pub trait Serializable {
     fn read(sr:&mut SerializationReader) -> Self;
     fn write(&self, sw:&mut SerializationWriter);
@@ -99,6 +104,28 @@ impl<T:Serializable+Clone> Serializable for Option<T> {
     fn write(&self, sw:&mut SerializationWriter) {
         sw.write(self.is_some());
         if let Some(t) = self {sw.write(t.clone())}
+    }
+}
+
+// serialization for Rc
+impl<T:Serializable> Serializable for Rc<T> {
+    fn read(sr:&mut SerializationReader) -> Self {
+        Rc::new(sr.read())
+    }
+
+    fn write(&self, sw:&mut SerializationWriter) {
+        self.as_ref().write(sw)
+    }
+}
+
+// serialization for arcs
+impl<T:Serializable> Serializable for Arc<T> {
+    fn read(sr:&mut SerializationReader) -> Self {
+        Arc::new(sr.read())
+    }
+
+    fn write(&self, sw:&mut SerializationWriter) {
+        self.as_ref().write(sw)
     }
 }
 

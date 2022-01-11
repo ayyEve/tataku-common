@@ -207,18 +207,28 @@ impl IngameManager {
         !(self.current_mods.autoplay || self.replaying)
     }
 
+    pub fn apply_mods(&mut self, mods: ModManager) {
+        if self.started {
+            NotificationManager::add_text_notification("Error applying mods to IngameManager\nmap already started", 2000.0, Color::RED);
+        } else {
+            self.current_mods = Arc::new(mods);
+            // update replay speed too
+            // TODO: add mods to replay data instead of this shit lmao
+            self.replay.speed = self.current_mods.speed;
+        }
+    }
+
     // can be from either paused or new
     pub fn start(&mut self) {
-
         if !self.started {
             self.reset();
 
             if !self.replaying {
-                let frame = SpectatorFrameData::Play {
+                self.outgoing_spectator_frame((0, SpectatorFrameData::Play {
                     beatmap_hash: self.beatmap.hash(),
-                    mode: self.gamemode.playmode()
-                };
-                self.outgoing_spectator_frame((0, frame));
+                    mode: self.gamemode.playmode(),
+                    mods: serde_json::to_string(&(*self.current_mods)).unwrap()
+                }));
             }
 
             if self.menu_background {
@@ -257,7 +267,6 @@ impl IngameManager {
         } else if self.lead_in_time <= 0.0 {
             // if this is the menu, dont do anything
             if self.menu_background {return}
-
             
             let frame = SpectatorFrameData::UnPause;
             let time = self.time() as u32;
@@ -320,7 +329,6 @@ impl IngameManager {
                     song.pause();
                 }
             }
-            
         }
 
         self.completed = false;
@@ -335,7 +343,6 @@ impl IngameManager {
         self.combo_text_bounds = self.gamemode.combo_bounds();
         self.timing_bar_things = self.gamemode.timing_bar_things();
         self.hitbar_timings = Vec::new();
-
         
         if self.replaying {
             // if we're replaying, make sure we're using the score's speed

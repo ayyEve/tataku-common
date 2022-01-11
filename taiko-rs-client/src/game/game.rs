@@ -505,6 +505,14 @@ impl Game {
 
             GameState::Spectating(manager) => {   
                 manager.update(self);
+
+                if mouse_moved {manager.mouse_move(mouse_pos, self)}
+                for btn in mouse_down {manager.mouse_down(mouse_pos, btn, mods, self)}
+                for btn in mouse_up {manager.mouse_up(mouse_pos, btn, mods, self)}
+                if scroll_delta != 0.0 {manager.mouse_scroll(scroll_delta, self)}
+
+                for k in keys_down.iter() {manager.key_down(*k, mods, self)}
+                for k in keys_up.iter() {manager.key_up(*k, mods, self)}
             }
 
             GameState::None => {
@@ -548,12 +556,6 @@ impl Game {
                         };
 
                         self.set_background_beatmap(&m);
-                        // if let Ok(t) = opengl_graphics::Texture::from_path(m.image_filename.clone(), &opengl_graphics::TextureSettings::new()) {
-                        //     self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, t, window_size()));
-                        // } else {
-                        //     self.background_image = None;
-                        // }
-
                         let text = format!("{}-{}[{}]\n{}", m.artist, m.title, m.version, h);
                         tokio::spawn(async move {
                             OnlineManager::set_action(online_manager, UserAction::Ingame, text, m.mode).await;

@@ -49,10 +49,9 @@ pub use crate::user_connection::*;
 pub use crate::database::*;
 
 // types
-pub type ConnectionData = Arc<Mutex<UserConnection>>;
-pub type WsWriter = SplitSink<WebSocketStream<TcpStream>, Message>;
-pub type PeerMap = ARwLock<HashMap<SocketAddr, UserConnection>>;
-
-
 pub type AMutex<T> = Arc<Mutex<T>>;
 pub type ARwLock<T> = Arc<RwLock<T>>;
+
+pub type ConnectionData = AMutex<UserConnection>;
+pub type WsWriter = SplitSink<WebSocketStream<TcpStream>, Message>;
+pub type PeerMap = ARwLock<HashMap<SocketAddr, UserConnection>>;

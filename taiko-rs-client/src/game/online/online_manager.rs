@@ -364,8 +364,6 @@ fn ping_handler() {
 
 
 
-
-
 // tests
 mod tests {
     const CONNECTION_COUNT: usize = 50;

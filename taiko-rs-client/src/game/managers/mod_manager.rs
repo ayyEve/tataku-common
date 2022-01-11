@@ -4,7 +4,7 @@ lazy_static::lazy_static! {
     static ref MOD_MANAGER: Arc<Mutex<ModManager>> = Arc::new(Mutex::new(ModManager::new()));
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 pub struct ModManager {
     pub speed: f32,
     pub autoplay: bool,

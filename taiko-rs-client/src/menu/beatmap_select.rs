@@ -25,7 +25,7 @@ pub struct BeatmapSelectMenu {
     back_button: MenuButton,
     // pending_refresh: bool,
 
-    /// is changing, update loop detected that it was changing
+    /// is changing, update loop detected that it was changing, how long since it changed
     map_changing: (bool, bool, u32),
 
     // drag: Option<DragData>,

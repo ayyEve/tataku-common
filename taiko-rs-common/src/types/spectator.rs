@@ -7,7 +7,7 @@ pub type SpectatorFrames = Vec<SpectatorFrame>;
 #[derive(Clone, Debug)]
 pub enum SpectatorFrameData {
     /// host started a new map
-    Play {beatmap_hash:String, mode: PlayMode},
+    Play {beatmap_hash:String, mode: PlayMode, mods: String},
     /// host paused current map
     Pause,
     // host unpaused the current map
@@ -32,7 +32,7 @@ impl Serializable for SpectatorFrameData {
     fn read(sr:&mut crate::serialization::SerializationReader) -> Self {
         match sr.read_u8() {
             // play
-            0 => SpectatorFrameData::Play {beatmap_hash: sr.read_string(), mode: sr.read()},
+            0 => SpectatorFrameData::Play {beatmap_hash: sr.read_string(), mode: sr.read(), mods: sr.read()},
             // pause
             1 => SpectatorFrameData::Pause,
             // unpause
@@ -57,7 +57,7 @@ impl Serializable for SpectatorFrameData {
 
     fn write(&self, sw:&mut crate::serialization::SerializationWriter) {
         match &self {
-            SpectatorFrameData::Play {beatmap_hash, mode} => {sw.write_u8(0); sw.write(beatmap_hash.clone()); sw.write(*mode)},
+            SpectatorFrameData::Play {beatmap_hash, mode, mods} => {sw.write_u8(0); sw.write(beatmap_hash.clone()); sw.write(*mode); sw.write(mods.clone())},
             SpectatorFrameData::Pause => sw.write_u8(1),
             SpectatorFrameData::UnPause => sw.write_u8(2),
             SpectatorFrameData::Stop => sw.write_u8(3),
