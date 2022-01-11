@@ -1,6 +1,5 @@
 use crate::prelude::*;
 use crate::create_packet;
-use crate::get_user_score_info;
 
 pub fn create_server_send_message_packet(id: u32, message: String, channel: String) -> Vec<u8> {
     create_packet!(
@@ -13,7 +12,7 @@ pub fn create_server_send_message_packet(id: u32, message: String, channel: Stri
 
 pub async fn create_server_score_update_packet(user_id: u32, mode: PlayMode) -> Vec<u8> {
     // user_ranked_score, user_total_score, user_accuracy, play_count, rank
-    let res = get_user_score_info(user_id, mode).await;
+    let res = Database::get_user_score_info(user_id, mode).await;
 
     create_packet!(
         PacketId::Server_ScoreUpdate,

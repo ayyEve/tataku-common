@@ -11,8 +11,12 @@ use crate::prelude::*;
 
 type WsWriter = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 
+
+const EXTRA_ONLINE_LOGGING:bool = false;
+
 // url to connect to
-const CONNECT_URL:&str = "wss://taikors.ayyeve.xyz";
+// const CONNECT_URL:&str = "wss://taikors.ayyeve.xyz";
+const CONNECT_URL:&str = "ws://127.0.0.1:8080";
 
 // how many frames do we buffer before sending?
 // higher means less packet spam
@@ -99,7 +103,7 @@ impl OnlineManager {
                 while let Some(message) = reader.next().await {
                     match message {
                         Ok(Message::Binary(data)) => OnlineManager::handle_packet(s.clone(), data).await,
-                        Ok(message) => println!("[Online] got something else: {:?}", message),
+                        Ok(message) => if EXTRA_ONLINE_LOGGING {println!("[Online] got something else: {:?}", message)},
 
                         Err(oof) => {
                             println!("[Online] oof: {}", oof);
@@ -124,7 +128,7 @@ impl OnlineManager {
         while reader.can_read() {
             let raw_id:u16 = reader.read();
             let packet_id = PacketId::from(raw_id);
-            println!("[Online] got packet id {:?}", packet_id);
+            if EXTRA_ONLINE_LOGGING {println!("[Online] got packet id {:?}", packet_id)};
 
             match packet_id {
                 // login
@@ -151,12 +155,12 @@ impl OnlineManager {
                 PacketId::Server_UserJoined => {
                     let user_id = reader.read();
                     let username = reader.read_string();
-                    println!("[Online] user {} joined (id: {})", username, user_id);
+                    if EXTRA_ONLINE_LOGGING {println!("[Online] user {} joined (id: {})", username, user_id)};
                     s.lock().await.users.insert(user_id, Arc::new(Mutex::new(OnlineUser::new(user_id, username))));
                 }
                 PacketId::Server_UserLeft => {
                     let user_id = reader.read_u32();
-                    println!("[Online] user id {} left", user_id);
+                    if EXTRA_ONLINE_LOGGING {println!("[Online] user id {} left", user_id)};
 
                     let mut lock = s.lock().await;
                     // remove from online users
@@ -199,7 +203,7 @@ impl OnlineManager {
                     let user_id:i32 = reader.read();
                     let message:String = reader.read();
                     let channel:String = reader.read();
-                    println!("[Online] got message: `{}` from user id `{}` in channel `{}`", message, user_id, channel);
+                    if EXTRA_ONLINE_LOGGING {println!("[Online] got message: `{}` from user id `{}` in channel `{}`", message, user_id, channel)};
                 }
 
                 
@@ -346,7 +350,6 @@ impl OnlineManager {
 
 const LOG_PINGS:bool = false;
 fn ping_handler() {
-    return;
     tokio::spawn(async move {
         let ping = SimpleWriter::new().write(PacketId::Ping).done();
         let duration = std::time::Duration::from_millis(1000);
@@ -357,4 +360,35 @@ fn ping_handler() {
             ONLINE_MANAGER.lock().await.send_data(ping.clone()).await;
         }
     });
+}
+
+
+
+
+
+// tests
+mod tests {
+    const CONNECTION_COUNT: usize = 50;
+    use crate::prelude::*;
+    
+    #[test]
+    fn test() {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(async {
+            load_test().await
+        });
+        loop {}
+    }
+
+    async fn load_test() {
+        for i in 0..CONNECTION_COUNT {
+            tokio::spawn(async move {
+                let thing = super::OnlineManager::new();
+                let thing = Arc::new(tokio::sync::Mutex::new(thing));
+
+                super::OnlineManager::start(thing).await;
+                println!("online thread {} stopped", i);
+            });
+        }
+    }
 }

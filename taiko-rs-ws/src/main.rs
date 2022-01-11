@@ -1,14 +1,24 @@
-mod prelude; use prelude::*;
+// mod server;
+mod prelude;
 mod helpers;
-mod settings; use settings::*;
-pub(crate) mod user_connection;
-mod packet_helpers; use packet_helpers::*;
+mod settings;
+mod database;
+mod user_connection;
 
-pub static DATABASE:OnceCell<DatabaseConnection> = OnceCell::const_new();
+use prelude::*;
 
-const CHECK_DOUBLE_LOCK:bool = true;
+// const LOG_USERS:bool = true;
+pub const CHECK_DOUBLE_LOCK:bool = true;
+
+
+pub static PEER_MAP:OnceCell<PeerMap> = OnceCell::const_new();
+/// (bot_user_id, connection_data)
+pub static BOT_ACCOUNT:OnceCell<(u32, ConnectionData)> = OnceCell::const_new();
+
+
+#[macro_export]
 macro_rules! send_packet {
-    ($writer: expr, $data:expr) => {
+    ($writer:expr, $data:expr) => {
         if let Some(writer) = &$writer {
             // this is probably not very reliable but its a good first-check
             if CHECK_DOUBLE_LOCK {
@@ -21,6 +31,9 @@ macro_rules! send_packet {
                 Ok(_) => {true},
                 Err(e) => {
                     println!("[Writer] Error sending data ({}:{}): {}", file!(), line!(), e);
+                    if let Err(e) = writer.lock().await.close().await {
+                        println!("error closing connection: {}", e);
+                    }
                     false
                 },
             }
@@ -45,60 +58,53 @@ async fn main() -> Result<(), IoError> {
     // read settings
     let settings = Settings::load();
     let addr = format!("0.0.0.0:{}", settings.port);
-
     let state = Arc::new(RwLock::new(HashMap::new()));
+
+    // database connection
+    Database::init(&settings).await;
 
     // Create the event loop and TCP listener we'll accept connections on.
     let listener = TcpListener::bind(&addr).await.expect("Failed to bind");
-    println!("[Startup] Listening on {}", addr);
 
-    //#region bot account
-    // Create a new bot account
-    let bot = Arc::new(Mutex::new(UserConnection::new_bot("Bot".to_owned())));
+    // create bot account
+    setup_bot_account(&state).await;
 
-    // Add the bot account
-    state
-        .write()
-        .await
-        .insert(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 0)), bot.lock().await.to_owned());
-    //#endregion
-
-    //#region database connection
-    let db = sea_orm::Database::connect(settings.postgres.connection_string())
-        .await
-        .expect("Error connecting to database");
-
-    println!("[Startup] db connected");
-    DATABASE.set(db).unwrap();
-    //#endregion
+    // user logging to help debugging
+    check_user_list(&state);
 
     // Let's spawn the handling of each connection in a separate task.
+    println!("[Startup] Listening on {}", addr);
     while let Ok((stream, addr)) = listener.accept().await {
         // NOTE: addr's ip is always my reverse proxy host. i dont know if this could cause issues, 
         // but the port is different per connection somehow so imma assume its fine lol
-        tokio::spawn(handle_connection(bot.clone(), state.clone(), stream, addr));
+        tokio::spawn(handle_connection(state.clone(), stream, addr));
     }
 
+    println!("[Shutdown] server closing");
     Ok(())
 }
 
-async fn handle_connection(bot_account: Arc<Mutex<UserConnection>>, peer_map: PeerMap, raw_stream: TcpStream, addr: SocketAddr) {
+
+async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: SocketAddr) {
     match accept_async(raw_stream).await {
         Ok(ws_stream) => {
             let (writer, mut reader) = ws_stream.split();
             let writer = Arc::new(Mutex::new(writer));
 
-            let user_connection = UserConnection::new(writer.clone());
+            let user_connection = UserConnection::new(writer.clone(), addr);
             peer_map.write().await.insert(addr, user_connection.clone());
 
             while let Some(message) = reader.next().await {
                 match message {
-                    Ok(Message::Binary(data)) => handle_packet(data, &bot_account.lock().await.to_owned(), &peer_map, &addr).await,
+                    Ok(Message::Binary(data)) => handle_packet(data, &peer_map, &addr).await,
                     Ok(Message::Close(close_frame)) => {
                         let close_reason = match close_frame {
                             Some(close_frame) => close_frame.reason.to_string(),
                             None => "Close frame not found".to_owned()
                         };
+
+                        // remove user from the map
+                        peer_map.write().await.remove(&addr);
 
                         println!("[Connection] Connection closed: {}", close_reason);
                     }
@@ -123,58 +129,14 @@ async fn handle_connection(bot_account: Arc<Mutex<UserConnection>>, peer_map: Pe
                     }
                 }
             }
+        
         }
         Err(e) => println!("[Connection] Could not accept connection: {:?}", e),
     }
 }
 
 
-async fn get_user_score_info(user_id: u32, mode: PlayMode) -> (i64, i64, f64, i32, i32) {
-    let mut ranked_score = 0;
-    let mut total_score = 0;
-    let mut accuracy = 0.0;
-    let mut playcount = 0;
-    let mut rank = 0;
-
-    match user_data_table::Entity::find()
-        .filter(user_data_table::Column::Mode.eq(mode as i16))
-        .filter(user_data_table::Column::UserId.eq(user_id))
-        .one(DATABASE.get().unwrap())
-        .await {
-        Ok(user_data) => {
-            match user_data {
-                Some(user_data) => {
-                    ranked_score = user_data.ranked_score;
-                    total_score = user_data.total_score;
-                    accuracy = user_data.accuracy;
-                    playcount = user_data.play_count;
-                }
-                None => { }
-            };
-        },
-        Err(e) => println!("[Database] Error: {}", e)
-    }
-
-    #[derive(Debug, FromQueryResult)]
-    struct RankThing {rank: i64}
-
-    let things: Vec<RankThing> = RankThing::find_by_statement(Statement::from_sql_and_values(
-        DbBackend::Postgres,
-        r#"SELECT rank FROM (SELECT user_id, ROW_NUMBER() OVER(ORDER BY ranked_score DESC) AS rank FROM user_data WHERE mode=$1) t WHERE user_id=$2"#,
-        vec![(mode as i32).into(), (user_id as i32).into()],
-    ))
-        .all(DATABASE.get().unwrap())
-        .await
-        .unwrap();
-
-    if let Some(thing) = things.first() {
-        rank = thing.rank
-    }
-
-    (ranked_score, total_score, accuracy, playcount, rank as i32)
-}
-
-async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &PeerMap, addr: &SocketAddr) {
+async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
     let mut user_connection = peer_map.read().await.get(addr).unwrap().clone();
     let mut reader = SerializationReader::new(data);
 
@@ -192,11 +154,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 let password:String = reader.read(); // read password
 
                 // verify username and password
-                let user: Option<users_table::Model> = users_table::Entity::find()
-                    .filter(users_table::Column::Username.eq(username.clone()))
-                    .one(DATABASE.get().unwrap())
-                    .await
-                    .unwrap();
+                let user = Database::get_user_by_username(&username).await;
 
                 // TODO: would be nice if we could shorten this as well
                 let user_id = match user {
@@ -319,7 +277,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 //Makes sure we dont send a message to ourselves, that would be silly
                 if channel == user_connection.username {
                     let data = create_server_send_message_packet(
-                        bot_account.user_id,
+                        bot_id(),
                         "You cant send a message to yourself silly!".to_owned(),
                         user_connection.username.clone()
                     );
@@ -353,7 +311,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 //Tell the user that the message was not delivered
                 if !did_send {
                     let data = create_server_send_message_packet(
-                        bot_account.user_id,
+                        bot_id(),
                         "That user/channel is not online or does not exist".to_owned(),
                         user_connection.username.clone()
                     );
@@ -362,14 +320,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 } else {
                     //Add to the message history
                     if channel.starts_with("#") {
-                        let message_history_entry: message_history_table::ActiveModel = message_history_table::ActiveModel {
-                            user_id: Set(userid as i64),
-                            channel: Set(channel.clone()),
-                            contents: Set(message.clone()),
-                            ..Default::default()
-                        };
-
-                        let _ = message_history_entry.insert(DATABASE.get().unwrap()).await.unwrap();
+                        Database::insert_into_message_history(userid, channel.clone(), message.clone()).await;
                     }
 
                     println!("[{}] {}: {}", channel, user_connection.username, message);
@@ -396,7 +347,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                         } else {
                             // trying to spectate a bot
                             let data = create_server_send_message_packet(
-                                bot_account.user_id,
+                                bot_id(),
                                 "You cant spectate a bot!".to_owned(),
                                 user_connection.username.clone()
                             );
@@ -407,7 +358,7 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
                 if !found {
                     // user wasnt found
                     let data = create_server_send_message_packet(
-                        bot_account.user_id,
+                        bot_id(),
                         "That user was not found".to_owned(),
                         user_connection.username.clone()
                     );
@@ -454,5 +405,48 @@ async fn handle_packet(data: Vec<u8>, bot_account: &UserConnection, peer_map: &P
             }
         }
     }
+
 }
 
+fn bot_id() -> u32 {
+    BOT_ACCOUNT.force_get().0
+}
+
+fn check_user_list(map: &PeerMap) {
+    // if !LOG_USERS {return}
+    let cloned = map.clone();
+
+    tokio::spawn(async move {
+        loop {
+            if let Err(e) = cloned.try_read() {
+                println!("cant lock: {}", e);
+            }
+
+            for (i, u) in cloned.read().await.iter() {
+                println!("i: {}, u: {}", i, u.username);
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+        }
+    });
+}
+
+
+// // tests
+// #[cfg(test)]
+// mod tests {
+    
+//     #[test]
+//     fn load_test() {
+
+//         // start the server in another thread
+//         tokio::spawn(async move {
+//             crate::main()
+//         });
+
+
+//         for i in 0..500 {
+
+//         }
+//     }
+// }

@@ -13,6 +13,7 @@ pub struct UserConnection {
     pub spectators: Vec<u32>,
 
     pub writer: Option<Arc<Mutex<WsWriter>>>,
+    pub addr: SocketAddr,
 }
 impl UserConnection {
     pub fn new_bot(bot: String) -> Self {
@@ -25,13 +26,13 @@ impl UserConnection {
             mode: PlayMode::Standard,
 
             spectators: Vec::new(),
-            
 
-            writer: None
+            writer: None,
+            addr: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 0))
         }
     }
 
-    pub fn new(writer:Arc<Mutex<WsWriter>>) -> Self {
+    pub fn new(writer:Arc<Mutex<WsWriter>>, addr: SocketAddr) -> Self {
         Self {
             bot: false,
             user_id: 0,
@@ -42,7 +43,8 @@ impl UserConnection {
 
             spectators: Vec::new(),
             
-            writer: Some(writer)
+            writer: Some(writer),
+            addr
         }
     }
 

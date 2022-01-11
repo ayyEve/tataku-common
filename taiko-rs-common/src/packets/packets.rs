@@ -20,13 +20,15 @@ pub enum PacketId {
     Server_UserJoined,
     Server_UserLeft,
 
-    // chat
+    // ======= chat =======
+
     /// sender_id, channel_id, message
     Client_SendMessage, 
     /// sender_id, channel_id, message
     Server_SendMessage, 
 
-    // spectator?
+    // ======= spectator =======
+
     /// client wants to spectate someone
     Client_Spectate, // user_id to spectate
     Server_SpectatorJoined, // user_id of spectator who joined
@@ -34,12 +36,13 @@ pub enum PacketId {
     Client_SpectatorLeft,
     /// user_id of spectator who left
     /// if user_id is your own, you stopped spectating
-    Server_SpectatorLeft, 
+    Server_SpectatorLeft,
 
     Client_SpectatorFrames, // frame_count, [SpectatorFrame]
     Server_SpectatorFrames, // host_id, frame_count, [SpectatorFrame]
 
 
+    // ======= ping =======
     Ping,
     Pong,
 
