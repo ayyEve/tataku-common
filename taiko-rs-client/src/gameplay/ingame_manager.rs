@@ -218,6 +218,11 @@ impl IngameManager {
         }
     }
 
+    //TODO: implement this properly, gamemode will probably have to handle some things too
+    pub fn jump_to_time(&mut self, time: f32) {
+        self.song.set_position(time as f64).unwrap();
+    }
+
     // can be from either paused or new
     pub fn start(&mut self) {
         if !self.started {
@@ -422,6 +427,11 @@ impl IngameManager {
         // update gamemode
         gamemode.update(self, time);
 
+        if self.completed {
+            // send map completed packet
+            self.outgoing_spectator_frame_force((self.end_time as u32 + 10, SpectatorFrameData::Buffer));
+        }
+
 
         // update our spectator list if we can
         if let Ok(manager) = ONLINE_MANAGER.try_lock() {
@@ -582,7 +592,6 @@ impl IngameManager {
         if (self.replaying || self.current_mods.autoplay) && !self.menu_background {
             // check replay-only keys
             if key == piston::Key::Escape {
-                println!("poo");
                 self.started = false;
                 self.completed = true;
                 return;

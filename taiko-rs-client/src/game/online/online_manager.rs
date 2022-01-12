@@ -15,17 +15,54 @@ type WsWriter = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 const EXTRA_ONLINE_LOGGING:bool = false;
 
 // url to connect to
-// const CONNECT_URL:&str = "wss://taikors.ayyeve.xyz";
+#[cfg(feature = "gitlab_build")]
+const CONNECT_URL:&str = "wss://taikors.ayyeve.xyz";
+#[cfg(not(feature = "gitlab_build"))]
 const CONNECT_URL:&str = "ws://127.0.0.1:8080";
 
 // how many frames do we buffer before sending?
 // higher means less packet spam
 const SPECTATOR_BUFFER_FLUSH_SIZE: usize = 20;
+type ThreadSafeSelf = Arc<Mutex<OnlineManager>>;
+
+macro_rules! create_packet {
+    ($id:ident) => {
+        SimpleWriter::new()
+        .write(PacketId::$id)
+        .done()
+    };
+    ($id:ident, $($item:expr),+) => {
+        SimpleWriter::new()
+        .write(PacketId::$id)
+        $(.write($item))+
+        .done()
+    };
+}
+
+macro_rules! send_packet {
+    ($writer:expr, $data:expr) => {
+        if let Some(writer) = &$writer {
+            match writer.lock().await.send(Message::Binary($data)).await {
+                Ok(_) => true,
+                Err(e) => {
+                    println!("[Writer] Error sending data ({}:{}): {}", file!(), line!(), e);
+                    if let Err(e) = writer.lock().await.close().await {
+                        println!("[Writer] error closing connection: {}", e);
+                    }
+                    false
+                }
+            }
+        } else {
+            false
+        }
+    }
+}
+
 
 
 lazy_static::lazy_static! {
     ///TODO: somehow change this to a RwLock. it should prioritize reads, as reads will almost always be syncronous
-    pub static ref ONLINE_MANAGER:Arc<Mutex<OnlineManager>> = Arc::new(Mutex::new(OnlineManager::new()));
+    pub static ref ONLINE_MANAGER:ThreadSafeSelf = Arc::new(Mutex::new(OnlineManager::new()));
 }
 
 ///
@@ -34,9 +71,8 @@ pub struct OnlineManager {
     pub users: HashMap<u32, Arc<Mutex<OnlineUser>>>, // user id is key
     pub discord: Discord,
 
-
     // pub chat: Chat,
-    user_id: u32, // this user's id
+    pub user_id: u32, // this user's id
 
     /// socket writer
     pub writer: Option<Arc<Mutex<WsWriter>>>,
@@ -50,7 +86,10 @@ pub struct OnlineManager {
     pub(crate) buffered_spectator_frames: SpectatorFrames,
     pub(crate) last_spectator_frame: Instant,
 
-    pub(crate) spectator_list: Vec<(u32, String)>
+    pub(crate) spectator_list: Vec<(u32, String)>,
+    /// which users are waiting for a spectator info response?
+    /// TODO: should probably move the list itself to the server
+    pub(crate) spectate_info_pending: Vec<u32>
 }
 impl OnlineManager {
     pub fn new() -> OnlineManager {
@@ -65,10 +104,11 @@ impl OnlineManager {
             last_spectator_frame: Instant::now(),
             spectating: false,
 
-            spectator_list: Vec::new()
+            spectator_list: Vec::new(),
+            spectate_info_pending: Vec::new(),
         }
     }
-    pub async fn start(s: Arc<Mutex<Self>>) {
+    pub async fn start(s: ThreadSafeSelf) {
         // initialize the connection
         match connect_async(CONNECT_URL.to_owned()).await {
             Ok((ws_stream, _)) => {
@@ -92,12 +132,7 @@ impl OnlineManager {
                         .to_owned();
 
                     // send login packet
-                    let data = SimpleWriter::new()
-                        .write(PacketId::Client_UserLogin)
-                        .write(settings.username.clone())
-                        .write(password)
-                        .done();
-                    s.send_data(data).await;
+                    send_packet!(s.writer, create_packet!(Client_UserLogin, settings.username.clone(), password));
                 }
 
                 while let Some(message) = reader.next().await {
@@ -122,7 +157,7 @@ impl OnlineManager {
         }
     }
 
-    async fn handle_packet(s: Arc<Mutex<Self>>, data:Vec<u8>) {
+    async fn handle_packet(s: ThreadSafeSelf, data:Vec<u8>) {
         let mut reader = SerializationReader::new(data);
 
         while reader.can_read() {
@@ -239,11 +274,18 @@ impl OnlineManager {
                     NotificationManager::add_text_notification(&format!("{} stopped spectating", user), 2000.0, Color::GREEN);
                 }
 
+                // spec info request
+                PacketId::Server_SpectatorPlayingRequest => {
+                    let requesting_user_id:u32 = reader.read();
+                    s.lock().await.spectate_info_pending.push(requesting_user_id);
+
+                    println!("[Online] got playing request");
+                }
+
 
                 // ping and pong
                 PacketId::Ping => {
-                    let data = SimpleWriter::new().write(PacketId::Pong).done();
-                    s.lock().await.send_data(data).await;
+                    send_packet!(s.lock().await.writer, create_packet!(Pong));
                 }
                 PacketId::Pong => {
                     // println!("[Online] got pong from server");
@@ -263,32 +305,76 @@ impl OnlineManager {
         }
     }
 
-    pub async fn set_action(s:Arc<Mutex<Self>>, action:UserAction, action_text:String, mode: PlayMode) {
+    pub async fn set_action(s: ThreadSafeSelf, action:UserAction, action_text:String, mode: PlayMode) {
         let mut s = s.lock().await;
 
-        if let Some(writer) = &s.writer {
-            // println!("writing update");
-            let p = SimpleWriter::new()
-                .write(PacketId::Client_StatusUpdate)
-                .write(action)
-                .write(action_text.clone())
-                .write(mode)
-                .done();
-            writer.lock().await.send(Message::Binary(p)).await.expect("error: ");
+        send_packet!(s.writer, create_packet!(Client_StatusUpdate, action, action_text.clone(), mode));
+        if action == UserAction::Leaving {
+            send_packet!(s.writer, create_packet!(Client_LogOut));
+        }
+        s.discord.change_status(action_text.clone());
+    }
 
-            if action == UserAction::Leaving {
-                let p = SimpleWriter::new().write(PacketId::Client_LogOut).done();
-                let _ = writer.lock().await.send(Message::Binary(p)).await;
+
+    // do things which require a reference to game
+    pub fn do_game_things(&mut self, game: &mut Game) { 
+        if self.spectate_info_pending.len() > 0 {
+
+            // only get info if the current mode is ingame
+            match &mut game.current_state {
+                GameState::Ingame(manager) => {
+                    for user_id in self.spectate_info_pending.iter() {
+                        println!("[Online] sending playing request");
+                        let packet = SpectatorFrameData::PlayingResponse {
+                            user_id: *user_id,
+                            beatmap_hash: manager.beatmap.hash(),
+                            mode: manager.gamemode.playmode(),
+                            mods: serde_json::to_string(&(*manager.current_mods)).unwrap(),
+                            current_time: manager.time()
+                        };
+
+                        let clone = self.writer.clone();
+                        tokio::spawn(async move {
+                            send_packet!(clone, create_packet!(Client_SpectatorFrames, vec![(0, packet)]));
+                        });
+                    }
+                    
+                    self.spectate_info_pending.clear();
+                }
+
+
+                GameState::InMenu(menu) => {
+                    match &*menu.lock().get_name() {
+                        // if in a pause menu, dont clear the list, the user could enter the game again
+                        // so we want to wait until they decide if they want to play or quit
+                        "pause" => {}
+                        _ => self.spectate_info_pending.clear()
+                    }
+                }
+
+                // clear list for any other mode
+                GameState::Closing
+                |GameState::None
+                |GameState::Spectating(_) => {
+                    self.spectate_info_pending.clear();
+                }
             }
-            
-            s.discord.change_status(action_text.clone());
 
-        } else {
-            println!("oof, no writer");
         }
     }
 
-    pub async fn send_spec_frames(s:Arc<Mutex<Self>>, frames:SpectatorFrames, force_send: bool) {
+    pub fn find_user_by_id(&self, user_id: u32) -> Option<Arc<Mutex<OnlineUser>>> {
+        for (&id, user) in self.users.iter() {
+            if id == user_id {
+                return Some(user.clone())
+            }
+        }
+
+        None
+    }
+}
+impl OnlineManager {
+    pub async fn send_spec_frames(s: ThreadSafeSelf, frames:SpectatorFrames, force_send: bool) {
         let mut lock = s.lock().await;
         // if we arent speccing, exit
         // hopefully resolves a bug
@@ -302,8 +388,8 @@ impl OnlineManager {
             let frames = std::mem::take(&mut lock.buffered_spectator_frames);
             // if force_send {println!("[Online] sending spec buffer (force)")} else if times_up {println!("[Online] sending spec buffer (time)")} else {println!("[Online] sending spec buffer (len)")}
 
-            let data = SimpleWriter::new().write(PacketId::Client_SpectatorFrames).write(frames).done();
-            lock.send_data(data).await;
+            
+            send_packet!(lock.writer, create_packet!(Client_SpectatorFrames, frames));
             lock.last_spectator_frame = Instant::now();
         }
 
@@ -313,37 +399,25 @@ impl OnlineManager {
         let mut s = ONLINE_MANAGER.lock().await;
         s.buffered_spectator_frames.clear();
         s.spectating = true;
-        println!("speccing {}", host_id);
+        println!("[Online] speccing {}", host_id);
 
-        if let Some(writer) = &s.writer {
-            let _ = writer.lock().await.send(Message::Binary(SimpleWriter::new()
-                .write(PacketId::Client_Spectate)
-                .write(host_id)
-                .done()
-            )).await;
-        }
+        send_packet!(s.writer, create_packet!(Client_Spectate, host_id));
     }
-}
-impl OnlineManager {
-    pub async fn send_data(&mut self, data:Vec<u8>) {
-        if let Some(writer) = &self.writer {
-            writer.lock().await.send(Message::Binary(data)).await.expect("error sending packet");
-        }
+
+    pub async fn stop_spectating() {
+        let mut s = ONLINE_MANAGER.lock().await;
+        s.buffered_spectator_frames.clear();
+        if !s.spectating {return}
+        s.spectating = false;
+        println!("[Online] stop speccing");
+        
+        send_packet!(s.writer, create_packet!(Client_SpectatorLeft));
     }
 
     pub fn get_pending_spec_frames(&mut self) -> SpectatorFrames {
         std::mem::take(&mut self.buffered_spectator_frames)
     }
 
-    pub fn find_user_by_id(&self, user_id: u32) -> Option<Arc<Mutex<OnlineUser>>> {
-        for (&id, user) in self.users.iter() {
-            if id == user_id {
-                return Some(user.clone())
-            }
-        }
-
-        None
-    }
 }
 
 
@@ -351,13 +425,13 @@ impl OnlineManager {
 const LOG_PINGS:bool = false;
 fn ping_handler() {
     tokio::spawn(async move {
-        let ping = SimpleWriter::new().write(PacketId::Ping).done();
+        let ping = create_packet!(Ping);
         let duration = std::time::Duration::from_millis(1000);
 
         loop {
             tokio::time::sleep(duration).await;
             if LOG_PINGS {println!("[Ping] sending ping")};
-            ONLINE_MANAGER.lock().await.send_data(ping.clone()).await;
+            send_packet!(ONLINE_MANAGER.lock().await.writer, ping.clone());
         }
     });
 }

@@ -45,13 +45,18 @@ macro_rules! send_packet {
 
 #[macro_export]
 macro_rules! create_packet {
-    ($($item:expr),+) => {
+    ($id:ident) => {
         SimpleWriter::new()
+        .write(PacketId::$id)
+        .done()
+    };
+    ($id:ident, $($item:expr),+) => {
+        SimpleWriter::new()
+        .write(PacketId::$id)
         $(.write($item))+
         .done()
     };
 }
-
 
 #[tokio::main]
 async fn main() -> Result<(), IoError> {
@@ -117,7 +122,7 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
                         let user = lock.get(&addr).unwrap();
                         
                         // tell everyone we left
-                        let data = create_packet!(PacketId::Server_UserLeft, user.user_id);
+                        let data = create_packet!(Server_UserLeft, user.user_id);
                         for (i_addr, other) in lock.iter() {
                             if i_addr == &addr {continue}
                             send_packet!(other.writer, data.clone());
@@ -161,7 +166,7 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                     None => {
                         // Send the user not found response
                         println!("[Login] user not found: {}", username);
-                        send_packet!(user_connection.writer, create_packet!(PacketId::Server_LoginResponse, -1 as i32));
+                        send_packet!(user_connection.writer, create_packet!(Server_LoginResponse, -1i32));
                         return;
                     }
                     Some(user) => {
@@ -170,7 +175,7 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                         if let Err(e) = argon2.verify_password(password.as_ref(), &parsed_hash) {
                             // Send the password incorrect response
                             println!("[Login] password incorrect: {}", e);
-                            send_packet!(user_connection.writer, create_packet!(PacketId::Server_LoginResponse, -2 as i32));
+                            send_packet!(user_connection.writer, create_packet!(Server_LoginResponse, -2i32));
                             return;
                         }
 
@@ -191,24 +196,23 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                 }
 
                 // Send the login response packet to the connecting user
-                send_packet!(user_connection.writer, create_packet!(PacketId::Server_LoginResponse, user_id as i32));
+                send_packet!(user_connection.writer, create_packet!(Server_LoginResponse, user_id as i32));
                 
                 // tell everyone we joined
-                let join_packet = create_packet!(PacketId::Server_UserJoined, user_id, user_connection.username.clone());
+                let join_packet = create_packet!(Server_UserJoined, user_id, user_connection.username.clone());
                 
-                for (_, user) in peer_map.read().await.iter() {
-                    // not sure if this is still necessary with this code
-                    // if i_addr == addr {
-                    //     // Tell the user about their own score
-                    //     send_packet!(user_connection.writer, create_server_score_update_packet(user.user_id, user.mode).await);
-                    //     continue
-                    // }
+                for (i_addr, user) in peer_map.read().await.iter() {
+                    if i_addr == addr {
+                        // Tell the user about their own score
+                        send_packet!(user_connection.writer, create_server_score_update_packet(user.user_id, user.mode).await);
+                        continue
+                    }
 
                     //Send all the existing users about the new user
                     send_packet!(user.writer, join_packet.clone());
 
                     // Tell the user that just joined about all the other users
-                    send_packet!(user_connection.writer, create_packet!(PacketId::Server_UserJoined, user.user_id, user.username.clone()));
+                    send_packet!(user_connection.writer, create_packet!(Server_UserJoined, user.user_id, user.username.clone()));
 
                     // Tell the user that just joined about all the other users score values
                     send_packet!(user_connection.writer, create_server_score_update_packet(user.user_id, user.mode).await);
@@ -221,7 +225,7 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
             // logout
             PacketId::Client_LogOut => {
                 // tell everyone we left
-                let data = create_packet!(PacketId::Server_UserLeft, user_connection.user_id);
+                let data = create_packet!(Server_UserLeft, user_connection.user_id);
 
                 for (i_addr, user) in peer_map.read().await.iter() {
                     if i_addr == addr {continue}
@@ -338,12 +342,18 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                 for (conn, user) in peer_map.write().await.iter_mut() {
                     if conn == addr {continue}
                     
+                    // TODO: if this user is speccing, we should tell them we're speccing someone else
                     user.remove_spectator(&mut user_connection).await;
+
                     if user.user_id == host_id {
                         found = true;
 
-                        if send_packet!(user.writer, create_packet!(PacketId::Server_SpectatorJoined, user_connection.user_id)) {
+                        if send_packet!(user.writer, create_packet!(Server_SpectatorJoined, user_connection.user_id)) {
+                            // add spectator to list
                             user.spectators.push(user_connection.user_id);
+
+                            // send request to get the playing map
+                            send_packet!(user.writer, create_packet!(Server_SpectatorPlayingRequest, user_connection.user_id));
                         } else {
                             // trying to spectate a bot
                             let data = create_server_send_message_packet(
@@ -352,6 +362,7 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                                 user_connection.username.clone()
                             );
                             send_packet!(user_connection.writer, data);
+                            // TODO: also tell the client the spec failed
                         }
                     }
                 }
@@ -365,12 +376,23 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                     send_packet!(user_connection.writer, data);
                 }
             }
+            PacketId::Client_SpectatorLeft => {
+                for (conn, user) in peer_map.write().await.iter_mut() {
+                    if conn == addr {continue}
+                    
+                    if user.spectators.contains(&user_connection.user_id) {
+                        send_packet!(user.writer, create_packet!(Server_SpectatorLeft, user_connection.user_id));
+                        break;
+                    }
+                }
+            }
+            
             PacketId::Client_SpectatorFrames => {
                 // let count = reader.read();
                 let frames: Vec<SpectatorFrame> = reader.read();
                 // println!("forwarding {} frames to the following users: {:?}", frames.len(), user_connection.spectators);
 
-                let data = create_packet!(PacketId::Server_SpectatorFrames, user_connection.user_id, frames);
+                let data = create_packet!(Server_SpectatorFrames, user_connection.user_id, frames);
                 for (conn, user) in peer_map.write().await.iter_mut() {
                     if conn == addr {continue}
                     
@@ -383,7 +405,7 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
             
             // ping and pong
             PacketId::Ping => {
-                send_packet!(user_connection.writer, create_packet!(PacketId::Pong));
+                send_packet!(user_connection.writer, create_packet!(Pong));
             }
             PacketId::Pong => {
                 println!("[Packet] got pong from client");
@@ -430,23 +452,3 @@ fn check_user_list(map: &PeerMap) {
         }
     });
 }
-
-
-// // tests
-// #[cfg(test)]
-// mod tests {
-    
-//     #[test]
-//     fn load_test() {
-
-//         // start the server in another thread
-//         tokio::spawn(async move {
-//             crate::main()
-//         });
-
-
-//         for i in 0..500 {
-
-//         }
-//     }
-// }

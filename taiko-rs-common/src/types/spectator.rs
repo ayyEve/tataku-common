@@ -4,6 +4,15 @@ use super::Score;
 pub type SpectatorFrame = (u32, SpectatorFrameData);
 pub type SpectatorFrames = Vec<SpectatorFrame>;
 
+
+macro_rules! write {
+    ($sw:expr, $($item:expr),+) => {
+        $(
+            $sw.write($item);
+        )+
+    };
+}
+
 #[derive(Clone, Debug)]
 pub enum SpectatorFrameData {
     /// host started a new map
@@ -27,6 +36,9 @@ pub enum SpectatorFrameData {
 
     /// host is changing the map
     ChangingMap,
+
+    /// response for current map info
+    PlayingResponse {user_id:u32, beatmap_hash:String, mode:PlayMode, mods:String, current_time:f32}
 }
 impl Serializable for SpectatorFrameData {
     fn read(sr:&mut crate::serialization::SerializationReader) -> Self {
@@ -50,6 +62,9 @@ impl Serializable for SpectatorFrameData {
             // host changing map
             9 => SpectatorFrameData::ChangingMap,
 
+            // responding with info
+            10 => SpectatorFrameData::PlayingResponse {user_id:sr.read(), beatmap_hash:sr.read(), mode:sr.read(), mods:sr.read(), current_time:sr.read()},
+
             // unknown
             n => panic!("[Spectator] unknown SpectatorFrameData num: {}", n), // unknown
         }
@@ -66,6 +81,8 @@ impl Serializable for SpectatorFrameData {
             SpectatorFrameData::ReplayFrame {frame} => {sw.write_u8(6); sw.write(*frame)},
             &SpectatorFrameData::ScoreSync {score} => {sw.write_u8(7); sw.write(score.clone())},
             SpectatorFrameData::ChangingMap => sw.write_u8(9),
+
+            SpectatorFrameData::PlayingResponse {user_id, beatmap_hash, mode, mods, current_time} => {write!(sw, 10u8, *user_id, beatmap_hash.clone(), *mode, mods.clone(), *current_time);},
         }
     }
 }

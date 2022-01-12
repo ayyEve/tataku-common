@@ -12,6 +12,7 @@ bass_audio = ["bass-rs"]
 neb_audio = ["cpal", "symphonia", "rustfft"]
 debug_sliders = []
 debug_hitsounds = []
+gitlab_build = []
 
 [dependencies]
 taiko-rs-common = { path="../taiko-rs-common" }

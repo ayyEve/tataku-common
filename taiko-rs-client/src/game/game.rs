@@ -324,9 +324,7 @@ impl Game {
                             user_menu_dialog.add_button("Spectate", Box::new(|dialog, game| {
                                 // println!("spectate");
                                 if let Some(user_id) = game.selected_user.clone() {
-                                    tokio::spawn(async move {
-                                        OnlineManager::start_spectating(user_id).await;
-                                    });
+                                    tokio::spawn(OnlineManager::start_spectating(user_id));
                                     //TODO: wait for a spec response from the server before setting the mode
                                     game.queue_state_change(GameState::Spectating(SpectatorManager::new()));
                                     dialog.should_close = true;
@@ -346,18 +344,6 @@ impl Game {
                 }
             }
         }
-
-        // // [test] forces spectator mode
-        // if keys_down.contains(&Key::F9) {
-        //     current_state = GameState::Spectating(SpectatorManager::new());
-
-        //     // let clone = ONLINE_MANAGER.clone();
-        //     // tokio::spawn(async move {
-        //     //     let mut l = clone.lock().await;
-        //     //     l.buffered_spectator_frames.clear();
-        //     //     l.last_spectator_frame = Instant::now();
-        //     // });
-        // }
 
         // update any dialogs
         let mut dialog_list = std::mem::take(&mut self.dialogs);
@@ -615,6 +601,11 @@ impl Game {
 
         // update the notification manager
         NOTIFICATION_MANAGER.lock().update();
+
+
+        if let Ok(manager) = &mut ONLINE_MANAGER.try_lock() {
+            manager.do_game_things(self);
+        }
         
         // if timer.elapsed().as_secs_f32() * 1000.0 > 1.0 {
         //     println!("update took a while: {}", timer.elapsed().as_secs_f32() * 1000.0);

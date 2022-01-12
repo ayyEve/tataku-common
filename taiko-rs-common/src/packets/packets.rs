@@ -30,9 +30,10 @@ pub enum PacketId {
     // ======= spectator =======
 
     /// client wants to spectate someone
-    Client_Spectate, // user_id to spectate
+    Client_Spectate = 100, // user_id to spectate
     Server_SpectatorJoined, // user_id of spectator who joined
 
+    /// "LeftSpectator" fits better, but it doesnt line up with the server packet name
     Client_SpectatorLeft,
     /// user_id of spectator who left
     /// if user_id is your own, you stopped spectating
@@ -40,10 +41,11 @@ pub enum PacketId {
 
     Client_SpectatorFrames, // frame_count, [SpectatorFrame]
     Server_SpectatorFrames, // host_id, frame_count, [SpectatorFrame]
+    Server_SpectatorPlayingRequest,
 
 
     // ======= ping =======
-    Ping,
+    Ping = 200,
     Pong,
 
     // multiplayer?
@@ -76,16 +78,17 @@ impl From<u16> for PacketId {
             11 => Server_SendMessage,
 
             // spectator
-            12 => Client_Spectate,
-            13 => Server_SpectatorJoined,
-            14 => Client_SpectatorLeft,
-            15 => Server_SpectatorLeft,
-            16 => Client_SpectatorFrames,
-            17 => Server_SpectatorFrames,
+            100 => Client_Spectate,
+            101 => Server_SpectatorJoined,
+            102 => Client_SpectatorLeft,
+            103 => Server_SpectatorLeft,
+            104 => Client_SpectatorFrames,
+            105 => Server_SpectatorFrames,
+            106 => Server_SpectatorPlayingRequest,
 
             // ping/ping (i hate that these are here and not ids 1 and 2)
-            18 => Ping,
-            19 => Pong,
+            200 => Ping,
+            201 => Pong,
 
             // multiplayer
 
@@ -103,3 +106,4 @@ impl Serializable for PacketId {
         sw.write_u16(*self as u16)
     }
 }
+

@@ -19,7 +19,9 @@ pub struct SpectatorManager {
 
 
     // list of id,username for specs
-    pub spectator_cache: HashMap<u32, String>
+    pub spectator_cache: HashMap<u32, String>,
+
+    score_menu: Option<ScoreMenu>
 }
 impl SpectatorManager {
     pub fn new() -> Self {
@@ -29,7 +31,8 @@ impl SpectatorManager {
             game_manager: None,
             good_until: 0.0,
             map_length: 0.0,
-            spectator_cache: HashMap::new()
+            spectator_cache: HashMap::new(),
+            score_menu: None
         }
     }
 
@@ -47,40 +50,7 @@ impl SpectatorManager {
             println!("[Spec] packet: {:?}", frame);
             match frame {
                 SpectatorFrameData::Play { beatmap_hash, mode, mods } => {
-                    self.good_until = 0.0;
-                    self.map_length = 0.0;
-                    // user started playing a map
-                    println!("[Spec] Host started playing map");
-
-                    let mods:ModManager = serde_json::from_str(&mods).unwrap();
-                    // find the map
-                    let mut beatmap_manager = BEATMAP_MANAGER.lock();
-                    match beatmap_manager.get_by_hash(&beatmap_hash) {
-                        Some(map) => {
-                            beatmap_manager.set_current_beatmap(game, &map, false, false);
-                            match manager_from_playmode(mode, &map) {
-                                Ok(manager) => {
-                                    self.game_manager = Some(manager);
-
-                                    // need a mutable reference
-                                    let m = self.game_manager.as_mut().unwrap();
-                                    m.apply_mods(mods);
-                                    m.replaying = true;
-                                    m.start();
-
-                                    self.map_length = m.end_time;
-                                    self.state = SpectatorState::Watching;
-                                },
-                                Err(e) => {
-                                    NotificationManager::add_error_notification("Error loading spec beatmap", e);
-                                },
-                            }
-                        }
-                        None => {
-                            // user doesnt have beatmap
-                            NotificationManager::add_text_notification("You do not have the map!", 2000.0, Color::RED);
-                        }
-                    }
+                    self.start_game(game, beatmap_hash, mode, mods, 0.0)
                 }
 
                 SpectatorFrameData::Pause => {
@@ -105,7 +75,7 @@ impl SpectatorManager {
                     }
                 }
                 SpectatorFrameData::Buffer => {/*nothing to handle here*/},
-                SpectatorFrameData::SpectatingOther { user_id } => {
+                SpectatorFrameData::SpectatingOther { .. } => {
                     NotificationManager::add_text_notification("Host speccing someone", 2000.0, Color::BLUE);
                 }
                 SpectatorFrameData::ReplayFrame { frame } => {
@@ -113,7 +83,7 @@ impl SpectatorManager {
                         manager.replay.frames.push((time as f32, frame))
                     }
                 }
-                SpectatorFrameData::ScoreSync { score } => {
+                SpectatorFrameData::ScoreSync { .. } => {
                     // received score update
                     println!("[Spec] got score update");
                     // we should buffer these, and check the time. 
@@ -129,14 +99,38 @@ impl SpectatorManager {
                         manager.pause()
                     }
                 }
+
+                SpectatorFrameData::PlayingResponse { user_id, beatmap_hash, mode, mods, current_time } => {
+                    let self_id;
+                    // cant do .blocking_lock() because it spawns a runtime?
+                    loop {
+                        match ONLINE_MANAGER.try_lock() {
+                            Ok(m) => {
+                                self_id = m.user_id;
+                                break;
+                            }
+                            Err(_) => {}
+                        }
+                    }
+
+                    if user_id == self_id {
+                        self.start_game(game, beatmap_hash, mode, mods, current_time)
+                    }
+                }
             }
         }
-
         
         // check our current state
         match &self.state {
             SpectatorState::None => {
                 // in this case, the user should really be allowed to browse menus etc in the mean time. we might have to meme this
+                if let Some(menu) = self.score_menu.as_mut() {
+                    menu.update(game);
+
+                    if menu.should_close {
+                        self.score_menu = None;
+                    }
+                }
             }
             SpectatorState::Buffering => {
                 if let Some(manager) = self.game_manager.as_mut() {
@@ -163,6 +157,15 @@ impl SpectatorManager {
                         println!("[Spec] starting buffer");
                         manager.pause();
                     }
+
+                    if manager.completed || manager.time() >= self.map_length {
+                        let mut score_menu = ScoreMenu::new(&manager.score, manager.metadata.clone());
+                        score_menu.dont_do_menu = true;
+                        self.score_menu = Some(score_menu);
+
+                        self.state = SpectatorState::None;
+                        self.game_manager = None;
+                    }
                 }
             }
             SpectatorState::Paused => {},
@@ -170,14 +173,62 @@ impl SpectatorManager {
         }
     }
 
+    fn start_game(&mut self, game:&mut Game, beatmap_hash:String, mode:PlayMode, mods:String, current_time:f32) {
+        self.good_until = 0.0;
+        self.map_length = 0.0;
+        // user started playing a map
+        println!("[Spec] Host started playing map");
+
+        let mods:ModManager = serde_json::from_str(&mods).unwrap();
+        // find the map
+        let mut beatmap_manager = BEATMAP_MANAGER.lock();
+        match beatmap_manager.get_by_hash(&beatmap_hash) {
+            Some(map) => {
+                beatmap_manager.set_current_beatmap(game, &map, false, false);
+                match manager_from_playmode(mode, &map) {
+                    Ok(manager) => {
+                        // remove score menu
+                        self.score_menu = None;
+                        // set our game manager
+                        self.game_manager = Some(manager);
+
+                        // need a mutable reference
+                        let m = self.game_manager.as_mut().unwrap();
+                        m.apply_mods(mods);
+                        m.replaying = true;
+                        m.start();
+                        println!("[Spec] jumping to time {}", current_time);
+                        m.jump_to_time(current_time.max(0.0));
+
+                        self.map_length = m.end_time;
+                        self.state = SpectatorState::Watching;
+                    }
+                    Err(e) => NotificationManager::add_error_notification("Error loading spec beatmap", e)
+                }
+            }
+            
+            // user doesnt have beatmap
+            None => NotificationManager::add_text_notification("You do not have the map!", 2000.0, Color::RED)
+        }
+    }
+
     pub fn draw(&mut self, args: RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         if let Some(manager) = self.game_manager.as_mut() {
             manager.draw(args, list)
         }
+
+        // draw score menu
+        if let Some(menu) = self.score_menu.as_mut() {
+            list.extend(menu.draw(args))
+        }
         
         // draw spectator banner
         match &self.state {
-            SpectatorState::None => {}
+            SpectatorState::None => {
+                if self.score_menu.is_none() {
+                    draw_banner("Waiting for Host", list);
+                }
+            }
             SpectatorState::Watching => {}
             SpectatorState::Buffering => draw_banner("Buffering", list),
             SpectatorState::Paused => draw_banner("Host Paused", list),
@@ -185,21 +236,34 @@ impl SpectatorManager {
         }
     }
 
-
-
-    pub fn mouse_scroll(&mut self, delta: f64, _game:&mut Game) {
+    pub fn mouse_scroll(&mut self, delta: f64, game:&mut Game) {
         if let Some(manager) = self.game_manager.as_mut() {
             manager.mouse_scroll(delta)
         }
+        
+        // update score menu
+        if let Some(menu) = self.score_menu.as_mut() {
+            menu.on_scroll(delta, game)
+        }
     }
-    pub fn mouse_move(&mut self, pos:Vector2, _game:&mut Game) {
+    pub fn mouse_move(&mut self, pos:Vector2, game:&mut Game) {
         if let Some(manager) = self.game_manager.as_mut() {
             manager.mouse_move(pos)
         }
+        
+        // update score menu
+        if let Some(menu) = self.score_menu.as_mut() {
+            menu.on_mouse_move(pos, game)
+        }
     }
-    pub fn mouse_down(&mut self, _pos:Vector2, button:MouseButton, _mods:KeyModifiers, _game:&mut Game) {
+    pub fn mouse_down(&mut self, pos:Vector2, button:MouseButton, mods:KeyModifiers, game:&mut Game) {
         if let Some(manager) = self.game_manager.as_mut() {
             manager.mouse_down(button);
+        }
+
+        // update score menu
+        if let Some(menu) = self.score_menu.as_mut() {
+            menu.on_click(pos, button, mods, game)
         }
     }
     pub fn mouse_up(&mut self, _pos:Vector2, button:MouseButton, _mods:KeyModifiers, _game:&mut Game) {
@@ -209,7 +273,14 @@ impl SpectatorManager {
     }
 
     pub fn key_down(&mut self, key:piston::Key, mods:KeyModifiers, game:&mut Game) {
+        // check if we need to close something
         if key == piston::Key::Escape {
+            // if the score menu is open, close it and leave.
+            if self.score_menu.is_some() {
+                self.score_menu = None;
+                return;
+            }
+
             let menu = game.menus.get("main").unwrap().clone();
             game.queue_state_change(GameState::InMenu(menu));
             // resume song if paused
@@ -221,14 +292,33 @@ impl SpectatorManager {
             }
         }
 
+
+        // update score menu
         if let Some(manager) = self.game_manager.as_mut() {
             manager.key_down(key, mods)
         }
+
+        // update score menu
+        if let Some(menu) = self.score_menu.as_mut() {
+            menu.on_key_press(key, game, mods);
+        }
     }
-    pub fn key_up(&mut self, key:piston::Key, _mods:KeyModifiers, _game:&mut Game) {
+    pub fn key_up(&mut self, key:piston::Key, _mods:KeyModifiers, game:&mut Game) {
         if let Some(manager) = self.game_manager.as_mut() {
             manager.key_up(key)
         }
+
+        // update score menu
+        if let Some(menu) = self.score_menu.as_mut() {
+            menu.on_key_release(key, game);
+        }
+    }
+}
+
+// when the manager is dropped, tell the server we stopped spectating
+impl Drop for SpectatorManager {
+    fn drop(&mut self) {
+        tokio::spawn(OnlineManager::stop_spectating());
     }
 }
 
