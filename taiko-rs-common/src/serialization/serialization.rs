@@ -107,28 +107,23 @@ impl<T:Serializable+Clone> Serializable for Option<T> {
     }
 }
 
-// serialization for Rc
-impl<T:Serializable> Serializable for Rc<T> {
-    fn read(sr:&mut SerializationReader) -> Self {
-        Rc::new(sr.read())
-    }
+// implement for wrapper types
+macro_rules! impl_wrapper {
+    ($($t:ident),+) => {
+        $(
+            impl<T:Serializable> Serializable for $t<T> {
+                fn read(sr:&mut SerializationReader) -> Self {
+                    $t::new(sr.read())
+                }
 
-    fn write(&self, sw:&mut SerializationWriter) {
-        self.as_ref().write(sw)
-    }
+                fn write(&self, sw:&mut SerializationWriter) {
+                    self.as_ref().write(sw)
+                }
+            }
+        )+
+    };
 }
-
-// serialization for arcs
-impl<T:Serializable> Serializable for Arc<T> {
-    fn read(sr:&mut SerializationReader) -> Self {
-        Arc::new(sr.read())
-    }
-
-    fn write(&self, sw:&mut SerializationWriter) {
-        self.as_ref().write(sw)
-    }
-}
-
+impl_wrapper!(Box, Rc, Arc);
 
 macro_rules! __impl_serializable_numbers {
     ($($t:ty),+) => {
