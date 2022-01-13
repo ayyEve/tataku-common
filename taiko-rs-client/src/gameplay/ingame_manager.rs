@@ -439,11 +439,12 @@ impl IngameManager {
         // update gamemode
         gamemode.update(self, time);
 
+
+        // send map completed packets
         if self.completed {
-            // send map completed packet
+            self.outgoing_spectator_frame((time, SpectatorFrameData::ScoreSync {score: self.score.clone()}));
             self.outgoing_spectator_frame_force((self.end_time + 10.0, SpectatorFrameData::Buffer));
         }
-
 
         // update our spectator list if we can
         if let Ok(manager) = ONLINE_MANAGER.try_lock() {
