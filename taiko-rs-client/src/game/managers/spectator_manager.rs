@@ -45,6 +45,12 @@ impl SpectatorManager {
             Err(e) => println!("[SpectatorManager::update] failed to lock online manager, {}", e),
         }
 
+        if let Some(menu) = &self.score_menu {
+            if menu.should_close {
+                self.score_menu = None
+            }
+        }
+
         // check all incoming frames
         for (time, frame) in std::mem::take(&mut self.frames) {
             self.good_until = self.good_until.max(time as f32);
