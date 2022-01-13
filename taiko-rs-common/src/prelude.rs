@@ -6,3 +6,4 @@ pub use crate::tables::*;
 pub use crate::types::*;
 pub use crate::packets::*;
 pub use crate::serialization::*;
+pub use serde::{Serialize, Deserialize};

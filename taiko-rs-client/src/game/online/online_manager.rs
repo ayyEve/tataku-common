@@ -8,6 +8,7 @@ use taiko_rs_common::packets::PacketId;
 use taiko_rs_common::serialization::{SerializationReader, SimpleWriter};
 
 use crate::prelude::*;
+use PacketId::*;
 
 type WsWriter = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 
@@ -26,14 +27,19 @@ const SPECTATOR_BUFFER_FLUSH_SIZE: usize = 20;
 type ThreadSafeSelf = Arc<Mutex<OnlineManager>>;
 
 macro_rules! create_packet {
-    ($id:ident) => {
+    // ($id:ident) => {
+    //     SimpleWriter::new()
+    //     .write(PacketId::$id)
+    //     .done()
+    // };
+    // ($id:ident, $($item:expr),+) => {
+    //     SimpleWriter::new()
+    //     .write(PacketId::$id)
+    //     $(.write($item))+
+    //     .done()
+    // };
+    ($($item:expr),+) => {
         SimpleWriter::new()
-        .write(PacketId::$id)
-        .done()
-    };
-    ($id:ident, $($item:expr),+) => {
-        SimpleWriter::new()
-        .write(PacketId::$id)
         $(.write($item))+
         .done()
     };
@@ -132,12 +138,22 @@ impl OnlineManager {
                         .to_owned();
 
                     // send login packet
-                    send_packet!(s.writer, create_packet!(Client_UserLogin, settings.username.clone(), password));
+                    send_packet!(s.writer, create_packet!(Client_UserLogin {
+                        protocol_version: 1,
+                        game: "TaikoRs".to_owned(),
+                        username: settings.username.clone(),
+                        password
+                    }));
                 }
 
                 while let Some(message) = reader.next().await {
                     match message {
                         Ok(Message::Binary(data)) => OnlineManager::handle_packet(s.clone(), data).await,
+                        Ok(Message::Ping(_)) => {
+                            if let Some(writer) = s.lock().await.writer.as_mut() {
+                                let _ = writer.lock().await.send(Message::Pong(Vec::new())).await;
+                            }
+                        }
                         Ok(message) => if EXTRA_ONLINE_LOGGING {println!("[Online] got something else: {:?}", message)},
 
                         Err(oof) => {
@@ -161,40 +177,32 @@ impl OnlineManager {
         let mut reader = SerializationReader::new(data);
 
         while reader.can_read() {
-            let raw_id:u16 = reader.read();
-            let packet_id = PacketId::from(raw_id);
-            if EXTRA_ONLINE_LOGGING {println!("[Online] got packet id {:?}", packet_id)};
+            let packet:PacketId = reader.read();
+            if EXTRA_ONLINE_LOGGING {println!("[Online] got packet {:?}", packet)};
 
-            match packet_id {
+            match packet {
                 // login
-                PacketId::Server_LoginResponse => {
-                    let user_id = reader.read_i32();
-                    match user_id {
-                        -2 => println!("[Login] user not found"),
-                        -1 => println!("[Login] auth failed"),
-                         0 => println!("[Login] Unknown Error"),
-                         _ => {
-                            s.lock().await.user_id = user_id as u32;
+                PacketId::Server_LoginResponse { status, user_id } => {
+                    match status {
+                        LoginStatus::UnknownError => println!("[Login] Unknown Error"),
+                        LoginStatus::BadPassword => println!("[Login] auth failed"),
+                        LoginStatus::NoUser => println!("[Login] user not found"),
+                        LoginStatus::Ok => {
+                            s.lock().await.user_id = user_id;
                             println!("[Login] success");
                             NotificationManager::add_text_notification("Logged in!", 2000.0, Color::GREEN);
 
                             ping_handler()
-
-                            // [test] send spec request
-                            // Self::start_spectating(1).await;
-                        }
+                        },
                     }
                 }
 
                 // user updates
-                PacketId::Server_UserJoined => {
-                    let user_id = reader.read();
-                    let username = reader.read_string();
+                PacketId::Server_UserJoined { user_id, username } => {
                     if EXTRA_ONLINE_LOGGING {println!("[Online] user {} joined (id: {})", username, user_id)};
                     s.lock().await.users.insert(user_id, Arc::new(Mutex::new(OnlineUser::new(user_id, username))));
                 }
-                PacketId::Server_UserLeft => {
-                    let user_id = reader.read_u32();
+                PacketId::Server_UserLeft {user_id} => {
                     if EXTRA_ONLINE_LOGGING {println!("[Online] user id {} left", user_id)};
 
                     let mut lock = s.lock().await;
@@ -209,11 +217,7 @@ impl OnlineManager {
                         }
                     }
                 }
-                PacketId::Server_UserStatusUpdate => {
-                    let user_id = reader.read_u32();
-                    let action:UserAction = reader.read();
-                    let action_text = reader.read_string();
-                    let _mode: crate::PlayMode = reader.read();
+                PacketId::Server_UserStatusUpdate { user_id, action, action_text, mode } => {
                     // println!("[Online] got user status update: {}, {:?}, {} ({:?})", user_id, action, action_text, mode);
                     
                     if let Some(e) = s.lock().await.users.get_mut(&user_id) {
@@ -224,35 +228,22 @@ impl OnlineManager {
                 }
 
                 // score 
-                PacketId::Server_ScoreUpdate => {
-                    let _user_id:i32 = reader.read();
-                    let _total_score:i64 = reader.read();
-                    let _ranked_score:i64 = reader.read();
-                    let _acc:f64 = reader.read();
-                    let _play_count:i32 = reader.read();
-                    let _rank:i32 = reader.read();
-                }
+                PacketId::Server_ScoreUpdate { .. } => {}
 
                 // chat
-                PacketId::Server_SendMessage => {
-                    let user_id:i32 = reader.read();
-                    let message:String = reader.read();
-                    let channel:String = reader.read();
-                    if EXTRA_ONLINE_LOGGING {println!("[Online] got message: `{}` from user id `{}` in channel `{}`", message, user_id, channel)};
+                PacketId::Server_SendMessage {sender_id, message, channel}=> {
+                    if EXTRA_ONLINE_LOGGING {println!("[Online] got message: `{}` from user id `{}` in channel `{}`", message, sender_id, channel)};
                 }
 
                 
                 // spectator
-                PacketId::Server_SpectatorFrames => {
-                    let _sender_id = reader.read_u32();
-                    let frames:SpectatorFrames = reader.read();
+                PacketId::Server_SpectatorFrames { host_id, frames } => {
                     // println!("[Online] got {} spectator frames from the server", frames.len());
                     let mut lock = s.lock().await;
                     lock.buffered_spectator_frames.extend(frames);
                 }
                 // spec join/leave
-                PacketId::Server_SpectatorJoined => {
-                    let user_id:u32 = reader.read();
+                PacketId::Server_SpectatorJoined { user_id, username }=> {
                     let user = if let Some(u) = s.lock().await.find_user_by_id(user_id) {
                         u.lock().await.username.clone()
                     } else {
@@ -262,8 +253,7 @@ impl OnlineManager {
                     
                     NotificationManager::add_text_notification(&format!("{} is now spectating", user), 2000.0, Color::GREEN);
                 }
-                PacketId::Server_SpectatorLeft => {
-                    let user_id:u32 = reader.read();
+                PacketId::Server_SpectatorLeft { user_id } => {
                     let user = if let Some(u) = s.lock().await.find_user_by_id(user_id) {
                         u.lock().await.username.clone()
                     } else {
@@ -275,10 +265,8 @@ impl OnlineManager {
                 }
 
                 // spec info request
-                PacketId::Server_SpectatorPlayingRequest => {
-                    let requesting_user_id:u32 = reader.read();
-                    s.lock().await.spectate_info_pending.push(requesting_user_id);
-
+                PacketId::Server_SpectatorPlayingRequest {user_id} => {
+                    s.lock().await.spectate_info_pending.push(user_id);
                     println!("[Online] got playing request");
                 }
 
@@ -293,7 +281,7 @@ impl OnlineManager {
 
                 // other packets
                 PacketId::Unknown => {
-                    println!("[Online] got unknown packet id {}, dropping remaining packets", raw_id);
+                    println!("[Online] got unknown packet, dropping remaining packets");
                     break;
                 }
 
@@ -307,8 +295,7 @@ impl OnlineManager {
 
     pub async fn set_action(s: ThreadSafeSelf, action:UserAction, action_text:String, mode: PlayMode) {
         let mut s = s.lock().await;
-
-        send_packet!(s.writer, create_packet!(Client_StatusUpdate, action, action_text.clone(), mode));
+        send_packet!(s.writer, create_packet!(Client_StatusUpdate {action, action_text: action_text.clone(), mode}));
         if action == UserAction::Leaving {
             send_packet!(s.writer, create_packet!(Client_LogOut));
         }
@@ -335,7 +322,9 @@ impl OnlineManager {
 
                         let clone = self.writer.clone();
                         tokio::spawn(async move {
-                            send_packet!(clone, create_packet!(Client_SpectatorFrames, vec![(0, packet)]));
+                            let frames = vec![(0.0, packet)];
+                            send_packet!(clone, create_packet!(Client_SpectatorFrames {frames}));
+                            println!("[Online] playing request sent");
                         });
                     }
                     
@@ -388,8 +377,12 @@ impl OnlineManager {
             let frames = std::mem::take(&mut lock.buffered_spectator_frames);
             // if force_send {println!("[Online] sending spec buffer (force)")} else if times_up {println!("[Online] sending spec buffer (time)")} else {println!("[Online] sending spec buffer (len)")}
 
+            // for i in frames.iter() {
+            //     println!("writing spec packet")
+            // }
             
-            send_packet!(lock.writer, create_packet!(Client_SpectatorFrames, frames));
+            println!("[Online] sending {} spec packets", frames.len());
+            send_packet!(lock.writer, create_packet!(Client_SpectatorFrames {frames}));
             lock.last_spectator_frame = Instant::now();
         }
 
@@ -401,7 +394,7 @@ impl OnlineManager {
         s.spectating = true;
         println!("[Online] speccing {}", host_id);
 
-        send_packet!(s.writer, create_packet!(Client_Spectate, host_id));
+        send_packet!(s.writer, create_packet!(Client_Spectate {host_id:host_id}));
     }
 
     pub async fn stop_spectating() {
@@ -411,7 +404,7 @@ impl OnlineManager {
         s.spectating = false;
         println!("[Online] stop speccing");
         
-        send_packet!(s.writer, create_packet!(Client_SpectatorLeft));
+        send_packet!(s.writer, create_packet!(Client_LeaveSpectator));
     }
 
     pub fn get_pending_spec_frames(&mut self) -> SpectatorFrames {

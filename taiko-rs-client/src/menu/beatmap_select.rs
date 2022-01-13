@@ -332,7 +332,7 @@ impl Menu<Game> for BeatmapSelectMenu {
         
         let cloned = ONLINE_MANAGER.clone();
         tokio::spawn(async move {
-            OnlineManager::send_spec_frames(cloned, vec![(0, SpectatorFrameData::ChangingMap)], true).await
+            OnlineManager::send_spec_frames(cloned, vec![(0.0, SpectatorFrameData::ChangingMap)], true).await
         });
 
         // play song if it exists

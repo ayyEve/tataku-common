@@ -9,7 +9,8 @@ edition = "2018"
 default = []
 server = ["sea-orm"]
 
-
 [dependencies]
 serde = { version="1.0", features=["derive"] }
 sea-orm = { version = "0.4", features = [ "sqlx-postgres", "runtime-tokio-rustls" ], optional = true }
+
+tataku-proc-macros = {git = "https://gitlab.ayyeve.xyz/tataku/proc-macros"}

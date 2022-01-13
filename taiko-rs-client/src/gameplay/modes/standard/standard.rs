@@ -330,7 +330,7 @@ impl GameMode for StandardGame {
     fn handle_replay_frame(&mut self, frame:ReplayFrame, time:f32, manager:&mut IngameManager) {
         if !manager.replaying {
             manager.replay.frames.push((time, frame.clone()));
-            manager.outgoing_spectator_frame((time as u32, SpectatorFrameData::ReplayFrame{frame}));
+            manager.outgoing_spectator_frame((time, SpectatorFrameData::ReplayFrame{frame}));
         }
 
         const ALLOWED_PRESSES:&[KeyPress] = &[

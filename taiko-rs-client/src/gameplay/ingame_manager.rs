@@ -18,6 +18,9 @@ const HIT_TIMING_FADE:f32 = 300.0;
 /// hit timing bar color
 const HIT_TIMING_BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0);
 
+/// ms between spectator score sync packets
+const SPECTATOR_SCORE_SYNC_INTERVAL: f32 = 1000.0;
+
 
 pub struct IngameManager {
     pub beatmap: Beatmap,
@@ -71,6 +74,13 @@ pub struct IngameManager {
     spectator_cache: Vec<(u32, String)>,
 
     background_game_settings: BackgroundGameSettings,
+
+
+    // spectator variables
+    // TODO: should these be in their own struct? it might simplify things
+
+    /// when was the last score sync packet sent?
+    last_spectator_score_sync: f32,
 }
 impl IngameManager {
     pub fn new(beatmap: Beatmap, gamemode: Box<dyn GameMode>) -> Self {
@@ -127,6 +137,9 @@ impl IngameManager {
 
             gamemode,
             spectator_cache: Vec::new(),
+
+            // initialize defaults for anything else not specified
+            ..Self::default()
         }
     }
 
@@ -229,7 +242,7 @@ impl IngameManager {
             self.reset();
 
             if !self.replaying {
-                self.outgoing_spectator_frame((0, SpectatorFrameData::Play {
+                self.outgoing_spectator_frame((0.0, SpectatorFrameData::Play {
                     beatmap_hash: self.beatmap.hash(),
                     mode: self.gamemode.playmode(),
                     mods: serde_json::to_string(&(*self.current_mods)).unwrap()
@@ -274,7 +287,7 @@ impl IngameManager {
             if self.menu_background {return}
             
             let frame = SpectatorFrameData::UnPause;
-            let time = self.time() as u32;
+            let time = self.time();
             self.outgoing_spectator_frame((time, frame));
 
             #[cfg(feature="bass_audio")]
@@ -298,8 +311,7 @@ impl IngameManager {
 
         // might mess with lead-in but meh
 
-        println!("sending pause");
-        let time = self.time() as u32;
+        let time = self.time();
         self.outgoing_spectator_frame_force((time, SpectatorFrameData::Pause));
     }
     pub fn reset(&mut self) {
@@ -429,13 +441,21 @@ impl IngameManager {
 
         if self.completed {
             // send map completed packet
-            self.outgoing_spectator_frame_force((self.end_time as u32 + 10, SpectatorFrameData::Buffer));
+            self.outgoing_spectator_frame_force((self.end_time + 10.0, SpectatorFrameData::Buffer));
         }
 
 
         // update our spectator list if we can
         if let Ok(manager) = ONLINE_MANAGER.try_lock() {
             self.spectator_cache = manager.spectator_list.clone()
+        }
+
+        // if its time to send another score sync packet
+        if self.last_spectator_score_sync + SPECTATOR_SCORE_SYNC_INTERVAL <= time {
+            self.last_spectator_score_sync = time;
+
+            // create and send the packet
+            self.outgoing_spectator_frame((time, SpectatorFrameData::ScoreSync {score: self.score.clone()}))
         }
 
         // put it back
@@ -866,7 +886,8 @@ impl Default for IngameManager {
             hitbar_timings: Default::default(),
             replay_frame: Default::default(),
             background_game_settings: Default::default(), 
-            spectator_cache: Default::default(), 
+            spectator_cache: Default::default(),
+            last_spectator_score_sync: 0.0,
         }
     }
 }

@@ -225,6 +225,7 @@ impl Serializable for Score {
         sw.write(self.xkatu);
         sw.write(self.xmiss);
         sw.write(self.accuracy);
+        sw.write(self.speed);
     }
 }
 impl fmt::Display for Score {

@@ -11,17 +11,18 @@ pub struct SpectatorManager {
     pub frames: SpectatorFrames, 
     pub state: SpectatorState, 
     pub game_manager: Option<IngameManager>,
+    score_menu: Option<ScoreMenu>,
 
     /// what time we have data for
     /// ie, up to what time we can show gameplay
     pub good_until: f32,
     pub map_length: f32,
 
-
-    // list of id,username for specs
+    /// list of id,username for specs
     pub spectator_cache: HashMap<u32, String>,
 
-    score_menu: Option<ScoreMenu>
+    /// list
+    buffered_score_frames: Vec<(f32, Score)>
 }
 impl SpectatorManager {
     pub fn new() -> Self {
@@ -32,7 +33,8 @@ impl SpectatorManager {
             good_until: 0.0,
             map_length: 0.0,
             spectator_cache: HashMap::new(),
-            score_menu: None
+            score_menu: None,
+            buffered_score_frames: Vec::new()
         }
     }
 
@@ -83,9 +85,10 @@ impl SpectatorManager {
                         manager.replay.frames.push((time as f32, frame))
                     }
                 }
-                SpectatorFrameData::ScoreSync { .. } => {
+                SpectatorFrameData::ScoreSync { score } => {
                     // received score update
                     println!("[Spec] got score update");
+                    self.buffered_score_frames.push((time as f32, score));
                     // we should buffer these, and check the time. 
                     // if the time is at the score time, we should update our score, 
                     // as this score is probably more accurate, or at the very least will update new spectators
@@ -142,7 +145,7 @@ impl SpectatorManager {
                         println!("[Spec] no longer buffering");
                         manager.start();
                     } else {
-                        println!("[Spec] buffering");
+                        // println!("[Spec] buffering");
                     }
                 }
             }
@@ -150,6 +153,16 @@ impl SpectatorManager {
                 // currently watching someone
                 if let Some(manager) = self.game_manager.as_mut() {
                     manager.update();
+
+                    let manager_time = manager.time();
+                    self.buffered_score_frames.retain(|(time, score)| {
+                        if manager_time <= *time {
+                            manager.score = score.to_owned();
+                            false
+                        } else {
+                            true
+                        }
+                    });
                     
                     let buffer_duration = (manager.time() + SPECTATOR_BUFFER_OK_DURATION * 2.0).clamp(0.0, self.map_length);
                     if self.good_until < buffer_duration {
@@ -176,6 +189,7 @@ impl SpectatorManager {
     fn start_game(&mut self, game:&mut Game, beatmap_hash:String, mode:PlayMode, mods:String, current_time:f32) {
         self.good_until = 0.0;
         self.map_length = 0.0;
+        self.buffered_score_frames.clear();
         // user started playing a map
         println!("[Spec] Host started playing map");
 

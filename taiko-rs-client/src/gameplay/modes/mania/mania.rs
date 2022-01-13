@@ -232,7 +232,7 @@ impl GameMode for ManiaGame {
     fn handle_replay_frame(&mut self, frame:ReplayFrame, time:f32, manager:&mut IngameManager) {
         if !manager.replaying {
             manager.replay.frames.push((time, frame));
-            manager.outgoing_spectator_frame((time as u32, SpectatorFrameData::ReplayFrame{frame}));
+            manager.outgoing_spectator_frame((time, SpectatorFrameData::ReplayFrame{frame}));
         }
 
         macro_rules! play_sound {

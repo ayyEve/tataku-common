@@ -3439,6 +3439,7 @@ version = "0.1.0"
 dependencies = [
  "sea-orm",
  "serde",
+ "tataku-proc-macros",
 ]
 
 [[package]]
@@ -3467,6 +3468,16 @@ dependencies = [
  "taiko-rs-common",
  "tokio",
  "tokio-tungstenite",
+]
+
+[[package]]
+name = "tataku-proc-macros"
+version = "0.1.0"
+source = "git+https://gitlab.ayyeve.xyz/tataku/proc-macros#df3e69eaad741099a5d224aefbd4b396fc4fbc2a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
