@@ -32,6 +32,20 @@ impl OnlineUser {
         }
     }
 }
+impl Default for OnlineUser {
+    fn default() -> Self {
+        Self { 
+            pos: Vector2::zero(), 
+            hover: Default::default(), 
+            selected: Default::default(), 
+            clicked: Default::default(), 
+            user_id: Default::default(), 
+            username: Default::default(), 
+            action: Default::default(), 
+            action_text: Default::default() 
+        }
+    }
+}
 
 impl ScrollableItem for OnlineUser {
     fn size(&self) -> Vector2 {USER_ITEM_SIZE}

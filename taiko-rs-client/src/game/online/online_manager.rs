@@ -5,15 +5,15 @@ use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungsten
 use super::discord::Discord;
 use super::online_user::OnlineUser;
 use taiko_rs_common::packets::PacketId;
-use taiko_rs_common::serialization::{SerializationReader, SimpleWriter};
+use taiko_rs_common::serialization::SerializationReader;
 
-use crate::prelude::*;
 use PacketId::*;
+use crate::prelude::*;
 
 type WsWriter = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 
 
-const EXTRA_ONLINE_LOGGING:bool = false;
+const EXTRA_ONLINE_LOGGING:bool = true;
 
 // url to connect to
 #[cfg(feature = "gitlab_build")]
@@ -26,29 +26,20 @@ const CONNECT_URL:&str = "ws://127.0.0.1:8080";
 const SPECTATOR_BUFFER_FLUSH_SIZE: usize = 20;
 type ThreadSafeSelf = Arc<Mutex<OnlineManager>>;
 
+#[macro_export]
 macro_rules! create_packet {
-    // ($id:ident) => {
-    //     SimpleWriter::new()
-    //     .write(PacketId::$id)
-    //     .done()
-    // };
-    // ($id:ident, $($item:expr),+) => {
-    //     SimpleWriter::new()
-    //     .write(PacketId::$id)
-    //     $(.write($item))+
-    //     .done()
-    // };
     ($($item:expr),+) => {
-        SimpleWriter::new()
+        taiko_rs_common::serialization::SimpleWriter::new()
         $(.write($item))+
         .done()
     };
 }
 
+#[macro_export]
 macro_rules! send_packet {
     ($writer:expr, $data:expr) => {
         if let Some(writer) = &$writer {
-            match writer.lock().await.send(Message::Binary($data)).await {
+            match writer.lock().await.send(tokio_tungstenite::tungstenite::protocol::Message::Binary($data)).await {
                 Ok(_) => true,
                 Err(e) => {
                     println!("[Writer] Error sending data ({}:{}): {}", file!(), line!(), e);
@@ -77,13 +68,16 @@ pub struct OnlineManager {
     pub users: HashMap<u32, Arc<Mutex<OnlineUser>>>, // user id is key
     pub discord: Discord,
 
-    // pub chat: Chat,
     pub user_id: u32, // this user's id
 
     /// socket writer
     pub writer: Option<Arc<Mutex<WsWriter>>>,
 
-    // spectator specific vars
+    // ====== chat ======
+
+    pub chat_messages: HashMap<ChatChannel, Vec<ChatMessage>>,
+
+    // ====== spectator ======
 
     // buffers 
     // is this user spectating someone?
@@ -95,10 +89,19 @@ pub struct OnlineManager {
     pub(crate) spectator_list: Vec<(u32, String)>,
     /// which users are waiting for a spectator info response?
     /// TODO: should probably move the list itself to the server
-    pub(crate) spectate_info_pending: Vec<u32>
+    pub(crate) spectate_info_pending: Vec<u32>,
 }
 impl OnlineManager {
     pub fn new() -> OnlineManager {
+        let mut messages = HashMap::new();
+        let channel = ChatChannel::Channel{name: "general".to_owned()};
+        messages.insert(channel.clone(), vec![ChatMessage::new(
+            "System".to_owned(),
+            channel,
+            u32::MAX,
+            "this is a test message".to_owned()
+        )]);
+
         OnlineManager {
             user_id: 0,
             users: HashMap::new(),
@@ -112,6 +115,7 @@ impl OnlineManager {
 
             spectator_list: Vec::new(),
             spectate_info_pending: Vec::new(),
+            chat_messages: messages,
         }
     }
     pub async fn start(s: ThreadSafeSelf) {
@@ -233,6 +237,30 @@ impl OnlineManager {
                 // chat
                 PacketId::Server_SendMessage {sender_id, message, channel}=> {
                     if EXTRA_ONLINE_LOGGING {println!("[Online] got message: `{}` from user id `{}` in channel `{}`", message, sender_id, channel)};
+
+                    let channel = if channel.starts_with("#") {
+                        ChatChannel::Channel {name: channel.trim_start_matches("#").to_owned()}
+                    } else {
+                        ChatChannel::User {username: channel}
+                    };
+
+                    let mut lock = s.lock().await;
+                    let sender = lock.find_user_by_id(sender_id).unwrap_or_default().lock().await.username.clone();
+                    let chat_messages = &mut lock.chat_messages;
+                    // if the list doesnt include the channel, add it
+                    if !chat_messages.contains_key(&channel) {
+                        chat_messages.insert(channel.clone(), Vec::new());
+                    }
+
+                    let message = ChatMessage::new(
+                        sender,
+                        channel.clone(),
+                        sender_id,
+                        message
+                    );
+
+                    // add the message to the channel
+                    chat_messages.get_mut(&channel).unwrap().push(message);
                 }
 
                 
@@ -244,14 +272,8 @@ impl OnlineManager {
                 }
                 // spec join/leave
                 PacketId::Server_SpectatorJoined { user_id, username }=> {
-                    let user = if let Some(u) = s.lock().await.find_user_by_id(user_id) {
-                        u.lock().await.username.clone()
-                    } else {
-                        "A user".to_owned()
-                    };
-                    s.lock().await.spectator_list.push((user_id, user.clone()));
-                    
-                    NotificationManager::add_text_notification(&format!("{} is now spectating", user), 2000.0, Color::GREEN);
+                    s.lock().await.spectator_list.push((user_id, username.clone()));
+                    NotificationManager::add_text_notification(&format!("{} is now spectating", username), 2000.0, Color::GREEN);
                 }
                 PacketId::Server_SpectatorLeft { user_id } => {
                     let user = if let Some(u) = s.lock().await.find_user_by_id(user_id) {
@@ -272,12 +294,8 @@ impl OnlineManager {
 
 
                 // ping and pong
-                PacketId::Ping => {
-                    send_packet!(s.lock().await.writer, create_packet!(Pong));
-                }
-                PacketId::Pong => {
-                    // println!("[Online] got pong from server");
-                }
+                PacketId::Ping => {send_packet!(s.lock().await.writer, create_packet!(Pong));},
+                PacketId::Pong => {/* println!("[Online] got pong from server"); */},
 
                 // other packets
                 PacketId::Unknown => {

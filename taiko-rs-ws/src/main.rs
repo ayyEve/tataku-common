@@ -113,6 +113,7 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
                             let _ = writer.lock().await.send(Message::Pong(Vec::new())).await;
                         }
                     }
+                    Ok(Message::Pong(_)) => {}
                     Ok(message) => println!("[Connection] got something else: {:?}", message),
 
                     Err(oof) => {
@@ -243,9 +244,7 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
             }
 
             // status update
-            PacketId::Client_StatusUpdate {
-                action, action_text, mode
-            } => {
+            PacketId::Client_StatusUpdate {action, action_text, mode} => {
                 {
                     let mut u = peer_map.write().await;
                     let mut u = u.get_mut(addr).unwrap();
@@ -270,7 +269,7 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
             // chat messages
             PacketId::Client_SendMessage { channel, message} => {
 
-                //Makes sure we dont send a message to ourselves, that would be silly
+                // Makes sure we cant send a message to ourselves, that would be silly
                 if channel == user_connection.username {
                     let data = create_server_send_message_packet(
                         bot_id(),
@@ -282,7 +281,7 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                     return
                 }
 
-                //Create the packet to send to all clients
+                // Create the packet to send to all clients
                 let data = create_server_send_message_packet(
                     user_connection.user_id, message.clone(), channel.clone()
                 );
@@ -295,6 +294,9 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                     if !channel.starts_with("#") {
                         if user.username != channel {
                             continue;
+                        } else {
+                            // also send to the sending user
+                            send_packet!(user_connection.writer, data.clone());
                         }
                     }
 

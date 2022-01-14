@@ -306,6 +306,7 @@ impl Game {
         //TODO: maybe try to move this to a dialog?
         if keys_down.contains(&Key::F8) {
             self.show_user_list = !self.show_user_list;
+            self.add_dialog(Box::new(Chat::new()));
             println!("Show user list: {}", self.show_user_list);
         }
         if self.show_user_list {
@@ -327,6 +328,31 @@ impl Game {
                                     tokio::spawn(OnlineManager::start_spectating(user_id));
                                     //TODO: wait for a spec response from the server before setting the mode
                                     game.queue_state_change(GameState::Spectating(SpectatorManager::new()));
+                                    dialog.should_close = true;
+                                    game.selected_user = None;
+                                }
+                            }));
+                            user_menu_dialog.add_button("Send Message", Box::new(|dialog, game| {
+                                // println!("spectate");
+                                if let Some(user_id) = game.selected_user.clone() {
+
+                                    let mut chat = Chat::new();
+                                    game.add_dialog(Box::new(chat));
+
+                                    let clone = ONLINE_MANAGER.clone();
+                                    tokio::spawn(async move {
+                                        let mut lock = clone.lock().await;
+                                        if let Some(user) = lock.find_user_by_id(user_id) {
+                                            let username = user.lock().await.username.clone();
+                                            let channel = ChatChannel::User{username};
+                                            if !lock.chat_messages.contains_key(&channel) {
+                                                lock.chat_messages.insert(channel.clone(), Vec::new());
+                                            }
+                                        } else {
+                                            NotificationManager::add_text_notification("Error: user not found.", 2000.0, Color::RED)
+                                        }
+                                    });
+
                                     dialog.should_close = true;
                                     game.selected_user = None;
                                 }

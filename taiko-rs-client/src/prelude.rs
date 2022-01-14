@@ -49,8 +49,8 @@ pub use crate::game::*;
 pub use crate::graphics::*;
 pub use crate::game::audio::*;
 pub use crate::game::managers::*;
-pub use crate::game::helpers::{*, io::*, math::*, curve::*, key_counter::*};
 pub use crate::game::helpers::centered_text_helper::CenteredTextHelper;
+pub use crate::game::helpers::{*, io::*, math::*, curve::*, key_counter::*};
 
 // sync imports
 pub use std::sync::{Arc, Weak};
@@ -69,4 +69,7 @@ pub use crate::beatmaps::common::*;
 pub use crate::beatmaps::osu::hitobject_defs::*;
 
 // online imports
+pub use crate::send_packet;
+pub use crate::create_packet;
 pub use crate::game::online::*;
+pub use taiko_rs_common::PacketId;

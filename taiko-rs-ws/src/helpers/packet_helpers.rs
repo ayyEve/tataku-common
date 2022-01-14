@@ -1,9 +1,9 @@
 use crate::prelude::*;
 use crate::create_packet;
 
-pub fn create_server_send_message_packet(id: u32, message: String, channel: String) -> Vec<u8> {
+pub fn create_server_send_message_packet(sender_id: u32, message: String, channel: String) -> Vec<u8> {
     create_packet!(Server_SendMessage {
-        sender_id: id,
+        sender_id,
         message,
         channel
     })
