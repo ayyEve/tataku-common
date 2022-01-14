@@ -54,6 +54,7 @@ pub use crate::game::helpers::{*, io::*, math::*, curve::*, key_counter::*};
 
 // sync imports
 pub use std::sync::{Arc, Weak};
+pub use std::sync::atomic::{*, Ordering::SeqCst};
 pub use parking_lot::{Mutex, MutexGuard};
 
 // error imports

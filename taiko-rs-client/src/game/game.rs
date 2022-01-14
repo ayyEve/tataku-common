@@ -306,7 +306,9 @@ impl Game {
         //TODO: maybe try to move this to a dialog?
         if keys_down.contains(&Key::F8) {
             self.show_user_list = !self.show_user_list;
-            self.add_dialog(Box::new(Chat::new()));
+            if let Some(chat) = Chat::new() {
+                self.add_dialog(Box::new(chat));
+            }
             println!("Show user list: {}", self.show_user_list);
         }
         if self.show_user_list {
@@ -336,8 +338,9 @@ impl Game {
                                 // println!("spectate");
                                 if let Some(user_id) = game.selected_user.clone() {
 
-                                    let mut chat = Chat::new();
-                                    game.add_dialog(Box::new(chat));
+                                    if let Some(chat) = Chat::new() {
+                                        game.add_dialog(Box::new(chat));
+                                    }
 
                                     let clone = ONLINE_MANAGER.clone();
                                     tokio::spawn(async move {

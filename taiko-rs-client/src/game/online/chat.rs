@@ -1,8 +1,13 @@
 #![allow(dead_code, unused, non_snake_case)]
+
 use futures_util::SinkExt;
 
 use crate::prelude::*;
 const INPUT_HEIGHT:f64 = 45.0;
+
+lazy_static::lazy_static! {
+    static ref CHAT_EXISTS:AtomicBool = AtomicBool::new(false);
+}
 
 pub struct Chat {
     // messages
@@ -24,7 +29,13 @@ pub struct Chat {
     pub channel_list_width: f64,
 }
 impl Chat {
-    pub fn new() -> Self {
+    pub fn new() -> Option<Self> {
+        if CHAT_EXISTS.load(SeqCst) {
+            println!("chat exists, not creating");
+            return None
+        }
+        CHAT_EXISTS.store(true, SeqCst);
+
         let window_size = Settings::window_size();
 
         let chat_height = window_size.y / 3.0 - INPUT_HEIGHT;
@@ -42,7 +53,7 @@ impl Chat {
             ""
         );
         
-        Self {
+        Some(Self {
             // [channels][messages]
             messages:HashMap::new(),
             selected_channel: None,
@@ -55,7 +66,7 @@ impl Chat {
             // positions/sizes
             chat_height,
             channel_list_width
-        }
+        })
     }
 
     pub fn scroll_to_new_message(&mut self) {
@@ -77,11 +88,7 @@ impl Dialog<Game> for Chat {
             )
         )
     }
-    fn should_close(&self) -> bool {
-        self.should_close
-    }
-
-
+    fn should_close(&self) -> bool {self.should_close}
 
     fn on_key_press(&mut self, key:&Key, mods:&KeyModifiers, _g:&mut Game) -> bool {
         if key == &Key::Escape {
@@ -243,6 +250,11 @@ impl Dialog<Game> for Chat {
         list.extend(self.channel_scroll.draw(args, Vector2::zero(), depth));
         list.extend(self.message_scroll.draw(args, Vector2::zero(), depth));
         list.extend(self.input.draw(args, Vector2::zero(), depth - 10.0));
+    }
+}
+impl Drop for Chat {
+    fn drop(&mut self) {
+        CHAT_EXISTS.store(false, SeqCst);
     }
 }
 
