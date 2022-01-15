@@ -66,7 +66,7 @@ impl Serializable for SpectatorFrameData {
             // unknown
             n => panic!("[Spectator] unknown SpectatorFrameData num: {}", n), // unknown
         };
-        println!("read spec {:?}", r);
+        // println!("read spec {:?}", r);
         r
     }
 

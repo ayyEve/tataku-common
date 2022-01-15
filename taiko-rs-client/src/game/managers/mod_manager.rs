@@ -5,6 +5,7 @@ lazy_static::lazy_static! {
 }
 
 #[derive(Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ModManager {
     pub speed: f32,
     pub autoplay: bool,

@@ -81,6 +81,10 @@ pub struct IngameManager {
 
     /// when was the last score sync packet sent?
     last_spectator_score_sync: f32,
+
+    /// what should the game do on start?
+    /// mainly a helper for spectator
+    pub on_start: Box<dyn FnOnce(&mut Self)>
 }
 impl IngameManager {
     pub fn new(beatmap: Beatmap, gamemode: Box<dyn GameMode>) -> Self {
@@ -232,8 +236,11 @@ impl IngameManager {
     }
 
     //TODO: implement this properly, gamemode will probably have to handle some things too
-    pub fn jump_to_time(&mut self, time: f32) {
+    pub fn jump_to_time(&mut self, time: f32, skip_intro: bool) {
         self.song.set_position(time as f64).unwrap();
+        if skip_intro {
+            self.lead_in_time = 0.0;
+        }
     }
 
     // can be from either paused or new
@@ -281,6 +288,11 @@ impl IngameManager {
 
             // volume is set when the song is actually started (when lead_in_time is <= 0)
             self.started = true;
+
+            // run the startup code
+            let mut on_start:Box<dyn FnOnce(&mut Self)> = Box::new(|_|{});
+            std::mem::swap(&mut self.on_start, &mut on_start);
+            on_start(self);
 
         } else if self.lead_in_time <= 0.0 {
             // if this is the menu, dont do anything
@@ -889,6 +901,7 @@ impl Default for IngameManager {
             background_game_settings: Default::default(), 
             spectator_cache: Default::default(),
             last_spectator_score_sync: 0.0,
+            on_start: Box::new(|_|{})
         }
     }
 }

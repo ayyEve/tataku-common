@@ -228,6 +228,7 @@ impl OnlineManager {
                         let mut a = e.lock().await;
                         a.action = Some(action);
                         a.action_text = Some(action_text);
+                        a.mode = Some(mode);
                     }
                 }
 
@@ -311,13 +312,16 @@ impl OnlineManager {
         }
     }
 
-    pub async fn set_action(s: ThreadSafeSelf, action:UserAction, action_text:String, mode: PlayMode) {
-        let mut s = s.lock().await;
-        send_packet!(s.writer, create_packet!(Client_StatusUpdate {action, action_text: action_text.clone(), mode}));
-        if action == UserAction::Leaving {
-            send_packet!(s.writer, create_packet!(Client_LogOut));
-        }
-        s.discord.change_status(action_text.clone());
+    pub fn set_action(action:UserAction, action_text:String, mode: PlayMode) {
+        let c = ONLINE_MANAGER.clone();
+        tokio::spawn(async move {
+            let mut s = c.lock().await;
+            send_packet!(s.writer, create_packet!(Client_StatusUpdate {action, action_text: action_text.clone(), mode}));
+            if action == UserAction::Leaving {
+                send_packet!(s.writer, create_packet!(Client_LogOut));
+            }
+            s.discord.change_status(action_text.clone());
+        });
     }
 
 

@@ -14,7 +14,8 @@ pub struct OnlineUser {
     pub user_id: u32,
     pub username: String,
     pub action: Option<UserAction>,
-    pub action_text: Option<String>
+    pub action_text: Option<String>,
+    pub mode: Option<PlayMode>,
 }
 impl OnlineUser {
     pub fn new(user_id:u32, username:String) -> Self {
@@ -23,6 +24,7 @@ impl OnlineUser {
             username,
             action:None,
             action_text: None,
+            mode: None,
 
             clicked: false,
 
@@ -42,7 +44,8 @@ impl Default for OnlineUser {
             user_id: Default::default(), 
             username: Default::default(), 
             action: Default::default(), 
-            action_text: Default::default() 
+            action_text: Default::default(),
+            mode: Default::default()
         }
     }
 }

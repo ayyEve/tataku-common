@@ -555,7 +555,6 @@ impl Game {
             _ => {
                 // if the mode is being changed, clear all shapes, even ones with a lifetime
                 self.clear_render_queue(true);
-                let online_manager = ONLINE_MANAGER.clone();
 
                 // let cloned_mode = self.queued_mode.clone();
                 // self.threading.spawn(async move {
@@ -571,10 +570,8 @@ impl Game {
                         };
 
                         self.set_background_beatmap(&m);
-                        let text = format!("{}-{}[{}]\n{}", m.artist, m.title, m.version, h);
-                        tokio::spawn(async move {
-                            OnlineManager::set_action(online_manager, UserAction::Ingame, text, m.mode).await;
-                        });
+                        let text = format!("Playing {}-{}[{}]\n{}", m.artist, m.title, m.version, h);
+                        OnlineManager::set_action(UserAction::Ingame, text, m.mode);
                     },
                     GameState::InMenu(_) => {
                         if let GameState::InMenu(menu) = &self.current_state {
@@ -588,15 +585,11 @@ impl Game {
                             }
                         }
 
-                        tokio::spawn(async move {
-                            OnlineManager::set_action(online_manager, UserAction::Idle, String::new(), PlayMode::Taiko).await;
-                        });
+                        OnlineManager::set_action(UserAction::Idle, String::new(), PlayMode::Taiko);
                     },
                     GameState::Closing => {
                         // send logoff
-                        tokio::spawn(async move {
-                            OnlineManager::set_action(online_manager, UserAction::Leaving, String::new(), PlayMode::Taiko).await;
-                        });
+                        OnlineManager::set_action(UserAction::Leaving, String::new(), PlayMode::Taiko);
                     }
                     _ => {}
                 }

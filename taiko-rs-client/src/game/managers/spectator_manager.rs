@@ -220,9 +220,11 @@ impl SpectatorManager {
                         let m = self.game_manager.as_mut().unwrap();
                         m.apply_mods(mods);
                         m.replaying = true;
+                        m.on_start = Box::new(move |manager| {
+                            println!("[Spec] jumping to time {}", current_time);
+                            manager.jump_to_time(current_time.max(0.0), current_time > 0.0);
+                        });
                         m.start();
-                        println!("[Spec] jumping to time {}", current_time);
-                        m.jump_to_time(current_time.max(0.0));
 
                         self.map_length = m.end_time;
                         self.state = SpectatorState::Watching;
