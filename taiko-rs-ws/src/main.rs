@@ -91,7 +91,7 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
             let writer = Arc::new(Mutex::new(writer));
 
             let user_connection = UserConnection::new(writer.clone(), addr);
-            peer_map.write().await.insert(addr, user_connection.clone());
+            peer_map.write().await.insert(addr.clone(), user_connection);
 
             while let Some(message) = reader.next().await {
                 match message {
@@ -108,6 +108,7 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
                         println!("[Connection] Connection closed: {}", close_reason);
                     }
                     Ok(Message::Ping(_)) => {
+                        let user_connection = peer_map.read().await.get(&addr).unwrap().clone();
                         println!("[Connection] Got ping from user: {}", user_connection);
                         if let Some(writer) = &user_connection.writer {
                             let _ = writer.lock().await.send(Message::Pong(Vec::new())).await;
@@ -149,7 +150,7 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
     while reader.can_read() {
         let raw_id = reader.read();
         let id = PacketId::from(raw_id);
-        println!("[Packet] got packet id {:?} from user {} ({:x?})", id, user_connection, data);
+        println!("[Packet] got packet id {:?} from user {}", id, user_connection);
         
         match id {
             // login
