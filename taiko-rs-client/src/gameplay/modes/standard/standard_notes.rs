@@ -217,6 +217,8 @@ impl HitObject for StandardNote {
     fn reset(&mut self) {
         self.hit = false;
         self.missed = false;
+        
+        self.shapes.clear();
     }
 }
 impl StandardHitObject for StandardNote {
@@ -330,6 +332,13 @@ pub struct StandardSlider {
     start_checked: bool,
     /// was the release checked?
     end_checked: bool,
+
+    /// was a slider dot missed
+    dots_missed: usize,
+    /// how many dots is there
+    dot_count: usize,
+    /// what did the user get on the start of the slider?
+    start_judgment: ScoreHit,
 
     /// if the mouse is being held
     holding: bool,
@@ -519,6 +528,10 @@ impl StandardSlider {
             end_checked: false,
             holding: false,
             mouse_pos: Vector2::zero(),
+            
+            dots_missed: 0,
+            dot_count: 0,
+            start_judgment: ScoreHit::None,
 
             combo_text,
             sound_queue: Vec::new(),
@@ -543,6 +556,7 @@ impl StandardSlider {
 
     fn make_dots(&mut self) {
         self.hit_dots.clear();
+        self.dot_count = 0;
 
         let mut slide_counter = 0;
         let mut moving_forwards = true;
@@ -568,6 +582,8 @@ impl StandardSlider {
                 self.scaling_helper.scale,
                 slide_counter
             );
+
+            self.dot_count += 1;
             self.hit_dots.push(dot);
         }
     }
@@ -594,6 +610,51 @@ impl StandardSlider {
             group.ripple(0.0, duration, time as f64, self.standard_settings.ripple_scale, true, None);
 
             self.shapes.push(group);
+        }
+    }
+
+
+    fn check_end_points(&mut self, time: f32) -> ScoreHit {
+        self.end_checked = true;
+        self.sound_index = self.def.edge_sounds.len() - 1;
+
+        macro_rules! ripple {
+            () => {
+                self.add_ripple(time, self.visual_end_pos, false);
+            }
+        }
+
+        match self.start_judgment {
+            ScoreHit::None | ScoreHit::Miss => {
+                if self.dot_count == 0 {
+                    let distance = ((self.time_end_pos.x - self.mouse_pos.x).powi(2) + (self.time_end_pos.y - self.mouse_pos.y).powi(2)).sqrt();
+                    return if distance > self.radius * 2.0 || !self.holding {
+                        ScoreHit::Miss
+                    } else {
+                        self.sound_index = self.def.edge_sounds.len() - 1;
+                        ScoreHit::X100
+                    }
+
+                } else if self.dots_missed == self.dot_count {
+                    ScoreHit::Miss
+                } else if self.dots_missed == 0 {
+                    ripple!();
+                    ScoreHit::X100
+                } else {
+                    ripple!();
+                    ScoreHit::X50
+                }
+            }
+
+            _ => {
+                if self.dots_missed == 0 {
+                    ripple!();
+                    ScoreHit::X300
+                } else {
+                    ripple!();
+                    ScoreHit::X100
+                }
+            }
         }
     }
 }
@@ -662,13 +723,19 @@ impl HitObject for StandardSlider {
 
         let mut dots = std::mem::take(&mut self.hit_dots);
         for dot in dots.iter_mut() {
-            if dot.update(beatmap_time, self.holding) {
-                self.add_ripple(beatmap_time, dot.pos, true);
-                self.sound_queue.push((
-                    beatmap_time,
-                    0,
-                    hitsamples.clone()
-                ));
+            if let Some(was_hit) = dot.update(beatmap_time, self.holding) {
+                if was_hit {
+                    println!("[Dots] dot hit");
+                    self.add_ripple(beatmap_time, dot.pos, true);
+                    self.sound_queue.push((
+                        beatmap_time,
+                        0,
+                        hitsamples.clone()
+                    ));
+                } else {
+                    println!("[Dots] dot missed");
+                    self.dots_missed += 1
+                }
             }
         }
         self.hit_dots = dots;
@@ -852,6 +919,7 @@ impl HitObject for StandardSlider {
     }
 
     fn reset(&mut self) {
+        self.shapes.clear();
         self.sound_queue.clear();
 
         self.map_time = 0.0;
@@ -863,6 +931,10 @@ impl HitObject for StandardSlider {
         self.sound_index = 0;
         self.slides_complete = 0;
         self.moving_forward = true;
+
+        self.dots_missed = 0;
+        self.dot_count = 0;
+        self.start_judgment = ScoreHit::None;
         
         self.make_dots();
     }
@@ -898,24 +970,28 @@ impl StandardHitObject for StandardSlider {
     fn get_points(&mut self, is_press:bool, time:f32, (h_miss, h50, h100, h300):(f32,f32,f32,f32)) -> ScoreHit {
         // if slider was held to end, no hitwindow to check
         if h_miss == -1.0 {
-            let distance = ((self.time_end_pos.x - self.mouse_pos.x).powi(2) + (self.time_end_pos.y - self.mouse_pos.y).powi(2)).sqrt();
+            // let distance = ((self.time_end_pos.x - self.mouse_pos.x).powi(2) + (self.time_end_pos.y - self.mouse_pos.y).powi(2)).sqrt();
 
-            #[cfg(feature="debug_sliders")] {
-                println!("checking end window (held to end)");
-                if distance > self.radius * 2.0 {println!("slider end miss (out of radius)")}
-                if !self.holding {println!("slider end miss (not held)")}
-            }
-            self.add_ripple(time, self.visual_end_pos, false);
+            // #[cfg(feature="debug_sliders")] {
+            //     println!("checking end window (held to end)");
+            //     if distance > self.radius * 2.0 {println!("slider end miss (out of radius)")}
+            //     if !self.holding {println!("slider end miss (not held)")}
+            // }
+            
 
-            return if distance > self.radius * 2.0 || !self.holding {
-                ScoreHit::X100
-            } else {
-                self.sound_index = self.def.edge_sounds.len() - 1;
-                ScoreHit::X300
-            }
+            return self.check_end_points(time);
+
+            // self.end_checked = true;
+            // self.start_checked = true;
+
+            // return if distance > self.radius * 2.0 || !self.holding {
+            //     ScoreHit::Miss
+            // } else {
+            //     self.sound_index = self.def.edge_sounds.len() - 1;
+            //     ScoreHit::X300
+            // }
         }
 
-        let judgement_time: f32;
         // check press
         if time > self.time - h_miss && time < self.time + h_miss {
             // within starting time frame
@@ -935,8 +1011,26 @@ impl StandardHitObject for StandardSlider {
             self.start_checked = true;
             // self.sound_index += 1;
             
-            // set the judgement time to our start time
-            judgement_time = self.time;
+            // get the points
+            let diff = (time - self.time).abs();
+
+            let ripple_pos = if self.end_checked {self.visual_end_pos} else {self.pos};
+
+            let score = if diff < h300 {
+                self.add_ripple(time, ripple_pos, false);
+                ScoreHit::X300
+            } else if diff < h100 {
+                self.add_ripple(time, ripple_pos, false);
+                ScoreHit::X100
+            } else if diff < h50 {
+                self.add_ripple(time, ripple_pos, false);
+                ScoreHit::X50
+            } else {
+                ScoreHit::Miss
+            };
+
+            self.start_judgment = score;
+            score
         } else 
 
         // check release
@@ -950,39 +1044,17 @@ impl StandardHitObject for StandardSlider {
 
             // if already hit, return None
             if self.end_checked || distance > self.radius * 2.0 {return ScoreHit::None}
-            
-            // start wasnt hit yet, set it to true
-            self.end_checked = true;
 
             // make sure the last hitsound in the list is played
             self.sound_index = self.def.edge_sounds.len() - 1;
-            
-            // set the judgement time to our end time
-            judgement_time = self.curve.end_time;
+
+            self.check_end_points(time)
         } 
         // not in either time frame, exit
         else {
-            return ScoreHit::None;
+            ScoreHit::None
         }
 
-        // at this point, assume we want to return points
-        // get the points
-        let diff = (time - judgement_time).abs();
-
-        let ripple_pos = if self.end_checked {self.visual_end_pos} else {self.pos};
-
-        if diff < h300 {
-            self.add_ripple(time, ripple_pos, false);
-            ScoreHit::X300
-        } else if diff < h100 {
-            self.add_ripple(time, ripple_pos, false);
-            ScoreHit::X100
-        } else if diff < h50 {
-            self.add_ripple(time, ripple_pos, false);
-            ScoreHit::X50
-        } else {
-            ScoreHit::Miss
-        }
     }
 
 
@@ -1054,13 +1126,13 @@ impl SliderDot {
         }
     }
     /// returns true if the hitsound should play
-    pub fn update(&mut self, beatmap_time:f32, mouse_down: bool) -> bool {
+    pub fn update(&mut self, beatmap_time:f32, mouse_down: bool) -> Option<bool> {
         if beatmap_time >= self.time && !self.checked {
             self.checked = true;
             self.hit = mouse_down;
-            self.hit
+            Some(self.hit)
         } else {
-            false
+            None
         }
     }
     

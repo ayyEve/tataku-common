@@ -13,7 +13,7 @@ use crate::prelude::*;
 type WsWriter = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
 
 
-const EXTRA_ONLINE_LOGGING:bool = true;
+const EXTRA_ONLINE_LOGGING:bool = false;
 
 // url to connect to
 #[cfg(feature = "gitlab_build")]

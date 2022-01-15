@@ -5,7 +5,7 @@ use crate::serialization::{Serializable, SerializationReader, SerializationWrite
 
 
 
-const CURRENT_VERSION: u16 = 2;
+const CURRENT_VERSION:u16 = 2;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Score {

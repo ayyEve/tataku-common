@@ -498,7 +498,7 @@ impl GameMode for StandardGame {
                                     ScoreHit::X300 | ScoreHit::Xgeki => manager.score.hit300(time, note_time),
                                     ScoreHit::X100 | ScoreHit::Xkatu => {
                                         manager.score.hit100(time, note_time);
-                                        manager.combo_break();
+                                        // manager.combo_break();
                                     },
                                     ScoreHit::X50 => manager.score.hit50(time, note_time),
                                     _ => {}
