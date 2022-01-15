@@ -27,12 +27,12 @@ impl Into<PlayMode> for u8 {
 impl Into<u8> for PlayMode {
     fn into(self) -> u8 {
         match self {
-            Standard => 0,
-            Taiko => 1,
-            Catch => 2,
-            Mania => 3,
-            pTyping => 4,
-            Adofai => 5
+            PlayMode::Standard => 0,
+            PlayMode::Taiko => 1,
+            PlayMode::Catch => 2,
+            PlayMode::Mania => 3,
+            PlayMode::pTyping => 4,
+            PlayMode::Adofai => 5
         }
     }
 }
