@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[derive(PacketSerialization)]
 #[Packet(type="u8")]
 pub enum ServerErrorCode {

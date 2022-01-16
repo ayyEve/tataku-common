@@ -185,6 +185,11 @@ impl OnlineManager {
             if EXTRA_ONLINE_LOGGING {println!("[Online] got packet {:?}", packet)};
 
             match packet {
+
+                // ping/pong
+                PacketId::Ping => {send_packet!(s.lock().await.writer, create_packet!(Pong));},
+                PacketId::Pong => {/* println!("[Online] got pong from server"); */},
+
                 // login
                 PacketId::Server_LoginResponse { status, user_id } => {
                     match status {
@@ -200,6 +205,22 @@ impl OnlineManager {
                         },
                     }
                 }
+
+                // notification
+                PacketId::Server_Notification { message, severity } => {
+                    let (color, duration) = match severity {
+                        Severity::Info => (Color::GREEN, 3000.0),
+                        Severity::Warning => (Color::YELLOW, 5000.0),
+                        Severity::Error => (Color::RED, 7000.0),
+                    };
+
+                    NotificationManager::add_text_notification(&message, duration, color);
+                }
+                // server error
+                PacketId::Server_Error { code, error } => {
+                    println!("got server error {:?}: '{}'", code, error)
+                }
+
 
                 // user updates
                 PacketId::Server_UserJoined { user_id, username } => {
@@ -235,7 +256,7 @@ impl OnlineManager {
                 // score 
                 PacketId::Server_ScoreUpdate { .. } => {}
 
-                // chat
+                // === chat ===
                 PacketId::Server_SendMessage {sender_id, message, channel}=> {
                     if EXTRA_ONLINE_LOGGING {println!("[Online] got message: `{}` from user id `{}` in channel `{}`", message, sender_id, channel)};
 
@@ -265,7 +286,7 @@ impl OnlineManager {
                 }
 
                 
-                // spectator
+                // === spectator ===
                 PacketId::Server_SpectatorFrames { frames } => {
                     // println!("[Online] got {} spectator frames from the server", frames.len());
                     let mut lock = s.lock().await;
@@ -292,11 +313,6 @@ impl OnlineManager {
                     s.lock().await.spectate_info_pending.push(user_id);
                     println!("[Online] got playing request");
                 }
-
-
-                // ping and pong
-                PacketId::Ping => {send_packet!(s.lock().await.writer, create_packet!(Pong));},
-                PacketId::Pong => {/* println!("[Online] got pong from server"); */},
 
                 // other packets
                 PacketId::Unknown => {
