@@ -1,12 +1,10 @@
-use tataku_proc_macros::PacketSerialization;
-
 use crate::prelude::*;
 
 
-
 #[derive(Clone, Debug)]
-#[derive(PacketSerialization)]
 #[allow(non_camel_case_types)]
+#[derive(PacketSerialization)]
+#[Packet(type="u16")]
 pub enum PacketId {
     // ======= Unknown =======
     /// we dont know what this packet is.
@@ -25,7 +23,7 @@ pub enum PacketId {
     Pong,
 
 
-    // ======= login =======
+    // ======= login/Server things =======
 
     /// Client wants to log into the server
     #[Packet(id=100)]
@@ -73,9 +71,31 @@ pub enum PacketId {
         /// id of the user who is leaving
         user_id: u32
     },
+    /// server is telling the client something
+    #[Packet(id=106)]
+    Server_Notification {
+        /// the contents of the notification
+        message: String,
+        /// the severity of the notification
+        severity: Severity
+    },
+    /// server is dropping the connection for some reason
+    #[Packet(id=107)]
+    Server_DropConnection {
+        /// why was the connection dropped?
+        reason: String
+    },
+    /// there was an error within spec
+    #[Packet(id=108)]
+    Server_Error {
+        /// what is the reason for the error?
+        code: ServerErrorCode,
+        /// text representation, provides extra info
+        error: String
+    },
 
     
-    // ======= status updates =======
+    // ======= Status Updates =======
     #[Packet(id=200)]
     Client_StatusUpdate {
         /// what is the user doing?
@@ -113,7 +133,7 @@ pub enum PacketId {
     },
  
 
-    // ======= chat =======
+    // ======= Chat =======
 
     /// client is sending a message to the server
     #[Packet(id=300)]
@@ -137,7 +157,7 @@ pub enum PacketId {
     },
 
 
-    // ======= spectator =======
+    // ======= Spectator =======
 
     /// client wants to spectate someone
     #[Packet(id=400)]
@@ -174,7 +194,6 @@ pub enum PacketId {
     /// server is sending us spectator frames
     #[Packet(id=405)]
     Server_SpectatorFrames {
-        host_id: u32,
         frames: Vec<(f32, SpectatorFrameData)>
     },
     /// server is telling us someone wants to know our current in-game progress

@@ -1,34 +1,19 @@
 use crate::prelude::*;
 
-#[repr(u8)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(PacketSerialization)]
+#[Packet(type="u8")]
 pub enum LoginStatus {
     /// some unknown error occurred
-    UnknownError = 0,
+    #[Packet(id=0, default_variant)]
+    UnknownError,
     /// login success
-    Ok = 1,
+    #[Packet(id=1)]
+    Ok,
     /// password is incorrect
-    BadPassword = 2,
+    #[Packet(id=2)]
+    BadPassword,
     /// user doesnt exist
-    NoUser = 3,
-}
-impl From<u8> for LoginStatus {
-    fn from(n: u8) -> Self {
-        match n {
-            1 => Self::Ok,
-            2 => Self::BadPassword,
-            3 => Self::NoUser,
-
-            _ => Self::UnknownError,
-        }
-    }
-}
-impl Serializable for LoginStatus {
-    fn read(sr:&mut SerializationReader) -> Self {
-        sr.read_u8().into()
-    }
-
-    fn write(&self, sw:&mut SerializationWriter) {
-        sw.write_u8(*self as u8)
-    }
+    #[Packet(id=3)]
+    NoUser,
 }

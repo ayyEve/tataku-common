@@ -14,7 +14,6 @@ pub enum ServerPermissions {
     /// is this user a chat moderator?
     Moderator = 8
 }
-
 impl Serializable for Vec<ServerPermissions> {
     fn read(sr:&mut SerializationReader) -> Self {
         let num:u16 = sr.read();
@@ -22,11 +21,9 @@ impl Serializable for Vec<ServerPermissions> {
 
         macro_rules! check {
             ($($e:ident),+) => {
-                $(
-                    if (num & ServerPermissions::$e as u16) > 0 {
-                        list.push(ServerPermissions::$e)
-                    }
-                )+
+                $(if (num & ServerPermissions::$e as u16) > 0 {
+                    list.push(ServerPermissions::$e)
+                })+
             }
         }
         check!(Bot, Donator, Moderator);

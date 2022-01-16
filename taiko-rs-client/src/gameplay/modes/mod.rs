@@ -18,6 +18,8 @@ pub fn manager_from_playmode(playmode: PlayMode, beatmap: &BeatmapMeta) -> Resul
         // TODO
         PlayMode::Adofai | //=> Box::new(taiko::TaikoGame::new(&beatmap)?),
         PlayMode::pTyping => return Err(TaikoError::GameMode(GameModeError::NotImplemented)),
+
+        PlayMode::Unknown => return Err(TaikoError::GameMode(GameModeError::UnknownGameMode))
     };
 
     Ok(IngameManager::new(beatmap, gamemode))

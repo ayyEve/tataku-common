@@ -72,5 +72,6 @@ impl From<GameModeError> for TaikoError {
 
 #[derive(Clone, Copy, Debug)]
 pub enum GameModeError {
-    NotImplemented
+    NotImplemented,
+    UnknownGameMode
 }

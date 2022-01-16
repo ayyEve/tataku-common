@@ -268,7 +268,9 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
             // =====  chat  =====
 
             // chat messages
-            PacketId::Client_SendMessage { channel, message} => {
+            PacketId::Client_SendMessage { channel, mut message} => {
+                // limit the length to 128
+                message = message[0..message.len().min(128)].to_owned();
 
                 // Makes sure we cant send a message to ourselves, that would be silly
                 if channel == user_connection.username {
@@ -282,6 +284,43 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                     return
                 }
 
+                // if this is a dm
+                if !channel.starts_with("#") {
+                    // swap the incoming username (sender's receiver) to the outgoing user (receiver's sender)
+                    // otherwise, the other user will see the channel as their own username
+                    if let Some(sender) = find_user_by_id(peer_map.clone(), user_connection.user_id).await {
+
+                        match find_user_by_username(peer_map.clone(), channel.clone()).await {
+                            Some(receiver) => {
+                                let read = peer_map.read().await;
+                                let sender = read.get(&sender).unwrap();
+                                let receiver = read.get(&receiver).unwrap();
+
+                                // send packet to the sender
+                                send_packet!(user_connection.writer, create_server_send_message_packet(
+                                    user_connection.user_id, message.clone(), channel.clone()
+                                ));
+
+                                // send packet to the receiver
+                                send_packet!(receiver.writer, create_server_send_message_packet(
+                                    user_connection.user_id, message.clone(), sender.username.clone()
+                                ));
+                            }
+                            None => {
+                                // if sender does not exist, send error and continue reading packets
+                                send_packet!(user_connection.writer, create_server_send_message_packet(
+                                    bot_id(),
+                                    "That user/channel is not online or does not exist".to_owned(),
+                                    user_connection.username.clone()
+                                ));
+                            }
+                        }
+
+                    }
+
+                    continue;
+                }
+
                 // Create the packet to send to all clients
                 let data = create_server_send_message_packet(
                     user_connection.user_id, message.clone(), channel.clone()
@@ -290,17 +329,6 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
                 let mut did_send = false;
 
                 for (_, user) in peer_map.read().await.iter() {
-                    //Send the message to ourselves without any more checks
-                    //If this is a DM and the current iter user is not the recipient, then skip
-                    if !channel.starts_with("#") {
-                        if user.username != channel {
-                            continue;
-                        } else {
-                            // also send to the sending user
-                            send_packet!(user_connection.writer, data.clone());
-                        }
-                    }
-
                     did_send = true;
 
                     //Send the message to all clients
@@ -383,7 +411,7 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
             PacketId::Client_SpectatorFrames { frames } => {
                 // println!("forwarding {} frames to the following users: {:?}", frames.len(), user_connection.spectators);
 
-                let data = create_packet!(Server_SpectatorFrames {host_id: user_connection.user_id, frames});
+                let data = create_packet!(Server_SpectatorFrames {frames});
                 for (conn, user) in peer_map.write().await.iter_mut() {
                     if conn == addr {continue}
                     
@@ -424,6 +452,32 @@ async fn handle_packet(data: Vec<u8>, peer_map: &PeerMap, addr: &SocketAddr) {
 fn bot_id() -> u32 {
     BOT_ACCOUNT.force_get().0
 }
+
+
+
+
+/// return the socket addr of the user if found
+async fn find_user<F:Fn(&UserConnection)->bool>(peer_map: PeerMap, check:F) -> Option<SocketAddr> {
+    for (addr, user) in peer_map.read().await.iter() {
+        if check(user) {
+            return Some(*addr)
+        }
+    }
+    None
+}
+
+async fn find_user_by_id(peer_map: PeerMap, user_id: u32) -> Option<SocketAddr> {
+    find_user(peer_map, |u| {
+        u.user_id == user_id
+    }).await
+}
+
+async fn find_user_by_username(peer_map: PeerMap, username: String) -> Option<SocketAddr> {
+    find_user(peer_map, |u| {
+        u.username == username
+    }).await
+}
+
 
 fn check_user_list(map: &PeerMap) {
     if !LOG_USERS {return}

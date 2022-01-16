@@ -266,7 +266,7 @@ impl OnlineManager {
 
                 
                 // spectator
-                PacketId::Server_SpectatorFrames { host_id, frames } => {
+                PacketId::Server_SpectatorFrames { frames } => {
                     // println!("[Online] got {} spectator frames from the server", frames.len());
                     let mut lock = s.lock().await;
                     lock.buffered_spectator_frames.extend(frames);

@@ -287,7 +287,7 @@ impl ChatMessage {
     pub fn format_time(&self) -> String {
         let hours = (self.timestamp as f64 / (1000.0 * 60.0 * 60.0)).floor() as u64 % 24;
         let minutes = (self.timestamp as f64 / (1000.0 * 60.0)).floor() as u64 % 60;
-        format!("{}:{}", hours, minutes)
+        format!("{:02}:{:02}", hours, minutes)
     }
 
     pub fn get_formatted_text(&self) -> String {

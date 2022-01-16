@@ -75,13 +75,6 @@ impl SpectatorManager {
                         manager.start();
                     }
                 }
-                SpectatorFrameData::Stop => {
-                    println!("[Spec] stop");
-                    if let Some(manager) = self.game_manager.as_mut() {
-                        manager.pause();
-                        NotificationManager::add_text_notification("Host looking for map", 2000.0, Color::BLUE);
-                    }
-                }
                 SpectatorFrameData::Buffer => {/*nothing to handle here*/},
                 SpectatorFrameData::SpectatingOther { .. } => {
                     NotificationManager::add_text_notification("Host speccing someone", 2000.0, Color::BLUE);
@@ -126,6 +119,9 @@ impl SpectatorManager {
                         self.start_game(game, beatmap_hash, mode, mods, current_time)
                     }
                 }
+                SpectatorFrameData::Unknown => {
+                    // uh oh
+                },
             }
         }
         

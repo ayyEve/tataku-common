@@ -69,7 +69,6 @@ impl UserConnection {
                 return true
             }
         }
-        
 
         false
     }
