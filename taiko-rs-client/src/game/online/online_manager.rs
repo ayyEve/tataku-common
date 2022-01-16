@@ -186,7 +186,7 @@ impl OnlineManager {
 
             match packet {
 
-                // ping/pong
+                // ===== ping/pong =====
                 PacketId::Ping => {send_packet!(s.lock().await.writer, create_packet!(Pong));},
                 PacketId::Pong => {/* println!("[Online] got pong from server"); */},
 
@@ -222,7 +222,7 @@ impl OnlineManager {
                 }
 
 
-                // user updates
+                // ===== user updates =====
                 PacketId::Server_UserJoined { user_id, username } => {
                     if EXTRA_ONLINE_LOGGING {println!("[Online] user {} joined (id: {})", username, user_id)};
                     s.lock().await.users.insert(user_id, Arc::new(Mutex::new(OnlineUser::new(user_id, username))));
@@ -256,7 +256,7 @@ impl OnlineManager {
                 // score 
                 PacketId::Server_ScoreUpdate { .. } => {}
 
-                // === chat ===
+                // ===== chat =====
                 PacketId::Server_SendMessage {sender_id, message, channel}=> {
                     if EXTRA_ONLINE_LOGGING {println!("[Online] got message: `{}` from user id `{}` in channel `{}`", message, sender_id, channel)};
 
@@ -286,7 +286,7 @@ impl OnlineManager {
                 }
 
                 
-                // === spectator ===
+                // ===== spectator =====
                 PacketId::Server_SpectatorFrames { frames } => {
                     // println!("[Online] got {} spectator frames from the server", frames.len());
                     let mut lock = s.lock().await;
