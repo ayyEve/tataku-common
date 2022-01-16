@@ -1,14 +1,2 @@
 /target
-*.zip
-.vscode
-vgcore.*
-
-/downloads
-/fonts
-/resources
-/[Ss]ongs
-taiko-rs.db
-settings.json
-
-test-commits.rs
-commits.rs
+Cargo.lock

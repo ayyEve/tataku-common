@@ -1,57 +1,51 @@
-My taiko sim made in rust. why? idk. enjoy!
-Join our Discord server! https://discord.gg/PGa6XY7mKC
 
-required deps:
- - windows:
-   - cmake
 
- - linux (some may be incorrect, i'll double check when i have time)
-   - gcc
-   - cmake
-   - libasound2-dev
-   - pkg-config
-   - libssl-dev
-   - xorg-dev
-   - libxcb-shape0
-   - libxcb-render0
-   - libxcb-fixes0
+How to read packets:
+everything is written in little endien
 
-How to build:
- - install rust (https://rustup.rs/)
- - add nightly toolchain (required until iter_mut is added to stable)
-   - rustup toolchain add nightly
-   - rustup override set nightly
+first, some common things you'll see
+ - Number Types:
+  - `u8`: ugnsigned byte
+  - `i8`: signed byte
+  - `u16`: unsigned short (2 bytes)
+  - `i16`: signed short (2 bytes)
+  - `u32`: unsigned int (4 bytes)
+  - `i32`: signed int (4 bytes)
+  - `u64`: unsigned long (8 bytes)
+  - `i64`: signed long (8 bytes)
+  - `u128`: unsigned double long (16 bytes)
+  - `i128`: signed double long (16 bytes)
 
- - switch to animations branch (optional but preferred)
-   - git checkout animations
+ - Data Types
+  - `String`: text
+  - `bool`: boolean
+  - `(T1, T2[,...])`: tuple. this can contain any number of values. ie `(u8, bool, String, String)`
+  - `Vec<T>`: list/array of type T
 
- - build and run
-  - cargo run --release
-   
+ - Rust Enums
+  - rust enums are unlike other language enums, they can contain variable data. this 
 
-TODO:
-- // UI
- - dropdown menu item
- - notification system
-  
-- // Gameplay
- - letter ranking
- - spectator
- - multiplayer (oh boy lmao)
- - online leaderboard
- - online replays (should come with ^, might be best to make an online_score_menu menu to distinguish between local and online scores)
 
-- // New Audio Engine
- - handle headphones being unplugged (might require a dropdown to select the output device)
+How types are written
+ - any number type: type as LE bytes
+ - `String` : [string length (u64)] [char1 (u8)] [char2 (u8)] [...]
+ - `bool`   : [0 (false) or 1 (true) as u8]
+ - `(v1,v2)`: [v1] [v2] [...]
+ - `Vec<T>` : [list size (u64)] [data in index 0] [data in index 1] [...]
 
-- // Code
- - better error handling/messages
- - handle peppy direct download moment (might be best if notifs exist first)
- - depths that actually make sense
- - make renderables a param instead of returning a new list
- - pass the whole keys list instead of one key at a time
-  
-maybe todo:
- - profiler
- - read osu replays
- - mods (shouldnt be too bad for some)
+
+ How to read enums:
+  - enum variant id (should be specified above the varient, and type should be specified above the enum declaration)
+  - every field in order from top to bottom
+  - ie. for the following:
+  ```rs
+  #[Packet(type=u16)]
+  enum SomeEnum {
+    #[Packet(id=10)]
+    SomeVariant {value1:String, value2: u32}
+  }
+  let type_to_write = SomeEnum::SomeVariant {value1: String::from("this is some text"), value2: 3000}
+  ```
+  the data in `type_to_write` would be written like so:
+  [packet_id] [value1] [value2]
+  [0A,00] [11,00,00,00,00,00,00,00][74,68,69,73,20,69,73,20,73,6f,6d,65,20,74,65,78,74] [b8, 0b, 00, 00]
