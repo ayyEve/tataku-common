@@ -1,6 +1,4 @@
-use piston::RenderArgs;
-use crate::render::Renderable;
-use super::hitobject_defs::NoteType;
+use crate::prelude::*;
 
 // hitobject trait, implemented by anything that should be hit
 pub trait HitObject: Send {
@@ -16,4 +14,7 @@ pub trait HitObject: Send {
 
     /// set this object back to defaults
     fn reset(&mut self);
+
+
+    fn set_alpha(&mut self, alpha: f32);
 }

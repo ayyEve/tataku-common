@@ -1,16 +1,15 @@
-use super::math::*;
-use ayyeve_piston_ui::render::Vector2;
-use crate::gameplay::{Beatmap, defs::{CurveType, SliderDef}};
+use crate::prelude::*;
+use crate::beatmaps::osu::hitobject_defs::{CurveType, SliderDef};
 
 #[derive(Copy, Clone, Debug)]
-pub struct Line {
+pub struct CurveLine {
     pub p1: Vector2,
     pub p2: Vector2,
 
     pub straight: bool,
     pub force_end: bool
 }
-impl Line {
+impl CurveLine {
     pub fn new(p1: Vector2, p2: Vector2) -> Self {
         Self {
             p1,
@@ -31,22 +30,24 @@ fn length(p:Vector2) -> f32 {
     num.sqrt() as f32
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Curve {
     pub slider: SliderDef,
-    pub path: Vec<Line>,
+    pub path: Vec<CurveLine>,
     pub end_time: f32,
 
-    pub smooth_lines: Vec<Line>,
+    pub smooth_lines: Vec<CurveLine>,
     pub cumulative_lengths: Vec<f32>,
 
     pub velocity: f32,
     pub score_times: Vec<f32>
 }
 impl Curve {
-    fn new(slider: SliderDef, path: Vec<Line>, beatmap: &Beatmap) -> Self {
-        let l = (slider.length * 1.4) * slider.slides as f32;
-        let v2 = 100.0 * beatmap.metadata.slider_multiplier * 1.4;
+    fn new(slider: SliderDef, path: Vec<CurveLine>, beatmap: &Beatmap) -> Self {
+        let l = slider.length * 1.4 * slider.slides as f32;
+        let v2 = 100.0 * beatmap.get_beatmap_meta().slider_multiplier * 1.4;
+        // let l = slider.length * slider.slides as f32;
+        // let v2 = 100.0 * beatmap.metadata.slider_multiplier;
         let bl = beatmap.beat_length_at(slider.time, true);
         let end_time = slider.time + (l / v2 * bl) - 1.0;
 
@@ -71,7 +72,7 @@ impl Curve {
     }
 
     pub fn get_non_normalized_length_required(&self, time: f32) -> f32 {
-        let mut pos = (time - self.slider.time) / (self.length() / self.slider.slides as f32);
+        let pos = (time - self.slider.time) / (self.length() / self.slider.slides as f32);
         self.cumulative_lengths.last().unwrap() * pos
     }
     
@@ -85,9 +86,12 @@ impl Curve {
 
         self.cumulative_lengths.last().unwrap() * pos
     }
-
+    
     pub fn position_at_time(&self, time:f32) -> Vector2 {
-        if time < self.slider.time || time > self.end_time {return self.slider.pos}
+        // if (this.sliderCurveSmoothLines == null) this.UpdateCalculations();
+        if self.cumulative_lengths.len() == 0 {return self.slider.pos}
+        if time < self.slider.time {return self.slider.pos}
+        if time > self.end_time {return self.position_at_length(self.length())}
 
         // if (this.sliderCurveSmoothLines == null) this.UpdateCalculations();
 
@@ -106,7 +110,7 @@ impl Curve {
             let end = self.smooth_lines.len();
             return self.smooth_lines[end - 1].p2;
         }
-        let i = match self.cumulative_lengths.binary_search_by(|f| f.partial_cmp(&length).unwrap()) {
+        let i = match self.cumulative_lengths.binary_search_by(|f| f.partial_cmp(&length).unwrap_or(std::cmp::Ordering::Greater)) {
             Ok(n) => n,
             Err(n) => n.min(self.cumulative_lengths.len() - 1),
         };
@@ -132,17 +136,18 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
     points.insert(0, slider.pos);
     let mut path = Vec::new();
 
+    let metadata = beatmap.get_beatmap_meta();
+
     match slider.curve_type {
         CurveType::Catmull => {
             for j in 0..points.len() {
                 let v1 = if j >= 1 {points[j-1]} else {points[j]};
                 let v2 = points[j];
                 let v3 = if j + 1 < points.len() {points[j + 1]} else {v2 + (v2 - v1)};
-                let v4 = if j + 1 < points.len() {points[j + 2]} else {v3 + (v3 - v2)};
+                let v4 = if j + 2 < points.len() {points[j + 2]} else {v3 + (v3 - v2)};
 
                 for k in 0..SLIDER_DETAIL_LEVEL {
-                    path.push(Line::new(
-
+                    path.push(CurveLine::new(
                         catmull_rom(v1,v2,v3,v4, k as f64 / SLIDER_DETAIL_LEVEL as f64),
                         catmull_rom(v1,v2,v3,v4, (k + 1) as f64 / SLIDER_DETAIL_LEVEL as f64)
                     ));
@@ -154,7 +159,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
             let mut last_index = 0;
             let mut i = 0;
             while i < points.len() {
-                if beatmap.metadata.beatmap_version > 8 {
+                if metadata.beatmap_version > 8 {
                     let multipart_segment = (i as i32) < points.len() as i32 - 2 && points[i] == points[i + 1];
                     // println!("i: {}, p.len(): {}", i, points.len());
 
@@ -162,10 +167,10 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
                         let this_length = points[last_index..i+1].to_vec();
                         if this_length.len() == 2 {
                             //we can use linear algorithm for this segment
-                            let l = Line::new(this_length[0], this_length[1]);
+                            let l = CurveLine::new(this_length[0], this_length[1]);
                             let segments = 1;
                             for j in 0..segments {
-                                let mut line = Line::new(
+                                let mut line = CurveLine::new(
                                     l.p1 + (l.p2 - l.p1) * (j as f64 / segments as f64),
                                     l.p1 + (l.p2 - l.p1) * ((j + 1) as f64 / segments as f64)
                                 );
@@ -173,17 +178,17 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
                                 path.push(line);
                             }
                         } else {
-                            if beatmap.metadata.beatmap_version < 10 {
+                            if metadata.beatmap_version < 10 {
                                 //use the WRONG bezier algorithm. sliders will be 1/50 too short!
                                 let points = create_bezier_wrong(this_length);
                                 for j in 1..points.len() {
-                                    path.push(Line::new(points[j - 1], points[j]));
+                                    path.push(CurveLine::new(points[j - 1], points[j]));
                                 }
                             } else {
                                 //use the bezier algorithm
                                 let points = create_bezier(this_length);
                                 for j in 1..points.len() {
-                                    path.push(Line::new(points[j - 1], points[j]));
+                                    path.push(CurveLine::new(points[j - 1], points[j]));
                                 }
                             }
                         }
@@ -198,7 +203,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
                     }
                     
 
-                } else if beatmap.metadata.beatmap_version > 6 {
+                } else if metadata.beatmap_version > 6 {
                     let multipart_segment = (i as i32) < points.len() as i32 - 2 && points[i] == points[i + 1];
 
                     if multipart_segment || i == points.len() - 1 {
@@ -206,7 +211,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
                         let points = create_bezier_old(this_length);
                         
                         for j in 1..points.len() {
-                            path.push(Line::new(points[j-1], points[j]));
+                            path.push(CurveLine::new(points[j-1], points[j]));
                         }
                         let len = path.len();
                         path[len - 1].force_end = true;
@@ -222,7 +227,7 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
                         let points = create_bezier_wrong(this_length);
 
                         for j in 1..points.len() {
-                            path.push(Line::new(points[j-1], points[j]));
+                            path.push(CurveLine::new(points[j-1], points[j]));
                         }
                         
                         let len = path.len();
@@ -269,19 +274,19 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
                 let progress = i as f64 / segments as f64;
                 let t = t_final * progress + t_initial * (1.0 - progress);
                 let new_point = circle_point(center, radius, t);
-                path.push(Line::new(last_point, new_point));
+                path.push(CurveLine::new(last_point, new_point));
                 last_point = new_point;
             }
 
-            path.push(Line::new(last_point, c));
+            path.push(CurveLine::new(last_point, c));
         }
         CurveType::Linear => {
             for i in 1..points.len() {
-                let l = Line::new(points[i - 1], points[i]);
+                let l = CurveLine::new(points[i - 1], points[i]);
                 let segments = 1;
 
                 for j in 0..segments {
-                    let mut l2 = Line::new(
+                    let mut l2 = CurveLine::new(
                     l.p1 + (l.p2 - l.p1) * (j as f64 / segments as f64),
                     l.p1 + (l.p2 - l.p1) * ((j + 1) as f64 / segments as f64)
                     );
@@ -297,13 +302,6 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
 
 
     let mut curve = Curve::new(slider.clone(), path, beatmap);
-    let slider_scoring_point_distance = 100.0 * (beatmap.metadata.slider_multiplier / beatmap.metadata.slider_tick_rate);
-    let tick_distance;
-    if beatmap.metadata.beatmap_version < 8 {
-        tick_distance = slider_scoring_point_distance;
-    } else {
-        tick_distance = slider_scoring_point_distance / beatmap.bpm_multiplier_at(curve.slider.time);
-    }
 
     let path_count = curve.path.len();
     let mut total = 0.0;
@@ -313,82 +311,21 @@ pub fn get_curve(slider:&SliderDef, beatmap: &Beatmap) -> Curve {
         curve.cumulative_lengths.clear();
 
         for l in 0..curve.path.len() {
-            total += curve.path[l].rho();
+            let mut add = curve.path[l].rho();
+            if add.is_nan() {add = 0.0}
+            total += add;
             curve.cumulative_lengths.push(total);
         }
     }
 
     if path_count < 1 {return curve}
 
-    // let mut first_run = true;
-    let mut scoring_length_total = 0.0;
-    // let mut current_time = curve.slider_def.time; // self.start_time;
-    // let mut p1 = Vector2::zero();
-    // let mut p2 = Vector2::zero();
-    let mut scoring_distance = 0.0;
-
-    // self.
-    // let position2 = curve.path[path_count - 1].p2;
-
-    for i in 0..curve.slider.slides as usize {
-        let mut distance_to_end = total;
-        let mut skip_tick = false;
-        // let reverse_start_time = current_time as i32;
-        let min_tick_distance_from_end = 0.01 * curve.velocity;
-
-        let reverse = (i % 2) == 1;
-        let start = if reverse {path_count as i32 - 1} else {0};
-        let end = if reverse {-1} else {path_count as i32};
-        let direction:i32 = if reverse {-1} else {1};
-
-        let mut j = start;
-        while j < end {
-            // let l = curve.path[j as usize];
-
-            // float distance = (float)(this.cumulativeLengths[j] - (j == 0 ? 0 : this.cumulativeLengths[j - 1])); ;
-            let distance = curve.cumulative_lengths[j as usize] - if j == 0 {0.0} else {curve.cumulative_lengths[j as usize - 1]};
-            
-            // if reverse {
-            //     p1 = l.p2;
-            //     p2 = l.p1;
-            // } else {
-            //     p1 = l.p1;
-            //     p2 = l.p2;
-            // }
-
-            // let duration = 1000.0 * distance / curve.velocity;
-
-            // current_time += duration;
-            scoring_distance += distance;
-
-            while scoring_distance >= tick_distance && !skip_tick {
-                scoring_length_total += tick_distance;
-                scoring_distance -= tick_distance;
-                distance_to_end -= tick_distance;
-
-                skip_tick = distance_to_end <= min_tick_distance_from_end;
-                if skip_tick {break}
-
-                let score_time = curve.time_at_length(scoring_length_total);
-                curve.score_times.push(score_time);
-
-            }
-
-            j += direction;
-        }
-    
-        scoring_length_total += scoring_distance;
-        let t = curve.time_at_length(scoring_length_total);
+    let ms_between_ticks = beatmap.beat_length_at(curve.slider.time, false) / metadata.slider_tick_rate;
+    let mut t = curve.slider.time + ms_between_ticks;
+    while t < curve.end_time {
         curve.score_times.push(t);
-
-        if skip_tick {
-            scoring_distance = 0.0;
-        } else {
-            scoring_length_total -= tick_distance - scoring_distance;
-            scoring_distance = tick_distance - scoring_distance;
-        }
+        t += ms_between_ticks;
     }
-
     
     curve
 }

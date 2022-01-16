@@ -1,10 +1,13 @@
 /target
-/[Ss]ongs
+/[Ss]ongs*
 /audio
+/audio2
 /fonts
 /downloads
 /replays
 /skins
+/resources
+/adofai_test
 
 *.db
 dev_assets.zip

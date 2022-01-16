@@ -1,13 +1,6 @@
-use std::sync::Arc;
-use parking_lot::Mutex;
-use piston::{MouseButton, RenderArgs};
-
-use crate::gameplay::BeatmapMeta;
-use taiko_rs_common::types::{Score, HitError};
+use crate::prelude::*;
+use crate::{databases, format};
 use crate::gameplay::modes::manager_from_playmode;
-use crate::menu::{Menu, MenuButton, ScrollableItem, Graph};
-use crate::game::{Game, GameState, KeyModifiers, get_font};
-use crate::{window_size, databases, format, Vector2, render::*, helpers::visibility_bg};
 
 const GRAPH_SIZE:Vector2 = Vector2::new(400.0, 200.0);
 const GRAPH_PADDING:Vector2 = Vector2::new(10.0,10.0);
@@ -20,15 +13,20 @@ pub struct ScoreMenu {
     graph: Graph,
 
     // cached
-    hit_error: HitError
+    hit_error: HitError,
+
+
+    pub dont_do_menu: bool,
+    pub should_close: bool,
 }
 impl ScoreMenu {
     pub fn new(score:&Score, beatmap: BeatmapMeta) -> ScoreMenu {
+        let window_size = Settings::window_size();
         let hit_error = score.hit_error();
-        let back_button = MenuButton::back_button(window_size());
+        let back_button = MenuButton::back_button(window_size);
 
         let graph = Graph::new(
-            Vector2::new(window_size().x * 2.0/3.0, window_size().y) - (GRAPH_SIZE + GRAPH_PADDING), //window_size() - (GRAPH_SIZE + GRAPH_PADDING),
+            Vector2::new(window_size.x * 2.0/3.0, window_size.y) - (GRAPH_SIZE + GRAPH_PADDING), //window_size() - (GRAPH_SIZE + GRAPH_PADDING),
             GRAPH_SIZE,
             score.hit_timings.iter().map(|e|*e as f32).collect(),
             -50.0,
@@ -42,13 +40,28 @@ impl ScoreMenu {
             graph,
             replay_button: MenuButton::new(back_button.get_pos() - Vector2::new(0.0, back_button.size().y+5.0), back_button.size(), "Replay"),
             back_button,
+
+            dont_do_menu: false,
+            should_close: false,
         }
+    }
+
+    fn close(&mut self, game: &mut Game) {
+        if self.dont_do_menu {
+            self.should_close = true;
+            return;
+        }
+
+        let menu = game.menus.get("beatmap").unwrap().clone();
+        game.queue_state_change(GameState::InMenu(menu));
     }
 }
 impl Menu<Game> for ScoreMenu {
     fn draw(&mut self, args:RenderArgs) -> Vec<Box<dyn Renderable>> {
         let mut list: Vec<Box<dyn Renderable>> = Vec::new();
         let font = get_font("main");
+
+        let window_size = Settings::window_size();
 
         let depth = 0.0;
         list.reserve(9);
@@ -133,7 +146,11 @@ impl Menu<Game> for ScoreMenu {
         list.extend(self.graph.draw(args, Vector2::zero(), depth));
         
         // draw background so score info is readable
-        list.push(visibility_bg(Vector2::one() * 5.0, Vector2::new(window_size().x * 2.0/3.0, window_size().y - 5.0)));
+        list.push(visibility_bg(
+            Vector2::one() * 5.0, 
+            Vector2::new(window_size.x * 2.0/3.0, window_size.y - 5.0),
+            depth + 10.0
+        ));
 
         list
     }
@@ -148,18 +165,24 @@ impl Menu<Game> for ScoreMenu {
                 Ok(replay) => {
                     // game.menus.get("beatmap").unwrap().lock().on_change(false);
                     // game.queue_mode_change(GameMode::Replaying(self.beatmap.clone(), replay.clone(), 0));
-                    let mut manager = manager_from_playmode(self.score.playmode, &self.beatmap);
-                    manager.replaying = true;
-                    manager.replay = replay.clone();
-                    game.queue_state_change(GameState::Ingame(Arc::new(Mutex::new(manager))));
+                    match manager_from_playmode(self.score.playmode, &self.beatmap) {
+                        Ok(mut manager) => {
+                            manager.replaying = true;
+                            manager.replay = replay.clone();
+                            manager.replay.speed = self.score.speed;
+                            game.queue_state_change(GameState::Ingame(manager));
+                        },
+                        Err(e) => NotificationManager::add_error_notification("Error loading beatmap", e)
+                    }
                 },
                 Err(e) => println!("error loading replay: {}", e),
             }
         }
 
+
+
         if self.back_button.on_click(pos, button, mods) {
-            let menu = game.menus.get("beatmap").unwrap().clone();
-            game.queue_state_change(GameState::InMenu(menu));
+            self.close(game)
         }
     }
 
@@ -171,8 +194,7 @@ impl Menu<Game> for ScoreMenu {
 
     fn on_key_press(&mut self, key:piston::Key, game: &mut Game, _mods:KeyModifiers) {
         if key == piston::Key::Escape {
-            let menu = game.menus.get("beatmap").unwrap().clone();
-            game.queue_state_change(GameState::InMenu(menu));
+            self.close(game)
         }
     }
 }

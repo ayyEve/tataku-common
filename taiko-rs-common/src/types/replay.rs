@@ -2,17 +2,21 @@ use crate::serialization::{Serializable, SerializationReader, SerializationWrite
 
 const CURRENT_VERSION:u16 = 1;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Replay {
     /// (time, key)
     pub frames: Vec<(f32, ReplayFrame)>, 
-    pub playstyle: Playstyle
+    pub playstyle: Playstyle,
+
+    /// used internally, not stored externally
+    pub speed: f32
 }
 impl Replay {
     pub fn new() -> Replay {
         Replay {
             frames: Vec::new(),
             playstyle: Playstyle::None,
+            speed: 1.0
         }
     }
 }
@@ -58,9 +62,14 @@ impl From<u8> for Playstyle {
         }
     }
 }
+impl Default for Playstyle {
+    fn default() -> Self {
+        Self::KDDK
+    }
+}
 
 
-#[derive(Clone, Debug, Copy, PartialEq, Eq)]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
 pub enum KeyPress {
     LeftKat = 0,
     LeftDon = 1,
@@ -82,6 +91,10 @@ pub enum KeyPress {
     /// doubles as std right
     Right = 31,
     Dash = 32,
+
+    LeftMouse = 33,
+    RightMouse = 34,
+
 
 
     Unknown = 255

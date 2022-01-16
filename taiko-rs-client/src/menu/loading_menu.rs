@@ -1,10 +1,8 @@
 use std::fs::read_dir;
 
-use crate::gameplay::BeatmapMeta;
-use crate::render::{Color, Rectangle, Text};
-use crate::game::{Game, Audio, managers::BEATMAP_MANAGER};
-use crate::{SONGS_DIR, window_size, Vector2, menu::Menu, sync::*};
 
+use crate::SONGS_DIR;
+use crate::prelude::*;
 /// helper for when starting the game. will load beatmaps, settings, etc from storage
 /// all while providing the user with its progress (relatively anyways)
 pub struct LoadingMenu {
@@ -19,10 +17,10 @@ impl LoadingMenu {
             status: Arc::new(Mutex::new(LoadingStatus::new()))
         }
     }
-    pub fn load(&mut self, game:&Game) {
+    pub fn load(&mut self) {
         let status = self.status.clone();
         
-        game.threading.spawn(async move {
+        tokio::spawn(async move {
             let status = status.clone();
 
             // load database
@@ -47,8 +45,9 @@ impl LoadingMenu {
     async fn load_audio(status: Arc<Mutex<LoadingStatus>>) {
         status.lock().stage = LoadingStage::Audio;
         // get a value from the hash, will do the lazy_static stuff and populate
-        let a = Audio::play_preloaded("don").upgrade();
-        a.unwrap().stop();
+        // if let Ok(a) = Audio::play_preloaded("don") {
+        //     a.stop();
+        // }
     }
 
     async fn load_beatmaps(status: Arc<Mutex<LoadingStatus>>) {
@@ -72,8 +71,7 @@ impl LoadingMenu {
             let mut s = t.prepare("SELECT * FROM beatmaps").unwrap();
 
             let rows = s.query_map([], |r| {
-                let duration: f32 = r.get("duration")?;
-                let mut meta = BeatmapMeta {
+                let meta = BeatmapMeta {
                     file_path: r.get("beatmap_path")?,
                     beatmap_hash: r.get("beatmap_hash")?,
                     beatmap_version: r.get("beatmap_version")?,
@@ -93,12 +91,12 @@ impl LoadingMenu {
                     cs: r.get("cs")?,
                     slider_multiplier: r.get("slider_multiplier")?,
                     slider_tick_rate: r.get("slider_tick_rate")?,
+                    stack_leniency: r.get("stack_leniency").unwrap_or(0.0),
         
-                    duration: 0.0,
-                    mins: 0,
-                    secs: 0,
+                    duration: r.get("duration")?,
+                    bpm_min: r.get("bpm_min").unwrap_or(0.0),
+                    bpm_max: r.get("bpm_max").unwrap_or(0.0),
                 };
-                meta.set_dur(duration);
 
                 Ok(meta)
             })
@@ -113,7 +111,7 @@ impl LoadingMenu {
             for meta in rows {
                 // verify the map exists
                 if !std::path::Path::new(&meta.file_path).exists() {
-                    println!("beatmap exists in db but not in songs folder: {}", meta.file_path);
+                    // println!("beatmap exists in db but not in songs folder: {}", meta.file_path);
                     continue
                 }
 
@@ -151,9 +149,9 @@ impl Menu<Game> for LoadingMenu {
         }
     }
 
-    fn draw(&mut self, _args:piston::RenderArgs) -> Vec<Box<dyn crate::render::Renderable>> {
-        let mut list: Vec<Box<dyn crate::render::Renderable>> = Vec::new();
-        let font = crate::game::get_font("main");
+    fn draw(&mut self, _args:piston::RenderArgs) -> Vec<Box<dyn Renderable>> {
+        let mut list: Vec<Box<dyn Renderable>> = Vec::new();
+        let font = get_font("main");
 
         // since this is just loading, we dont care about performance here
         let state = self.status.lock();
@@ -224,7 +222,7 @@ impl Menu<Game> for LoadingMenu {
             },
         }
 
-        text.center_text(Rectangle::bounds_only(Vector2::zero(), window_size()));
+        text.center_text(Rectangle::bounds_only(Vector2::zero(), Settings::window_size()));
         list.push(Box::new(text));
         list
     }

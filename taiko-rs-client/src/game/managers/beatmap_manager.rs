@@ -1,11 +1,10 @@
-use std::{collections::HashMap, fs::{DirEntry, read_dir}, path::Path, sync::Arc, time::Duration};
-
+use std::fs::{DirEntry, read_dir};
 use rand::Rng;
-use parking_lot::Mutex;
-use crate::{DOWNLOADS_DIR, SONGS_DIR, game::{Audio, Game}, gameplay::{Beatmap, BeatmapMeta}, get_file_hash};
+
+use crate::prelude::*;
+use crate::{DOWNLOADS_DIR, SONGS_DIR};
 
 const DOWNLOAD_CHECK_INTERVAL:u64 = 10_000;
-
 lazy_static::lazy_static! {
     pub static ref BEATMAP_MANAGER: Arc<Mutex<BeatmapManager>> = Arc::new(Mutex::new(BeatmapManager::new()));
 }
@@ -22,7 +21,10 @@ pub struct BeatmapManager {
     /// current index of previously played maps
     play_index: usize,
 
-    new_maps: Vec<BeatmapMeta>
+    new_maps: Vec<BeatmapMeta>,
+
+    /// helpful when a map is deleted
+    pub(crate) force_beatmap_list_refresh: bool
 }
 impl BeatmapManager {
     pub fn new() -> Self {
@@ -36,6 +38,8 @@ impl BeatmapManager {
             played: Vec::new(),
             play_index: 0,
             new_maps: Vec::new(),
+
+            force_beatmap_list_refresh: false,
         }
     }
 
@@ -43,9 +47,9 @@ impl BeatmapManager {
     pub fn get_new_maps(&mut self) -> Vec<BeatmapMeta> {
         std::mem::take(&mut self.new_maps)
     }
-    fn check_downloads(runtime:&tokio::runtime::Runtime) {
+    fn check_downloads() {
         if read_dir(DOWNLOADS_DIR).unwrap().count() > 0 {
-            extract_all(runtime);
+            extract_all();
 
             let mut folders = Vec::new();
             read_dir(SONGS_DIR)
@@ -59,17 +63,41 @@ impl BeatmapManager {
         }
 
     }
-    pub fn download_check_loop(game:&Game) {
-        let runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        game.threading.spawn(async move {
+    pub fn download_check_loop() {
+        tokio::spawn(async move {
             loop {
                 tokio::time::sleep(Duration::from_millis(DOWNLOAD_CHECK_INTERVAL)).await;
-                BeatmapManager::check_downloads(&runtime);
+                BeatmapManager::check_downloads();
             }
         });
+    }
+
+    /// clear the cache and db, 
+    /// and do a full rescan of the songs folder
+    pub fn full_refresh(&mut self) {
+        self.beatmaps.clear();
+        self.beatmaps_by_hash.clear();
+
+        {
+            let lock = crate::databases::DATABASE.lock();
+            let statement = format!("DELETE FROM beatmaps");
+            let res = lock.prepare(&statement).expect(&statement).execute([]);
+            if let Err(e) = res {
+                println!("error deleting beatmap meta from db: {}", e);
+            }
+        }
+
+
+
+        let mut folders = Vec::new();
+        read_dir(SONGS_DIR)
+            .unwrap()
+            .for_each(|f| {
+                let f = f.unwrap().path();
+                folders.push(f.to_str().unwrap().to_owned());
+            });
+
+        for f in folders {self.check_folder(f)}
     }
 
     // adders
@@ -81,8 +109,7 @@ impl BeatmapManager {
             let file = file.unwrap().path();
             let file = file.to_str().unwrap();
 
-            if file.ends_with(".osu") {
-
+            if file.ends_with(".osu") || file.ends_with(".qua") || file.ends_with(".adofai") {
                 // check file paths first
                 for i in self.beatmaps.iter() {
                     if i.file_path == file {
@@ -98,17 +125,25 @@ impl BeatmapManager {
                     }
                 }
 
-                let map = Beatmap::load(file.to_owned()).metadata;
-                self.add_beatmap(&map);
+                match Beatmap::load(file.to_owned()) {
+                    Ok(map) => {
+                        let map = map.get_beatmap_meta();
+                        self.add_beatmap(&map);
 
 
-                // if it got here, it shouldnt be in the database
-                // so we should add it
-                {
-                    let lock = crate::databases::DATABASE.lock();
-                    let res = lock.prepare(&insert_metadata(&map)).unwrap().execute([]);
-                    if let Err(e) = res {
-                        println!("error inserting metadata: {}", e);
+                        // if it got here, it shouldnt be in the database
+                        // so we should add it
+                        {
+                            let lock = crate::databases::DATABASE.lock();
+                            let statement = insert_metadata(&map);
+                            let res = lock.prepare(&statement).expect(&statement).execute([]);
+                            if let Err(e) = res {
+                                println!("error inserting metadata: {}", e);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        println!("error loading beatmap: {}", e);
                     }
                 }
             }
@@ -126,8 +161,27 @@ impl BeatmapManager {
         self.beatmaps.push(beatmap.clone());
     }
 
+
+    // remover
+    pub fn delete_beatmap(&mut self, beatmap:String, game: &mut Game) {
+        // delete beatmap
+        self.beatmaps.retain(|b|b.beatmap_hash != beatmap);
+        if let Some(old_map) = self.beatmaps_by_hash.remove(&beatmap) {
+            // delete the file
+            if let Err(e) = std::fs::remove_file(old_map.file_path) {
+                NotificationManager::add_error_notification("Error deleting map", e);
+            }
+            // TODO: should check if this is the last beatmap in this folder
+            // if so, delete the parent dir
+        }
+
+        self.force_beatmap_list_refresh = true;
+        // select next one
+        self.next_beatmap(game);
+    }
+
     // setters
-    pub fn set_current_beatmap(&mut self, game:&mut Game, beatmap:&BeatmapMeta, do_async:bool, use_preview_time:bool) {
+    pub fn set_current_beatmap(&mut self, game:&mut Game, beatmap:&BeatmapMeta, _do_async:bool, use_preview_time:bool) {
         self.current_beatmap = Some(beatmap.clone());
         if let Some(map) = self.current_beatmap.clone() {
             self.played.push(map.beatmap_hash.clone());
@@ -136,13 +190,18 @@ impl BeatmapManager {
         // play song
         let audio_filename = beatmap.audio_filename.clone();
         let time = if use_preview_time {beatmap.audio_preview} else {0.0};
-        if do_async {
-            game.threading.spawn(async move {
+
+        // dont async with bass, causes race conditions + double audio bugs
+        #[cfg(feature="neb_audio")]
+        if _do_async {
+            tokio::spawn(async move {
                 Audio::play_song(audio_filename, false, time);
             });
         } else {
             Audio::play_song(audio_filename, false, time);
         }
+        #[cfg(feature="bass_audio")]
+        Audio::play_song(audio_filename, false, time).unwrap();
 
         // set bg
         game.set_background_beatmap(beatmap);
@@ -174,6 +233,7 @@ impl BeatmapManager {
         }
     }
 
+
     pub fn random_beatmap(&self) -> Option<BeatmapMeta> {
         if self.beatmaps.len() > 0 {
             let ind = rand::thread_rng().gen_range(0..self.beatmaps.len());
@@ -184,94 +244,138 @@ impl BeatmapManager {
         }
     }
 
-    pub fn next_beatmap(&mut self) -> Option<BeatmapMeta> {
+    pub fn next_beatmap(&mut self, game:&mut Game) -> bool {
         self.play_index += 1;
-        if self.play_index < self.played.len() {
-            let hash = self.played[self.play_index].clone();
-            self.get_by_hash(&hash).clone()
-        } else {
-            self.random_beatmap()
+
+        let next_in_queue = match self.played.get(self.play_index) {
+            Some(hash) => self.get_by_hash(&hash),
+            None => None
+        };
+
+        match next_in_queue {
+            Some(map) => {
+                self.set_current_beatmap(game, &map, false, false);
+                // since we're playing something already in the queue, dont append it again
+                self.played.pop();
+                true
+            }
+
+            None => if let Some(map) = self.random_beatmap() {
+                self.set_current_beatmap(game, &map, false, false);
+                true
+            } else {
+                false
+            }
         }
+
+        // if self.play_index < self.played.len() {
+        //     let hash = self.played[self.play_index].clone();
+        //     self.get_by_hash(&hash).clone()
+        // } else {
+        //     self.random_beatmap()
+        // }
     }
-    pub fn previous_beatmap(&mut self) -> Option<BeatmapMeta> {
-        if self.play_index == 0 {return None}
+    pub fn previous_beatmap(&mut self, game:&mut Game) -> bool {
+        if self.play_index == 0 {return false}
         self.play_index -= 1;
         
         match self.played.get(self.play_index) {
-            Some(hash) => self.get_by_hash(&hash).clone(),
-            None => None
+            Some(hash) => {
+                if let Some(map) = self.get_by_hash(&hash) {
+                    self.set_current_beatmap(game, &map, false, false);
+                    // since we're playing something already in the queue, dont append it again
+                    self.played.pop();
+                    true
+                } else {
+                    false
+                }
+            }
+            None => false
         }
     }
-
 }
 
 
 fn insert_metadata(map: &BeatmapMeta) -> String {
-    format!("INSERT INTO beatmaps (
-        beatmap_path, beatmap_hash,
 
-        playmode, beatmap_version,
-        artist, artist_unicode,
-        title, title_unicode,
-        creator, version,
+    let mut bpm_min = map.bpm_min;
+    let mut bpm_max = map.bpm_max;
+    if !bpm_min.is_normal() {
+        bpm_min = 0.0;
+    }
+    if !bpm_max.is_normal() {
+        bpm_max = 99999999.0;
+    }
 
-        audio_filename, image_filename,
-        audio_preview, duration,
+    format!(
+        "INSERT INTO beatmaps (
+            beatmap_path, beatmap_hash,
+
+            playmode, beatmap_version,
+            artist, artist_unicode,
+            title, title_unicode,
+            creator, version,
+
+            audio_filename, image_filename,
+            audio_preview, duration,
+            
+            hp, od, cs, ar,
+            
+            slider_multiplier, slider_tick_rate,
+            bpm_min, bpm_max
+        ) VALUES (
+            \"{}\", \"{}\",
+
+            {}, {}, 
+            \"{}\", \"{}\",
+            \"{}\", \"{}\",
+            \"{}\", \"{}\",
+
+            \"{}\", \"{}\",
+            {}, {},
+
+            {}, {}, {}, {},
+
+            {}, {},
+            {}, {}
+        )",
+        map.file_path, map.beatmap_hash, 
+
+        map.mode as u8, map.beatmap_version,
+        map.artist.replace("\"", "\"\""), map.artist_unicode.replace("\"", "\"\""),
+        map.title.replace("\"", "\"\""), map.title_unicode.replace("\"", "\"\""),
+        map.creator.replace("\"", "\"\""), map.version.replace("\"", "\"\""),
         
-        hp, od, cs, ar,
-        
-        slider_multiplier, slider_tick_rate
-    ) VALUES (
-        \"{}\", \"{}\",
+        map.audio_filename, map.image_filename,
+        map.audio_preview, map.duration,
 
-        {}, {}, 
-        \"{}\", \"{}\",
-        \"{}\", \"{}\",
-        \"{}\", \"{}\",
+        map.hp, map.od, map.cs, map.ar,
 
-        \"{}\", \"{}\",
-        {}, {},
-
-        {}, {}, {}, {},
-
-        {}, {}
-    )",
-    map.file_path, map.beatmap_hash, 
-
-    map.mode as u8, map.beatmap_version,
-    map.artist, map.artist_unicode,
-    map.title, map.title_unicode,
-    map.creator, map.version,
-    
-    map.audio_filename, map.image_filename,
-    map.audio_preview, map.duration,
-
-    map.hp, map.od, map.cs, map.ar,
-
-    map.slider_multiplier, map.slider_tick_rate
+        map.slider_multiplier, map.slider_tick_rate,
+        bpm_min, bpm_max
     )
 }
 
 
 
-pub fn extract_all(runtime:&tokio::runtime::Runtime) {
+pub fn extract_all() {
 
     // check for new maps
     if let Ok(files) = std::fs::read_dir(crate::DOWNLOADS_DIR) {
-        let completed = Arc::new(Mutex::new(0));
+        // let completed = Arc::new(Mutex::new(0));
 
         let files:Vec<std::io::Result<DirEntry>> = files.collect();
-        let len = files.len();
+        // let len = files.len();
         println!("[extract] files: {:?}", files);
 
         for file in files {
             println!("[extract] looping file {:?}", file);
-            let completed = completed.clone();
+            // let completed = completed.clone();
 
             match file {
                 Ok(filename) => {
                     println!("[extract] file ok");
-                    runtime.spawn(async move {
+                    // tokio::spawn(async move {
                         println!("[extract] reading file {:?}", filename);
 
                         let mut error_counter = 0;
@@ -286,11 +390,18 @@ pub fn extract_all(runtime:&tokio::runtime::Runtime) {
                                 return;
                             }
 
-                            tokio::time::sleep(Duration::from_millis(1000)).await;
+                            // tokio::time::sleep(Duration::from_millis(1000)).await;
                         }
 
                         let file = std::fs::File::open(filename.path().to_str().unwrap()).unwrap();
-                        let mut archive = zip::ZipArchive::new(file).unwrap();
+                        let mut archive = match zip::ZipArchive::new(file) {
+                            Ok(a) => a,
+                            Err(e) => {
+                                println!("[extract] Error extracting zip archive: {}", e);
+                                NotificationManager::add_text_notification("Error extracting file\nSee console for details", 3000.0, Color::RED);
+                                continue;
+                            }
+                        };
                         
                         for i in 0..archive.len() {
                             let mut file = archive.by_index(i).unwrap();
@@ -327,12 +438,12 @@ pub fn extract_all(runtime:&tokio::runtime::Runtime) {
                     
                         match std::fs::remove_file(filename.path().to_str().unwrap()) {
                             Ok(_) => {},
-                            Err(e) => println!("[extract] error deleting file: {}", e),
+                            Err(e) => println!("[extract] Error deleting file: {}", e),
                         }
                         
-                        println!("[extract] done");
-                        *completed.lock() += 1;
-                    });
+                        println!("[extract] Done");
+                        // *completed.lock() += 1;
+                    // });
                 }
                 Err(e) => {
                     println!("error with file: {}", e);
@@ -341,9 +452,9 @@ pub fn extract_all(runtime:&tokio::runtime::Runtime) {
         }
     
         
-        while *completed.lock() < len {
-            println!("waiting for downloads {} of {}", *completed.lock(), len);
-            std::thread::sleep(Duration::from_millis(500));
-        }
+        // while *completed.lock() < len {
+        //     println!("waiting for downloads {} of {}", *completed.lock(), len);
+        //     std::thread::sleep(Duration::from_millis(500));
+        // }
     }
 }

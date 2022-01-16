@@ -1,11 +1,7 @@
-use std::time::Instant;
-
-use ayyeve_piston_ui::render::{Border, Color, Rectangle, Renderable, Text, Vector2};
-use crate::{window_size, game::{Game, get_font}, sync::*};
+use crate::prelude::*;
 
 
-
-const NOTIF_WIDTH:f64 = 200.0;
+const NOTIF_WIDTH:f64 = 300.0;
 const NOTIF_Y_OFFSET:f64 = 100.0; // window_size().y - this
 const NOTIF_TEXT_SIZE:u32 = 15;
 const NOTIF_DEPTH:f64 = -8_000.0;
@@ -20,42 +16,61 @@ lazy_static::lazy_static! {
 
 
 pub struct NotificationManager {
-    processed_notifs: Vec<ProcessedNotif>
+    processed_notifs: Vec<ProcessedNotif>,
+    pending_notifs: Vec<Notification>
 }
 impl NotificationManager { // static
     pub fn add_notification(notif: Notification) {
-
-        let new = ProcessedNotif::new(notif);
-        let mut locked = NOTIFICATION_MANAGER.lock();
-
-        // move all the other notifs up
-        let offset = new.size.y + NOTIF_Y_MARGIN;
-        for n in locked.processed_notifs.iter_mut() {
-            n.pos.y -= offset;
-        }
-
-        // add the new one
-        locked.processed_notifs.push(new);
+        NOTIFICATION_MANAGER.lock().pending_notifs.push(notif);
     }
     pub fn add_text_notification(text: &str, duration: f32, color: Color) {
         let notif = Notification::new(text.to_owned(), color, duration, NotificationOnClick::None);
+        
+        println!("adding text notif");
         Self::add_notification(notif);
+    }
+    pub fn add_error_notification<E: Into<TaikoError>>(msg:&str, error:E) {
+        let error:TaikoError = error.into();
+        let text = format!("{}:\n{}", msg, error);
+        
+        println!("{}", text);
+        Self::add_text_notification(
+            &text, 
+            5_000.0, 
+            Color::RED
+        );
     }
 }
 impl NotificationManager { // non-static
     fn new() -> Self { // technically static but i dont care
         Self {
             processed_notifs: Vec::new(),
+            pending_notifs: Vec::new(),
         }
     }
 
     pub fn update(&mut self) {
+        for notif in std::mem::take(&mut self.pending_notifs) {
+            println!("adding notif");
+            let new = ProcessedNotif::new(notif);
+
+            // move all the other notifs up
+            let offset = new.size.y + NOTIF_Y_MARGIN;
+            for n in self.processed_notifs.iter_mut() {
+                n.pos.y -= offset;
+            }
+
+            // add the new one
+            self.processed_notifs.push(new);
+        }
+
         // let mut removed_height = 0.0;
         self.processed_notifs.retain(|n| {
             let keep = n.check_time();
             // if !keep {removed_height += n.size.y + NOTIF_Y_MARGIN}
             keep
         });
+
 
         // if removed_height > 0.0 {
         //     for i in self.processed_notifs.iter_mut() {
@@ -127,6 +142,7 @@ struct ProcessedNotif {
 impl ProcessedNotif {
     fn new(notification: Notification) -> Self {
         let font = get_font("main");
+        let window_size = Settings::window_size();
 
         let mut lines = Vec::new();
         let split = notification.text.split('\n').collect::<Vec<&str>>();
@@ -135,7 +151,7 @@ impl ProcessedNotif {
             lines.push(Text::new(
                 Color::WHITE,
                 NOTIF_DEPTH - 0.1,
-                Vector2::new(2.0, 15.0 + NOTIF_TEXT_HEIGHT * i as f64 ),
+                Vector2::new(2.0, NOTIF_TEXT_HEIGHT * i as f64),
                 NOTIF_TEXT_SIZE,
                 split[i].to_owned(),
                 font.clone()
@@ -143,7 +159,7 @@ impl ProcessedNotif {
         }
 
         let size = Vector2::new(NOTIF_WIDTH, NOTIF_TEXT_HEIGHT * lines.len() as f64);
-        let pos = Vector2::new(window_size().x - NOTIF_WIDTH, window_size().y - (NOTIF_Y_OFFSET + size.y));
+        let pos = Vector2::new(window_size.x - NOTIF_WIDTH, window_size.y - (NOTIF_Y_OFFSET + size.y));
 
         Self {
             pos,
@@ -176,7 +192,13 @@ impl ProcessedNotif {
 
         for text in self.lines.iter() {
             let mut text = text.clone();
-            text.pos = text.pos + self.pos;
+
+            let txt_pos = self.pos + Vector2::new(
+                0.0, 
+                (self.size.y - text.font_size as f64) / 2.0
+            );
+            text.initial_pos = txt_pos;
+            text.current_pos = txt_pos;
             list.push(Box::new(text));
         }
     }
@@ -185,6 +207,7 @@ impl ProcessedNotif {
 
 
 #[derive(Clone)]
+#[allow(unused, dead_code)]
 pub enum NotificationOnClick {
     None,
     Url(String),

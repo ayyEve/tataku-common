@@ -1,17 +1,5 @@
-use core::f32;
-
-use ayyeve_piston_ui::render::*;
-use piston::RenderArgs;
-use taiko_rs_common::types::KeyPress;
-use taiko_rs_common::types::ReplayFrame;
-use taiko_rs_common::types::ScoreHit;
-use taiko_rs_common::types::PlayMode;
-
-use crate::{window_size, Vector2};
-use crate::game::{Audio, Settings};
-use crate::gameplay::{GameMode, Beatmap, IngameManager, TimingPoint, map_difficulty, defs::*};
-
 use super::*;
+use crate::prelude::*;
 
 
 pub const NOTE_RADIUS:f64 = 32.0;
@@ -45,6 +33,8 @@ pub struct TaikoGame {
     end_time: f32,
 
     render_queue: Vec<Box<HalfCircle>>,
+
+    auto_helper: TaikoAutoHelper
 }
 impl TaikoGame {
     pub fn next_note(&mut self) {self.note_index += 1}
@@ -53,114 +43,154 @@ impl TaikoGame {
 impl GameMode for TaikoGame {
     fn playmode(&self) -> PlayMode {PlayMode::Taiko}
     fn end_time(&self) -> f32 {self.end_time}
-    fn new(beatmap:&Beatmap) -> Self {
-        let mut s = Self {
-            notes: Vec::new(),
-            note_index: 0,
+    fn new(beatmap:&Beatmap) -> Result<Self, crate::errors::TaikoError> {
 
-            timing_bars: Vec::new(),
-            timing_point_index: 0,
-            end_time: 0.0,
+        match beatmap {
+            Beatmap::Osu(beatmap) => {
+                let mut s = Self {
+                    notes: Vec::new(),
+                    note_index: 0,
 
-            hitwindow_100: 0.0,
-            hitwindow_300: 0.0,
-            hitwindow_miss: 0.0,
+                    timing_bars: Vec::new(),
+                    timing_point_index: 0,
+                    end_time: 0.0,
 
-            render_queue: Vec::new()
-        };
+                    hitwindow_100: 0.0,
+                    hitwindow_300: 0.0,
+                    hitwindow_miss: 0.0,
 
-        // add notes
-        for note in beatmap.notes.iter() {
-            let hit_type = if (note.hitsound & (2 | 8)) > 0 {super::HitType::Kat} else {super::HitType::Don};
-            let finisher = (note.hitsound & 4) > 0;
+                    render_queue: Vec::new(),
+                    auto_helper: TaikoAutoHelper::new()
+                };
 
-            s.notes.push(Box::new(TaikoNote::new(
-                note.time,
-                hit_type,
-                finisher,
-                1.0
-            )));
-        }
-        for slider in beatmap.sliders.iter() {
-            let SliderDef {time, slides, length, ..} = slider.to_owned();
-            let time = time;
-            let finisher = (slider.hitsound & 4) > 0;
+                // add notes
+                for note in beatmap.notes.iter() {
+                    let hit_type = if (note.hitsound & (2 | 8)) > 0 {super::HitType::Kat} else {super::HitType::Don};
+                    let finisher = (note.hitsound & 4) > 0;
 
-            let l = (length * 1.4) * slides as f32;
-            let v2 = 100.0 * (beatmap.metadata.slider_multiplier * 1.4);
-            let bl = beatmap.beat_length_at(time, true);
-            let end_time = time + (l / v2 * bl);
-            
-            // convert vars
-            let v = beatmap.slider_velocity_at(time);
-            let bl = beatmap.beat_length_at(time, beatmap.metadata.beatmap_version < 8);
-            let skip_period = (bl / beatmap.metadata.slider_tick_rate).min((end_time - time) / slides as f32);
+                    let note = Box::new(TaikoNote::new(
+                        note.time,
+                        hit_type,
+                        finisher
+                    ));
+                    s.notes.push(note);
+                }
+                for slider in beatmap.sliders.iter() {
+                    let SliderDef {time, slides, length, ..} = slider.to_owned();
+                    let time = time;
+                    let finisher = (slider.hitsound & 4) > 0;
 
-            if skip_period > 0.0 && beatmap.metadata.mode != PlayMode::Taiko && l / v * 1000.0 < 2.0 * bl {
-                let mut i = 0;
-                let mut j = time;
+                    let l = (length * 1.4) * slides as f32;
+                    let v2 = 100.0 * (beatmap.metadata.slider_multiplier * 1.4);
+                    let bl = beatmap.beat_length_at(time, true);
+                    let end_time = time + (l / v2 * bl);
+                    
+                    // convert vars
+                    let v = beatmap.slider_velocity_at(time);
+                    let bl = beatmap.beat_length_at(time, beatmap.metadata.beatmap_version < 8);
+                    let skip_period = (bl / beatmap.metadata.slider_tick_rate).min((end_time - time) / slides as f32);
 
-                // load sounds
-                // let sound_list_raw = if let Some(list) = split.next() {list.split("|")} else {"".split("")};
+                    if skip_period > 0.0 && beatmap.metadata.mode != PlayMode::Taiko && l / v * 1000.0 < 2.0 * bl {
+                        let mut i = 0;
+                        let mut j = time;
 
-                // when loading, if unified just have it as sound_types with 1 index
-                let mut sound_types:Vec<(HitType, bool)> = Vec::new();
+                        // load sounds
+                        // let sound_list_raw = if let Some(list) = split.next() {list.split("|")} else {"".split("")};
 
-                // for i in sound_list_raw {
-                //     if let Ok(hitsound) = i.parse::<u32>() {
-                //         let hit_type = if (hitsound & (2 | 8)) > 0 {super::HitType::Kat} else {super::HitType::Don};
-                //         let finisher = (hitsound & 4) > 0;
-                //         sound_types.push((hit_type, finisher));
-                //     }
-                // }
-                
-                let unified_sound_addition = sound_types.len() == 0;
-                if unified_sound_addition {
-                    sound_types.push((HitType::Don, false));
+                        // when loading, if unified just have it as sound_types with 1 index
+                        let mut sound_types:Vec<(HitType, bool)> = Vec::new();
+
+                        for hitsound in slider.edge_sounds.iter() {
+                            let hit_type = if (hitsound & (2 | 8)) > 0 {super::HitType::Kat} else {super::HitType::Don};
+                            let finisher = (hitsound & 4) > 0;
+                            sound_types.push((hit_type, finisher));
+                        }
+                        
+                        let unified_sound_addition = sound_types.len() == 0;
+                        if unified_sound_addition {
+                            sound_types.push((HitType::Don, false));
+                        }
+
+                        //TODO: could this be turned into a for i in (x..y).step(n) ?
+                        loop {
+                            let sound_type = sound_types[i];
+
+                            let note = Box::new(TaikoNote::new(
+                                j,
+                                sound_type.0,
+                                sound_type.1
+                            ));
+                            s.notes.push(note);
+
+                            if !unified_sound_addition {i = (i + 1) % sound_types.len()}
+
+                            j += skip_period;
+                            if !(j < end_time + skip_period / 8.0) {break}
+                        }
+                    } else {
+                        let slider = Box::new(TaikoSlider::new(time, end_time, finisher));
+                        s.notes.push(slider);
+                    }
+                }
+                for spinner in beatmap.spinners.iter() {
+                    let SpinnerDef {time, end_time, ..} = spinner;
+
+                    let length = end_time - time;
+                    let diff_map = map_difficulty(beatmap.metadata.od, 3.0, 5.0, 7.5);
+                    let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
+
+                    let spinner = Box::new(TaikoSpinner::new(*time, *end_time, hits_required));
+                    s.notes.push(spinner);
                 }
 
-                //TODO: could this be turned into a for i in (x..y).step(n) ?
-                loop {
-                    let sound_type = sound_types[i];
+                s.notes.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
+                s.end_time = s.notes.iter().last().unwrap().time();
 
-                    let note = TaikoNote::new(
-                        j,
-                        sound_type.0,
-                        sound_type.1,
-                        1.0
-                    );
-                    s.notes.push(Box::new(note));
+                Ok(s)
+            },
+            Beatmap::Adofai(beatmap) => {
+                let mut s = Self {
+                    notes: Vec::new(),
+                    note_index: 0,
 
-                    if !unified_sound_addition {i = (i + 1) % sound_types.len()}
+                    timing_bars: Vec::new(),
+                    timing_point_index: 0,
+                    end_time: 0.0,
 
-                    j += skip_period;
-                    if !(j < end_time + skip_period / 8.0) {break}
+                    hitwindow_100: 0.0,
+                    hitwindow_300: 0.0,
+                    hitwindow_miss: 0.0,
+
+                    render_queue: Vec::new(),
+                    auto_helper: TaikoAutoHelper::new()
+                };
+
+                // add notes
+                for note in beatmap.notes.iter() {
+                    let hit_type = super::HitType::Don;
+
+                    let note = Box::new(TaikoNote::new(
+                        note.time,
+                        hit_type,
+                        false
+                    ));
+                    s.notes.push(note);
                 }
-            } else {
-                let slider = TaikoSlider::new(time, end_time, finisher, 1.0);
-                s.notes.push(Box::new(slider));
-            }
+
+                s.notes.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
+                s.end_time = s.notes.iter().last().unwrap().time();
+
+                Ok(s)
+            },
+
+            _ => Err(crate::errors::BeatmapError::UnsupportedMode.into()),
         }
-        for spinner in beatmap.spinners.iter() {
-            let SpinnerDef {time, end_time, ..} = spinner;
-
-            let length = end_time - time;
-            let diff_map = map_difficulty(beatmap.metadata.od, 3.0, 5.0, 7.5);
-            let hits_required:u16 = ((length / 1000.0 * diff_map) * 1.65).max(1.0) as u16; // ((this.Length / 1000.0 * this.MapDifficultyRange(od, 3.0, 5.0, 7.5)) * 1.65).max(1.0)
-
-            s.notes.push(Box::new(TaikoSpinner::new(*time, *end_time, 1.0, hits_required)));
-        }
-
-        s.notes.sort_by(|a, b|a.time().partial_cmp(&b.time()).unwrap());
-        s.end_time = s.notes.iter().last().unwrap().time();
-
-        s
     }
 
-    fn handle_replay_frame(&mut self, frame:ReplayFrame, manager:&mut IngameManager) {
-        let time = manager.time();
+    fn handle_replay_frame(&mut self, frame:ReplayFrame, time:f32, manager:&mut IngameManager) {
         if !manager.replaying {
             manager.replay.frames.push((time, frame.clone()));
+            manager.outgoing_spectator_frame((time, SpectatorFrameData::ReplayFrame{frame}));
         }
         let key = match frame {
             ReplayFrame::Press(k) => k,
@@ -219,12 +249,18 @@ impl GameMode for TaikoGame {
 
         let hit_type:HitType = key.into();
         let mut sound = match hit_type {HitType::Don => "don", HitType::Kat => "kat"};
-        let hit_volume = Settings::get().get_effect_vol() * (manager.beatmap.timing_points[self.timing_point_index].volume as f32 / 100.0);
+        let hit_volume = Settings::get().get_effect_vol() * (manager.timing_points[self.timing_point_index].volume as f32 / 100.0);
 
         // if theres no more notes to hit, return after playing the sound
         if self.note_index >= self.notes.len() {
-            let a = Audio::play_preloaded(sound);
-            a.upgrade().unwrap().set_volume(hit_volume);
+            #[cfg(feature="bass_audio")]
+            if let Ok(a) = Audio::play_preloaded(sound) {
+                a.set_volume(hit_volume).unwrap();
+            }
+            #[cfg(feature="neb_audio")] {
+                let a = Audio::play_preloaded(sound);
+                a.upgrade().unwrap().set_volume(hit_volume);
+            }
             return;
         }
 
@@ -233,12 +269,12 @@ impl GameMode for TaikoGame {
             let last_note = self.notes.get_mut(self.note_index-1).unwrap();
 
             match last_note.check_finisher(hit_type, time) {
-                ScoreHit::Miss => {return},
-                ScoreHit::X100 => {
+                ScoreHit::Miss | ScoreHit::X50 => {return},
+                ScoreHit::X100 | ScoreHit::Xkatu => {
                     manager.score.add_pts(100, true);
                     return;
                 },
-                ScoreHit::X300 => {
+                ScoreHit::X300 | ScoreHit::Xgeki => {
                     manager.score.add_pts(300, true);
                     return;
                 },
@@ -253,7 +289,7 @@ impl GameMode for TaikoGame {
         let note = self.notes.get_mut(self.note_index).unwrap();
         let note_time = note.time();
         match note.get_points(hit_type, time, (self.hitwindow_miss, self.hitwindow_100, self.hitwindow_300)) {
-            ScoreHit::None => {
+            ScoreHit::None | ScoreHit::X50 => {
                 // play sound
                 // Audio::play_preloaded(sound);
             },
@@ -266,23 +302,23 @@ impl GameMode for TaikoGame {
                 //TODO: play miss sound
                 //TODO: indicate this was a miss
             },
-            ScoreHit::X100 => {
+            ScoreHit::X100 | ScoreHit::Xkatu => {
                 manager.score.hit100(time, note_time);
                 manager.hitbar_timings.push((time, time - note_time));
 
                 // only play finisher sounds if the note is both a finisher and was hit
                 // could maybe also just change this to HitObject.get_sound() -> &str
-                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"};}
+                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"}}
                 // Audio::play_preloaded(sound);
                 //TODO: indicate this was a bad hit
 
                 self.next_note();
             },
-            ScoreHit::X300 => {
+            ScoreHit::X300 | ScoreHit::Xgeki => {
                 manager.score.hit300(time, note_time);
                 manager.hitbar_timings.push((time, time - note_time));
                 
-                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"};}
+                if note.finisher_sound() {sound = match hit_type {HitType::Don => "bigdon", HitType::Kat => "bigkat"}}
                 // Audio::play_preloaded(sound);
 
                 self.next_note();
@@ -294,12 +330,39 @@ impl GameMode for TaikoGame {
             }
         }
 
-        let a = Audio::play_preloaded(sound);
-        a.upgrade().unwrap().set_volume(hit_volume);
+        #[cfg(feature="bass_audio")]
+        if let Ok(a) = Audio::play_preloaded(sound) {
+            a.set_volume(hit_volume).unwrap();
+        }
+        #[cfg(feature="neb_audio")] {
+            let a = Audio::play_preloaded(sound);
+            a.upgrade().unwrap().set_volume(hit_volume);
+        }
     }
 
 
     fn update(&mut self, manager:&mut IngameManager, time: f32) {
+
+        // do autoplay things
+        if manager.current_mods.autoplay {
+            let mut pending_frames = Vec::new();
+            let notes = &mut self.notes;
+
+            // get auto inputs
+            self.auto_helper.update(time, notes, &mut pending_frames);
+
+            // update index
+            for i in 0..notes.len() {
+                self.note_index = i;
+                if !notes[i].was_hit() && notes[i].note_type() != NoteType::Slider {
+                    break;
+                }
+            }
+
+            for frame in pending_frames.iter() {
+                self.handle_replay_frame(*frame, time, manager);
+            }
+        }
 
         // update notes
         for note in self.notes.iter_mut() {note.update(time)}
@@ -325,7 +388,7 @@ impl GameMode for TaikoGame {
         // TODO: might move tbs to a (time, speed) tuple
         for tb in self.timing_bars.iter_mut() {tb.update(time)}
 
-        let timing_points = &manager.beatmap.timing_points;
+        let timing_points = &manager.timing_points;
         // check timing point
         if self.timing_point_index + 1 < timing_points.len() && timing_points[self.timing_point_index + 1].time <= time {
             self.timing_point_index += 1;
@@ -344,7 +407,7 @@ impl GameMode for TaikoGame {
             f64::MAX-4.0,
             Vector2::new(0.0, HIT_POSITION.y - (PLAYFIELD_RADIUS + 2.0)),
             Vector2::new(args.window_size[0], (PLAYFIELD_RADIUS+2.0) * 2.0),
-            if manager.beatmap.timing_points[self.timing_point_index].kiai {
+            if manager.timing_points[self.timing_point_index].kiai {
                 Some(Border::new(Color::YELLOW, 2.0))
             } else {None}
         );
@@ -366,32 +429,46 @@ impl GameMode for TaikoGame {
 
 
     fn key_down(&mut self, key:piston::Key, manager:&mut IngameManager) {
+
+        // dont accept key input when autoplay is enabled, or a replay is being watched
+        if manager.current_mods.autoplay || manager.replaying {
+            return;
+        }
+
         let settings = Settings::get().taiko_settings;
+        let time = manager.time();
 
         if key == settings.left_kat {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftKat), manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftKat), time, manager);
         }
         if key == settings.left_don {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftDon), manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftDon), time, manager);
         }
         if key == settings.right_don {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::RightDon), manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::RightDon), time, manager);
         }
         if key == settings.right_kat {
-            self.handle_replay_frame(ReplayFrame::Press(KeyPress::RightKat), manager);
+            self.handle_replay_frame(ReplayFrame::Press(KeyPress::RightKat), time, manager);
         }
     }
     fn key_up(&mut self, _key:piston::Key, _manager:&mut IngameManager) {}
 
     fn mouse_down(&mut self, btn:piston::MouseButton, manager:&mut IngameManager) {
+        
+        // dont accept mouse input when autoplay is enabled, or a replay is being watched
+        if manager.current_mods.autoplay || manager.replaying {
+            return;
+        }
+        
         {
             let settings = Settings::get().taiko_settings;
             if settings.ignore_mouse_buttons {return}
         }
+        let time = manager.time();
 
         match btn {
-            piston::MouseButton::Left => self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftDon), manager),
-            piston::MouseButton::Right => self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftKat), manager),
+            piston::MouseButton::Left => self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftDon), time, manager),
+            piston::MouseButton::Right => self.handle_replay_frame(ReplayFrame::Press(KeyPress::LeftKat), time, manager),
             _ => {}
         }
     }
@@ -414,7 +491,7 @@ impl GameMode for TaikoGame {
         self.note_index = 0;
         self.timing_point_index = 0;
 
-        let od = beatmap.metadata.od;
+        let od = beatmap.get_beatmap_meta().od;
         // setup hitwindows
         self.hitwindow_miss = map_difficulty(od, 135.0, 95.0, 70.0);
         self.hitwindow_100 = map_difficulty(od, 120.0, 80.0, 50.0);
@@ -423,8 +500,9 @@ impl GameMode for TaikoGame {
         // setup timing bars
         //TODO: it would be cool if we didnt actually need timing bar objects, and could just draw them
         if self.timing_bars.len() == 0 {
+            let tps = beatmap.get_timing_points();
             // load timing bars
-            let parent_tps = beatmap.timing_points.iter().filter(|t|!t.is_inherited()).collect::<Vec<&TimingPoint>>();
+            let parent_tps = tps.iter().filter(|t|!t.is_inherited()).collect::<Vec<&TimingPoint>>();
             let mut sv = settings.sv_multiplier;
             let mut time = parent_tps[0].time;
             let mut tp_index = 0;
@@ -466,7 +544,7 @@ impl GameMode for TaikoGame {
     fn skip_intro(&mut self, manager: &mut IngameManager) {
         if self.note_index > 0 {return}
 
-        let x_needed = window_size().x as f32;
+        let x_needed = Settings::window_size().x as f32;
         let mut time = manager.time();
 
         loop {
@@ -482,11 +560,13 @@ impl GameMode for TaikoGame {
                 manager.lead_in_time = 0.01;
             }
         }
-
+        
+        if time < 0.0 {return}
+        #[cfg(feature="bass_audio")]
+        manager.song.set_position(time as f64).unwrap();
+        #[cfg(feature="neb_audio")]
         manager.song.upgrade().unwrap().set_position(time);
     }
-
-
 
     fn timing_bar_things(&self) -> (Vec<(f32,Color)>, (f32,Color)) {
         (vec![
@@ -500,6 +580,12 @@ impl GameMode for TaikoGame {
             Vector2::new(0.0, HIT_POSITION.y - HIT_AREA_RADIUS/2.0),
             Vector2::new(HIT_POSITION.x - NOTE_RADIUS, HIT_AREA_RADIUS)
         )
+    }
+
+    fn apply_auto(&mut self, settings: &crate::game::BackgroundGameSettings) {
+        for note in self.notes.iter_mut() {
+            note.set_alpha(settings.opacity)
+        }
     }
 }
 
@@ -526,7 +612,7 @@ impl TimingBar {
     }
 
     fn draw(&mut self, _args:RenderArgs, list:&mut Vec<Box<dyn Renderable>>){
-        if self.pos.x + BAR_WIDTH < 0.0 || self.pos.x - BAR_WIDTH > window_size().x as f64 {return}
+        if self.pos.x + BAR_WIDTH < 0.0 || self.pos.x - BAR_WIDTH > Settings::window_size().x as f64 {return}
 
         const SIZE:Vector2 = Vector2::new(BAR_WIDTH, PLAYFIELD_RADIUS*2.0);
         const DEPTH:f64 = f64::MAX-5.0;
@@ -538,5 +624,129 @@ impl TimingBar {
             SIZE,
             None
         )));
+    }
+}
+
+
+
+
+
+struct TaikoAutoHelper {
+    don_presses: u32,
+    kat_presses: u32,
+
+    current_note_duration: f32,
+    note_index: i64,
+
+    last_hit: f32,
+    last_update: f32,
+}
+impl TaikoAutoHelper {
+    fn new() -> Self {
+        Self {
+            don_presses: 0, 
+            kat_presses: 0, 
+            note_index: - 1, 
+            last_hit: 0.0, 
+            current_note_duration: 0.0,
+            last_update: 0.0
+            // notes: Vec::new()
+        }
+    }
+
+    fn update(&mut self, time: f32, notes: &mut Vec<Box<dyn TaikoHitObject>>, frames: &mut Vec<ReplayFrame>) {
+        let catching_up = time - self.last_update > 20.0;
+        self.last_update = time;
+
+        if catching_up {println!("catching up")}
+
+        for i in 0..notes.len() {
+            let note = &mut notes[i];
+            
+            if time >= note.time() 
+            // && time <= note.end_time(100.0) 
+            && !note.was_hit() {
+
+                // check if we're catching up
+                if catching_up {
+                    // pretend the note was hit
+                    note.force_hit();
+                    continue;
+                }
+
+                // otherwise it spams sliders even after it has finished
+                if let NoteType::Slider = note.note_type() {
+                    if time > note.end_time(0.0) {
+                        continue;
+                    }
+                }
+
+                // we're already working on this note
+                if i as i64 == self.note_index {
+                    match note.note_type() {
+                        NoteType::Slider | NoteType::Spinner => {
+                            let time_between_hits = self.current_note_duration / (note.hits_to_complete() as f32);
+                            
+                            // if its not time to do another hit yet
+                            if time - self.last_hit < time_between_hits {return}
+                        }
+
+                        // nothing to do for notes (they only need 1 hit) and holds dont exist
+                        // dont do anything else for this object
+                        NoteType::Hold | NoteType::Note => continue,
+                    }
+                } else {
+                    self.note_index = i as i64;
+                        
+                    match note.note_type() {
+                        NoteType::Slider | NoteType::Spinner => self.current_note_duration = note.end_time(0.0) - note.time(),
+                        _ => {},
+                    }
+                }
+
+                self.last_hit = time;
+                // let note_type = note.note_type();
+                let is_kat = note.is_kat();
+                let is_finisher = note.finisher_sound();
+
+                let count = self.don_presses + self.kat_presses;
+                let side = count % 2;
+
+                if is_finisher {
+                    if is_kat {
+                        frames.push(ReplayFrame::Press(KeyPress::LeftKat));
+                        frames.push(ReplayFrame::Press(KeyPress::RightKat));
+                    } else {
+                        frames.push(ReplayFrame::Press(KeyPress::LeftDon));
+                        frames.push(ReplayFrame::Press(KeyPress::RightDon));
+                    }
+                } else {
+                    match (is_kat, side) {
+                        // kat, left side
+                        (true, 0) => frames.push(ReplayFrame::Press(KeyPress::LeftKat)),
+
+                        // kat, right side
+                        (true, 1) => frames.push(ReplayFrame::Press(KeyPress::RightKat)),
+
+                        // don, left side
+                        (false, 0) => frames.push(ReplayFrame::Press(KeyPress::LeftDon)),
+                        
+                        // don, right side
+                        (false, 1) => frames.push(ReplayFrame::Press(KeyPress::RightDon)),
+
+                        // shouldnt happen
+                        _ => {}
+                    }
+                }
+
+                if is_kat {
+                    self.kat_presses += 1;
+                } else {
+                    self.don_presses += 1;
+                }
+
+                return
+            }
+        }
     }
 }

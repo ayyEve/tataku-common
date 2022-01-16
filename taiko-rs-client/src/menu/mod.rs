@@ -7,8 +7,9 @@ mod main_menu;
 mod settings_menu;
 mod direct_menu;
 mod loading_menu;
-pub mod dialog;
+mod dialog;
 
+pub use dialog::*;
 pub use beatmap_select::*;
 pub use score_menu::*;
 pub use pause_menu::*;

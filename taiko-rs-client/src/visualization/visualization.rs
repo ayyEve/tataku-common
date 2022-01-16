@@ -1,6 +1,15 @@
-use dft::c32;
-use std::time::Instant;
-use ayyeve_piston_ui::render::{Renderable, Vector2};
+use crate::prelude::*;
+
+pub use f32 as Amplitude;
+pub use f32 as Frequency;
+
+#[cfg(feature="bass_audio")]
+pub type FFTEntry = f32; //(Frequency, Amplitude);
+#[cfg(feature="neb_audio")]
+pub type FFTEntry = (Frequency, Amplitude);
+
+#[cfg(feature="bass_audio")]
+const BASS_MULT:f32 = 1_000.0;
 
 
 pub trait Visualization {
@@ -10,44 +19,48 @@ pub trait Visualization {
     fn update(&mut self) {}
     fn reset(&mut self) {}
 
-    fn data(&mut self) -> &mut Vec<f32>;
+    fn data(&mut self) -> &mut Vec<FFTEntry>;
     fn timer(&mut self) -> &mut Instant;
     fn update_data(&mut self) {
-        // get the audio being fed to the sound card
-        let audio_data = crate::game::audio::CURRENT_DATA.clone();
-        let audio_data = audio_data.lock().clone();
+        let mut audio_data;
 
-        let audio_data = crate::game::audio::utils::deinterleave(&audio_data, 2)[0].clone();
+        #[cfg(feature="bass_audio")] {
+            let data = match Audio::get_song() {
+                Some(stream) => stream.get_data(bass_rs::prelude::DataType::FFT2048, 1024i32),
+                None => return
+            }.unwrap_or(vec![0.0]);
+            audio_data = data[0..data.len() / 2].to_vec();
+        }
 
+        #[cfg(feature="neb_audio")] {
+            // get the audio being fed to the sound card
+            let data = crate::game::audio::CURRENT_DATA.clone();
+            let mut data = data.lock().clone();
+            // println!("{}", audio_data.len());
 
-        let n = audio_data.len();
-        let count = n / 4; // was 960
+            let len = data.len();
+            let size;
 
+            if !cfg!(target_os = "linux") {
+                let scale = (1024.0 / len as f32) * 8.0;
+                for sample in data.iter_mut() {
+                    *sample *= scale;
+                }
+                data.resize(1024, 0.0);
+                size = FFT::F1024;
+            } else {
+                data.resize(8192, 0.0);
+                size = FFT::F8192;
+            }
 
-        let mut audio_data = audio_data
-            .iter()
-            .map(|n| c32::new(*n, 1.0))
-            .collect::<Vec<c32>>();
+            let mut data = fft(
+                &mut data, 
+                size
+            );
 
-        // if n != audio_data.len() {
-        //     audio_data = audio_data[0..n].to_vec();
-        // }
-
-        
-        let plan = dft::Plan::new(dft::Operation::Forward, n);
-        dft::transform(&mut audio_data, &plan);
-
-        let audio_data = audio_data
-            .iter()
-            .map(|n| n.re)
-            .collect::<Vec<f32>>();
-
-        let audio_data = audio_data[0..count].to_vec();
-        let mut audio_data:Vec<f32> = audio_data
-            .iter()
-            .map(|i|i.abs())
-            .collect();
-
+            data.retain(|(freq, _amp)| *freq < 7_000.0);
+            audio_data = data;
+        }
 
         let time = self.timer();
         let elapsed = time.elapsed().as_secs_f32();
@@ -55,13 +68,22 @@ pub trait Visualization {
         drop(time);
 
 
+
         let should_lerp = self.should_lerp();
         let factor = self.lerp_factor() * elapsed;
         let data = self.data();
         if should_lerp && data.len() > 0 {
-            data.resize(audio_data.len(), 0.0);
-            for i in 0..audio_data.len() {
-                audio_data[i] = lerp(data[i], audio_data[i], factor);
+            #[cfg(feature="bass_audio")] {
+                data.resize(audio_data.len(), 0.0);
+                for i in 0..audio_data.len() {
+                    audio_data[i] = lerp(data[i], audio_data[i] * BASS_MULT, factor);
+                }
+            }
+            #[cfg(feature="neb_audio")] {
+                data.resize(audio_data.len(), (0.0, 0.0));
+                for i in 0..audio_data.len() {
+                    audio_data[i].1 = lerp(data[i].1, audio_data[i].1, factor);
+                }
             }
         }
 

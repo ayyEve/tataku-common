@@ -1,8 +1,14 @@
-use std::{collections::HashSet, time::Instant};
-use piston::input::*;
+use piston::Event;
+use piston::TextEvent;
+use piston::FocusEvent;
+use piston::ButtonEvent;
+use piston::input::Button;
+use piston::MouseScrollEvent;
+use piston::MouseCursorEvent;
+use piston::input::ButtonState;
+use piston::ControllerAxisEvent;
 
-use crate::Vector2;
-use crate::game::KeyModifiers;
+use crate::prelude::*;
 
 pub struct InputManager {
     pub mouse_pos: Vector2,
@@ -19,11 +25,12 @@ pub struct InputManager {
     keys_down: HashSet<(Key, Instant)>,
     /// keys that were released but waiting to be registered
     keys_up: HashSet<(Key, Instant)>,
-
     
     text_cache: String,
     window_change_focus: Option<bool>,
-    register_times: Vec<f32>
+    register_times: Vec<f32>,
+
+    pub raw_input: bool
 }
 impl InputManager {
     pub fn new() -> InputManager {
@@ -42,12 +49,13 @@ impl InputManager {
             keys_up:  HashSet::new(),
             
             text_cache: String::new(),
-
             window_change_focus: None,
+
+            raw_input: false
         }
     }
 
-    pub fn handle_events(&mut self, e:Event) {
+    pub fn handle_events(&mut self, e:Event, window:&mut glfw_window::GlfwWindow) {
         if let Some(button) = e.button_args() {
             match (button.button, button.state) {
                 (Button::Keyboard(key), ButtonState::Press) => {
@@ -66,14 +74,41 @@ impl InputManager {
                     self.mouse_buttons.remove(&mb);
                     self.mouse_up.insert((mb, Instant::now()));
                 }
+
+                (Button::Controller(cb), ButtonState::Press) => {
+                    println!("got gamepad press: {:?}", cb);
+                }
+                (Button::Controller(cb), ButtonState::Release) => {
+                    println!("got gamepad release: {:?}", cb);
+                }
                 _ => {}
             }
         }
 
-        e.mouse_cursor(|pos| {
-            let new_pos = Vector2::new(pos[0], pos[1]);
-            if new_pos != self.mouse_pos {self.mouse_moved = true}
-            self.mouse_pos = new_pos;
+        if let Some(axis) = e.controller_axis_args() {
+            println!("got controller axis: {:?}", axis);
+        }
+
+        e.mouse_cursor(|[x, y]| {
+            let incoming = Vector2::new(x, y);
+
+            if self.raw_input {
+                let half_window = Settings::window_size() / 2.0;
+                let diff = incoming - half_window;
+                if diff == Vector2::zero() {return}
+                self.mouse_pos = self.mouse_pos + diff;
+                self.mouse_moved = true;
+
+                if !(self.mouse_pos.x < 0.0 || self.mouse_pos.y < 0.0 
+                || self.mouse_pos.x > half_window.x * 2.0 || self.mouse_pos.y > half_window.y * 2.0) {
+                    window.window.set_cursor_pos(half_window.x, half_window.y)
+                }
+
+            } else {
+                if incoming == self.mouse_pos {return}
+                self.mouse_moved = true;
+                self.mouse_pos = incoming;
+            }
         });
 
         e.mouse_scroll(|d| {self.scroll_delta += d[1]});
@@ -126,33 +161,26 @@ impl InputManager {
 
     /// get whether the mouse was moved or not
     pub fn get_mouse_moved(&mut self) -> bool {
-        let moved = self.mouse_moved;
-        self.mouse_moved = false;
-        moved
+        std::mem::take(&mut self.mouse_moved)
     }
     /// get how much the mouse wheel as scrolled (vertically) since the last check
     pub fn get_scroll_delta(&mut self) -> f64 {
-        let delta = self.scroll_delta;
-        self.scroll_delta = 0.0;
-        delta
+        std::mem::take(&mut self.scroll_delta)
     }
 
     /// gets any text typed since the last check
     pub fn get_text(&mut self) -> String {
-        let t = self.text_cache.clone();
-        self.text_cache = String::new();
-        t
+        std::mem::take(&mut self.text_cache)
     }
 
     /// get whether the window's focus has changed
     pub fn get_changed_focus(&mut self) -> Option<bool> {
-        let o = self.window_change_focus.clone();
-        self.window_change_focus = None;
-        o
+        std::mem::take(&mut self.window_change_focus)
     }
 
     /// get the input register delay average 
     /// (min,max,avg)
+    #[allow(unused)]
     pub fn get_register_delay(&mut self) -> (f32,f32,f32) {
         let mut sum = 0.0;
         let mut min = f32::MAX;

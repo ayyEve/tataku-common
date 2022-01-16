@@ -1,12 +1,4 @@
-use std::sync::Arc;
-use piston::{MouseButton, RenderArgs};
-
-use parking_lot::Mutex;
-
-use crate::game::{Game, GameState, KeyModifiers};
-use crate::gameplay::IngameManager;
-use crate::menu::{Menu, MenuButton, ScrollableItem};
-use crate::{window_size, Vector2, render::*};
+use crate::prelude::*;
 
 const BUTTON_SIZE:Vector2 = Vector2::new(100.0, 50.0);
 const Y_MARGIN:f64 = 20.0;
@@ -14,14 +6,14 @@ const Y_OFFSET:f64 = 10.0;
 
 pub struct PauseMenu {
     // beatmap: Arc<Mutex<Beatmap>>,
-    manager: Arc<Mutex<IngameManager>>,
+    manager: IngameManager,
     continue_button: MenuButton,
     retry_button: MenuButton,
     exit_button: MenuButton
 }
 impl PauseMenu {
-    pub fn new(manager:Arc<Mutex<IngameManager>>) -> PauseMenu {
-        let middle = window_size().x /2.0 - BUTTON_SIZE.x/2.0;
+    pub fn new(manager:IngameManager) -> PauseMenu {
+        let middle = Settings::window_size().x /2.0 - BUTTON_SIZE.x/2.0;
 
         PauseMenu {
             manager,
@@ -34,7 +26,10 @@ impl PauseMenu {
     pub fn unpause(&mut self, game:&mut Game) {
         // self.beatmap.lock().start();
         // self.manager.lock().start();
-        game.queue_state_change(GameState::Ingame(self.manager.clone()));
+
+        let mut manager = Default::default();
+        std::mem::swap(&mut self.manager, &mut manager);
+        game.queue_state_change(GameState::Ingame(manager));
     }
 }
 impl Menu<Game> for PauseMenu {
@@ -61,7 +56,7 @@ impl Menu<Game> for PauseMenu {
         
         // retry
         if self.retry_button.on_click(pos, button, mods) {
-            self.manager.lock().reset();
+            self.manager.reset();
             self.unpause(game);
             return;
         }

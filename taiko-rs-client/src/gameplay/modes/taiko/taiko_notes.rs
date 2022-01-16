@@ -1,12 +1,5 @@
-use core::f32;
-
-use piston::RenderArgs;
-
-use crate::Vector2;
-use super::{HIT_POSITION, NOTE_RADIUS};
-use taiko_rs_common::types::{KeyPress, ScoreHit};
-use crate::gameplay::{BAR_COLOR, HitObject, defs::NoteType};
-use crate::render::{Circle, Color, HalfCircle, Rectangle, Renderable, Border};
+use crate::prelude::*;
+use super::{BAR_COLOR, HIT_POSITION, NOTE_RADIUS};
 
 const SLIDER_DOT_RADIUS:f64 = 8.0;
 const SPINNER_RADIUS:f64 = 200.0;
@@ -21,7 +14,7 @@ const KAT_COLOR:Color = Color::new(0.0, 0.0, 1.0, 1.0);
 
 
 pub trait TaikoHitObject: HitObject {
-    fn is_kat(&self) -> bool {false}// needed for diff calc :/
+    fn is_kat(&self) -> bool {false}// needed for diff calc and autoplay
 
     fn get_sv(&self) -> f32;
     fn set_sv(&mut self, sv:f32);
@@ -36,6 +29,11 @@ pub trait TaikoHitObject: HitObject {
 
 
     fn x_at(&self, time:f32) -> f32 {(self.time() - time) * self.get_sv()}
+
+    fn was_hit(&self) -> bool;
+    fn force_hit(&mut self) {}
+
+    fn hits_to_complete(&self) -> u32 {1}
 }
 
 
@@ -49,19 +47,22 @@ pub struct TaikoNote {
     finisher: bool,
     hit: bool,
     missed: bool,
-    speed: f32
+    speed: f32,
+
+    alpha_mult: f32
 }
 impl TaikoNote {
-    pub fn new(time:f32, hit_type:HitType, finisher:bool, speed:f32) -> Self {
+    pub fn new(time:f32, hit_type:HitType, finisher:bool) -> Self {
         Self {
             time, 
             hit_time: 0.0,
             hit_type, 
             finisher,
-            speed,
+            speed: 0.0,
             hit: false,
             missed: false,
             pos: Vector2::zero(),
+            alpha_mult: 1.0
         }
     }
 
@@ -73,6 +74,7 @@ impl TaikoNote {
     }
 }
 impl HitObject for TaikoNote {
+    fn set_alpha(&mut self, alpha: f32) {self.alpha_mult = alpha}
     fn note_type(&self) -> NoteType {NoteType::Note}
     fn time(&self) -> f32 {self.time}
     fn end_time(&self, hw_miss:f32) -> f32 {self.time + hw_miss}
@@ -88,12 +90,12 @@ impl HitObject for TaikoNote {
         if self.pos.x + NOTE_RADIUS < 0.0 || self.pos.x - NOTE_RADIUS > args.window_size[0] as f64 {return}
 
         let mut note = Circle::new(
-            self.get_color(),
+            self.get_color().alpha(self.alpha_mult),
             self.time as f64,
             self.pos,
             if self.finisher {NOTE_RADIUS*1.6666} else {NOTE_RADIUS}
         );
-        note.border = Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE));
+        note.border = Some(Border::new(Color::BLACK.alpha(self.alpha_mult), NOTE_BORDER_SIZE));
         list.push(Box::new(note));
     }
 
@@ -105,6 +107,8 @@ impl HitObject for TaikoNote {
     }
 }
 impl TaikoHitObject for TaikoNote {
+    fn was_hit(&self) -> bool {self.hit || self.missed}
+    fn force_hit(&mut self) {self.hit = true}
     fn get_sv(&self) -> f32 {self.speed}
     fn set_sv(&mut self, sv:f32) {self.speed = sv}
     fn is_kat(&self) -> bool {self.hit_type == HitType::Kat}
@@ -164,26 +168,31 @@ pub struct TaikoSlider {
     speed: f32,
     radius: f64,
     //TODO: figure out how to pre-calc this
-    end_x: f64
+    end_x: f64,
+    
+    alpha_mult: f32,
 }
 impl TaikoSlider {
-    pub fn new(time:f32, end_time:f32, finisher:bool, speed:f32) -> Self {
+    pub fn new(time:f32, end_time:f32, finisher:bool) -> Self {
         let radius = if finisher {NOTE_RADIUS*1.6666} else {NOTE_RADIUS};
 
         Self {
             time, 
             end_time,
             finisher,
-            speed,
             radius,
+            speed: 0.0,
 
             pos: Vector2::new(0.0,HIT_POSITION.y - radius),
             end_x: 0.0,
-            hit_dots: Vec::new()
+            hit_dots: Vec::new(),
+            
+            alpha_mult: 1.0,
         }
     }
 }
 impl HitObject for TaikoSlider {
+    fn set_alpha(&mut self, alpha: f32) {self.alpha_mult = alpha}
     fn note_type(&self) -> NoteType {NoteType::Slider}
     fn time(&self) -> f32 {self.time}
     fn end_time(&self,_:f32) -> f32 {self.end_time}
@@ -200,39 +209,36 @@ impl HitObject for TaikoSlider {
     fn draw(&mut self, args:RenderArgs, list: &mut Vec<Box<dyn Renderable>>) {
         if self.end_x + NOTE_RADIUS < 0.0 || self.pos.x - NOTE_RADIUS > args.window_size[0] as f64 {return}
 
+        let color = Color::YELLOW.alpha(self.alpha_mult);
+        let border = Some(Border::new(Color::BLACK.alpha(self.alpha_mult), NOTE_BORDER_SIZE));
+
         // middle
         list.push(Box::new(Rectangle::new(
-            Color::YELLOW,
+            color,
             self.time as f64 + 1.0,
             self.pos,
             Vector2::new(self.end_x - self.pos.x , self.radius * 2.0),
-            Some(Border::new(Color::BLACK, NOTE_BORDER_SIZE))
+            border.clone()
         )));
 
         // start circle
         let mut start_c = Circle::new(
-            Color::YELLOW,
+            color,
             self.time as f64,
             self.pos + Vector2::new(0.0, self.radius),
             self.radius
         );
-        start_c.border = Some(Border {
-            color: Color::BLACK.into(),
-            radius: NOTE_BORDER_SIZE
-        });
+        start_c.border = border.clone();
         list.push(Box::new(start_c));
         
         // end circle
         let mut end_c = Circle::new(
-            Color::YELLOW,
+            color,
             self.time as f64,
             Vector2::new(self.end_x, self.pos.y + self.radius),
             self.radius
         );
-        end_c.border = Some(Border {
-            color: Color::BLACK.into(),
-            radius: NOTE_BORDER_SIZE
-        });
+        end_c.border = border.clone();
         list.push(Box::new(end_c));
 
         // draw hit dots
@@ -249,16 +255,18 @@ impl HitObject for TaikoSlider {
     }
 }
 impl TaikoHitObject for TaikoSlider {
+    fn was_hit(&self) -> bool {false}
+    fn causes_miss(&self) -> bool {false}
     fn get_sv(&self) -> f32 {self.speed}
     fn set_sv(&mut self, sv:f32) {self.speed = sv}
-    fn causes_miss(&self) -> bool {false}
+    fn hits_to_complete(&self) -> u32 {((self.end_time - self.time) / 50.0) as u32}
 
     fn get_points(&mut self, _hit_type:HitType, time:f32, _:(f32,f32,f32)) -> ScoreHit {
         // too soon or too late
         if time < self.time || time > self.end_time {return ScoreHit::None}
 
         self.hit_dots.push(SliderDot::new(time, self.speed));
-        ScoreHit::Other(100, false)
+        ScoreHit::Other(if self.finisher {200} else {100}, false)
     }
 
 }
@@ -322,23 +330,28 @@ pub struct TaikoSpinner {
     time: f32, // ms
     end_time: f32, // ms
     speed: f32,
+
+    alpha_mult: f32
 }
 impl TaikoSpinner {
-    pub fn new(time:f32, end_time:f32, speed:f32, hits_required:u16) -> Self {
+    pub fn new(time:f32, end_time:f32, hits_required:u16) -> Self {
         Self {
             time, 
             end_time,
-            speed,
+            speed: 0.0,
             hits_required,
 
             hit_count: 0,
             last_hit: HitType::Don,
             complete: false,
-            pos: Vector2::zero()
+            pos: Vector2::zero(),
+
+            alpha_mult: 1.0
         }
     }
 }
 impl HitObject for TaikoSpinner {
+    fn set_alpha(&mut self, alpha: f32) {self.alpha_mult = alpha}
     fn note_type(&self) -> NoteType {NoteType::Spinner}
     fn time(&self) -> f32 {self.time}
     fn end_time(&self,_:f32) -> f32 {
@@ -406,8 +419,12 @@ impl HitObject for TaikoSpinner {
     }
 }
 impl TaikoHitObject for TaikoSpinner {
+    fn force_hit(&mut self) {self.complete = true}
+    fn was_hit(&self) -> bool {self.complete}
     fn get_sv(&self) -> f32 {self.speed}
     fn set_sv(&mut self, sv:f32) {self.speed = sv}
+    fn is_kat(&self) -> bool {self.last_hit == HitType::Don}
+    fn hits_to_complete(&self) -> u32 {self.hits_required as u32}
 
     fn causes_miss(&self) -> bool {!self.complete} // if the spinner wasnt completed in time, cause a miss
     fn x_at(&self, time:f32) -> f32 {(self.time - time) * self.speed}
@@ -433,9 +450,6 @@ pub enum HitType {
     Don,
     Kat
 }
-
-
-
 impl Into<HitType> for KeyPress {
     fn into(self) -> HitType {
         match self {
@@ -445,4 +459,3 @@ impl Into<HitType> for KeyPress {
         }
     }
 }
-

@@ -1,10 +1,4 @@
-use std::time::Instant;
-use piston::{Key, RenderArgs};
-
-
-use crate::{Vector2, window_size};
-use crate::game::{Audio, Settings, KeyModifiers};
-use crate::render::{Rectangle, Renderable, Border, Color, Text};
+use crate::prelude::*;
 
 /// how long should the volume thing be displayed when changed
 const VOLUME_CHANGE_DISPLAY_TIME:u64 = 2000;
@@ -17,7 +11,6 @@ pub struct VolumeControl {
     vol_selected_time: u64,
     timer: Instant
 }
-
 impl VolumeControl {
     pub fn new() -> Self {
         Self {
@@ -34,7 +27,7 @@ impl VolumeControl {
     }
     fn change(&mut self, delta:f32) {
         let elapsed = self.elapsed();
-        let mut settings = Settings::get_mut();
+        let mut settings = Settings::get_mut("VolumeControl::change");
 
         // reset index back to 0 (master) if the volume hasnt been touched in a while
         if elapsed - self.vol_selected_time > VOLUME_CHANGE_DISPLAY_TIME + 1000 {self.vol_selected_index = 0}
@@ -49,6 +42,9 @@ impl VolumeControl {
 
         
         if let Some(song) = Audio::get_song() {
+            #[cfg(feature="bass_audio")]
+            song.set_volume(settings.get_music_vol()).unwrap();
+            #[cfg(feature="neb_audio")]
             song.set_volume(settings.get_music_vol());
         }
 
@@ -62,7 +58,7 @@ impl VolumeControl {
 
         // draw the volume things if needed
         if self.vol_selected_time > 0 && elapsed - self.vol_selected_time < VOLUME_CHANGE_DISPLAY_TIME {
-            let font = crate::game::get_font("main");
+            let font = get_font("main");
             let settings = Settings::get();
             let window_size:Vector2 = settings.window_size.into();
 
@@ -78,14 +74,13 @@ impl VolumeControl {
             // text 100px wide, bar 190px (10px padding)
             let border_padding = 10.0;
             let border_size = Vector2::new(200.0 - border_padding, 20.0);
-            const TEXT_YOFFSET:f64 = -17.0; // bc font measuring broken
             
             // == master bar ==
             // text
             let mut master_text = Text::new(
                 Color::BLACK,
                 -9.0,
-                window_size - Vector2::new(300.0, 90.0+TEXT_YOFFSET),
+                window_size - Vector2::new(300.0, 90.0),
                 20,
                 "Master:".to_owned(),
                 font.clone(),
@@ -112,7 +107,7 @@ impl VolumeControl {
             let mut effect_text = Text::new(
                 Color::BLACK,
                 -9.0,
-                window_size - Vector2::new(300.0, 60.0+TEXT_YOFFSET),
+                window_size - Vector2::new(300.0, 60.0),
                 20,
                 "Effects:".to_owned(),
                 font.clone()
@@ -139,7 +134,7 @@ impl VolumeControl {
             let mut music_text = Text::new(
                 Color::BLACK,
                 -9.0,
-                window_size - Vector2::new(300.0, 30.0+TEXT_YOFFSET),
+                window_size - Vector2::new(300.0, 30.0),
                 20,
                 "Music:".to_owned(),
                 font.clone()
@@ -192,7 +187,7 @@ impl VolumeControl {
 
     pub fn on_mouse_move(&mut self, mouse_pos: Vector2) {
         let elapsed = self.elapsed();
-        let window_size = window_size();
+        let window_size = Settings::window_size();
 
         let master_pos:Vector2 = Vector2::new(window_size.x - 300.0, window_size.y - 90.0);
         let effect_pos:Vector2 = Vector2::new(window_size.x - 300.0, window_size.y - 60.0);

@@ -1,25 +1,15 @@
-use std::collections::HashMap;
-use std::time::{Duration, Instant};
-
-use ayyeve_piston_ui::render::Circle;
-use tokio::runtime::{Builder, Runtime};
 use glfw_window::GlfwWindow as AppWindow;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
 
+use crate::prelude::*;
 use crate::databases::{save_replay, save_score};
-use crate::render::{Color, Image, Rectangle, Renderable};
-use taiko_rs_common::types::{SpectatorFrames, UserAction};
-use crate::gameplay::{Beatmap, BeatmapMeta, IngameManager};
-use crate::helpers::{FpsDisplay, BenchmarkHelper, VolumeControl};
-use crate::{window_size, Vector2, DOWNLOADS_DIR, menu::*, sync::{Arc, Mutex}};
-use crate::game::{Settings, audio::Audio, online::{USER_ITEM_SIZE, OnlineManager}, managers::{InputManager, BeatmapManager, NotificationManager, NOTIFICATION_MANAGER}};
+
 
 /// background color
-const GFX_CLEAR_COLOR:Color = Color::WHITE;
+const GFX_CLEAR_COLOR:Color = Color::BLACK;
 /// how long do transitions between gamemodes last?
 const TRANSITION_TIME:u64 = 500;
-
 
 pub struct Game {
     // engine things
@@ -27,14 +17,14 @@ pub struct Game {
     pub window: AppWindow,
     pub graphics: GlGraphics,
     pub input_manager: InputManager,
-    pub online_manager: Arc<tokio::sync::Mutex<OnlineManager>>,
-    pub threading: Runtime,
+    pub volume_controller: VolumeControl,
     
     pub menus: HashMap<&'static str, Arc<Mutex<dyn Menu<Game>>>>,
     pub current_state: GameState,
     pub queued_state: GameState,
 
-    pub volume_controller: VolumeControl,
+    pub dialogs: Vec<Box<dyn Dialog<Self>>>,
+    pub wallpapers: Vec<Image>,
 
     // fps
     fps_display: FpsDisplay,
@@ -49,17 +39,31 @@ pub struct Game {
     // user list
     show_user_list: bool,
 
+    // cursor
+    cursor_manager: CursorManager,
+
     // misc
     pub game_start: Instant,
     pub background_image: Option<Image>,
-    // register_timings: (f32,f32,f32)
+    // register_timings: (f32,f32,f32),
+
+    #[cfg(feature="bass_audio")]
+    #[allow(dead_code)]
+    /// needed to prevent bass from deinitializing
+    bass: bass_rs::Bass,
+
+
+    // user menu helper
+    selected_user: Option<u32>
 }
 impl Game {
     pub fn new() -> Game {
-        let mut game_init_benchmark = BenchmarkHelper::new("game::new");
+        let mut game_init_benchmark = BenchmarkHelper::new("Game::new");
+
+        let window_size = Settings::window_size();
 
         let opengl = OpenGL::V3_2;
-        let mut window: AppWindow = WindowSettings::new("Taiko-rs", [window_size().x, window_size().y])
+        let mut window: AppWindow = WindowSettings::new("Taiko-rs", [window_size.x, window_size.y])
             .graphics_api(opengl)
             .resizable(false)
             .build()
@@ -67,19 +71,29 @@ impl Game {
         window.window.set_cursor_mode(glfw::CursorMode::Hidden);
         game_init_benchmark.log("window created", true);
 
-        {
-            //TODO: somehow make sure this file exists?
-            match image::open("./icon-small.png") {
-                Ok(img) => {
-                    window.window.set_icon(vec![img.into_rgba8()]);
-                    game_init_benchmark.log("window icon set", true);
-                }
-                Err(e) => {
-                    game_init_benchmark.log(&format!("error setting window icon: {}", e), true);
-                }
+
+        #[cfg(feature="bass_audio")] 
+        let bass = {
+            #[cfg(target_os = "windows")]
+            let window_ptr = window.window.get_win32_window();
+            #[cfg(target_os = "linux")]
+            let window_ptr = window.window.get_x11_window();
+
+            // initialize bass
+            bass_rs::Bass::init_default_with_ptr(window_ptr).expect("Error initializing bass")
+        };
+
+        // set window icon
+        match image::open("resources/icon-small.png") {
+            Ok(img) => {
+                window.window.set_icon(vec![img.into_rgba8()]);
+                game_init_benchmark.log("window icon set", true);
+            }
+            Err(e) => {
+                game_init_benchmark.log(&format!("error setting window icon: {}", e), true);
             }
         }
-        
+
 
         let graphics = GlGraphics::new(opengl);
         game_init_benchmark.log("graphics created", true);
@@ -87,25 +101,16 @@ impl Game {
         let input_manager = InputManager::new();
         game_init_benchmark.log("input manager created", true);
 
-        let online_manager = Arc::new(tokio::sync::Mutex::new(OnlineManager::new()));
-        game_init_benchmark.log("online manager created", true);
-
-        let threading = Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        game_init_benchmark.log("threading created", true);
-
         let mut g = Game {
             // engine
             window,
             graphics,
-            threading,
             input_manager,
-            online_manager,
             volume_controller:VolumeControl::new(),
             render_queue: Vec::new(),
+            dialogs: Vec::new(),
             background_image: None,
+            wallpapers: Vec::new(),
 
             menus: HashMap::new(),
             current_state: GameState::None,
@@ -121,10 +126,17 @@ impl Game {
             transition_last: None,
             transition_timer: 0,
 
+            // cursor
+            cursor_manager: CursorManager::new(),
+
             // misc
             show_user_list: false,
             game_start: Instant::now(),
-            // register_timings: (0.0,0.0,0.0)
+            // register_timings: (0.0,0.0,0.0),
+            #[cfg(feature="bass_audio")] 
+            bass,
+
+            selected_user: None,
         };
         game_init_benchmark.log("game created", true);
 
@@ -135,10 +147,11 @@ impl Game {
     }
 
     pub fn init(&mut self) {
-        let clone = self.online_manager.clone();
-
+        // set the dialog queue
+        
         // online loop
-        self.threading.spawn(async move {
+        let clone = ONLINE_MANAGER.clone();
+        tokio::spawn(async move {
             loop {
                 OnlineManager::start(clone.clone()).await;
                 tokio::time::sleep(Duration::from_millis(1_000)).await;
@@ -146,14 +159,13 @@ impl Game {
         });
 
         // beatmap manager loop
-        BeatmapManager::download_check_loop(self);
-        
+        BeatmapManager::download_check_loop();
         
         let mut loading_menu = LoadingMenu::new();
-        loading_menu.load(self);
+        loading_menu.load();
 
         //region == menu setup ==
-        let mut menu_init_benchmark = BenchmarkHelper::new("game::new");
+        let mut menu_init_benchmark = BenchmarkHelper::new("Game::init");
         // main menu
         let main_menu = Arc::new(Mutex::new(MainMenu::new()));
         self.menus.insert("main", main_menu.clone());
@@ -169,20 +181,41 @@ impl Game {
         self.menus.insert("settings", settings_menu.clone());
         menu_init_benchmark.log("settings menu created", true);
 
+
+        // check git updates
+        self.add_dialog(Box::new(ChangelogDialog::new()));
+
+        // load background images
+        match std::fs::read_dir("resources/wallpapers") {
+            Ok(list) => {
+                for wall_file in list {
+                    if let Ok(file) = wall_file {
+                        if let Some(wallpaper) = load_image(file.path().to_str().unwrap()) {
+                            self.wallpapers.push(wallpaper)
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                NotificationManager::add_error_notification("Error loading wallpaper", e)
+            }
+        }
+
         self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(loading_menu))));
     }
     pub fn game_loop(mut self) {
-        // input and rendering thread
         let mut events = Events::new(EventSettings::new());
+        // events.set_ups_reset(0);
 
         {
-            let settings = Settings::get();
+            // input and rendering thread times
+            let settings = Settings::get_mut("Game::game_loop");
             events.set_max_fps(settings.fps_target);
             events.set_ups(settings.update_target);
         }
 
         while let Some(e) = events.next(&mut self.window) {
-            self.input_manager.handle_events(e.clone());
+            self.input_manager.handle_events(e.clone(), &mut self.window);
             if let Some(args) = e.update_args() {self.update(args.dt*1000.0)}
             if let Some(args) = e.render_args() {self.render(args)}
             if let Some(Button::Keyboard(_)) = e.press_args() {self.input_update_display.increment()}
@@ -196,13 +229,18 @@ impl Game {
                 if let Some(ext) = d.extension() {
                     let ext = ext.to_str().unwrap();
                     match *&ext {
-                        "osz" => {
+                        "osz" | "qp" => {
                             if let Err(e) = std::fs::copy(path, format!("{}/{}", DOWNLOADS_DIR, filename.unwrap().to_str().unwrap())) {
                                 println!("Error moving file: {}", e);
+                                NotificationManager::add_error_notification(
+                                    "Error moving file", 
+                                    e
+                                );
+                            } else {
                                 NotificationManager::add_text_notification(
-                                    &format!("Error moving file\n{}", e), 
+                                    "Set file added, it will be loaded soon...", 
                                     2_000.0, 
-                                    Color::RED
+                                    Color::BLUE
                                 );
                             }
                         }
@@ -210,7 +248,7 @@ impl Game {
                         _ => {
                             NotificationManager::add_text_notification(
                                 &format!("What is this?"), 
-                                1_000.0, 
+                                3_000.0, 
                                 Color::RED
                             );
                         }
@@ -223,27 +261,34 @@ impl Game {
 
     fn update(&mut self, _delta:f64) {
         // let timer = Instant::now();
-        self.update_display.increment();
-        let current_state = self.current_state.clone();
         let elapsed = self.game_start.elapsed().as_millis() as u64;
+        self.update_display.increment();
+        let mut current_state = std::mem::take(&mut self.current_state);
 
         // read input events
         let mouse_pos = self.input_manager.mouse_pos;
         let mut mouse_down = self.input_manager.get_mouse_down();
-        let mouse_up = self.input_manager.get_mouse_up();
+        let mut mouse_up = self.input_manager.get_mouse_up();
         let mouse_moved = self.input_manager.get_mouse_moved();
         let mut scroll_delta = self.input_manager.get_scroll_delta();
 
         let mut keys_down = self.input_manager.get_keys_down();
-        let keys_up = self.input_manager.get_keys_up();
+        let mut keys_up = self.input_manager.get_keys_up();
         let mods = self.input_manager.get_key_mods();
-        let text = self.input_manager.get_text();
+        let mut text = self.input_manager.get_text();
         let window_focus_changed = self.input_manager.get_changed_focus();
 
         // if keys.len() > 0 {
         //     self.register_timings = self.input_manager.get_register_delay();
         //     println!("register times: min:{}, max: {}, avg:{}", self.register_timings.0,self.register_timings.1,self.register_timings.2);
         // }
+        if !self.cursor_manager.replay_mode {
+            self.cursor_manager.set_cursor_pos(mouse_pos);
+        } else if self.cursor_manager.replay_mode_changed {
+            self.cursor_manager.replay_mode_changed = false;
+            use glfw::CursorMode::{Normal, Hidden};
+            self.window.window.set_cursor_mode(if self.cursor_manager.replay_mode {Normal} else {Hidden});
+        }
 
         if mouse_down.len() > 0 {
             // check notifs
@@ -258,116 +303,186 @@ impl Game {
         self.volume_controller.on_key_press(&mut keys_down, mods);
         
         // users list
+        //TODO: maybe try to move this to a dialog?
         if keys_down.contains(&Key::F8) {
             self.show_user_list = !self.show_user_list;
+            if let Some(chat) = Chat::new() {
+                self.add_dialog(Box::new(chat));
+            }
             println!("Show user list: {}", self.show_user_list);
         }
         if self.show_user_list {
-            if let Ok(om) = self.online_manager.try_lock() {
+            if let Ok(om) = ONLINE_MANAGER.try_lock() {
                 for (_, user) in &om.users {
                     if let Ok(mut u) = user.try_lock() {
                         if mouse_moved {u.on_mouse_move(mouse_pos)}
                         mouse_down.retain(|button| !u.on_click(mouse_pos, button.clone(), mods));
+
+                        if u.clicked {
+                            u.clicked = false;
+                            self.selected_user = Some(u.user_id);
+
+                            // user menu dialog
+                            let mut user_menu_dialog = NormalDialog::new("User Options");
+                            user_menu_dialog.add_button("Spectate", Box::new(|dialog, game| {
+                                // println!("spectate");
+                                if let Some(user_id) = game.selected_user.clone() {
+                                    tokio::spawn(OnlineManager::start_spectating(user_id));
+                                    //TODO: wait for a spec response from the server before setting the mode
+                                    game.queue_state_change(GameState::Spectating(SpectatorManager::new()));
+                                    dialog.should_close = true;
+                                    game.selected_user = None;
+                                }
+                            }));
+                            user_menu_dialog.add_button("Send Message", Box::new(|dialog, game| {
+                                // println!("spectate");
+                                if let Some(user_id) = game.selected_user.clone() {
+
+                                    if let Some(chat) = Chat::new() {
+                                        game.add_dialog(Box::new(chat));
+                                    }
+
+                                    let clone = ONLINE_MANAGER.clone();
+                                    tokio::spawn(async move {
+                                        let mut lock = clone.lock().await;
+                                        if let Some(user) = lock.find_user_by_id(user_id) {
+                                            let username = user.lock().await.username.clone();
+                                            let channel = ChatChannel::User{username};
+                                            if !lock.chat_messages.contains_key(&channel) {
+                                                lock.chat_messages.insert(channel.clone(), Vec::new());
+                                            }
+                                        } else {
+                                            NotificationManager::add_text_notification("Error: user not found.", 2000.0, Color::RED)
+                                        }
+                                    });
+
+                                    dialog.should_close = true;
+                                    game.selected_user = None;
+                                }
+                            }));
+
+                            user_menu_dialog.add_button("Close", Box::new(|dialog, game| {
+                                // println!("close");
+                                dialog.should_close = true;
+                                game.selected_user = None;
+                            }));
+
+                            self.add_dialog(Box::new(user_menu_dialog));
+                        }
                     }
                 }
             }
         }
 
+        // update any dialogs
+        let mut dialog_list = std::mem::take(&mut self.dialogs);
+        for d in dialog_list.iter_mut().rev() {
+            // kb events
+            keys_down.retain(|k| !d.on_key_press(k, &mods, self));
+            keys_up.retain(|k| !d.on_key_release(k,  &mods, self));
+            if !text.is_empty() && d.on_text(&text) {text = String::new()}
+
+            // mouse events
+            if mouse_moved {d.on_mouse_move(&mouse_pos, self)}
+            if d.get_bounds().contains(mouse_pos) {
+                mouse_down.retain(|button| !d.on_mouse_down(&mouse_pos, &button, &mods, self));
+                mouse_up.retain(|button| !d.on_mouse_up(&mouse_pos, &button, &mods, self));
+                if scroll_delta != 0.0 && d.on_mouse_scroll(&scroll_delta, self) {scroll_delta = 0.0}
+
+                mouse_down.clear();
+                mouse_up.clear();
+            }
+            d.update(self)
+        }
+        // remove any dialogs which should be closed
+        dialog_list.retain(|d|!d.should_close());
+        self.dialogs = std::mem::take(&mut dialog_list);
+
 
         // run update on current state
-        match current_state {
-            GameState::Ingame(ref manager) => {
-                let mut lock = manager.lock();
+        match &mut current_state {
+            GameState::Ingame(manager) => {
+                let settings = Settings::get();
                 
                 // pause button, or focus lost, only if not replaying
-                if !lock.replaying && matches!(window_focus_changed, Some(false)) || keys_down.contains(&Key::Escape) {
-                    lock.pause();
-                    let menu = PauseMenu::new(manager.clone());
+                if (manager.can_pause() && (matches!(window_focus_changed, Some(false)) && settings.pause_on_focus_lost)) || keys_down.contains(&Key::Escape) {
+                    println!("manager.pause");
+                    manager.pause();
+                    println!("taking manager");
+                    let manager2 = std::mem::take(manager);
+                    println!("create menu");
+                    let menu = PauseMenu::new(manager2);
+                    println!("state change");
                     self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
-                }
+                    println!("done");
+                } else {
+                    // // offset adjust
+                    // if keys_down.contains(&settings.key_offset_up) {manager.increment_offset(5.0)}
+                    // if keys_down.contains(&settings.key_offset_down) {manager.increment_offset(-5.0)}
 
-                // offset adjust
-                if keys_down.contains(&Key::Equals) {lock.increment_offset(5.0)}
-                if keys_down.contains(&Key::Minus) {lock.increment_offset(-5.0)}
+                    // inputs
+                    if mouse_moved {manager.mouse_move(mouse_pos)}
+                    for btn in mouse_down {manager.mouse_down(btn)}
+                    for btn in mouse_up {manager.mouse_up(btn)}
+                    if scroll_delta != 0.0 {manager.mouse_scroll(scroll_delta)}
 
-                if mouse_moved {
-                    lock.mouse_move(mouse_pos);
-                }
-                for btn in mouse_down {
-                    lock.mouse_down(btn);
-                }
-                for btn in mouse_up {
-                    lock.mouse_up(btn);
-                }
-                if scroll_delta != 0.0 {
-                    lock.mouse_scroll(scroll_delta);
-                }
+                    for k in keys_down.iter() {manager.key_down(*k, mods)}
+                    for k in keys_up.iter() {manager.key_up(*k)}
 
-                for k in keys_down.iter() {
-                    lock.key_down(*k);
-                }
-                for k in keys_up.iter() {
-                    lock.key_up(*k);
-                }
+                    // update, then check if complete
+                    manager.update();
+                    if manager.completed {
+                        println!("beatmap complete");
+                        let score = &manager.score;
+                        let replay = &manager.replay;
 
-                // update, then check if complete
-                lock.update();
-                if lock.completed {
-                    println!("beatmap complete");
-                    let score = &lock.score;
-                    let replay = &lock.replay;
+                        if manager.should_save_score() {
+                            // save score
+                            save_score(&score);
+                            match save_replay(&replay, &score) {
+                                Ok(_)=> println!("replay saved ok"),
+                                Err(e) => NotificationManager::add_error_notification("error saving replay", e),
+                            }
 
-                    if !lock.replaying {
-                        // save score
-                        save_score(&score);
-                        match save_replay(&replay, &score) {
-                            Ok(_)=> println!("replay saved ok"),
-                            Err(e) => println!("error saving replay: {}", e),
-                        }
-                        // match save_all_scores() {
-                        //     Ok(_) => println!("Scores saved successfully"),
-                        //     Err(e) => println!("Failed to save scores! {}", e),
-                        // }
-                        println!("all scores saved");
+                            // submit score
+                            #[cfg(feature = "online_scores")] 
+                            {
+                                self.threading.spawn(async move {
+                                    //TODO: do this async
+                                    println!("submitting score");
+                                    let mut writer = taiko_rs_common::serialization::SerializationWriter::new();
+                                    writer.write(score.clone());
+                                    writer.write(replay.clone());
+                                    let data = writer.data();
+                                    
+                                    let c = reqwest::Client::new();
+                                    let res = c.post("http://localhost:8000/score_submit")
+                                        .body(data)
+                                        .send().await;
 
-                        // submit score
-                        #[cfg(feature = "online_scores")] 
-                        {
-                            self.threading.spawn(async move {
-                                //TODO: do this async
-                                println!("submitting score");
-                                let mut writer = taiko_rs_common::serialization::SerializationWriter::new();
-                                writer.write(score.clone());
-                                writer.write(replay.clone());
-                                let data = writer.data();
-                                
-                                let c = reqwest::Client::new();
-                                let res = c.post("http://localhost:8000/score_submit")
-                                    .body(data)
-                                    .send().await;
+                                    match res {
+                                        Ok(_isgood) => {
+                                            //TODO: do something with the response?
+                                            println!("score submitted successfully");
+                                        },
+                                        Err(e) => println!("error submitting score: {}", e),
+                                    }
+                                });
+                            }
 
-                                match res {
-                                    Ok(_isgood) => {
-                                        //TODO: do something with the response?
-                                        println!("score submitted successfully");
-                                    },
-                                    Err(e) => println!("error submitting score: {}", e),
-                                }
-                            });
                         }
 
-                    }
-
-                    // used to indicate user stopped watching a replay
-                    if lock.replaying && !lock.started {
-                        // go back to beatmap select
-                        let menu = self.menus.get("beatmap").unwrap();
-                        let menu = menu.clone();
-                        self.queue_state_change(GameState::InMenu(menu));
-                    } else {
-                        // show score menu
-                        let menu = ScoreMenu::new(&score, lock.beatmap.metadata.clone());
-                        self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
+                        // used to indicate user stopped watching a replay
+                        if manager.replaying && !manager.started {
+                            // go back to beatmap select
+                            let menu = self.menus.get("beatmap").unwrap();
+                            let menu = menu.clone();
+                            self.queue_state_change(GameState::InMenu(menu));
+                        } else {
+                            // show score menu
+                            let menu = ScoreMenu::new(&score, manager.metadata.clone());
+                            self.queue_state_change(GameState::InMenu(Arc::new(Mutex::new(menu))));
+                        }
                     }
                 }
             }
@@ -387,12 +502,13 @@ impl Game {
                 // mouse scroll
                 if scroll_delta.abs() > 0.0 {menu.on_scroll(scroll_delta, self)}
 
-                //check keys down
+                // check keys down
                 for key in keys_down {menu.on_key_press(key, self, mods)}
-                //TODO: check keys up (or remove it, probably not used anywhere)
+                // check keys up
+                for key in keys_up {menu.on_key_release(key, self)}
 
                 // check text
-                if text.len() > 0 {menu.on_text(text);}
+                if text.len() > 0 {menu.on_text(text)}
 
                 // window focus change
                 if let Some(has_focus) = window_focus_changed {
@@ -402,29 +518,24 @@ impl Game {
                 menu.update(self);
             }
 
-            GameState::Spectating(ref data, ref state, ref _beatmap) => {
-                let mut data = data.lock();
+            GameState::Spectating(manager) => {   
+                manager.update(self);
 
-                // (try to) read pending data from the online manager
-                match self.online_manager.try_lock() {
-                    Ok(mut online_manager) => data.extend(online_manager.get_pending_spec_frames()),
-                    Err(e) => println!("hmm, {}", e),
-                }
+                if mouse_moved {manager.mouse_move(mouse_pos, self)}
+                for btn in mouse_down {manager.mouse_down(mouse_pos, btn, mods, self)}
+                for btn in mouse_up {manager.mouse_up(mouse_pos, btn, mods, self)}
+                if scroll_delta != 0.0 {manager.mouse_scroll(scroll_delta, self)}
 
-                match &state {
-                    SpectatorState::Buffering => {},
-                    SpectatorState::Watching => todo!(),
-                    SpectatorState::Paused => todo!(),
-                    SpectatorState::MapChanging => todo!(),
-                }
+                for k in keys_down.iter() {manager.key_down(*k, mods, self)}
+                for k in keys_up.iter() {manager.key_up(*k, mods, self)}
             }
 
             GameState::None => {
                 // might be transitioning
-                if self.transition.is_some().clone() && elapsed - self.transition_timer > TRANSITION_TIME / 2 {
-                    let trans = self.transition.as_ref().unwrap().clone();
-                    self.queue_state_change(trans);
-                    self.transition = None;
+                if self.transition.is_some() && elapsed - self.transition_timer > TRANSITION_TIME / 2 {
+
+                    let trans = std::mem::take(&mut self.transition);
+                    self.queue_state_change(trans.unwrap());
                     self.transition_timer = elapsed;
                 }
             }
@@ -444,7 +555,6 @@ impl Game {
             _ => {
                 // if the mode is being changed, clear all shapes, even ones with a lifetime
                 self.clear_render_queue(true);
-                let online_manager = self.online_manager.clone();
 
                 // let cloned_mode = self.queued_mode.clone();
                 // self.threading.spawn(async move {
@@ -452,51 +562,40 @@ impl Game {
                 //     OnlineManager::set_action(online_manager, UserAction::Leaving, String::new()).await;
                 // });
 
-                match &self.queued_state {
+                match &mut self.queued_state {
                     GameState::Ingame(manager) => {
                         let (m, h) = {
-                            let mut lock = manager.lock();
-                            lock.start();
-
-                            (lock.beatmap.metadata.clone(), lock.beatmap.hash.clone())
+                            manager.start();
+                            (manager.metadata.clone(), manager.beatmap.hash())
                         };
 
                         self.set_background_beatmap(&m);
-                        // if let Ok(t) = opengl_graphics::Texture::from_path(m.image_filename.clone(), &opengl_graphics::TextureSettings::new()) {
-                        //     self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, t, window_size()));
-                        // } else {
-                        //     self.background_image = None;
-                        // }
-
-                        let text = format!("{}-{}[{}]\n{}", m.artist, m.title, m.version, h);
-                        self.threading.spawn(async move {
-                            OnlineManager::set_action(online_manager, UserAction::Ingame, text).await;
-                        });
+                        let text = format!("Playing {}-{}[{}]\n{}", m.artist, m.title, m.version, h);
+                        OnlineManager::set_action(UserAction::Ingame, text, m.mode);
                     },
                     GameState::InMenu(_) => {
                         if let GameState::InMenu(menu) = &self.current_state {
                             if menu.lock().get_name() == "pause" {
                                 if let Some(song) = Audio::get_song() {
+                                    #[cfg(feature="bass_audio")]
+                                    song.play(false).unwrap();
+                                    #[cfg(feature="neb_audio")]
                                     song.play();
                                 }
                             }
                         }
 
-                        self.threading.spawn(async move {
-                            OnlineManager::set_action(online_manager, UserAction::Idle, String::new()).await;
-                        });
+                        OnlineManager::set_action(UserAction::Idle, String::new(), PlayMode::Taiko);
                     },
                     GameState::Closing => {
                         // send logoff
-                        self.threading.spawn(async move {
-                            OnlineManager::set_action(online_manager, UserAction::Leaving, String::new()).await;
-                        });
+                        OnlineManager::set_action(UserAction::Leaving, String::new(), PlayMode::Taiko);
                     }
                     _ => {}
                 }
 
                 let mut do_transition = true;
-                match &self.current_state {
+                match &current_state {
                     GameState::None => do_transition = false,
                     GameState::InMenu(menu) if menu.lock().get_name() == "pause" => do_transition = false,
                     _ => {}
@@ -504,18 +603,16 @@ impl Game {
 
                 if do_transition {
                     // do a transition
-                    let qm = &self.queued_state;
-                    self.transition = Some(qm.clone());
+
+                    let qm = std::mem::take(&mut self.queued_state);
+                    self.transition = Some(qm);
                     self.transition_timer = elapsed;
-                    self.transition_last = Some(self.current_state.clone());
+                    self.transition_last = Some(current_state);
                     self.queued_state = GameState::None;
                     self.current_state = GameState::None;
                 } else {
                     // old mode was none, or was pause menu, transition to new mode
-                    let mode = self.queued_state.clone();
-
-                    self.current_state = mode.clone();
-                    self.queued_state = GameState::None;
+                    std::mem::swap(&mut self.queued_state, &mut self.current_state);
 
                     if let GameState::InMenu(menu) = &self.current_state {
                         menu.lock().on_change(true);
@@ -526,6 +623,11 @@ impl Game {
 
         // update the notification manager
         NOTIFICATION_MANAGER.lock().update();
+
+
+        if let Ok(manager) = &mut ONLINE_MANAGER.try_lock() {
+            manager.do_game_things(self);
+        }
         
         // if timer.elapsed().as_secs_f32() * 1000.0 > 1.0 {
         //     println!("update took a while: {}", timer.elapsed().as_secs_f32() * 1000.0);
@@ -534,31 +636,31 @@ impl Game {
 
     fn render(&mut self, args: RenderArgs) {
         // let timer = Instant::now();
-        let mut renderables: Vec<Box<dyn Renderable>> = Vec::new();
-        let settings = Settings::get();
+        let settings = Settings::get(); 
         let elapsed = self.game_start.elapsed().as_millis() as u64;
 
         // draw background image here
         if let Some(img) = self.background_image.as_ref() {
             // dim
-            renderables.push(Box::new(img.clone()));
+            self.render_queue.push(Box::new(img.clone()));
             // println!("{} > {}", img.get_depth(), f64::MAX - 1.0);
         }
         let mut color = Color::BLACK;
         color.a = settings.background_dim;
-        renderables.push(Box::new(Rectangle::new(
+        self.render_queue.push(Box::new(Rectangle::new(
             color,
             f64::MAX - 1.0,
             Vector2::zero(),
-            window_size(),
+            Settings::window_size(),
             None
         )));
 
         // mode
-        match &self.current_state {
-            GameState::Ingame(manager) => manager.lock().draw(args, &mut renderables),
-            GameState::InMenu(menu) => renderables.extend(menu.lock().draw(args)),
-            
+        match &mut self.current_state {
+            GameState::Ingame(manager) => manager.draw(args, &mut self.render_queue),
+            GameState::InMenu(menu) => self.render_queue.extend(menu.lock().draw(args)),
+            GameState::Spectating(manager) => manager.draw(args, &mut self.render_queue),
+    
             _ => {}
         }
 
@@ -572,17 +674,17 @@ impl Game {
             let mut alpha = diff / (TRANSITION_TIME as f64 / 2.0);
             if self.transition.is_none() {alpha = 1.0 - diff / TRANSITION_TIME as f64}
 
-            renderables.push(Box::new(Rectangle::new(
+            self.render_queue.push(Box::new(Rectangle::new(
                 [0.0, 0.0, 0.0, alpha as f32].into(),
                 -f64::MAX,
                 Vector2::zero(),
-                window_size(),
+                Settings::window_size(),
                 None
             )));
 
             // draw old mode
             match (&self.current_state, &self.transition_last) {
-                (GameState::None, Some(GameState::InMenu(menu))) => renderables.extend(menu.lock().draw(args)),
+                (GameState::None, Some(GameState::InMenu(menu))) => self.render_queue.extend(menu.lock().draw(args)),
                 _ => {}
             }
         }
@@ -593,57 +695,59 @@ impl Game {
             //TODO: move the set_pos code to update or smth
             let mut counter = 0;
             
-            if let Ok(om) = self.online_manager.try_lock() {
-                for (_, user) in &om.users.clone() {
+            if let Ok(om) = ONLINE_MANAGER.try_lock() {
+                for (_, user) in &om.users {
                     if let Ok(mut u) = user.try_lock() {
-                        let x = if counter % 2 == 0 {0.0} else {USER_ITEM_SIZE.x};
-                        let y = (counter - counter % 2) as f64 * USER_ITEM_SIZE.y;
-                        u.set_pos(Vector2::new(x,y));
+                        let users_per_col = 2;
+                        let x = USER_ITEM_SIZE.x * (counter % users_per_col) as f64;
+                        let y = USER_ITEM_SIZE.y * (counter / users_per_col) as f64;
+                        u.set_pos(Vector2::new(x, y));
 
                         counter += 1;
-                        renderables.extend(u.draw(args, Vector2::zero(), -100.0));
+                        self.render_queue.extend(u.draw(args, Vector2::zero(), -100.0));
                     }
                 }
             }
         }
 
+
+        // draw any dialogs
+        let mut dialog_list = std::mem::take(&mut self.dialogs);
+        let mut current_depth = -50000000.0;
+        const DIALOG_DEPTH_DIFF:f64 = 50.0;
+        for d in dialog_list.iter_mut().rev() {
+            d.draw(&args, &current_depth, &mut self.render_queue);
+            current_depth += DIALOG_DEPTH_DIFF;
+        }
+        self.dialogs = std::mem::take(&mut dialog_list);
+
         // volume control
         self.render_queue.extend(self.volume_controller.draw(args));
-
-        // add the things we just made to the render queue
-        self.render_queue.extend(renderables);
 
         // draw fps's
         self.fps_display.draw(&mut self.render_queue);
         self.update_display.draw(&mut self.render_queue);
         self.input_update_display.draw(&mut self.render_queue);
 
-        // draw notifications
-        
-        // update the notification manager
+        // draw the notification manager
         NOTIFICATION_MANAGER.lock().draw(&mut self.render_queue);
 
         // draw cursor
-        let mouse_pressed = self.input_manager.mouse_buttons.len() > 0 
-            || self.input_manager.key_down(settings.standard_settings.left_key)
-            || self.input_manager.key_down(settings.standard_settings.right_key);
-        self.render_queue.push(Box::new(Circle::new(
-            Color::new(0.8, 0.0, 0.6, 1.0),
-            -f64::MAX,
-            self.input_manager.mouse_pos,
-            if mouse_pressed {10.0} else {5.0} * settings.cursor_scale
-        )));
-
+        // let mouse_pressed = self.input_manager.mouse_buttons.len() > 0 
+        //     || self.input_manager.key_down(settings.standard_settings.left_key)
+        //     || self.input_manager.key_down(settings.standard_settings.right_key);
+        self.cursor_manager.draw(&mut self.render_queue);
 
         // sort the queue here (so it only needs to be sorted once per frame, instead of every time a shape is added)
         self.render_queue.sort_by(|a, b| b.get_depth().partial_cmp(&a.get_depth()).unwrap());
+
 
         // slice the queue because loops
         let queue = self.render_queue.as_mut_slice();
         self.graphics.draw(args.viewport(), |c, g| {
             graphics::clear(GFX_CLEAR_COLOR.into(), g);
             for i in queue.as_mut() {
-                if i.get_spawn_time() == 0 {i.set_spawn_time(elapsed);}
+                if i.get_spawn_time() == 0 {i.set_spawn_time(elapsed)}
                 i.draw(g, c);
             }
         });
@@ -674,58 +778,79 @@ impl Game {
     pub fn set_background_beatmap(&mut self, beatmap:&BeatmapMeta) {
         // let mut helper = BenchmarkHelper::new("loaad image");
 
-        let settings = opengl_graphics::TextureSettings::new();
-        // helper.log("settings made", true);
+        self.background_image = load_image(&beatmap.image_filename);
 
-        let buf: Vec<u8> = match std::fs::read(&beatmap.image_filename) {
-            Ok(buf) => buf,
-            Err(_) => {
-                self.background_image = None;
-                return;
-            }
-        };
+        if self.background_image.is_none() && self.wallpapers.len() > 0 {
+            self.background_image = Some(self.wallpapers[0].clone());
+        }
 
-        // let buf = file.unwrap();
-        // helper.log("file read", true);
-
-        let img = image::load_from_memory(&buf).unwrap();
-        // helper.log("image created", true);
-        let img = img.into_rgba8();
-        // helper.log("format converted", true);
+        if let Some(bg) = self.background_image.as_mut() {
+            bg.origin = Vector2::zero();
+        }
         
-        let tex = opengl_graphics::Texture::from_image(&img, &settings);
-        // helper.log("texture made", true);
 
-        self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size()));
-        // helper.log("background set", true);
 
-        // match opengl_graphics::Texture::from_path(beatmap.image_filename.clone(), &settings) {
-        //     Ok(tex) => self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size())),
-        //     Err(e) => {
-        //         println!("Error loading beatmap texture: {}", e);
-        //         self.background_image = None; //TODO!: use a known good background image
-        //     },
-        // }
+        // let settings = opengl_graphics::TextureSettings::new();
+        // // helper.log("settings made", true);
+        // let buf: Vec<u8> = match std::fs::read(&beatmap.image_filename) {
+        //     Ok(buf) => buf,
+        //     Err(_) => {
+        //         self.background_image = None;
+        //         return;
+        //     }
+        // };
+
+        // // let buf = file.unwrap();
+        // // helper.log("file read", true);
+
+        // let img = image::load_from_memory(&buf).unwrap();
+        // // helper.log("image created", true);
+        // let img = img.into_rgba8();
+        // // helper.log("format converted", true);
+        
+        // let tex = opengl_graphics::Texture::from_image(&img, &settings);
+        // // helper.log("texture made", true);
+
+        // self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size()));
+        // // helper.log("background set", true);
+
+        // // match opengl_graphics::Texture::from_path(beatmap.image_filename.clone(), &settings) {
+        // //     Ok(tex) => self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, tex, window_size())),
+        // //     Err(e) => {
+        // //         println!("Error loading beatmap texture: {}", e);
+        // //         self.background_image = None; //TODO!: use a known good background image
+        // //     },
+        // // }
+    }
+
+
+    pub fn add_dialog(&mut self, dialog: Box<dyn Dialog<Self>>) {
+        self.dialogs.push(dialog)
     }
 }
 
 
-#[derive(Clone)]
 pub enum GameState {
-    None, // use this as the inital game mode, but me sure to change it after
+    None, // use this as the inital game mode, but be sure to change it after
     Closing,
-    Ingame(Arc<Mutex<IngameManager>>),
+    Ingame(IngameManager),
     InMenu(Arc<Mutex<dyn Menu<Game>>>),
 
     #[allow(dead_code)]
-    Spectating(Arc<Mutex<SpectatorFrames>>, SpectatorState, Option<Arc<Mutex<Beatmap>>>), // frames awaiting replay, state, beatmap
+    Spectating(SpectatorManager), // frames awaiting replay, state, beatmap
     // Multiplaying(MultiplayerState), // wink wink nudge nudge (dont hold your breath)
+}
+impl Default for GameState {
+    fn default() -> Self {
+        GameState::None
+    }
 }
 
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
 pub enum SpectatorState {
+    None, // Default
     Buffering, // waiting for data
     Watching, // host playing
     Paused, // host paused
