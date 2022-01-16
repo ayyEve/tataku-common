@@ -14,8 +14,6 @@ use taiko_rs_common::{serialization::{SerializationReader, SerializationWriter},
 use tokio::sync::OnceCell;
 use sea_orm::{DbBackend, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set, Statement, FromQueryResult};
 
-mod scores_table;
-
 #[macro_use] extern crate rocket;
 
 #[get("/")]
@@ -23,14 +21,9 @@ fn index() -> &'static str {
     "How did you get here?"
 }
 
+use taiko_rs_common::prelude::*;
 
-pub use scores_table::Entity as Scores;
-pub use scores_table::Model as ScoresModel;
-pub use scores_table::ActiveModel as ScoresActiveModel;
 
-use taiko_rs_common::tables::{users_table};
-use taiko_rs_common::tables::{user_data_table};
-use taiko_rs_common::types::PlayMode;
 
 pub static DATABASE:OnceCell<DatabaseConnection> = OnceCell::const_new();
 
@@ -57,17 +50,17 @@ async fn score_submit(data:Data<'_>) -> std::io::Result<()> {
 
     let new_score: ScoresActiveModel = ScoresActiveModel{
         username: Set(score.username.clone()),
-        beatmaphash: Set(score.beatmap_hash),
+        beatmap_hash: Set(score.beatmap_hash),
         playmode: Set(playmode as i16),
         score: Set(score.score as i64),
         combo: Set(score.combo as i16),
-        maxcombo: Set(score.max_combo as i16),
-        hit50: Set(score.x50 as i16),
-        hit100: Set(score.x100 as i16),
-        hit300: Set(score.x300 as i16),
-        hitgeki: Set(score.xgeki as i16),
-        hitkatu: Set(score.xkatu as i16),
-        hitmiss: Set(score.xmiss as i16),
+        max_combo: Set(score.max_combo as i16),
+        hit_50: Set(score.x50 as i16),
+        hit_100: Set(score.x100 as i16),
+        hit_300: Set(score.x300 as i16),
+        hit_geki: Set(score.xgeki as i16),
+        hit_katu: Set(score.xkatu as i16),
+        hit_miss: Set(score.xmiss as i16),
         accuracy: Set(score.accuracy),
         ..Default::default()
     };
@@ -86,7 +79,7 @@ async fn score_submit(data:Data<'_>) -> std::io::Result<()> {
             return Err(Error::new(ErrorKind::NotFound, "User not found!"));
         }
         Some(user) => {
-            user_id = user.id;
+            user_id = user.user_id;
 
             let argon2 = Argon2::default();
 
@@ -104,7 +97,7 @@ async fn score_submit(data:Data<'_>) -> std::io::Result<()> {
     Ok(())
 }
 
-async fn recalc_user(username: String, user_id: i64, mode: PlayMode) {
+async fn recalc_user(username: String, user_id: i32, mode: PlayMode) {
     println!("Recalcing user!");
     let scores: Vec<ScoresModel> = Scores::find().filter(scores_table::Column::Playmode.eq(mode as i16)).filter(scores_table::Column::Username.eq(username)).all(DATABASE.get().unwrap()).await.unwrap();
 
@@ -118,12 +111,12 @@ async fn recalc_user(username: String, user_id: i64, mode: PlayMode) {
     for score in scores {
         total_score += score.score;
 
-        if let Some(best) = best_scores.get(score.beatmaphash.clone().as_str()) {
+        if let Some(best) = best_scores.get(score.beatmap_hash.clone().as_str()) {
             if best.score < score.score {
-                best_scores.insert(score.beatmaphash.clone(), score.clone());
+                best_scores.insert(score.beatmap_hash.clone(), score.clone());
             }
         } else {
-            best_scores.insert(score.beatmaphash.clone(), score.clone());
+            best_scores.insert(score.beatmap_hash.clone(), score.clone());
         }
     }
 
@@ -138,7 +131,7 @@ async fn recalc_user(username: String, user_id: i64, mode: PlayMode) {
 
     match user_data_table::Entity::find()
         .filter(user_data_table::Column::Mode.eq(mode as i16))
-        .filter(user_data_table::Column::Userid.eq(user_id))
+        .filter(user_data_table::Column::UserId.eq(user_id))
         .one(DATABASE.get().unwrap()).await {
         Ok(user_data_a) => {
             println!("query ok");
@@ -153,10 +146,10 @@ async fn recalc_user(username: String, user_id: i64, mode: PlayMode) {
     match user_data {
         Some(user_data) => {
             let mut user_data: user_data_table::ActiveModel = user_data.into();
-            user_data.totalscore = Set(total_score);
-            user_data.rankedscore = Set(ranked_score);
+            user_data.total_score = Set(total_score);
+            user_data.ranked_score = Set(ranked_score);
             user_data.accuracy = Set(accuracy);
-            user_data.playcount = Set(play_count);
+            user_data.play_count = Set(play_count);
             user_data.mode = Set(mode as i16);
 
             match user_data.update(DATABASE.get().unwrap()).await {
@@ -166,11 +159,11 @@ async fn recalc_user(username: String, user_id: i64, mode: PlayMode) {
         }
         None => {
             let user_data = user_data_table::ActiveModel {
-                userid: Set(user_id),
-                rankedscore: Set(ranked_score),
-                totalscore: Set(total_score),
+                user_id: Set(user_id),
+                ranked_score: Set(ranked_score),
+                total_score: Set(total_score),
                 accuracy: Set(accuracy),
-                playcount: Set(play_count),
+                play_count: Set(play_count),
                 mode: Set(mode as i16),
                 ..Default::default()
             };
@@ -187,7 +180,7 @@ async fn recalc_user(username: String, user_id: i64, mode: PlayMode) {
 async fn get_scores(data:Data<'_>) -> std::io::Result<Vec<u8>> {
     let mut bytes:Vec<u8> = Vec::new();
 
-    match data.open(1.gigabytes()).into_bytes().await {
+    match data.open(1u32.gigabytes()).into_bytes().await {
         Ok(capped_bytes) => {
             capped_bytes.iter().for_each(|b|bytes.push(*b));
         }
@@ -206,23 +199,23 @@ async fn get_scores(data:Data<'_>) -> std::io::Result<Vec<u8>> {
     
     let scores: Vec<ScoresModel> = Scores::find()
         .filter(scores_table::Column::Playmode.eq(mode as i16))
-        .filter(scores_table::Column::Beatmaphash.eq(hash))
+        .filter(scores_table::Column::BeatmapHash.eq(hash))
         .all(DATABASE.get().unwrap())
         .await
         .unwrap();
 
     let new_scores: Vec<Score> = scores.iter().map(|score| {
-        let mut new_score:Score = Score::new(score.beatmaphash.clone(), score.username.clone(), (score.playmode as u8).into());
+        let mut new_score:Score = Score::new(score.beatmap_hash.clone(), score.username.clone(), (score.playmode as u8).into());
 
         new_score.score = score.score as u64;
         new_score.combo = score.combo as u16;
-        new_score.max_combo = score.maxcombo as u16;
-        new_score.x300 = score.hit300 as u16;
-        new_score.x100 = score.hit100 as u16;
-        new_score.x50 = score.hit50 as u16;
-        new_score.xgeki = score.hitgeki as u16;
-        new_score.xkatu = score.hitkatu as u16;
-        new_score.xmiss = score.hitmiss as u16;
+        new_score.max_combo = score.max_combo as u16;
+        new_score.x300 = score.hit_300 as u16;
+        new_score.x100 = score.hit_100 as u16;
+        new_score.x50 = score.hit_50 as u16;
+        new_score.xgeki = score.hit_geki as u16;
+        new_score.xkatu = score.hit_katu as u16;
+        new_score.xmiss = score.hit_miss as u16;
         new_score.accuracy = score.accuracy;
 
         return new_score;

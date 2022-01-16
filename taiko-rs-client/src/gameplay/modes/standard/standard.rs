@@ -330,6 +330,7 @@ impl GameMode for StandardGame {
     fn handle_replay_frame(&mut self, frame:ReplayFrame, time:f32, manager:&mut IngameManager) {
         if !manager.replaying {
             manager.replay.frames.push((time, frame.clone()));
+            manager.outgoing_spectator_frame((time, SpectatorFrameData::ReplayFrame{frame}));
         }
 
         const ALLOWED_PRESSES:&[KeyPress] = &[
@@ -497,7 +498,7 @@ impl GameMode for StandardGame {
                                     ScoreHit::X300 | ScoreHit::Xgeki => manager.score.hit300(time, note_time),
                                     ScoreHit::X100 | ScoreHit::Xkatu => {
                                         manager.score.hit100(time, note_time);
-                                        manager.combo_break();
+                                        // manager.combo_break();
                                     },
                                     ScoreHit::X50 => manager.score.hit50(time, note_time),
                                     _ => {}

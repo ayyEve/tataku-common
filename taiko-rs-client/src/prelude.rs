@@ -32,6 +32,9 @@ pub type Font = Arc<Mutex<opengl_graphics::GlyphCache<'static>>>;
 // taiko-rs-common imports
 pub use taiko_rs_common::types::*;
 
+// folder imports
+pub use crate::DOWNLOADS_DIR;
+
 // audio imports
 #[cfg(feature="bass_audio")]
 pub use bass_rs::prelude::*;
@@ -46,11 +49,12 @@ pub use crate::game::*;
 pub use crate::graphics::*;
 pub use crate::game::audio::*;
 pub use crate::game::managers::*;
-pub use crate::game::helpers::{*, io::*, math::*, curve::*, key_counter::*};
 pub use crate::game::helpers::centered_text_helper::CenteredTextHelper;
+pub use crate::game::helpers::{*, io::*, math::*, curve::*, key_counter::*};
 
 // sync imports
 pub use std::sync::{Arc, Weak};
+pub use std::sync::atomic::{*, Ordering::SeqCst};
 pub use parking_lot::{Mutex, MutexGuard};
 
 // error imports
@@ -64,3 +68,9 @@ pub use crate::gameplay::modes::*;
 pub use crate::beatmaps::Beatmap;
 pub use crate::beatmaps::common::*;
 pub use crate::beatmaps::osu::hitobject_defs::*;
+
+// online imports
+pub use crate::send_packet;
+pub use crate::create_packet;
+pub use crate::game::online::*;
+pub use taiko_rs_common::PacketId;

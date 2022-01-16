@@ -15,6 +15,18 @@ required deps:
    - libxcb-shape0
    - libxcb-render0
    - libxcb-fixes0
+
+How to build:
+ - install rust (https://rustup.rs/)
+ - add nightly toolchain (required until iter_mut is added to stable)
+   - rustup toolchain add nightly
+   - rustup override set nightly
+
+ - switch to animations branch (optional but preferred)
+   - git checkout animations
+
+ - build and run
+  - cargo run --release
    
 
 TODO:

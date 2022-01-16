@@ -13,7 +13,11 @@ pub struct ScoreMenu {
     graph: Graph,
 
     // cached
-    hit_error: HitError
+    hit_error: HitError,
+
+
+    pub dont_do_menu: bool,
+    pub should_close: bool,
 }
 impl ScoreMenu {
     pub fn new(score:&Score, beatmap: BeatmapMeta) -> ScoreMenu {
@@ -36,7 +40,20 @@ impl ScoreMenu {
             graph,
             replay_button: MenuButton::new(back_button.get_pos() - Vector2::new(0.0, back_button.size().y+5.0), back_button.size(), "Replay"),
             back_button,
+
+            dont_do_menu: false,
+            should_close: false,
         }
+    }
+
+    fn close(&mut self, game: &mut Game) {
+        if self.dont_do_menu {
+            self.should_close = true;
+            return;
+        }
+
+        let menu = game.menus.get("beatmap").unwrap().clone();
+        game.queue_state_change(GameState::InMenu(menu));
     }
 }
 impl Menu<Game> for ScoreMenu {
@@ -162,9 +179,10 @@ impl Menu<Game> for ScoreMenu {
             }
         }
 
+
+
         if self.back_button.on_click(pos, button, mods) {
-            let menu = game.menus.get("beatmap").unwrap().clone();
-            game.queue_state_change(GameState::InMenu(menu));
+            self.close(game)
         }
     }
 
@@ -176,8 +194,7 @@ impl Menu<Game> for ScoreMenu {
 
     fn on_key_press(&mut self, key:piston::Key, game: &mut Game, _mods:KeyModifiers) {
         if key == piston::Key::Escape {
-            let menu = game.menus.get("beatmap").unwrap().clone();
-            game.queue_state_change(GameState::InMenu(menu));
+            self.close(game)
         }
     }
 }

@@ -3,9 +3,7 @@ use opengl_graphics::{GlGraphics, OpenGL};
 use piston::{Window, input::*, event_loop::*, window::WindowSettings};
 
 use crate::prelude::*;
-use crate::DOWNLOADS_DIR;
 use crate::databases::{save_replay, save_score};
-use crate::game::online::{USER_ITEM_SIZE, OnlineManager};
 
 
 /// background color
@@ -14,14 +12,11 @@ const GFX_CLEAR_COLOR:Color = Color::BLACK;
 const TRANSITION_TIME:u64 = 500;
 
 pub struct Game {
-    test: Test,
-
     // engine things
     render_queue: Vec<Box<dyn Renderable>>,
     pub window: AppWindow,
     pub graphics: GlGraphics,
     pub input_manager: InputManager,
-    pub online_manager: Arc<tokio::sync::Mutex<OnlineManager>>,
     pub volume_controller: VolumeControl,
     
     pub menus: HashMap<&'static str, Arc<Mutex<dyn Menu<Game>>>>,
@@ -56,6 +51,10 @@ pub struct Game {
     #[allow(dead_code)]
     /// needed to prevent bass from deinitializing
     bass: bass_rs::Bass,
+
+
+    // user menu helper
+    selected_user: Option<u32>
 }
 impl Game {
     pub fn new() -> Game {
@@ -96,22 +95,17 @@ impl Game {
         }
 
 
-        let mut graphics = GlGraphics::new(opengl);
+        let graphics = GlGraphics::new(opengl);
         game_init_benchmark.log("graphics created", true);
 
         let input_manager = InputManager::new();
         game_init_benchmark.log("input manager created", true);
 
-        let online_manager = Arc::new(tokio::sync::Mutex::new(OnlineManager::new()));
-        game_init_benchmark.log("online manager created", true);
-
         let mut g = Game {
-            test: Test::new(&mut graphics),
             // engine
             window,
             graphics,
             input_manager,
-            online_manager,
             volume_controller:VolumeControl::new(),
             render_queue: Vec::new(),
             dialogs: Vec::new(),
@@ -140,7 +134,9 @@ impl Game {
             game_start: Instant::now(),
             // register_timings: (0.0,0.0,0.0),
             #[cfg(feature="bass_audio")] 
-            bass
+            bass,
+
+            selected_user: None,
         };
         game_init_benchmark.log("game created", true);
 
@@ -154,7 +150,7 @@ impl Game {
         // set the dialog queue
         
         // online loop
-        let clone = self.online_manager.clone();
+        let clone = ONLINE_MANAGER.clone();
         tokio::spawn(async move {
             loop {
                 OnlineManager::start(clone.clone()).await;
@@ -264,7 +260,6 @@ impl Game {
     }
 
     fn update(&mut self, _delta:f64) {
-        self.test.update();
         // let timer = Instant::now();
         let elapsed = self.game_start.elapsed().as_millis() as u64;
         self.update_display.increment();
@@ -311,19 +306,73 @@ impl Game {
         //TODO: maybe try to move this to a dialog?
         if keys_down.contains(&Key::F8) {
             self.show_user_list = !self.show_user_list;
+            if let Some(chat) = Chat::new() {
+                self.add_dialog(Box::new(chat));
+            }
             println!("Show user list: {}", self.show_user_list);
         }
         if self.show_user_list {
-            if let Ok(om) = self.online_manager.try_lock() {
+            if let Ok(om) = ONLINE_MANAGER.try_lock() {
                 for (_, user) in &om.users {
                     if let Ok(mut u) = user.try_lock() {
                         if mouse_moved {u.on_mouse_move(mouse_pos)}
                         mouse_down.retain(|button| !u.on_click(mouse_pos, button.clone(), mods));
+
+                        if u.clicked {
+                            u.clicked = false;
+                            self.selected_user = Some(u.user_id);
+
+                            // user menu dialog
+                            let mut user_menu_dialog = NormalDialog::new("User Options");
+                            user_menu_dialog.add_button("Spectate", Box::new(|dialog, game| {
+                                // println!("spectate");
+                                if let Some(user_id) = game.selected_user.clone() {
+                                    tokio::spawn(OnlineManager::start_spectating(user_id));
+                                    //TODO: wait for a spec response from the server before setting the mode
+                                    game.queue_state_change(GameState::Spectating(SpectatorManager::new()));
+                                    dialog.should_close = true;
+                                    game.selected_user = None;
+                                }
+                            }));
+                            user_menu_dialog.add_button("Send Message", Box::new(|dialog, game| {
+                                // println!("spectate");
+                                if let Some(user_id) = game.selected_user.clone() {
+
+                                    if let Some(chat) = Chat::new() {
+                                        game.add_dialog(Box::new(chat));
+                                    }
+
+                                    let clone = ONLINE_MANAGER.clone();
+                                    tokio::spawn(async move {
+                                        let mut lock = clone.lock().await;
+                                        if let Some(user) = lock.find_user_by_id(user_id) {
+                                            let username = user.lock().await.username.clone();
+                                            let channel = ChatChannel::User{username};
+                                            if !lock.chat_messages.contains_key(&channel) {
+                                                lock.chat_messages.insert(channel.clone(), Vec::new());
+                                            }
+                                        } else {
+                                            NotificationManager::add_text_notification("Error: user not found.", 2000.0, Color::RED)
+                                        }
+                                    });
+
+                                    dialog.should_close = true;
+                                    game.selected_user = None;
+                                }
+                            }));
+
+                            user_menu_dialog.add_button("Close", Box::new(|dialog, game| {
+                                // println!("close");
+                                dialog.should_close = true;
+                                game.selected_user = None;
+                            }));
+
+                            self.add_dialog(Box::new(user_menu_dialog));
+                        }
                     }
                 }
             }
         }
-
 
         // update any dialogs
         let mut dialog_list = std::mem::take(&mut self.dialogs);
@@ -469,21 +518,16 @@ impl Game {
                 menu.update(self);
             }
 
-            GameState::Spectating(ref data, ref state, ref _beatmap) => {   
-                let mut data = data.lock();
+            GameState::Spectating(manager) => {   
+                manager.update(self);
 
-                // (try to) read pending data from the online manager
-                match self.online_manager.try_lock() {
-                    Ok(mut online_manager) => data.extend(online_manager.get_pending_spec_frames()),
-                    Err(e) => println!("failed to lock online manager, {}", e),
-                }
+                if mouse_moved {manager.mouse_move(mouse_pos, self)}
+                for btn in mouse_down {manager.mouse_down(mouse_pos, btn, mods, self)}
+                for btn in mouse_up {manager.mouse_up(mouse_pos, btn, mods, self)}
+                if scroll_delta != 0.0 {manager.mouse_scroll(scroll_delta, self)}
 
-                match &state {
-                    SpectatorState::Buffering => {},
-                    SpectatorState::Watching => todo!(),
-                    SpectatorState::Paused => todo!(),
-                    SpectatorState::MapChanging => todo!(),
-                }
+                for k in keys_down.iter() {manager.key_down(*k, mods, self)}
+                for k in keys_up.iter() {manager.key_up(*k, mods, self)}
             }
 
             GameState::None => {
@@ -511,7 +555,6 @@ impl Game {
             _ => {
                 // if the mode is being changed, clear all shapes, even ones with a lifetime
                 self.clear_render_queue(true);
-                let online_manager = self.online_manager.clone();
 
                 // let cloned_mode = self.queued_mode.clone();
                 // self.threading.spawn(async move {
@@ -527,16 +570,8 @@ impl Game {
                         };
 
                         self.set_background_beatmap(&m);
-                        // if let Ok(t) = opengl_graphics::Texture::from_path(m.image_filename.clone(), &opengl_graphics::TextureSettings::new()) {
-                        //     self.background_image = Some(Image::new(Vector2::zero(), f64::MAX, t, window_size()));
-                        // } else {
-                        //     self.background_image = None;
-                        // }
-
-                        let text = format!("{}-{}[{}]\n{}", m.artist, m.title, m.version, h);
-                        tokio::spawn(async move {
-                            OnlineManager::set_action(online_manager, UserAction::Ingame, text).await;
-                        });
+                        let text = format!("Playing {}-{}[{}]\n{}", m.artist, m.title, m.version, h);
+                        OnlineManager::set_action(UserAction::Ingame, text, m.mode);
                     },
                     GameState::InMenu(_) => {
                         if let GameState::InMenu(menu) = &self.current_state {
@@ -550,15 +585,11 @@ impl Game {
                             }
                         }
 
-                        tokio::spawn(async move {
-                            OnlineManager::set_action(online_manager, UserAction::Idle, String::new()).await;
-                        });
+                        OnlineManager::set_action(UserAction::Idle, String::new(), PlayMode::Taiko);
                     },
                     GameState::Closing => {
                         // send logoff
-                        tokio::spawn(async move {
-                            OnlineManager::set_action(online_manager, UserAction::Leaving, String::new()).await;
-                        });
+                        OnlineManager::set_action(UserAction::Leaving, String::new(), PlayMode::Taiko);
                     }
                     _ => {}
                 }
@@ -592,6 +623,11 @@ impl Game {
 
         // update the notification manager
         NOTIFICATION_MANAGER.lock().update();
+
+
+        if let Ok(manager) = &mut ONLINE_MANAGER.try_lock() {
+            manager.do_game_things(self);
+        }
         
         // if timer.elapsed().as_secs_f32() * 1000.0 > 1.0 {
         //     println!("update took a while: {}", timer.elapsed().as_secs_f32() * 1000.0);
@@ -623,7 +659,8 @@ impl Game {
         match &mut self.current_state {
             GameState::Ingame(manager) => manager.draw(args, &mut self.render_queue),
             GameState::InMenu(menu) => self.render_queue.extend(menu.lock().draw(args)),
-            
+            GameState::Spectating(manager) => manager.draw(args, &mut self.render_queue),
+    
             _ => {}
         }
 
@@ -658,12 +695,13 @@ impl Game {
             //TODO: move the set_pos code to update or smth
             let mut counter = 0;
             
-            if let Ok(om) = self.online_manager.try_lock() {
-                for (_, user) in &om.users.clone() {
+            if let Ok(om) = ONLINE_MANAGER.try_lock() {
+                for (_, user) in &om.users {
                     if let Ok(mut u) = user.try_lock() {
-                        let x = if counter % 2 == 0 {0.0} else {USER_ITEM_SIZE.x};
-                        let y = (counter - counter % 2) as f64 * USER_ITEM_SIZE.y;
-                        u.set_pos(Vector2::new(x,y));
+                        let users_per_col = 2;
+                        let x = USER_ITEM_SIZE.x * (counter % users_per_col) as f64;
+                        let y = USER_ITEM_SIZE.y * (counter / users_per_col) as f64;
+                        u.set_pos(Vector2::new(x, y));
 
                         counter += 1;
                         self.render_queue.extend(u.draw(args, Vector2::zero(), -100.0));
@@ -703,8 +741,6 @@ impl Game {
         // sort the queue here (so it only needs to be sorted once per frame, instead of every time a shape is added)
         self.render_queue.sort_by(|a, b| b.get_depth().partial_cmp(&a.get_depth()).unwrap());
 
-
-        self.test.draw(&mut self.render_queue);
 
         // slice the queue because loops
         let queue = self.render_queue.as_mut_slice();
@@ -801,7 +837,7 @@ pub enum GameState {
     InMenu(Arc<Mutex<dyn Menu<Game>>>),
 
     #[allow(dead_code)]
-    Spectating(Arc<Mutex<SpectatorFrames>>, SpectatorState, Option<IngameManager>), // frames awaiting replay, state, beatmap
+    Spectating(SpectatorManager), // frames awaiting replay, state, beatmap
     // Multiplaying(MultiplayerState), // wink wink nudge nudge (dont hold your breath)
 }
 impl Default for GameState {
@@ -814,29 +850,9 @@ impl Default for GameState {
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
 pub enum SpectatorState {
+    None, // Default
     Buffering, // waiting for data
     Watching, // host playing
     Paused, // host paused
     MapChanging, // host is changing map
-}
-
-
-struct Test {
-    // timer: Instant,
-    // man: TransformGroup,
-
-    // image: Image,
-    // rt: RenderTarget
-}
-impl Test {
-    fn new(graphics: &mut GlGraphics) -> Self {
-
-        Self {
-        }
-    }
-
-    fn update(&mut self) {
-    }
-    fn draw(&mut self, list: &mut Vec<Box<dyn Renderable>>) {
-    }
 }

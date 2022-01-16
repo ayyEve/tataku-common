@@ -24,7 +24,8 @@ pub fn get_scores(hash:&String, playmode:PlayMode) -> Vec<Score> {
             accuracy: r.get("accuracy").unwrap_or_default(),
             beatmap_hash: r.get("map_hash")?,
             speed: r.get("speed").unwrap_or(1.0),
-            hit_timings: Vec::new()
+            hit_timings: Vec::new(),
+            replay_string: None
         };
 
         Ok(score)
@@ -50,13 +51,15 @@ pub fn save_score(s:&Score) {
             score,
             combo, max_combo,
             x50, x100, x300, geki, katu, xmiss,
-            speed
+            speed, 
+            version
         ) VALUES (
             '{}', '{}',
             '{}', {},
             {},
             {}, {},
             {}, {}, {}, {}, {}, {},
+            {},
             {}
         )", 
         s.beatmap_hash, s.hash(),
@@ -64,7 +67,8 @@ pub fn save_score(s:&Score) {
         s.score,
         s.combo, s.max_combo,
         s.x50, s.x100, s.x300, s.xgeki, s.xkatu, s.xmiss, 
-        s.speed
+        s.speed,
+        s.version
     );
     let mut s = db.prepare(&sql).unwrap();
     s.execute([]).unwrap();
@@ -81,6 +85,7 @@ pub fn save_replay(r:&Replay, s:&Score) -> std::io::Result<()> {
 
 pub fn get_local_replay(score_hash:String) -> std::io::Result<Replay> {
     let fullpath = format!("{}/{}.rs_replay", REPLAYS_DIR, score_hash);
+    println!("[Replay] loading replay: {}", fullpath);
     let mut reader = open_database(&fullpath)?;
     Ok(reader.read())
 }

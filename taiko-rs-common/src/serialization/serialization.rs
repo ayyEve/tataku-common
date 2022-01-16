@@ -1,4 +1,9 @@
-use std::convert::TryInto;
+use std::{
+    rc::Rc,
+    sync::Arc, 
+    convert::TryInto, 
+};
+
 pub trait Serializable {
     fn read(sr:&mut SerializationReader) -> Self;
     fn write(&self, sw:&mut SerializationWriter);
@@ -66,12 +71,12 @@ impl<T:Serializable+Clone> Serializable for &Vec<T> {
     fn read(_sr:&mut SerializationReader) -> Self {todo!()}
 
     fn write(&self, sw:&mut SerializationWriter) {
-        println!("write vec start");
+        // println!("write vec start");
         sw.write_u64(self.len() as u64);
         for i in self.iter() {
             sw.write(i.clone())
         }
-        println!("write vec end");
+        // println!("write vec end");
     }
 }
 impl<T:Serializable+Clone> Serializable for Vec<T> {
@@ -82,12 +87,12 @@ impl<T:Serializable+Clone> Serializable for Vec<T> {
     }
 
     fn write(&self, sw:&mut SerializationWriter) {
-        println!("write vec start");
+        // println!("write vec start");
         sw.write_u64(self.len() as u64);
         for i in self.iter() {
             sw.write(i.clone())
         }
-        println!("write vec end");
+        // println!("write vec end");
     }
 }   
 // serialization for options
@@ -102,6 +107,23 @@ impl<T:Serializable+Clone> Serializable for Option<T> {
     }
 }
 
+// implement for wrapper types
+macro_rules! impl_wrapper {
+    ($($t:ident),+) => {
+        $(
+            impl<T:Serializable> Serializable for $t<T> {
+                fn read(sr:&mut SerializationReader) -> Self {
+                    $t::new(sr.read())
+                }
+
+                fn write(&self, sw:&mut SerializationWriter) {
+                    self.as_ref().write(sw)
+                }
+            }
+        )+
+    };
+}
+impl_wrapper!(Box, Rc, Arc);
 
 macro_rules! __impl_serializable_numbers {
     ($($t:ty),+) => {

@@ -1,34 +1,17 @@
-use crate::serialization::Serializable;
+use crate::prelude::*;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-#[repr(u16)]
+#[derive(PacketSerialization)]
+#[Packet(type="u8")]
 pub enum UserAction {
-    Unknown = 0,
+    #[Packet(id=0, default_variant)]
+    Unknown,
+    #[Packet(id=1)]
     Idle,
+    #[Packet(id=2)]
     Ingame,
+    #[Packet(id=3)]
     Leaving,
+    #[Packet(id=4)]
     Editing
-}
-impl From<u16> for UserAction {
-    fn from(n: u16) -> Self {
-        use UserAction::*;
-        match n {
-            1 => Idle,
-            2 => Ingame,
-            3 => Leaving,
-            4 => Editing,
-            _=> Unknown
-        }
-    }
-}
-
-
-impl Serializable for UserAction {
-    fn read(sr:&mut crate::serialization::SerializationReader) -> Self {
-        sr.read_u16().into()
-    }
-
-    fn write(&self, sw:&mut crate::serialization::SerializationWriter) {
-        sw.write_u16(*self as u16)
-    }
 }

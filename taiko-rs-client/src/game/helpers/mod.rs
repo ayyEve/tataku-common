@@ -77,3 +77,18 @@ impl<T> Find<T> for Vec<T> {
         list
     }
 }
+
+
+pub trait Remove<T> {
+    fn remove_item(&mut self, item:T);
+}
+impl<T> Remove<T> for Vec<T> where T:Eq {
+    fn remove_item(&mut self, remove_item:T) {
+        for (index, item) in self.iter().enumerate() {
+            if *item == remove_item {
+                self.remove(index);
+                return;
+            }
+        }
+    }
+}

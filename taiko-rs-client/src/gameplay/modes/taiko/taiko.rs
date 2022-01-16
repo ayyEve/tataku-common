@@ -190,6 +190,7 @@ impl GameMode for TaikoGame {
     fn handle_replay_frame(&mut self, frame:ReplayFrame, time:f32, manager:&mut IngameManager) {
         if !manager.replaying {
             manager.replay.frames.push((time, frame.clone()));
+            manager.outgoing_spectator_frame((time, SpectatorFrameData::ReplayFrame{frame}));
         }
         let key = match frame {
             ReplayFrame::Press(k) => k,

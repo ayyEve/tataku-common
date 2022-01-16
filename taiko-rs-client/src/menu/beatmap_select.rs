@@ -25,7 +25,7 @@ pub struct BeatmapSelectMenu {
     back_button: MenuButton,
     // pending_refresh: bool,
 
-    /// is changing, update loop detected that it was changing
+    /// is changing, update loop detected that it was changing, how long since it changed
     map_changing: (bool, bool, u32),
 
     // drag: Option<DragData>,
@@ -328,6 +328,12 @@ impl Menu<Game> for BeatmapSelectMenu {
 
     fn on_change(&mut self, into:bool) {
         if !into {return}
+
+        
+        let cloned = ONLINE_MANAGER.clone();
+        tokio::spawn(async move {
+            OnlineManager::send_spec_frames(cloned, vec![(0.0, SpectatorFrameData::ChangingMap)], true).await
+        });
 
         // play song if it exists
         if let Some(song) = Audio::get_song() {

@@ -5,38 +5,24 @@ pub mod mania;
 pub mod catch;
 pub mod standard;
 
-
 pub const FIELD_SIZE:Vector2 = Vector2::new(512.0, 384.0); // 4:3
 
+pub fn manager_from_playmode(playmode: PlayMode, beatmap: &BeatmapMeta) -> Result<IngameManager, crate::errors::TaikoError> {
+    let beatmap = Beatmap::from_metadata(beatmap)?;
+    let gamemode:Box<dyn GameMode> = match beatmap.playmode(playmode) {
+        PlayMode::Standard => Box::new(standard::StandardGame::new(&beatmap)?),
+        PlayMode::Taiko => Box::new(taiko::TaikoGame::new(&beatmap)?),
+        PlayMode::Catch => Box::new(catch::CatchGame::new(&beatmap)?),
+        PlayMode::Mania => Box::new(mania::ManiaGame::new(&beatmap)?),
 
-pub fn manager_from_playmode(mut playmode: PlayMode, beatmap: &BeatmapMeta) -> Result<IngameManager, crate::errors::TaikoError> {
-    use PlayMode::*;
-    
-    // println!("playmode: {:?}", playmode);
-    if beatmap.mode != Standard {
-        playmode = beatmap.mode;
-    }
+        // TODO
+        PlayMode::Adofai | //=> Box::new(taiko::TaikoGame::new(&beatmap)?),
+        PlayMode::pTyping => return Err(TaikoError::GameMode(GameModeError::NotImplemented)),
 
-    let beatmap = Beatmap::from_metadata(beatmap);
+        PlayMode::Unknown => return Err(TaikoError::GameMode(GameModeError::UnknownGameMode))
+    };
 
-    match beatmap {
-        Ok(beatmap) => {
-            let gamemode:Box<dyn GameMode> = match playmode {
-                Standard => Box::new(standard::StandardGame::new(&beatmap)?),
-                Taiko => Box::new(taiko::TaikoGame::new(&beatmap)?),
-                Catch => Box::new(catch::CatchGame::new(&beatmap)?),
-                Mania => Box::new(mania::ManiaGame::new(&beatmap)?),
-
-                //TODO
-                Adofai => Box::new(taiko::TaikoGame::new(&beatmap)?),
-                pTyping => todo!(),
-            };
-            Ok(IngameManager::new(beatmap, gamemode))
-        },
-        Err(e) => {
-            Err(e)
-        }
-    }
+    Ok(IngameManager::new(beatmap, gamemode))
 }
 
 #[derive(Copy, Clone)]
@@ -69,7 +55,6 @@ pub struct ScalingHelper {
 impl ScalingHelper {
     pub fn new(cs:f32, mode:PlayMode) -> Self {
         let window_size = Settings::window_size();
-
 
         let border_size;
         let circle_size;

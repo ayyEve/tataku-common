@@ -1,3 +1,4 @@
+#![allow(unused, dead_code)]
 // opens on right hand side
 // should take up 1/3 of the screen
 // is full height, or as tall as needed

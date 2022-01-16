@@ -1,11 +1,13 @@
 use core::fmt;
-use crate::types::PlayMode;
+use serde::{Serialize, Deserialize};
+use crate::types::{PlayMode, Replay};
 use crate::serialization::{Serializable, SerializationReader, SerializationWriter};
 
 
-const CURRENT_VERSION: u16 = 2;
 
-#[derive(Clone, Debug, Default)]
+const CURRENT_VERSION:u16 = 2;
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Score {
     pub version: u16,
     pub username: String,
@@ -26,6 +28,10 @@ pub struct Score {
     /// time diff for actual note hits. if the note wasnt hit, it wont be here
     /// (user_hit_time - correct_time)
     pub hit_timings: Vec<f32>,
+
+    /// this is only used when a replay is stored as a file
+    /// and must be set manually
+    pub replay_string: Option<String>
 }
 impl Score {
     pub fn new(beatmap_hash:String, username:String, playmode:PlayMode) -> Score {
@@ -45,7 +51,8 @@ impl Score {
             xmiss: 0,
             accuracy: 0.0,
             speed: 1.0,
-            hit_timings: Vec::new()
+            hit_timings: Vec::new(),
+            replay_string: None
         }
     }
     pub fn hash(&self) -> String {
@@ -156,6 +163,17 @@ impl Score {
             self.score += points;
         }
     }
+
+    /// insert a replay into this score object
+    /// should really only be used when saving a replay, as it will probably increase the ram usage quite a bit
+    pub fn insert_replay(&mut self, _replay: Replay) {
+        todo!()
+        // let mut writer = SerializationWriter::new();
+        // writer.write(replay);
+        // let replay_bytes = writer.data();
+        // let encoded = base64::encode(replay_bytes);
+        // self.replay_string = Some(encoded);
+    }
 }
 impl Serializable for Score {
     fn read(sr: &mut SerializationReader) -> Self {
@@ -187,7 +205,8 @@ impl Serializable for Score {
             accuracy: sr.read(),
             speed: version!(2, 0.0),
 
-            hit_timings: Vec::new()
+            hit_timings: Vec::new(),
+            replay_string: None
         }
     }
 
@@ -206,6 +225,7 @@ impl Serializable for Score {
         sw.write(self.xkatu);
         sw.write(self.xmiss);
         sw.write(self.accuracy);
+        sw.write(self.speed);
     }
 }
 impl fmt::Display for Score {

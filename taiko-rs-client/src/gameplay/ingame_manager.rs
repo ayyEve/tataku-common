@@ -18,6 +18,9 @@ const HIT_TIMING_FADE:f32 = 300.0;
 /// hit timing bar color
 const HIT_TIMING_BAR_COLOR:Color = Color::new(0.0, 0.0, 0.0, 1.0);
 
+/// ms between spectator score sync packets
+const SPECTATOR_SCORE_SYNC_INTERVAL: f32 = 1000.0;
+
 
 pub struct IngameManager {
     pub beatmap: Beatmap,
@@ -51,12 +54,12 @@ pub struct IngameManager {
     #[cfg(feature="neb_audio")] 
     pub hitsound_cache: HashMap<String, Option<Sound>>,
 
-    
-    
 
     // offset things
+    // TODO: merge these into one text helper, so they dont overlap
     offset: CenteredTextHelper<f32>,
     global_offset: CenteredTextHelper<f32>,
+
 
     /// (map.time, note.time - hit.time)
     pub hitbar_timings: Vec<(f32, f32)>,
@@ -68,8 +71,20 @@ pub struct IngameManager {
 
     /// if in replay mode, what replay frame are we at?
     replay_frame: u64,
+    spectator_cache: Vec<(u32, String)>,
 
     background_game_settings: BackgroundGameSettings,
+
+
+    // spectator variables
+    // TODO: should these be in their own struct? it might simplify things
+
+    /// when was the last score sync packet sent?
+    last_spectator_score_sync: f32,
+
+    /// what should the game do on start?
+    /// mainly a helper for spectator
+    pub on_start: Box<dyn FnOnce(&mut Self)>
 }
 impl IngameManager {
     pub fn new(beatmap: Beatmap, gamemode: Box<dyn GameMode>) -> Self {
@@ -125,6 +140,10 @@ impl IngameManager {
             background_game_settings: settings.background_game_settings.clone(),
 
             gamemode,
+            spectator_cache: Vec::new(),
+
+            // initialize defaults for anything else not specified
+            ..Self::default()
         }
     }
 
@@ -205,11 +224,37 @@ impl IngameManager {
         !(self.current_mods.autoplay || self.replaying)
     }
 
+    pub fn apply_mods(&mut self, mods: ModManager) {
+        if self.started {
+            NotificationManager::add_text_notification("Error applying mods to IngameManager\nmap already started", 2000.0, Color::RED);
+        } else {
+            self.current_mods = Arc::new(mods);
+            // update replay speed too
+            // TODO: add mods to replay data instead of this shit lmao
+            self.replay.speed = self.current_mods.speed;
+        }
+    }
+
+    //TODO: implement this properly, gamemode will probably have to handle some things too
+    pub fn jump_to_time(&mut self, time: f32, skip_intro: bool) {
+        self.song.set_position(time as f64).unwrap();
+        if skip_intro {
+            self.lead_in_time = 0.0;
+        }
+    }
+
     // can be from either paused or new
     pub fn start(&mut self) {
-
         if !self.started {
             self.reset();
+
+            if !self.replaying {
+                self.outgoing_spectator_frame((0.0, SpectatorFrameData::Play {
+                    beatmap_hash: self.beatmap.hash(),
+                    mode: self.gamemode.playmode(),
+                    mods: serde_json::to_string(&(*self.current_mods)).unwrap()
+                }));
+            }
 
             if self.menu_background {
                 // dont reset the song, and dont do lead in
@@ -244,9 +289,18 @@ impl IngameManager {
             // volume is set when the song is actually started (when lead_in_time is <= 0)
             self.started = true;
 
+            // run the startup code
+            let mut on_start:Box<dyn FnOnce(&mut Self)> = Box::new(|_|{});
+            std::mem::swap(&mut self.on_start, &mut on_start);
+            on_start(self);
+
         } else if self.lead_in_time <= 0.0 {
             // if this is the menu, dont do anything
             if self.menu_background {return}
+            
+            let frame = SpectatorFrameData::UnPause;
+            let time = self.time();
+            self.outgoing_spectator_frame((time, frame));
 
             #[cfg(feature="bass_audio")]
             self.song.play(false).unwrap();
@@ -268,6 +322,9 @@ impl IngameManager {
         // is there anything else we need to do?
 
         // might mess with lead-in but meh
+
+        let time = self.time();
+        self.outgoing_spectator_frame_force((time, SpectatorFrameData::Pause));
     }
     pub fn reset(&mut self) {
         let settings = Settings::get();
@@ -301,7 +358,6 @@ impl IngameManager {
                     song.pause();
                 }
             }
-            
         }
 
         self.completed = false;
@@ -316,7 +372,6 @@ impl IngameManager {
         self.combo_text_bounds = self.gamemode.combo_bounds();
         self.timing_bar_things = self.gamemode.timing_bar_things();
         self.hitbar_timings = Vec::new();
-
         
         if self.replaying {
             // if we're replaying, make sure we're using the score's speed
@@ -395,6 +450,26 @@ impl IngameManager {
 
         // update gamemode
         gamemode.update(self, time);
+
+
+        // send map completed packets
+        if self.completed {
+            self.outgoing_spectator_frame_force((time + 100.0, SpectatorFrameData::ScoreSync {score: self.score.clone()}));
+            self.outgoing_spectator_frame_force((self.end_time + 10.0, SpectatorFrameData::Buffer));
+        }
+
+        // update our spectator list if we can
+        if let Ok(manager) = ONLINE_MANAGER.try_lock() {
+            self.spectator_cache = manager.spectator_list.clone()
+        }
+
+        // if its time to send another score sync packet
+        if self.last_spectator_score_sync + SPECTATOR_SCORE_SYNC_INTERVAL <= time {
+            self.last_spectator_score_sync = time;
+
+            // create and send the packet
+            self.outgoing_spectator_frame((time, SpectatorFrameData::ScoreSync {score: self.score.clone()}))
+        }
 
         // put it back
         self.gamemode = gamemode;
@@ -550,7 +625,6 @@ impl IngameManager {
         if (self.replaying || self.current_mods.autoplay) && !self.menu_background {
             // check replay-only keys
             if key == piston::Key::Escape {
-                println!("poo");
                 self.started = false;
                 self.completed = true;
                 return;
@@ -690,10 +764,10 @@ impl IngameManager {
         )));
 
 
+        //TODO: rework this garbage lmao
         // draw hit timings bar
         // draw hit timing colors below the bar
         let (windows, (miss, miss_color)) = &self.timing_bar_things;
-        
         //draw miss window first
         list.push(Box::new(Rectangle::new(
             *miss_color,
@@ -702,7 +776,6 @@ impl IngameManager {
             Vector2::new(HIT_TIMING_BAR_SIZE.x, HIT_TIMING_BAR_SIZE.y),
             None // for now
         )));
-
         // draw other hit windows
         for (window, color) in windows {
             let width = (window / miss) as f64 * HIT_TIMING_BAR_SIZE.x;
@@ -746,18 +819,63 @@ impl IngameManager {
             )));
         }
 
+
+        // draw spectators
+        if self.spectator_cache.len() > 0 {
+
+            const DEPTH:f64 = -1000.0;
+
+            const SPECTATOR_ITEM_SIZE:Vector2 = Vector2::new(100.0, 40.0);
+            const PADDING:f64 = 4.0;
+            const POS:Vector2 = Vector2::new(5.0, 30.0);
+
+            list.push(visibility_bg(
+                POS,
+                Vector2::new(SPECTATOR_ITEM_SIZE.x, (SPECTATOR_ITEM_SIZE.y + PADDING) * self.spectator_cache.len() as f64),
+                DEPTH
+            ));
+            for (i, (_, username)) in self.spectator_cache.iter().enumerate() {
+                // draw username
+                list.push(Box::new(Text::new(
+                    Color::WHITE, 
+                    DEPTH - 0.001, 
+                    POS + Vector2::new(0.0, (SPECTATOR_ITEM_SIZE.y + PADDING) * i as f64),
+                    30,
+                    username.clone(),
+                    font.clone()
+                )))
+            }
+        }
     }
+}
+// spectator stuff
+impl IngameManager {
+    pub fn outgoing_spectator_frame(&mut self, frame: SpectatorFrame) {
+        if self.menu_background || self.replaying {return}
+        let cloned = ONLINE_MANAGER.clone();
+        tokio::spawn(async move {
+            OnlineManager::send_spec_frames(cloned, vec![frame], false).await
+        });
+    }
+    pub fn outgoing_spectator_frame_force(&mut self, frame: SpectatorFrame) {
+        if self.menu_background || self.replaying {return}
+        let cloned = ONLINE_MANAGER.clone();
+        tokio::spawn(async move {
+            OnlineManager::send_spec_frames(cloned, vec![frame], true).await
+        });
+    }
+
 }
 impl Default for IngameManager {
     fn default() -> Self {
         Self { 
             #[cfg(feature="bass_audio")]
-            song: create_empty_stream(), 
+            song: create_empty_stream(),
             #[cfg(feature="neb_audio")]
             song: Weak::new(),
 
-            font: get_font("main"), 
-            combo_text_bounds: Rectangle::bounds_only(Vector2::zero(), Vector2::zero()), 
+            font: get_font("main"),
+            combo_text_bounds: Rectangle::bounds_only(Vector2::zero(), Vector2::zero()),
             timing_bar_things: (Vec::new(), (0.0, Color::WHITE)),
             
             beatmap: Default::default(),
@@ -781,6 +899,9 @@ impl Default for IngameManager {
             hitbar_timings: Default::default(),
             replay_frame: Default::default(),
             background_game_settings: Default::default(), 
+            spectator_cache: Default::default(),
+            last_spectator_score_sync: 0.0,
+            on_start: Box::new(|_|{})
         }
     }
 }

@@ -1,6 +1,5 @@
-use parking_lot::RwLock;
-
 #[allow(unused, dead_code)]
+use parking_lot::RwLock;
 use crate::prelude::*;
 
 const SKIN_FOLDER:&str = "./skins";

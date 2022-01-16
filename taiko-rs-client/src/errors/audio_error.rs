@@ -10,7 +10,9 @@ pub enum AudioError {
     SymphoniaError(SymphoniaError),
     #[cfg(feature="bass_audio")]
     BassError(BassError),
-    
+
+
+    FileDoesntExist,
     DifferentSong,
 }
 
