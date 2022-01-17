@@ -5,6 +5,7 @@ mod severity;
 mod spectator;
 mod user_status;
 mod login_status;
+mod spectator_result;
 mod server_error_code;
 mod server_permissions;
 
@@ -15,5 +16,6 @@ pub use severity::*;
 pub use spectator::*;
 pub use user_status::*;
 pub use login_status::*;
+pub use spectator_result::*;
 pub use server_error_code::*;
 pub use server_permissions::*;
