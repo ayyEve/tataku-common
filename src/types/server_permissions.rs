@@ -12,7 +12,10 @@ pub enum ServerPermissions {
     Donator = 4,
 
     /// is this user a chat moderator?
-    Moderator = 8
+    Moderator = 8,
+
+    /// is this only a chat client
+    ChatOnly = 16,
 }
 impl Serializable for Vec<ServerPermissions> {
     fn read(sr:&mut SerializationReader) -> Self {
