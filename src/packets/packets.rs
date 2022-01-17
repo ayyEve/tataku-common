@@ -202,6 +202,11 @@ pub enum PacketId {
         /// who wants the update?
         user_id: u32
     },
+    #[Packet(id=407)]
+    Server_SpectateResult {
+        result: SpectateResult,
+        host_id: u32
+    }
 
     // ======= Multiplayer? =======
     // 500-599 reserved for multi

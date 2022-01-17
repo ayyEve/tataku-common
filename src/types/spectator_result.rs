@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 #[allow(non_camel_case_types)]
-#[derive(PacketSerialization)]
+#[derive(PacketSerialization, Copy, Clone, Debug)]
 #[Packet(type="u8")]
 pub enum SpectateResult {
     #[Packet(id=0)]
