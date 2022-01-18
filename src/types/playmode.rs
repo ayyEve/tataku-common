@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[derive(PacketSerialization)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(PacketSerialization, Serialize, Deserialize)]
 #[Packet(type="u8", gen_to_from)]
 pub enum PlayMode {
     #[Packet(id=0)]
