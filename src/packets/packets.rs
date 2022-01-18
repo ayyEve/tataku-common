@@ -62,6 +62,8 @@ pub enum PacketId {
         user_id: u32,
         /// username of said user
         username: String,
+        /// what game is the user playing?
+        game: String,
     },
     #[Packet(id=104)]
     /// client is disconnecting from the server
