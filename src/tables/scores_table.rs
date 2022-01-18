@@ -4,6 +4,8 @@ use sea_orm::entity::prelude::*;
 #[sea_orm(table_name = "scores")]
 pub struct Model {
     pub username: String,
+    #[sea_orm(column_name = "user_id")]
+    pub user_id: i32,
     pub beatmap_hash: String,
     #[sea_orm(primary_key)]
     pub score_id: i64,
