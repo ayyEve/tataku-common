@@ -10,6 +10,10 @@ pub enum ServerDropReason {
     /// received a bad packet
     #[Packet(id=1)]
     BadPacket,
+    
+    /// Server is stopping
+    #[Packet(id=2)]
+    ServerClosing,
 
     // something else
     #[Packet(id=255, default_variant)]
