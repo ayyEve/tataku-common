@@ -1,7 +1,7 @@
 use core::fmt;
 use serde::{Serialize, Deserialize};
 use crate::types::{PlayMode, Replay};
-use crate::serialization::{Serializable, SerializationReader, SerializationWriter};
+use crate::prelude::*;
 
 
 
@@ -176,38 +176,38 @@ impl Score {
     }
 }
 impl Serializable for Score {
-    fn read(sr: &mut SerializationReader) -> Self {
-        let version = sr.read_u16();
+    fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {
+        let version = sr.read_u16()?;
         macro_rules! version {
             ($v:expr, $def:expr) => {
                 if version >= $v {
-                    sr.read()
+                    sr.read()?
                 } else {
                     $def
                 }
             };
         }
 
-        Score {
+        Ok(Score {
             version,
-            username: sr.read(),
-            beatmap_hash: sr.read(),
-            playmode: sr.read(),
-            score: sr.read(),
-            combo: sr.read(),
-            max_combo: sr.read(),
-            x50: sr.read(),
-            x100: sr.read(),
-            x300: sr.read(),
-            xgeki: sr.read(),
-            xkatu: sr.read(),
-            xmiss: sr.read(),
-            accuracy: sr.read(),
+            username: sr.read()?,
+            beatmap_hash: sr.read()?,
+            playmode: sr.read()?,
+            score: sr.read()?,
+            combo: sr.read()?,
+            max_combo: sr.read()?,
+            x50: sr.read()?,
+            x100: sr.read()?,
+            x300: sr.read()?,
+            xgeki: sr.read()?,
+            xkatu: sr.read()?,
+            xmiss: sr.read()?,
+            accuracy: sr.read()?,
             speed: version!(2, 0.0),
 
             hit_timings: Vec::new(),
             replay_string: None
-        }
+        })
     }
 
     fn write(&self, sw: &mut SerializationWriter) {

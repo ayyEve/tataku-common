@@ -18,8 +18,8 @@ pub enum ServerPermissions {
     ChatOnly = 16,
 }
 impl Serializable for Vec<ServerPermissions> {
-    fn read(sr:&mut SerializationReader) -> Self {
-        let num:u16 = sr.read();
+    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
+        let num:u16 = sr.read()?;
         let mut list = Vec::new();
 
         macro_rules! check {
@@ -31,7 +31,7 @@ impl Serializable for Vec<ServerPermissions> {
         }
         check!(Bot, Donator, Moderator);
 
-        list
+        Ok(list)
     }
 
     fn write(&self, sw:&mut SerializationWriter) {

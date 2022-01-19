@@ -1,15 +1,29 @@
 use std::{
     rc::Rc,
     sync::Arc, 
-    convert::TryInto, 
+    convert::TryInto, string::FromUtf8Error, 
 };
 
+pub type SerializationResult<S> = Result<S, SerializationError>;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SerializationError {
+    OutOfBounds,
+    FromUtf8Error(FromUtf8Error),
+}
+impl From<FromUtf8Error> for SerializationError {
+    fn from(utf8err: FromUtf8Error) -> Self {
+        SerializationError::FromUtf8Error(utf8err)
+    }
+}
+
+
 pub trait Serializable {
-    fn read(sr:&mut SerializationReader) -> Self;
+    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> where Self: Sized;
     fn write(&self, sw:&mut SerializationWriter);
 }
 impl Serializable for String {
-    fn read(sr:&mut SerializationReader) -> Self {
+    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
         sr.read_string()
     }
 
@@ -18,7 +32,7 @@ impl Serializable for String {
     }
 }
 impl Serializable for f32 {
-    fn read(sr:&mut SerializationReader) -> Self {
+    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
         sr.read_f32()
     }
 
@@ -27,7 +41,7 @@ impl Serializable for f32 {
     }
 }
 impl Serializable for f64 {
-    fn read(sr:&mut SerializationReader) -> Self {
+    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
         sr.read_f64()
     }
 
@@ -36,16 +50,16 @@ impl Serializable for f64 {
     }
 }
 impl Serializable for usize {
-    fn read(sr:&mut SerializationReader) -> Self {
-        sr.read_u64() as usize
+    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
+        Ok(sr.read_u64()? as usize)
     }
     fn write(&self, sw:&mut SerializationWriter) {
         sw.write_u64(self.clone() as u64);
     }
 }
 impl Serializable for bool {
-    fn read(sr:&mut SerializationReader) -> Self {
-        sr.read_u8() & 1 == 1
+    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
+        Ok(sr.read_u8()? & 1 == 1)
     }
 
     fn write(&self, sw:&mut SerializationWriter) {
@@ -56,8 +70,8 @@ impl Serializable for bool {
 // helper for references
 // serialization for tuples
 impl<T:Serializable+Clone,T2:Serializable+Clone> Serializable for (T, T2) {
-    fn read(sr:&mut SerializationReader) -> Self {
-        (sr.read(), sr.read())
+    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
+        Ok((sr.read()?, sr.read()?))
     }
 
     fn write(&self, sw:&mut SerializationWriter) {
@@ -68,37 +82,34 @@ impl<T:Serializable+Clone,T2:Serializable+Clone> Serializable for (T, T2) {
 }
 // serialization for vecs
 impl<T:Serializable+Clone> Serializable for &Vec<T> {
-    fn read(_sr:&mut SerializationReader) -> Self {todo!()}
+    fn read(_sr:&mut SerializationReader) -> SerializationResult<Self> {unimplemented!()}
 
     fn write(&self, sw:&mut SerializationWriter) {
-        // println!("write vec start");
         sw.write_u64(self.len() as u64);
         for i in self.iter() {
             sw.write(i.clone())
         }
-        // println!("write vec end");
     }
 }
 impl<T:Serializable+Clone> Serializable for Vec<T> {
-    fn read(sr:&mut SerializationReader) -> Self {
+    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
+        let len = sr.read_u64()?;
         let mut out:Vec<T> = Vec::new();
-        for _ in 0..sr.read_u64() {out.push(sr.read())}
-        out
+        for _ in 0..len {out.push(sr.read()?)}
+        Ok(out)
     }
 
     fn write(&self, sw:&mut SerializationWriter) {
-        // println!("write vec start");
         sw.write_u64(self.len() as u64);
         for i in self.iter() {
             sw.write(i.clone())
         }
-        // println!("write vec end");
     }
 }   
 // serialization for options
 impl<T:Serializable+Clone> Serializable for Option<T> {
-    fn read(sr:&mut SerializationReader) -> Self {
-        if sr.read() {Some(sr.read())} else {None}
+    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
+        if sr.read()? {Ok(Some(sr.read()?))} else {Ok(None)}
     }
 
     fn write(&self, sw:&mut SerializationWriter) {
@@ -107,13 +118,19 @@ impl<T:Serializable+Clone> Serializable for Option<T> {
     }
 }
 
+/// macro to help with checking if things are in range
+macro_rules! check_range {
+    ($self:expr, $offset:expr, $len: expr) => {
+        if $self.data.len() < $offset + $len {return Err(SerializationError::OutOfBounds)}
+    };
+}
 // implement for wrapper types
 macro_rules! impl_wrapper {
     ($($t:ident),+) => {
         $(
             impl<T:Serializable> Serializable for $t<T> {
-                fn read(sr:&mut SerializationReader) -> Self {
-                    $t::new(sr.read())
+                fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
+                    Ok($t::new(sr.read()?))
                 }
 
                 fn write(&self, sw:&mut SerializationWriter) {
@@ -129,13 +146,14 @@ macro_rules! __impl_serializable_numbers {
     ($($t:ty),+) => {
         $(
             impl Serializable for $t {
-                fn read(sr:&mut SerializationReader) -> Self {
+                fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
                     use std::convert::TryInto;
-                    
                     let diff = (<$t>::BITS / 8) as usize;
+                    check_range!(sr, sr.offset, diff);
+
                     let t = <$t>::from_le_bytes(sr.data[sr.offset..(sr.offset + diff)].try_into().unwrap());
                     sr.offset += diff;
-                    t
+                    Ok(t)
                 }
 
                 fn write(&self, sw:&mut SerializationWriter) {
@@ -146,6 +164,7 @@ macro_rules! __impl_serializable_numbers {
     }
 }
 __impl_serializable_numbers![u8, i8, u16, i16, u32, i32, u64, i64, u128, i128];
+
 
 pub struct SerializationReader {
     pub(self) data: Vec<u8>,
@@ -160,85 +179,100 @@ impl SerializationReader {
         }
     }
 
-    pub fn read<R:Serializable>(&mut self) -> R {
+    pub fn read<R:Serializable>(&mut self) -> Result<R, SerializationError> {
         R::read(self)
     }
-    pub fn can_read(&self) -> bool {
-        self.data.len() - self.offset > 0
+    pub fn can_read(&self) -> Result<bool, SerializationError> {
+        check_range!(self, self.offset, 1);
+        Ok(self.data.len() - self.offset > 0)
     }
 
-    pub fn read_i8(&mut self) -> i8 {
+    pub fn read_i8(&mut self) -> Result<i8, SerializationError> {
+        check_range!(self, self.offset, 1);
         let b = self.data[self.offset];
         self.offset += 1;
-        i8::from_le_bytes([b])
+        Ok(i8::from_le_bytes([b]))
     }
-    pub fn read_u8(&mut self) -> u8 {
+    pub fn read_u8(&mut self) -> Result<u8, SerializationError> {
+        check_range!(self, self.offset, 1);
         let b = self.data[self.offset];
         self.offset += 1;
-        u8::from_le_bytes([b])
+        Ok(u8::from_le_bytes([b]))
     }
 
-    pub fn read_i16(&mut self) -> i16 {
+    pub fn read_i16(&mut self) -> Result<i16, SerializationError> {
+        check_range!(self, self.offset, 2);
         let s = &self.data[self.offset..(self.offset+2)];
         self.offset += 2;
-        i16::from_le_bytes(s.try_into().unwrap())
+        Ok(i16::from_le_bytes(s.try_into().unwrap()))
     }
-    pub fn read_u16(&mut self) -> u16 {
+    pub fn read_u16(&mut self) -> Result<u16, SerializationError> {
+        check_range!(self, self.offset, 2);
         let s = &self.data[self.offset..(self.offset+2)];
         self.offset += 2;
-        u16::from_le_bytes(s.try_into().unwrap())
+        Ok(u16::from_le_bytes(s.try_into().unwrap()))
     }
 
-    pub fn read_i32(&mut self) -> i32 {
+    pub fn read_i32(&mut self) -> Result<i32, SerializationError> {
+        check_range!(self, self.offset, 4);
         let s = &self.data[self.offset..(self.offset+4)];
         self.offset += 4;
-        i32::from_le_bytes(s.try_into().unwrap())
+        Ok(i32::from_le_bytes(s.try_into().unwrap()))
     }
-    pub fn read_u32(&mut self) -> u32 {
+    pub fn read_u32(&mut self) -> Result<u32, SerializationError> {
+        check_range!(self, self.offset, 4);
         let s = &self.data[self.offset..(self.offset+4)];
         self.offset += 4;
-        u32::from_le_bytes(s.try_into().unwrap())
+        Ok(u32::from_le_bytes(s.try_into().unwrap()))
     }
 
-    pub fn read_i64(&mut self) -> i64 {
+    pub fn read_i64(&mut self) -> Result<i64, SerializationError> {
+        check_range!(self, self.offset, 8);
         let s = &self.data[self.offset..(self.offset+8)];
         self.offset += 8;
-        i64::from_le_bytes(s.try_into().unwrap())
+        Ok(i64::from_le_bytes(s.try_into().unwrap()))
     }
-    pub fn read_u64(&mut self) -> u64 {
+    pub fn read_u64(&mut self) -> Result<u64, SerializationError> {
+        check_range!(self, self.offset, 8);
         let s = &self.data[self.offset..(self.offset+8)];
         self.offset += 8;
-        u64::from_le_bytes(s.try_into().unwrap())
+        Ok(u64::from_le_bytes(s.try_into().unwrap()))
     }
 
-    pub fn read_i128(&mut self) -> i128 {
+    pub fn read_i128(&mut self) -> Result<i128, SerializationError> {
+        check_range!(self, self.offset, 16);
         let s = &self.data[self.offset..(self.offset+16)];
         self.offset += 16;
-        i128::from_le_bytes(s.try_into().unwrap())
+        Ok(i128::from_le_bytes(s.try_into().unwrap()))
     }
-    pub fn read_u128(&mut self) -> u128 {
+    pub fn read_u128(&mut self) -> Result<u128, SerializationError> {
+        check_range!(self, self.offset, 16);
         let s = &self.data[self.offset..(self.offset+16)];
         self.offset += 16;
-        u128::from_le_bytes(s.try_into().unwrap())
+        Ok(u128::from_le_bytes(s.try_into().unwrap()))
     }
 
-    pub fn read_string(&mut self) -> String {
-        let len = self.read_u64() as usize;
+    pub fn read_string(&mut self) -> Result<String, SerializationError> {
+        let len = self.read_u64()? as usize;
         let offset = self.offset as usize;
+        check_range!(self, offset, len);
+
         let bytes = self.data[offset..len+offset].to_vec();
         self.offset += len;
 
-        String::from_utf8(bytes).expect("Error parsing bytes to utf8")
+        Ok(String::from_utf8(bytes)?)
     }
-    pub fn read_f32(&mut self) -> f32 {
+    pub fn read_f32(&mut self) -> Result<f32, SerializationError> {
+        check_range!(self, self.offset, 4);
         let s = &self.data[self.offset..(self.offset+4)];
         self.offset += 4;
-        f32::from_le_bytes(s.try_into().unwrap())
+        Ok(f32::from_le_bytes(s.try_into().unwrap()))
     }
-    pub fn read_f64(&mut self) -> f64 {
+    pub fn read_f64(&mut self) -> Result<f64, SerializationError> {
+        check_range!(self, self.offset, 4);
         let s = &self.data[self.offset..(self.offset+8)];
         self.offset += 8;
-        f64::from_le_bytes(s.try_into().unwrap())
+        Ok(f64::from_le_bytes(s.try_into().unwrap()))
     }
     
 }

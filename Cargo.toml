@@ -13,5 +13,5 @@ server = ["sea-orm"]
 serde = { version="1.0", features=["derive"] }
 sea-orm = { version = "0.4", features = [ "sqlx-postgres", "runtime-tokio-rustls" ], optional = true }
 
-# tataku-proc-macros = {path = "../../tataku-proc-macros"}
+# tataku-proc-macros = {path = "../tataku-proc-macros"}
 tataku-proc-macros = {git = "https://gitlab.ayyeve.xyz/tataku/proc-macros"}

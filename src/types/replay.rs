@@ -1,4 +1,4 @@
-use crate::serialization::{Serializable, SerializationReader, SerializationWriter};
+use crate::{serialization::{Serializable, SerializationReader, SerializationWriter}, SerializationResult};
 
 const CURRENT_VERSION:u16 = 1;
 
@@ -21,14 +21,14 @@ impl Replay {
     }
 }
 impl Serializable for Replay {
-    fn read(sr: &mut SerializationReader) -> Self {
+    fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {
         let mut r = Replay::new();
         
         let _version = sr.read_u16();
-        r.playstyle = sr.read_u8().into();
-        r.frames = sr.read();
+        r.playstyle = sr.read_u8()?.into();
+        r.frames = sr.read()?;
         
-        r
+        Ok(r)
     }
 
     fn write(&self, sw: &mut SerializationWriter) {
@@ -138,7 +138,7 @@ impl From<u8> for KeyPress {
 }
 
 impl Serializable for KeyPress {
-    fn read(sr:&mut SerializationReader) -> Self {sr.read_u8().into()}
+    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {Ok(sr.read_u8()?.into())}
     fn write(&self, sw:&mut SerializationWriter) {sw.write_u8(self.clone() as u8)}
 }
 
@@ -149,14 +149,14 @@ pub enum ReplayFrame {
     MousePos(f32, f32)
 }
 impl Serializable for ReplayFrame {
-    fn read(sr:&mut SerializationReader) -> Self {
+    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
         use ReplayFrame::*;
-        match sr.read_u8() {
-            0 => Press(sr.read()),
-            1 => Release(sr.read()),
-            2 => MousePos(sr.read(), sr.read()),
+        Ok(match sr.read_u8()? {
+            0 => Press(sr.read()?),
+            1 => Release(sr.read()?),
+            2 => MousePos(sr.read()?, sr.read()?),
             _ => panic!("error reading replay frame type")
-        }
+        })
     }
 
     fn write(&self, sw:&mut SerializationWriter) {
