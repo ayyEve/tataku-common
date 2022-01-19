@@ -8,6 +8,7 @@ mod login_status;
 mod spectator_result;
 mod server_error_code;
 mod server_permissions;
+mod server_drop_reason;
 
 pub use score::*;
 pub use replay::*;
@@ -19,3 +20,4 @@ pub use login_status::*;
 pub use spectator_result::*;
 pub use server_error_code::*;
 pub use server_permissions::*;
+pub use server_drop_reason::*;

@@ -85,7 +85,9 @@ pub enum PacketId {
     #[Packet(id=107)]
     Server_DropConnection {
         /// why was the connection dropped?
-        reason: String
+        reason: ServerDropReason,
+        /// text for reason
+        message: String
     },
     /// there was an error within spec
     #[Packet(id=108)]
