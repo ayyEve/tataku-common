@@ -182,9 +182,8 @@ impl SerializationReader {
     pub fn read<R:Serializable>(&mut self) -> Result<R, SerializationError> {
         R::read(self)
     }
-    pub fn can_read(&self) -> Result<bool, SerializationError> {
-        check_range!(self, self.offset, 1);
-        Ok(self.data.len() - self.offset > 0)
+    pub fn can_read(&self) -> bool {
+        self.data.len() - self.offset > 0
     }
 
     pub fn read_i8(&mut self) -> Result<i8, SerializationError> {
