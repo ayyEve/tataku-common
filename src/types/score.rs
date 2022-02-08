@@ -4,7 +4,6 @@ use crate::types::{PlayMode, Replay};
 use crate::prelude::*;
 
 
-
 const CURRENT_VERSION:u16 = 2;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -64,16 +63,6 @@ impl Score {
         }
     }
 
-    ///0-1
-    pub fn acc(&self) -> f64 {
-        let xmiss = self.xmiss as f64;
-        let x100 = self.x100 as f64;
-        let x300 = self.x300 as f64;
-
-        let n = (0.5*x100 + x300) / (xmiss + x100 + x300);
-        if n.is_nan() {return 0.0}
-        n
-    }
     pub fn hit_error(&self) -> HitError {
         // from https://gist.github.com/peppy/3a11cb58c856b6af7c1916422f668899
         let mut total = 0.0;
