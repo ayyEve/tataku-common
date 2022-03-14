@@ -4,7 +4,7 @@ use crate::types::{PlayMode, Replay};
 use crate::prelude::*;
 
 
-const CURRENT_VERSION:u16 = 2;
+const CURRENT_VERSION:u16 = 3;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Score {
@@ -23,6 +23,7 @@ pub struct Score {
     pub xmiss: u16,
     pub accuracy: f64,
     pub speed: f32,
+    pub mods_string: Option<String>,
 
     /// time diff for actual note hits. if the note wasnt hit, it wont be here
     /// (user_hit_time - correct_time)
@@ -30,7 +31,7 @@ pub struct Score {
 
     /// this is only used when a replay is stored as a file
     /// and must be set manually
-    pub replay_string: Option<String>
+    pub replay_string: Option<String>,
 }
 impl Score {
     pub fn new(beatmap_hash:String, username:String, playmode:PlayMode) -> Score {
@@ -51,12 +52,22 @@ impl Score {
             accuracy: 0.0,
             speed: 1.0,
             hit_timings: Vec::new(),
-            replay_string: None
+            replay_string: None,
+            mods_string: None,
         }
     }
     pub fn hash(&self) -> String {
+        let mods = if let Some(m) = &self.mods_string {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            std::hash::Hash::hash(&m, &mut hasher);
+            format!("{:x}", std::hash::Hasher::finish(&hasher))
+        } else {
+            format!("None")
+        };
         // TODO! lol
         match self.version {
+            // v2 didnt have mods
+            3 => format!("{}-{},{},{},{},{},{},{}", self.beatmap_hash, self.score, self.combo, self.max_combo, self.x100,self.x300,self.xmiss, mods),
             // v1 hash didnt have the playmode
             1 => format!("{}-{},{},{},{},{},{}", self.beatmap_hash, self.score, self.combo, self.max_combo, self.x100,self.x300,self.xmiss),
             _ => format!("{}-{},{},{},{},{},{},{:?}", self.beatmap_hash, self.score, self.combo, self.max_combo, self.x100,self.x300,self.xmiss,self.playmode)
@@ -195,7 +206,8 @@ impl Serializable for Score {
             speed: version!(2, 0.0),
 
             hit_timings: Vec::new(),
-            replay_string: None
+            replay_string: None,
+            mods_string: version!(3, None)
         })
     }
 
@@ -215,6 +227,7 @@ impl Serializable for Score {
         sw.write(self.xmiss);
         sw.write(self.accuracy);
         sw.write(self.speed);
+        sw.write(self.mods_string.clone());
     }
 }
 impl fmt::Display for Score {
