@@ -215,7 +215,7 @@ impl Serializable for Score {
         sw.write(CURRENT_VERSION);
         sw.write(self.username.clone());
         sw.write(self.beatmap_hash.clone());
-        sw.write(self.playmode);
+        sw.write(self.playmode.clone());
         sw.write(self.score);
         sw.write(self.combo);
         sw.write(self.max_combo);
