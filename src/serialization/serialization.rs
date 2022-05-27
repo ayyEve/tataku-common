@@ -1,6 +1,7 @@
 use std::{
     rc::Rc,
     sync::Arc, 
+    collections::HashMap,
     convert::TryInto, string::FromUtf8Error, 
 };
 
@@ -115,6 +116,30 @@ impl<T:Serializable+Clone> Serializable for Option<T> {
     fn write(&self, sw:&mut SerializationWriter) {
         sw.write(self.is_some());
         if let Some(t) = self {sw.write(t.clone())}
+    }
+}
+
+impl<A:Serializable+core::hash::Hash+Eq+Clone, B:Serializable+Clone> Serializable for HashMap<A, B> {
+    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
+        let count:usize = sr.read()?;
+
+        let mut hashmap = HashMap::new();
+        for i in 0..count {
+            let key = sr.read()?;
+            let val = sr.read()?;
+            hashmap.insert(key, val);
+        }
+
+        Ok(hashmap)
+    }
+
+    fn write(&self, sw:&mut SerializationWriter) {
+        sw.write(self.len());
+
+        for (key, val) in self {
+            sw.write(key.clone());
+            sw.write(val.clone());
+        }
     }
 }
 
@@ -344,6 +369,8 @@ impl SerializationWriter {
     }
     
 }
+
+
 
 
 #[allow(unused_imports)]

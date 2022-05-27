@@ -1,10 +1,10 @@
-use core::fmt;
+use crate::prelude::*;
+use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use crate::types::{PlayMode, Replay};
-use crate::prelude::*;
 
 
-const CURRENT_VERSION:u16 = 3;
+const CURRENT_VERSION:u16 = 4;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Score {
@@ -15,12 +15,15 @@ pub struct Score {
     pub score: u64,
     pub combo: u16,
     pub max_combo: u16,
-    pub x50: u16,
-    pub x100: u16,
-    pub x300: u16,
-    pub xgeki: u16,
-    pub xkatu: u16,
-    pub xmiss: u16,
+
+    pub judgments: HashMap<String, u16>,
+    // pub x50: u16,
+    // pub x100: u16,
+    // pub x300: u16,
+    // pub xgeki: u16,
+    // pub xkatu: u16,
+    // pub xmiss: u16,
+
     pub accuracy: f64,
     pub speed: f32,
     pub mods_string: Option<String>,
@@ -43,12 +46,8 @@ impl Score {
             score: 0,
             combo: 0,
             max_combo: 0,
-            x50: 0,
-            x100: 0,
-            x300: 0,
-            xgeki: 0,
-            xkatu: 0,
-            xmiss: 0,
+
+            judgments: HashMap::new(),
             accuracy: 0.0,
             speed: 1.0,
             hit_timings: Vec::new(),
@@ -64,13 +63,31 @@ impl Score {
         } else {
             format!("None")
         };
-        // TODO! lol
+        // TODO: lol
+
+        let x100 = self.judgments.get("x100")  .map(|n|*n).unwrap_or_default();
+        let x300 = self.judgments.get("x300")  .map(|n|*n).unwrap_or_default();
+        let xmiss = self.judgments.get("xmiss").map(|n|*n).unwrap_or_default();
+
+        let judgments_str = {
+            let mut s = String::new();
+            for (k, v) in self.judgments.iter() {
+                s += &format!("{k}:{v}");
+            }
+            s
+        };
+
+        let Score { beatmap_hash, score, combo, max_combo, playmode, .. } = &self;
+
         match self.version {
+            // v3 still used manual judgments
+            4 => format!("{beatmap_hash}-{score},{combo},{max_combo},{judgments_str},{mods},{playmode:?}"),
             // v2 didnt have mods
-            3 => format!("{}-{},{},{},{},{},{},{}", self.beatmap_hash, self.score, self.combo, self.max_combo, self.x100,self.x300,self.xmiss, mods),
+            3 => format!("{beatmap_hash}-{score},{combo},{max_combo},{x100},{x300},{xmiss},{mods},{playmode:?}"),
             // v1 hash didnt have the playmode
-            1 => format!("{}-{},{},{},{},{},{}", self.beatmap_hash, self.score, self.combo, self.max_combo, self.x100,self.x300,self.xmiss),
-            _ => format!("{}-{},{},{},{},{},{},{:?}", self.beatmap_hash, self.score, self.combo, self.max_combo, self.x100,self.x300,self.xmiss,self.playmode)
+            2 => format!("{beatmap_hash}-{score},{combo},{max_combo},{x100},{x300},{xmiss},{playmode:?}"),
+            1 => format!("{beatmap_hash}-{score},{combo},{max_combo},{x100},{x300},{xmiss}"),
+            _ => format!("unknown?!?!"),
         }
     }
 
@@ -82,8 +99,7 @@ impl Score {
         let mut count = 0.0;
         let mut _count = 0.0;
 
-        for i in self.hit_timings.as_slice() {
-            let i = i.clone();
+        for &i in self.hit_timings.iter() {
             total_all += i;
 
             if i > 0.0 {
@@ -97,8 +113,8 @@ impl Score {
 
         let mean = total_all / self.hit_timings.len() as f32;
         let mut variance = 0.0;
-        for i in self.hit_timings.as_slice() {
-            variance += (i.clone() - mean).powi(2);
+        for &i in self.hit_timings.iter() {
+            variance += (i - mean).powi(2);
         }
 
         HitError {
@@ -109,60 +125,60 @@ impl Score {
         }
     }
 
-    pub fn hit_miss(&mut self, hit_time:f32, note_time:f32) {
-        self.combo = 0;
-        self.xmiss += 1;
+    // pub fn hit_miss(&mut self, hit_time:f32, note_time:f32) {
+    //     self.combo = 0;
+    //     self.xmiss += 1;
 
-        self.hit_timings.push(hit_time - note_time);
-    }
-    pub fn hit50(&mut self, hit_time:f32, note_time:f32) {
-        self.combo += 1;
-        self.max_combo = self.max_combo.max(self.combo);
-        self.x50 += 1;
-        self.add_pts(50, true);
+    //     self.hit_timings.push(hit_time - note_time);
+    // }
+    // pub fn hit50(&mut self, hit_time:f32, note_time:f32) {
+    //     self.combo += 1;
+    //     self.max_combo = self.max_combo.max(self.combo);
+    //     self.x50 += 1;
+    //     self.add_pts(50, true);
         
-        self.hit_timings.push(hit_time - note_time);
-    }
-    pub fn hit100(&mut self, hit_time:f32, note_time:f32) {
-        self.combo += 1;
-        self.max_combo = self.max_combo.max(self.combo);
-        self.x100 += 1;
-        self.add_pts(100, true);
+    //     self.hit_timings.push(hit_time - note_time);
+    // }
+    // pub fn hit100(&mut self, hit_time:f32, note_time:f32) {
+    //     self.combo += 1;
+    //     self.max_combo = self.max_combo.max(self.combo);
+    //     self.x100 += 1;
+    //     self.add_pts(100, true);
         
-        self.hit_timings.push(hit_time - note_time);
-    }
-    pub fn hit_geki(&mut self, hit_time:f32, note_time:f32) {
-        self.combo += 1;
-        self.max_combo = self.max_combo.max(self.combo);
-        self.xgeki += 1;
-        self.add_pts(300, true);
+    //     self.hit_timings.push(hit_time - note_time);
+    // }
+    // pub fn hit_geki(&mut self, hit_time:f32, note_time:f32) {
+    //     self.combo += 1;
+    //     self.max_combo = self.max_combo.max(self.combo);
+    //     self.xgeki += 1;
+    //     self.add_pts(300, true);
         
-        self.hit_timings.push(hit_time - note_time);
-    }
-    pub fn hit300(&mut self, hit_time:f32, note_time:f32) {
-        self.combo += 1;
-        self.max_combo = self.max_combo.max(self.combo);
-        self.x300 += 1;
-        self.add_pts(300, true);
+    //     self.hit_timings.push(hit_time - note_time);
+    // }
+    // pub fn hit300(&mut self, hit_time:f32, note_time:f32) {
+    //     self.combo += 1;
+    //     self.max_combo = self.max_combo.max(self.combo);
+    //     self.x300 += 1;
+    //     self.add_pts(300, true);
 
-        self.hit_timings.push(hit_time - note_time);
-    }
-    pub fn hit_katu(&mut self, hit_time:f32, note_time:f32) {
-        self.combo += 1;
-        self.max_combo = self.max_combo.max(self.combo);
-        self.xkatu += 1;
-        self.add_pts(100, true);
+    //     self.hit_timings.push(hit_time - note_time);
+    // }
+    // pub fn hit_katu(&mut self, hit_time:f32, note_time:f32) {
+    //     self.combo += 1;
+    //     self.max_combo = self.max_combo.max(self.combo);
+    //     self.xkatu += 1;
+    //     self.add_pts(100, true);
 
-        self.hit_timings.push(hit_time - note_time);
-    }
+    //     self.hit_timings.push(hit_time - note_time);
+    // }
 
-    pub fn add_pts(&mut self, points:u64, affected_by_combo:bool) {
-        if affected_by_combo {
-            self.score += self.combo as u64 * points;
-        } else {
-            self.score += points;
-        }
-    }
+    // pub fn add_pts(&mut self, points:u64, affected_by_combo:bool) {
+    //     if affected_by_combo {
+    //         self.score += self.combo as u64 * points;
+    //     } else {
+    //         self.score += points;
+    //     }
+    // }
 
     /// insert a replay into this score object
     /// should really only be used when saving a replay, as it will probably increase the ram usage quite a bit
@@ -188,20 +204,48 @@ impl Serializable for Score {
             };
         }
 
+        let mut judgments = HashMap::new();
+
+        let username = sr.read()?;
+        let beatmap_hash = sr.read()?;
+        let playmode = sr.read()?;
+
+        let score = sr.read()?;
+        let combo = sr.read()?;
+        let max_combo = sr.read()?;
+
+        // before version 4, judgments were stored manually
+        if version < 4 {
+            for i in [
+                "x50",
+                "x100",
+                "x300",
+                "xgeki",
+                "xkatu",
+                "xmiss"
+            ] {
+                let val:u16 = sr.read()?;
+                judgments.insert(i.to_owned(), val);
+            }
+        } else {
+            let count:usize = sr.read()?;
+            for _ in 0..count {
+                let key = sr.read()?;
+                let val = sr.read()?;
+                judgments.insert(key, val);
+            }
+        }
+
+
         Ok(Score {
             version,
-            username: sr.read()?,
-            beatmap_hash: sr.read()?,
-            playmode: sr.read()?,
-            score: sr.read()?,
-            combo: sr.read()?,
-            max_combo: sr.read()?,
-            x50: sr.read()?,
-            x100: sr.read()?,
-            x300: sr.read()?,
-            xgeki: sr.read()?,
-            xkatu: sr.read()?,
-            xmiss: sr.read()?,
+            username,
+            beatmap_hash,
+            playmode,
+            score,
+            combo,
+            max_combo,
+            judgments,
             accuracy: sr.read()?,
             speed: version!(2, 0.0),
 
@@ -219,33 +263,10 @@ impl Serializable for Score {
         sw.write(self.score);
         sw.write(self.combo);
         sw.write(self.max_combo);
-        sw.write(self.x50);
-        sw.write(self.x100);
-        sw.write(self.x300);
-        sw.write(self.xgeki);
-        sw.write(self.xkatu);
-        sw.write(self.xmiss);
+        sw.write(self.judgments.clone());
         sw.write(self.accuracy);
         sw.write(self.speed);
         sw.write(self.mods_string.clone());
-    }
-}
-impl fmt::Display for Score {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{{ Score (h:{}, m:{:?}, score:{}, combo:{}. max_combo: {}, x50:{},x100:{},x300:{},xgeki:{},xkatu{},xmiss:{},accuracy:{}) }}", 
-            self.beatmap_hash, 
-            self.playmode,
-            self.score,
-            self.combo,
-            self.max_combo,
-            self.x50,
-            self.x100,
-            self.x300,
-            self.xgeki,
-            self.xkatu,
-            self.xmiss,
-            self.accuracy
-        )
     }
 }
 
