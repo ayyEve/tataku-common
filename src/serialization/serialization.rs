@@ -124,7 +124,7 @@ impl<A:Serializable+core::hash::Hash+Eq+Clone, B:Serializable+Clone> Serializabl
         let count:usize = sr.read()?;
 
         let mut hashmap = HashMap::new();
-        for i in 0..count {
+        for _ in 0..count {
             let key = sr.read()?;
             let val = sr.read()?;
             hashmap.insert(key, val);

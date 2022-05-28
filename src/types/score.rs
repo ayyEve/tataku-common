@@ -63,8 +63,8 @@ impl Score {
         } else {
             format!("None")
         };
-        // TODO: lol
 
+        // TODO: lol
         let x100 = self.judgments.get("x100")  .map(|n|*n).unwrap_or_default();
         let x300 = self.judgments.get("x300")  .map(|n|*n).unwrap_or_default();
         let xmiss = self.judgments.get("xmiss").map(|n|*n).unwrap_or_default();
@@ -81,11 +81,11 @@ impl Score {
 
         match self.version {
             // v3 still used manual judgments
-            4 => format!("{beatmap_hash}-{score},{combo},{max_combo},{judgments_str},{mods},{playmode:?}"),
+            4 => format!("{beatmap_hash}-{score},{combo},{max_combo},{judgments_str},{mods},{playmode}"),
             // v2 didnt have mods
-            3 => format!("{beatmap_hash}-{score},{combo},{max_combo},{x100},{x300},{xmiss},{mods},{playmode:?}"),
+            3 => format!("{beatmap_hash}-{score},{combo},{max_combo},{x100},{x300},{xmiss},{mods},{playmode}"),
             // v1 hash didnt have the playmode
-            2 => format!("{beatmap_hash}-{score},{combo},{max_combo},{x100},{x300},{xmiss},{playmode:?}"),
+            2 => format!("{beatmap_hash}-{score},{combo},{max_combo},{x100},{x300},{xmiss},{playmode}"),
             1 => format!("{beatmap_hash}-{score},{combo},{max_combo},{x100},{x300},{xmiss}"),
             _ => format!("unknown?!?!"),
         }
