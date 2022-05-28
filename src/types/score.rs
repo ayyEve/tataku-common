@@ -69,14 +69,7 @@ impl Score {
         let x300 = self.judgments.get("x300")  .map(|n|*n).unwrap_or_default();
         let xmiss = self.judgments.get("xmiss").map(|n|*n).unwrap_or_default();
 
-        let judgments_str = {
-            let mut s = String::new();
-            for (k, v) in self.judgments.iter() {
-                s += &format!("{k}:{v}");
-            }
-            s
-        };
-
+        let judgments_str = self.judgment_string();
         let Score { beatmap_hash, score, combo, max_combo, playmode, .. } = &self;
 
         match self.version {
