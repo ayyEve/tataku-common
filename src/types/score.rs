@@ -190,6 +190,32 @@ impl Score {
         // let encoded = base64::encode(replay_bytes);
         // self.replay_string = Some(encoded);
     }
+
+    pub fn judgment_string(&self) -> String {
+        let mut judgments = self.judgments.iter()
+            .map(|(key, val)| format!("{key}:{val}"))
+            .collect::<Vec<String>>();
+
+        judgments.sort_unstable();
+        judgments.join("|")
+    }
+
+    pub fn judgments_from_string(judgment_string: &String) -> HashMap<String, u16> {
+        let mut judgments = HashMap::new();
+        
+        let entries = judgment_string.split("|");
+        for entry in entries {
+            let mut split = entry.split(":");
+            if let Some((key, val)) = split.next().zip(split.next()) {
+                let key = key.to_owned();
+                let val = val.parse().unwrap();
+                judgments.insert(key, val);
+            }
+        }
+
+        judgments
+    }
+
 }
 impl Serializable for Score {
     fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {
