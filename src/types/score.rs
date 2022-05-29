@@ -118,61 +118,6 @@ impl Score {
         }
     }
 
-    // pub fn hit_miss(&mut self, hit_time:f32, note_time:f32) {
-    //     self.combo = 0;
-    //     self.xmiss += 1;
-
-    //     self.hit_timings.push(hit_time - note_time);
-    // }
-    // pub fn hit50(&mut self, hit_time:f32, note_time:f32) {
-    //     self.combo += 1;
-    //     self.max_combo = self.max_combo.max(self.combo);
-    //     self.x50 += 1;
-    //     self.add_pts(50, true);
-        
-    //     self.hit_timings.push(hit_time - note_time);
-    // }
-    // pub fn hit100(&mut self, hit_time:f32, note_time:f32) {
-    //     self.combo += 1;
-    //     self.max_combo = self.max_combo.max(self.combo);
-    //     self.x100 += 1;
-    //     self.add_pts(100, true);
-        
-    //     self.hit_timings.push(hit_time - note_time);
-    // }
-    // pub fn hit_geki(&mut self, hit_time:f32, note_time:f32) {
-    //     self.combo += 1;
-    //     self.max_combo = self.max_combo.max(self.combo);
-    //     self.xgeki += 1;
-    //     self.add_pts(300, true);
-        
-    //     self.hit_timings.push(hit_time - note_time);
-    // }
-    // pub fn hit300(&mut self, hit_time:f32, note_time:f32) {
-    //     self.combo += 1;
-    //     self.max_combo = self.max_combo.max(self.combo);
-    //     self.x300 += 1;
-    //     self.add_pts(300, true);
-
-    //     self.hit_timings.push(hit_time - note_time);
-    // }
-    // pub fn hit_katu(&mut self, hit_time:f32, note_time:f32) {
-    //     self.combo += 1;
-    //     self.max_combo = self.max_combo.max(self.combo);
-    //     self.xkatu += 1;
-    //     self.add_pts(100, true);
-
-    //     self.hit_timings.push(hit_time - note_time);
-    // }
-
-    // pub fn add_pts(&mut self, points:u64, affected_by_combo:bool) {
-    //     if affected_by_combo {
-    //         self.score += self.combo as u64 * points;
-    //     } else {
-    //         self.score += points;
-    //     }
-    // }
-
     /// insert a replay into this score object
     /// should really only be used when saving a replay, as it will probably increase the ram usage quite a bit
     pub fn insert_replay(&mut self, _replay: Replay) {
