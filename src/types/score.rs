@@ -1,10 +1,10 @@
 use crate::prelude::*;
 use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
-use crate::types::{PlayMode, Replay};
+use serde::{ Serialize, Deserialize };
+use crate::types::{ PlayMode };
 
 
-const CURRENT_VERSION:u16 = 4;
+const CURRENT_VERSION:u16 = 5;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Score {
@@ -12,6 +12,9 @@ pub struct Score {
     pub username: String,
     pub beatmap_hash: String,
     pub playmode: PlayMode,
+    /// time in non-leap seconds since unix_epoch
+    pub time: u64,
+
     pub score: u64,
     pub combo: u16,
     pub max_combo: u16,
@@ -31,10 +34,6 @@ pub struct Score {
     /// time diff for actual note hits. if the note wasnt hit, it wont be here
     /// (user_hit_time - correct_time)
     pub hit_timings: Vec<f32>,
-
-    /// this is only used when a replay is stored as a file
-    /// and must be set manually
-    pub replay_string: Option<String>,
 }
 impl Score {
     pub fn new(beatmap_hash:String, username:String, playmode:PlayMode) -> Score {
@@ -43,6 +42,8 @@ impl Score {
             username,
             beatmap_hash,
             playmode,
+            time: 0,
+
             score: 0,
             combo: 0,
             max_combo: 0,
@@ -51,7 +52,6 @@ impl Score {
             accuracy: 0.0,
             speed: 1.0,
             hit_timings: Vec::new(),
-            replay_string: None,
             mods_string: None,
         }
     }
@@ -74,13 +74,13 @@ impl Score {
 
         match self.version {
             // v3 still used manual judgments
-            4 => format!("{beatmap_hash}-{score},{combo},{max_combo},{judgments_str},{mods},{playmode}"),
+            4.. => format!("{beatmap_hash}-{score},{combo},{max_combo},{judgments_str},{mods},{playmode}"),
             // v2 didnt have mods
             3 => format!("{beatmap_hash}-{score},{combo},{max_combo},{x100},{x300},{xmiss},{mods},{playmode}"),
             // v1 hash didnt have the playmode
             2 => format!("{beatmap_hash}-{score},{combo},{max_combo},{x100},{x300},{xmiss},{playmode}"),
             1 => format!("{beatmap_hash}-{score},{combo},{max_combo},{x100},{x300},{xmiss}"),
-            _ => format!("unknown?!?!"),
+            0 => format!("what"),
         }
     }
 
@@ -116,17 +116,6 @@ impl Score {
             late: total / count,
             deviance: (variance / self.hit_timings.len() as f32).sqrt()
         }
-    }
-
-    /// insert a replay into this score object
-    /// should really only be used when saving a replay, as it will probably increase the ram usage quite a bit
-    pub fn insert_replay(&mut self, _replay: Replay) {
-        todo!()
-        // let mut writer = SerializationWriter::new();
-        // writer.write(replay);
-        // let replay_bytes = writer.data();
-        // let encoded = base64::encode(replay_bytes);
-        // self.replay_string = Some(encoded);
     }
 
     pub fn judgment_string(&self) -> String {
@@ -168,17 +157,17 @@ impl Serializable for Score {
             };
         }
 
-        let mut judgments = HashMap::new();
-
         let username = sr.read()?;
         let beatmap_hash = sr.read()?;
         let playmode = sr.read()?;
+        let time = version!(5, 0); // v5 added time
 
         let score = sr.read()?;
         let combo = sr.read()?;
         let max_combo = sr.read()?;
 
         // before version 4, judgments were stored manually
+        let mut judgments = HashMap::new();
         if version < 4 {
             for i in [
                 "x50",
@@ -206,6 +195,8 @@ impl Serializable for Score {
             username,
             beatmap_hash,
             playmode,
+            time,
+            
             score,
             combo,
             max_combo,
@@ -214,7 +205,6 @@ impl Serializable for Score {
             speed: version!(2, 0.0),
 
             hit_timings: Vec::new(),
-            replay_string: None,
             mods_string: version!(3, None)
         })
     }
@@ -224,10 +214,14 @@ impl Serializable for Score {
         sw.write(self.username.clone());
         sw.write(self.beatmap_hash.clone());
         sw.write(self.playmode.clone());
+        sw.write(self.time);
+
         sw.write(self.score);
         sw.write(self.combo);
         sw.write(self.max_combo);
+
         sw.write(self.judgments.clone());
+
         sw.write(self.accuracy);
         sw.write(self.speed);
         sw.write(self.mods_string.clone());
