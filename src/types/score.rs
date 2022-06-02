@@ -12,7 +12,7 @@ pub struct Score {
     pub username: String,
     pub beatmap_hash: String,
     pub playmode: PlayMode,
-    /// time in non-leap seconds since unix_epoch
+    /// time in non-leap seconds since unix_epoch (UTC)
     pub time: u64,
 
     pub score: u64,
