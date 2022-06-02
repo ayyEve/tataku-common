@@ -1,22 +1,26 @@
-use crate::{serialization::{Serializable, SerializationReader, SerializationWriter}, SerializationResult};
+use crate::{ serialization::{Serializable, SerializationReader, SerializationWriter}, SerializationResult };
+use crate::prelude::Score;
 
-const CURRENT_VERSION:u16 = 1;
+const CURRENT_VERSION:u16 = 2;
 
 #[derive(Clone, Debug, Default)]
 pub struct Replay {
     /// (time, key)
     pub frames: Vec<(f32, ReplayFrame)>, 
-    pub playstyle: Playstyle,
+    // pub playstyle: Playstyle,
 
-    /// used internally, not stored externally
-    pub speed: f32
+    pub score_data: Option<Score>,
+
+    // used internally, not stored externally
+    // pub speed: f32
 }
 impl Replay {
     pub fn new() -> Replay {
         Replay {
             frames: Vec::new(),
-            playstyle: Playstyle::None,
-            speed: 1.0
+            // playstyle: Playstyle::None,
+            score_data: None,
+            // speed: 1.0
         }
     }
 }
@@ -24,8 +28,19 @@ impl Serializable for Replay {
     fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {
         let mut r = Replay::new();
         
-        let _version = sr.read_u16();
-        r.playstyle = sr.read_u8()?.into();
+        let version = sr.read_u16()?;
+
+        // v1 had a playmode entry, which was only relevent to taiko
+        if version == 1 {
+            let _playstyle = sr.read_u8()?;
+        }
+        
+        // v2+ has score data included in the replay data
+        if version >= 2 {
+            r.score_data = sr.read()?;
+        }
+
+        // all versions have the frame data
         r.frames = sr.read()?;
         
         Ok(r)
@@ -33,38 +48,10 @@ impl Serializable for Replay {
 
     fn write(&self, sw: &mut SerializationWriter) {
         sw.write(CURRENT_VERSION);
-        sw.write(self.playstyle as u8);
-        println!("writing {} replay frames", self.frames.len());
+        // sw.write(self.playstyle as u8);
+        sw.write(self.score_data.clone());
+        // println!("writing {} replay frames", self.frames.len());
         sw.write(&self.frames);
-    }
-}
-
-
-
-#[derive(Clone, Debug, Copy)]
-pub enum Playstyle {
-    None = 0,
-    KDDK = 1,
-    KKDD = 2,
-    DDKK = 3
-}
-impl Into<u8> for Playstyle {
-    fn into(self) -> u8 {self as u8}
-}
-impl From<u8> for Playstyle {
-    fn from(n: u8) -> Self {
-        use Playstyle::*;
-        match n {
-            0 => KDDK,
-            1 => KKDD,
-            2 => DDKK,
-            _ => KKDD
-        }
-    }
-}
-impl Default for Playstyle {
-    fn default() -> Self {
-        Self::KDDK
     }
 }
 
@@ -86,10 +73,11 @@ pub enum KeyPress {
     Mania8 = 11,
     Mania9 = 12,
 
-    /// doubles as std left
+    /// doubles as osu left
     Left = 30,
-    /// doubles as std right
+    /// doubles as osu right
     Right = 31,
+    /// doubles as osu smoke
     Dash = 32,
 
     LeftMouse = 33,
