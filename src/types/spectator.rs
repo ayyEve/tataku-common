@@ -1,6 +1,4 @@
 use crate::prelude::*;
-use crate::{serialization::Serializable, ReplayFrame, PlayMode};
-use super::Score;
 
 pub type SpectatorFrame = (f32, SpectatorFrameData);
 pub type SpectatorFrames = Vec<SpectatorFrame>;
@@ -11,7 +9,7 @@ pub type SpectatorFrames = Vec<SpectatorFrame>;
 pub enum SpectatorFrameData {
     /// host started a new map
     #[Packet(id=0)]
-    Play {beatmap_hash:String, mode: PlayMode, mods: String},
+    Play { beatmap_hash:String, mode: PlayMode, mods: String },
 
     /// host paused current map
     #[Packet(id=1)]
@@ -28,15 +26,15 @@ pub enum SpectatorFrameData {
 
     /// host started spectating someone else. deal with this later
     #[Packet(id=4)]
-    SpectatingOther {user_id:u32},
+    SpectatingOther { user_id:u32 },
 
     /// host pressed a game key
     #[Packet(id=5)]
-    ReplayFrame {frame:ReplayFrame},
+    ReplayFrame { frame:ReplayFrame },
 
     /// clear up any score innaccuracies, or update new specs with this
     #[Packet(id=6)]
-    ScoreSync {score:Score},
+    ScoreSync { score:Score },
 
     /// host is changing the map
     #[Packet(id=7)]
@@ -44,7 +42,12 @@ pub enum SpectatorFrameData {
 
     /// response for current map info
     #[Packet(id=8)]
-    PlayingResponse {user_id:u32, beatmap_hash:String, mode:PlayMode, mods:String, current_time:f32},
+    PlayingResponse { user_id:u32, beatmap_hash:String, mode:PlayMode, mods:String, current_time:f32 },
+
+    /// info about the map specified, might include a way to download it
+    /// NOTE!! you should verify the download link instead of blindly trusting it
+    #[Packet(id=9)]
+    MapInfo { beatmap_hash: String, game: String, download_link: Option<String> },
 
     /// unknown packet
     #[Packet(id=255, default_variant)]
