@@ -1,18 +1,18 @@
-use crate::{ serialization::{Serializable, SerializationReader, SerializationWriter}, SerializationResult };
-use crate::prelude::Score;
+use crate::prelude::*;
+use std::collections::HashMap;
 
-const CURRENT_VERSION:u16 = 2;
+const CURRENT_VERSION:u16 = 3;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Replay {
     /// (time, key)
     pub frames: Vec<(f32, ReplayFrame)>, 
-    // pub playstyle: Playstyle,
 
+    /// score associated with this replay
     pub score_data: Option<Score>,
 
-    // used internally, not stored externally
-    // pub speed: f32
+    /// any extra gameplay variables which are helpful to know
+    pub gamemode_data: HashMap<String, String>,
 }
 impl Replay {
     pub fn new() -> Replay {
@@ -21,6 +21,7 @@ impl Replay {
             // playstyle: Playstyle::None,
             score_data: None,
             // speed: 1.0
+            gamemode_data: HashMap::new()
         }
     }
 }
@@ -40,6 +41,10 @@ impl Serializable for Replay {
             r.score_data = sr.read()?;
         }
 
+        // v3+ has gamemode data
+        if version >= 2 {
+            r.gamemode_data = sr.read()?;
+        }
         // all versions have the frame data
         r.frames = sr.read()?;
         
@@ -56,7 +61,7 @@ impl Serializable for Replay {
 }
 
 
-#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum KeyPress {
     LeftKat = 0,
     LeftDon = 1,
@@ -130,7 +135,7 @@ impl Serializable for KeyPress {
     fn write(&self, sw:&mut SerializationWriter) {sw.write_u8(self.clone() as u8)}
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum ReplayFrame {
     Press(KeyPress),
     Release(KeyPress),
