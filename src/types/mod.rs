@@ -1,5 +1,6 @@
 mod score;
 mod replay;
+mod helpers;
 mod playmode;
 mod severity;
 mod spectator;
@@ -12,6 +13,7 @@ mod server_drop_reason;
 
 pub use score::*;
 pub use replay::*;
+pub use helpers::*;
 pub use playmode::*;
 pub use severity::*;
 pub use spectator::*;
