@@ -12,6 +12,9 @@ pub mod message_history_table;
 pub use message_history_table::*;
 
 
+pub mod beatmaps_table;
+pub use beatmaps_table::*;
+
 
 // scores table
 pub mod scores_table;
