@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use std::collections::HashMap;
 
-const CURRENT_VERSION:u16 = 3;
+const CURRENT_VERSION:u16 = 4;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Replay {
@@ -29,6 +29,7 @@ impl Serializable for Replay {
     fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {
         let mut r = Replay::new();
         
+        // all versions wrote the version number
         let version = sr.read_u16()?;
 
         // v1 had a playmode entry, which was only relevent to taiko
@@ -41,10 +42,11 @@ impl Serializable for Replay {
             r.score_data = sr.read()?;
         }
 
-        // v3+ has gamemode data
-        if version >= 2 {
+        // v4+ has gamemode data (technically in v3 but i messed up whoops)
+        if version >= 4 {
             r.gamemode_data = sr.read()?;
         }
+
         // all versions have the frame data
         r.frames = sr.read()?;
         
@@ -52,11 +54,13 @@ impl Serializable for Replay {
     }
 
     fn write(&self, sw: &mut SerializationWriter) {
-        sw.write(CURRENT_VERSION);
-        // sw.write(self.playstyle as u8);
-        sw.write(self.score_data.clone());
+        sw.write(CURRENT_VERSION); // all versions
+        // sw.write(self.playstyle as u8); // removed in v2
+        sw.write(self.score_data.clone()); // added in v2
+        sw.write(self.gamemode_data.clone()); // added in v3, fixed in v4
+
         // println!("writing {} replay frames", self.frames.len());
-        sw.write(&self.frames);
+        sw.write(&self.frames); // all versions
     }
 }
 
