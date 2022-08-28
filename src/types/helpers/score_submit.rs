@@ -16,6 +16,25 @@ pub struct ScoreSubmit {
     /// this helpers the server get info for this map if it doesnt already have it
     pub map_info: ScoreMapInfo,
 }
+impl Serializable for ScoreSubmit {
+    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> where Self: Sized {
+        Ok(Self {
+            username: sr.read()?,
+            password: sr.read()?,
+            game: sr.read()?,
+            replay: sr.read()?,
+            map_info: sr.read()?,
+        })
+    }
+
+    fn write(&self, sw:&mut SerializationWriter) {
+        sw.write(self.username.clone());
+        sw.write(self.password.clone());
+        sw.write(self.game.clone());
+        sw.write(self.replay.clone());
+        sw.write(self.map_info.clone());
+    }
+}
 
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -24,6 +43,21 @@ pub struct ScoreMapInfo {
     pub map_hash: String,
     pub playmode: String,
 }
+impl Serializable for ScoreMapInfo {
+    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> where Self: Sized {
+        Ok(Self {
+            game: sr.read()?,
+            map_hash: sr.read()?,
+            playmode: sr.read()?
+        })
+    }
+
+    fn write(&self, sw:&mut SerializationWriter) {
+        sw.write(self.game.clone());
+        sw.write(self.map_hash.clone());
+        sw.write(self.playmode.clone());
+    }
+}
 
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -31,6 +65,24 @@ pub enum MapGame {
     Osu,
     Quaver,
     Other(String),
+}
+impl Serializable for MapGame {
+    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> where Self: Sized {
+        let s:String = sr.read()?;
+        match &*s.to_lowercase() {
+            "osu" => Ok(Self::Osu),
+            "quaver" => Ok(Self::Quaver),
+            _ => Ok(Self::Other(s)),
+        }
+    }
+
+    fn write(&self, sw:&mut SerializationWriter) {
+        match self {
+            MapGame::Osu => sw.write("osu".to_owned()),
+            MapGame::Quaver => sw.write("quaver".to_owned()),
+            MapGame::Other(s) => sw.write(s.clone()),
+        }
+    }
 }
 
 
