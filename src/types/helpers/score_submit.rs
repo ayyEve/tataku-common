@@ -50,6 +50,8 @@ pub enum SubmitResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub enum NotSubmittedReason {
+    InternalError,
+
     NoUser,
     UserBanned,
 

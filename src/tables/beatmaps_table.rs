@@ -17,8 +17,9 @@ pub struct Model {
 
     pub title: String,
     pub artist: String,
-    pub artist_unicode: Option<String>,
+    
     pub title_unicode: Option<String>,
+    pub artist_unicode: Option<String>,
 
     pub creator: String,
     pub difficulty_name: String, 
