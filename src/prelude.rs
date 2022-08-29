@@ -2,6 +2,8 @@
 // only re-export tables for server-side stuff
 #[cfg(feature="server")]
 pub use crate::tables::*;
+#[cfg(feature="server")]
+pub use sea_orm;
 
 pub use crate::types::*;
 pub use crate::packets::*;
