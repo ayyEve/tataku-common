@@ -8,6 +8,7 @@ pub struct Model {
     pub user_id: i32,
 
     pub beatmap_hash: String,
+    pub replay_file: Option<String>,
 
     #[sea_orm(primary_key)]
     pub score_id: i64,
