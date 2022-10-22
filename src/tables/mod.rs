@@ -15,6 +15,8 @@ pub use message_history_table::*;
 pub mod beatmaps_table;
 pub use beatmaps_table::*;
 
+pub mod screenshots;
+
 
 pub mod beatmap_diffs_table;
 pub use beatmap_diffs_table::*;
