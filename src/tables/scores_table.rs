@@ -22,7 +22,9 @@ pub struct Model {
     pub accuracy: f64,
 
     pub playmode: String,
-    pub game: String
+    pub game: String,
+
+    pub submit_date: sea_orm::prelude::DateTime
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

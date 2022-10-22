@@ -189,6 +189,9 @@ impl Serializable for Score {
             }
         }
 
+        let accuracy = sr.read()?;
+        let speed = version!(2, 0.0);
+        let mods_string = version!(3, None);
 
         Ok(Score {
             version,
@@ -201,11 +204,11 @@ impl Serializable for Score {
             combo,
             max_combo,
             judgments,
-            accuracy: sr.read()?,
-            speed: version!(2, 0.0),
+            accuracy,
+            speed,
 
             hit_timings: Vec::new(),
-            mods_string: version!(3, None)
+            mods_string
         })
     }
 

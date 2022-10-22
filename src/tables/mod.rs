@@ -16,6 +16,9 @@ pub mod beatmaps_table;
 pub use beatmaps_table::*;
 
 
+pub mod beatmap_diffs_table;
+pub use beatmap_diffs_table::*;
+
 // scores table
 pub mod scores_table;
 pub use scores_table::*;
