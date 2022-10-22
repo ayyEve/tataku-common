@@ -20,11 +20,12 @@ pub struct Model {
     #[sea_orm(column_name = "max_combo")]
     pub max_combo: i16,
     pub accuracy: f64,
+    pub performance: f32,
 
     pub playmode: String,
     pub game: String,
 
-    pub submit_date: sea_orm::prelude::DateTime
+    pub submit_date: sea_orm::prelude::DateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
