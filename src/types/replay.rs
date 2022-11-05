@@ -5,14 +5,14 @@ const CURRENT_VERSION:u16 = 4;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Replay {
-    /// (time, key)
-    pub frames: Vec<(f32, ReplayFrame)>, 
-
     /// score associated with this replay
     pub score_data: Option<Score>,
 
     /// any extra gameplay variables which are helpful to know
     pub gamemode_data: HashMap<String, String>,
+
+    /// (time, key)
+    pub frames: Vec<(f32, ReplayFrame)>, 
 }
 impl Replay {
     pub fn new() -> Replay {

@@ -4,7 +4,7 @@ use serde::{ Serialize, Deserialize };
 use crate::types::{ PlayMode };
 
 
-const CURRENT_VERSION:u16 = 5;
+const CURRENT_VERSION:u16 = 6;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Score {
@@ -20,16 +20,16 @@ pub struct Score {
     pub max_combo: u16,
 
     pub judgments: HashMap<String, u16>,
-    // pub x50: u16,
-    // pub x100: u16,
-    // pub x300: u16,
-    // pub xgeki: u16,
-    // pub xkatu: u16,
-    // pub xmiss: u16,
 
     pub accuracy: f64,
     pub speed: f32,
-    pub mods_string: Option<String>,
+
+    // new mods format
+    mods: HashSet<String>,
+
+    // old mods format, here for backwards compat
+    #[serde(skip)]
+    mods_string: Option<String>,
 
     /// time diff for actual note hits. if the note wasnt hit, it wont be here
     /// (user_hit_time - correct_time)
@@ -53,18 +53,33 @@ impl Score {
             speed: 1.0,
             hit_timings: Vec::new(),
             mods_string: None,
+            mods: HashSet::new()
         }
     }
+    
+    /// this is definitely going to break at some point, i need to figure out a better way to do this lol
+    /// I was thinking of md5(format!("{time}{username}")), but this would break if time is 0 (default) :c
     pub fn hash(&self) -> String {
-        let mods = if let Some(m) = &self.mods_string {
-            let mut hasher = std::collections::hash_map::DefaultHasher::new();
-            std::hash::Hash::hash(&m, &mut hasher);
-            format!("{:x}", std::hash::Hasher::finish(&hasher))
-        } else {
-            format!("None")
-        };
+        let mut mods = format!("None");
+        if self.version >= 3 {
+            // v3-v5 used mods string
+            if self.version <= 5 {
+                if let Some(m) = &self.mods_string {
+                    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                    std::hash::Hash::hash(&m, &mut hasher);
+                    mods = format!("{:x}", std::hash::Hasher::finish(&hasher))
+                };
+            } else {
+                if self.mods.len() > 0 {
+                    let m = self.mods.clone().into_iter().collect::<Vec<String>>().join(",");
+                    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                    std::hash::Hash::hash(&m, &mut hasher);
+                    mods = format!("{:x}", std::hash::Hasher::finish(&hasher))
+                }
+            }
+        }
 
-        // TODO: lol
+        // lol
         let x100 = self.judgments.get("x100")  .map(|n|*n).unwrap_or_default();
         let x300 = self.judgments.get("x300")  .map(|n|*n).unwrap_or_default();
         let xmiss = self.judgments.get("xmiss").map(|n|*n).unwrap_or_default();
@@ -143,6 +158,48 @@ impl Score {
         judgments
     }
 
+    // get the currently-set mods for this score
+    pub fn mods(&self) -> HashSet<String> {
+        if self.mods.len() == 0 {
+            if let Some(str) = &self.mods_string {
+                let mut mods = HashSet::new();
+                if let Ok(manager) = serde_json::from_str::<ModManager>(str) {
+                    if manager.autoplay { mods.insert("autoplay".to_owned()); }
+                    if manager.nofail { mods.insert("no_fail".to_owned()); }
+                    if manager.hard_rock { mods.insert("hard_rock".to_owned()); }
+                    if manager.easy { mods.insert("easy".to_owned()); }
+                }
+                return mods
+            }
+        }
+
+        self.mods.clone()
+    }
+
+    /// get a mutable reference to the mods hashset, populating it if mods_string is present
+    pub fn mods_mut(&mut self) -> &mut HashSet<String> {
+        if self.mods.len() == 0 {
+            if let Some(str) = self.mods_string.clone() {
+
+                if let Ok(manager) = serde_json::from_str::<ModManager>(&str) {
+                    if manager.autoplay { self.mods.insert("autoplay".to_owned()); }
+                    if manager.nofail { self.mods.insert("no_fail".to_owned()); }
+                    if manager.hard_rock { self.mods.insert("hard_rock".to_owned()); }
+                    if manager.easy { self.mods.insert("easy".to_owned()); }
+                }
+            }
+        }
+
+        &mut self.mods
+    }
+
+    /// get a sorted list of maps, separated by a comma and a space
+    pub fn mods_string_sorted(&self) -> String {
+        let mut mods = self.mods().into_iter().collect::<Vec<String>>();
+        mods.sort_unstable(); // unstable sort is fine because no two elements will ever be equal
+        mods.join(", ")
+    }
+
 }
 impl Serializable for Score {
     fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {
@@ -191,7 +248,31 @@ impl Serializable for Score {
 
         let accuracy = sr.read()?;
         let speed = version!(2, 0.0);
-        let mods_string = version!(3, None);
+
+        let mut mods_string:Option<String> = None;
+        let mut mods = HashSet::new();
+
+        // v 3-5 stored mods as a string
+        if version >= 3 {
+            if version <= 5 {
+                // old mods
+                mods_string = sr.read()?;
+
+                // parse here, save time later
+                if let Some(str) = &mods_string {
+                    if let Ok(manager) = serde_json::from_str::<ModManager>(str) {
+                        if manager.autoplay { mods.insert("autoplay".to_owned()); }
+                        if manager.nofail { mods.insert("no_fail".to_owned()); }
+                        if manager.hard_rock { mods.insert("hard_rock".to_owned()); }
+                        if manager.easy { mods.insert("easy".to_owned()); }
+                    }
+                }
+
+            } else {
+                // new mods as of v6
+                mods = sr.read()?;
+            }
+        }
 
         Ok(Score {
             version,
@@ -208,7 +289,9 @@ impl Serializable for Score {
             speed,
 
             hit_timings: Vec::new(),
-            mods_string
+
+            mods_string,
+            mods,
         })
     }
 
@@ -227,7 +310,9 @@ impl Serializable for Score {
 
         sw.write(self.accuracy);
         sw.write(self.speed);
-        sw.write(self.mods_string.clone());
+
+        // sw.write(self.mods_string.clone());
+        sw.write(self.mods.clone());
     }
 }
 
@@ -254,4 +339,19 @@ pub struct HitError {
     pub early: f32,
     pub late: f32,
     pub deviance: f32
+}
+
+
+
+
+
+#[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+struct ModManager {
+    speed: Option<u16>,
+    
+    easy: bool,
+    hard_rock: bool,
+    autoplay: bool,
+    nofail: bool,
 }

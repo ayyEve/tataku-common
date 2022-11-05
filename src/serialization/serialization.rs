@@ -1,8 +1,10 @@
 use std::{
     rc::Rc,
     sync::Arc, 
+    convert::TryInto, 
+    collections::HashSet,
     collections::HashMap,
-    convert::TryInto, string::FromUtf8Error, 
+    string::FromUtf8Error, 
 };
 
 pub type SerializationResult<S> = Result<S, SerializationError>;
@@ -107,6 +109,7 @@ impl<T:Serializable+Clone> Serializable for Vec<T> {
         }
     }
 }   
+
 // serialization for options
 impl<T:Serializable+Clone> Serializable for Option<T> {
     fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
@@ -119,6 +122,7 @@ impl<T:Serializable+Clone> Serializable for Option<T> {
     }
 }
 
+// serialization for hashmap and hashsedt
 impl<A:Serializable+core::hash::Hash+Eq+Clone, B:Serializable+Clone> Serializable for HashMap<A, B> {
     fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
         let count:usize = sr.read()?;
@@ -142,6 +146,23 @@ impl<A:Serializable+core::hash::Hash+Eq+Clone, B:Serializable+Clone> Serializabl
         }
     }
 }
+
+impl<T:Serializable+core::hash::Hash+Eq+Clone> Serializable for HashSet<T> {
+    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
+        let len = sr.read_u64()?;
+        let mut out:HashSet<T> = HashSet::new();
+        for _ in 0..len { out.insert(sr.read()?); }
+        Ok(out)
+    }
+
+    fn write(&self, sw:&mut SerializationWriter) {
+        sw.write_u64(self.len() as u64);
+        for i in self.iter() {
+            sw.write(i.clone())
+        }
+    }
+}   
+
 
 /// macro to help with checking if things are in range
 macro_rules! check_range {
