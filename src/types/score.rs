@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use std::{collections::HashMap, fmt::Display};
+use std::collections::HashMap;
 use serde::{ Serialize, Deserialize };
 use crate::types::{ PlayMode };
 
@@ -193,11 +193,12 @@ impl Score {
     }
 
     /// not to be used with the old mods string!
-    pub fn mods_from_string(mods: &String) -> HashSet<String> {
-        if mods.contains("{") { panic!("trying to parse old mods string. this is a panic because you have a bug lol") }
-        mods.split(", ").map(|s|s.to_owned()).collect()
+    pub fn mods_from_string(mods: impl AsRef<str>) -> HashSet<String> {
+        if mods.as_ref().contains("{") { panic!("trying to parse old mods string. this is a panic because you have a bug lol") }
+        mods.as_ref().split(", ").map(|s|s.to_owned()).collect()
     }
 
+    /// get the mods from the old mod manager, erroring silently though
     pub fn mods_from_old_string(str: impl AsRef<str>) -> HashSet<String> {
         let mut mods = HashSet::new();
 
@@ -211,6 +212,7 @@ impl Score {
         mods
     }
 
+    /// add a mod to the mods list
     pub fn add_mod(&mut self, m: impl ToString) {
         self.mods.insert(m.to_string());
     }
