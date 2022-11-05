@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 use serde::{ Serialize, Deserialize };
 use crate::types::{ PlayMode };
 
@@ -158,18 +158,16 @@ impl Score {
         judgments
     }
 
+}
+
+// mods stuff
+impl Score {
+    
     // get the currently-set mods for this score
     pub fn mods(&self) -> HashSet<String> {
         if self.mods.len() == 0 {
             if let Some(str) = &self.mods_string {
-                let mut mods = HashSet::new();
-                if let Ok(manager) = serde_json::from_str::<ModManager>(str) {
-                    if manager.autoplay { mods.insert("autoplay".to_owned()); }
-                    if manager.nofail { mods.insert("no_fail".to_owned()); }
-                    if manager.hard_rock { mods.insert("hard_rock".to_owned()); }
-                    if manager.easy { mods.insert("easy".to_owned()); }
-                }
-                return mods
+                return Self::mods_from_old_string(str)
             }
         }
 
@@ -180,13 +178,7 @@ impl Score {
     pub fn mods_mut(&mut self) -> &mut HashSet<String> {
         if self.mods.len() == 0 {
             if let Some(str) = self.mods_string.clone() {
-
-                if let Ok(manager) = serde_json::from_str::<ModManager>(&str) {
-                    if manager.autoplay { self.mods.insert("autoplay".to_owned()); }
-                    if manager.nofail { self.mods.insert("no_fail".to_owned()); }
-                    if manager.hard_rock { self.mods.insert("hard_rock".to_owned()); }
-                    if manager.easy { self.mods.insert("easy".to_owned()); }
-                }
+                self.mods = Self::mods_from_old_string(str);
             }
         }
 
@@ -200,7 +192,32 @@ impl Score {
         mods.join(", ")
     }
 
+    /// not to be used with the old mods string!
+    pub fn mods_from_string(mods: &String) -> HashSet<String> {
+        if mods.contains("{") { panic!("trying to parse old mods string. this is a panic because you have a bug lol") }
+        mods.split(", ").map(|s|s.to_owned()).collect()
+    }
+
+    pub fn mods_from_old_string(str: impl AsRef<str>) -> HashSet<String> {
+        let mut mods = HashSet::new();
+
+        if let Ok(manager) = serde_json::from_str::<ModManager>(str.as_ref()) {
+            if manager.autoplay { mods.insert("autoplay".to_owned()); }
+            if manager.nofail { mods.insert("no_fail".to_owned()); }
+            if manager.hard_rock { mods.insert("hard_rock".to_owned()); }
+            if manager.easy { mods.insert("easy".to_owned()); }
+        }
+
+        mods
+    }
+
+    pub fn add_mod(&mut self, m: impl ToString) {
+        self.mods.insert(m.to_string());
+    }
 }
+
+
+
 impl Serializable for Score {
     fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {
         let version = sr.read_u16()?;
