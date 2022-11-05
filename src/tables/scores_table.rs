@@ -24,6 +24,7 @@ pub struct Model {
 
     pub playmode: String,
     pub game: String,
+    pub mods: Option<String>,
 
     pub submit_date: sea_orm::prelude::DateTime,
 }
