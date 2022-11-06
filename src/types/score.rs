@@ -1,10 +1,10 @@
 use crate::prelude::*;
 use std::collections::HashMap;
 use serde::{ Serialize, Deserialize };
-use crate::types::{ PlayMode };
+use crate::types::PlayMode;
 
 
-const CURRENT_VERSION:u16 = 6;
+const CURRENT_VERSION:u16 = 7;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Score {
@@ -23,6 +23,7 @@ pub struct Score {
 
     pub accuracy: f64,
     pub speed: f32,
+    pub performance: f32,
 
     // new mods format
     #[serde(default)]
@@ -48,6 +49,7 @@ impl Score {
             score: 0,
             combo: 0,
             max_combo: 0,
+            performance: 0.0,
 
             judgments: HashMap::new(),
             accuracy: 0.0,
@@ -294,6 +296,8 @@ impl Serializable for Score {
             }
         }
 
+        let performance = version!(7, 0.0);
+
         Ok(Score {
             version,
             username,
@@ -307,6 +311,7 @@ impl Serializable for Score {
             judgments,
             accuracy,
             speed,
+            performance,
 
             hit_timings: Vec::new(),
 
@@ -333,6 +338,7 @@ impl Serializable for Score {
 
         // sw.write(self.mods_string.clone());
         sw.write(self.mods.clone());
+        sw.write(self.performance);
     }
 }
 
