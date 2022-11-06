@@ -1,4 +1,3 @@
-mod mods;
 mod score;
 mod replay;
 mod helpers;
@@ -12,7 +11,6 @@ mod server_error_code;
 mod server_permissions;
 mod server_drop_reason;
 
-pub use mods::*;
 pub use score::*;
 pub use replay::*;
 pub use helpers::*;

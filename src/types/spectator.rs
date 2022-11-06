@@ -8,8 +8,10 @@ pub type SpectatorFrames = Vec<SpectatorFrame>;
 #[Packet(type="u8")]
 pub enum SpectatorFrameData {
     /// host started a new map
+    /// NOTE: mods is a comma separated list of mod ids, ie "no_fail, autoplay"
+    /// speed will need to be divided by 100
     #[Packet(id=0)]
-    Play { beatmap_hash:String, mode: PlayMode, mods: String },
+    Play { beatmap_hash:String, mode: PlayMode, mods: String, speed: u16 },
 
     /// host paused current map
     #[Packet(id=1)]
@@ -42,7 +44,9 @@ pub enum SpectatorFrameData {
 
     /// response for current map info
     #[Packet(id=8)]
-    PlayingResponse { user_id:u32, beatmap_hash:String, mode:PlayMode, mods:String, current_time:f32 },
+    /// NOTE: mods is a comma separated list of mod ids, ie "no_fail, autoplay"
+    /// speed will need to be divided by 100
+    PlayingResponse { user_id:u32, beatmap_hash:String, mode:PlayMode, mods:String, current_time:f32, speed: u16 },
 
     /// info about the map specified, might include a way to download it
     /// NOTE!! you should verify the download link instead of blindly trusting it
