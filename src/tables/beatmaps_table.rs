@@ -24,6 +24,7 @@ pub struct Model {
     pub creator: String,
     pub difficulty_name: String, 
 
+    pub bpm: f32,
 
     // these will go into their own table at some point
     // /// what playmode is this map data for? (osu, taiko, mania, etc)
