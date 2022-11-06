@@ -25,10 +25,11 @@ pub struct Score {
     pub speed: f32,
 
     // new mods format
+    #[serde(default)]
     mods: HashSet<String>,
 
     // old mods format, here for backwards compat
-    #[serde(skip)]
+    #[serde(skip_serializing, default)] // we want to not serialize this as its obsolete, but if it exists we want to read it
     mods_string: Option<String>,
 
     /// time diff for actual note hits. if the note wasnt hit, it wont be here
