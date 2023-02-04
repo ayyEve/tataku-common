@@ -321,24 +321,24 @@ impl Serializable for Score {
     }
 
     fn write(&self, sw: &mut SerializationWriter) {
-        sw.write(CURRENT_VERSION);
-        sw.write(self.username.clone());
-        sw.write(self.beatmap_hash.clone());
-        sw.write(self.playmode.clone());
-        sw.write(self.time);
+        sw.write(&CURRENT_VERSION);
+        sw.write(&self.username);
+        sw.write(&self.beatmap_hash);
+        sw.write(&self.playmode);
+        sw.write(&self.time);
 
-        sw.write(self.score);
-        sw.write(self.combo);
-        sw.write(self.max_combo);
+        sw.write(&self.score);
+        sw.write(&self.combo);
+        sw.write(&self.max_combo);
 
-        sw.write(self.judgments.clone());
+        sw.write(&self.judgments);
 
-        sw.write(self.accuracy);
-        sw.write(self.speed);
+        sw.write(&self.accuracy);
+        sw.write(&self.speed);
 
         // sw.write(self.mods_string.clone());
-        sw.write(self.mods.clone());
-        sw.write(self.performance);
+        sw.write(&self.mods);
+        sw.write(&self.performance);
     }
 }
 

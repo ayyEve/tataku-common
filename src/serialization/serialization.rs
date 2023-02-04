@@ -78,7 +78,7 @@ impl<T:Serializable+Clone,T2:Serializable+Clone> Serializable for (T, T2) {
     }
 
     fn write(&self, sw:&mut SerializationWriter) {
-        let (a, b) = self.clone();
+        let (a, b) = &self;
         sw.write(a);
         sw.write(b);
     }
@@ -90,7 +90,7 @@ impl<T:Serializable+Clone> Serializable for &Vec<T> {
     fn write(&self, sw:&mut SerializationWriter) {
         sw.write_u64(self.len() as u64);
         for i in self.iter() {
-            sw.write(i.clone())
+            sw.write(i)
         }
     }
 }
@@ -105,7 +105,7 @@ impl<T:Serializable+Clone> Serializable for Vec<T> {
     fn write(&self, sw:&mut SerializationWriter) {
         sw.write_u64(self.len() as u64);
         for i in self.iter() {
-            sw.write(i.clone())
+            sw.write(i)
         }
     }
 }   
@@ -117,8 +117,8 @@ impl<T:Serializable+Clone> Serializable for Option<T> {
     }
 
     fn write(&self, sw:&mut SerializationWriter) {
-        sw.write(self.is_some());
-        if let Some(t) = self {sw.write(t.clone())}
+        sw.write(&self.is_some());
+        if let Some(t) = self {sw.write(t)}
     }
 }
 
@@ -138,11 +138,11 @@ impl<A:Serializable+core::hash::Hash+Eq+Clone, B:Serializable+Clone> Serializabl
     }
 
     fn write(&self, sw:&mut SerializationWriter) {
-        sw.write(self.len());
+        sw.write(&self.len());
 
         for (key, val) in self {
-            sw.write(key.clone());
-            sw.write(val.clone());
+            sw.write(key);
+            sw.write(val);
         }
     }
 }
@@ -158,7 +158,7 @@ impl<T:Serializable+core::hash::Hash+Eq+Clone> Serializable for HashSet<T> {
     fn write(&self, sw:&mut SerializationWriter) {
         sw.write_u64(self.len() as u64);
         for i in self.iter() {
-            sw.write(i.clone())
+            sw.write(i)
         }
     }
 }   
@@ -336,7 +336,7 @@ impl SerializationWriter {
         self.data.clone()
     }
 
-    pub fn write<S>(&mut self, s:S) where S:Serializable {
+    pub fn write<S>(&mut self, s:&S) where S:Serializable {
         s.write(self);
     }
 
@@ -379,7 +379,7 @@ impl SerializationWriter {
         let bytes = s.as_bytes();
         let len = bytes.len() as u64;
 
-        self.write(len);
+        self.write(&len);
         self.data.extend(bytes.iter());
     }
     pub fn write_f32(&mut self, n:f32) {
@@ -401,8 +401,8 @@ mod test {
     #[test]
     fn writer_test() {
         let mut writer = SerializationWriter::new();
-        writer.write(1 as usize);
-        writer.write("hello".to_owned());
+        writer.write(&(1 as usize));
+        writer.write(&("hello".to_owned()));
 
         let line = writer.data().iter().map(|b|format!("{:#x}", b)).collect::<Vec<String>>().join(", ");
         println!("{}", line);

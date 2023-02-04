@@ -39,6 +39,6 @@ impl Serializable for Vec<ServerPermissions> {
         for i in self {
             num |= *i as u16
         }
-        sw.write(num)
+        sw.write(&num)
     }
 }

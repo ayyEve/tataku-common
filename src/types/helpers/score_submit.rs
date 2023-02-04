@@ -28,11 +28,11 @@ impl Serializable for ScoreSubmit {
     }
 
     fn write(&self, sw:&mut SerializationWriter) {
-        sw.write(self.username.clone());
-        sw.write(self.password.clone());
-        sw.write(self.game.clone());
-        sw.write(self.replay.clone());
-        sw.write(self.map_info.clone());
+        sw.write(&self.username);
+        sw.write(&self.password);
+        sw.write(&self.game);
+        sw.write(&self.replay);
+        sw.write(&self.map_info);
     }
 }
 
@@ -53,9 +53,9 @@ impl Serializable for ScoreMapInfo {
     }
 
     fn write(&self, sw:&mut SerializationWriter) {
-        sw.write(self.game.clone());
-        sw.write(self.map_hash.clone());
-        sw.write(self.playmode.clone());
+        sw.write(&self.game);
+        sw.write(&self.map_hash);
+        sw.write(&self.playmode);
     }
 }
 
@@ -78,9 +78,9 @@ impl Serializable for MapGame {
 
     fn write(&self, sw:&mut SerializationWriter) {
         match self {
-            MapGame::Osu => sw.write("osu".to_owned()),
-            MapGame::Quaver => sw.write("quaver".to_owned()),
-            MapGame::Other(s) => sw.write(s.clone()),
+            MapGame::Osu => sw.write(&"osu".to_owned()),
+            MapGame::Quaver => sw.write(&"quaver".to_owned()),
+            MapGame::Other(s) => sw.write(s),
         }
     }
 }

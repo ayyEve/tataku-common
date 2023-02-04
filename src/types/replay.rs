@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use std::collections::HashMap;
 
-const CURRENT_VERSION:u16 = 4;
+const CURRENT_VERSION:u16 = 5;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Replay {
@@ -11,6 +11,9 @@ pub struct Replay {
     /// any extra gameplay variables which are helpful to know
     pub gamemode_data: HashMap<String, String>,
 
+    /// time offset 
+    pub offset: f32,
+
     /// (time, key)
     pub frames: Vec<(f32, ReplayFrame)>, 
 }
@@ -18,9 +21,8 @@ impl Replay {
     pub fn new() -> Replay {
         Replay {
             frames: Vec::new(),
-            // playstyle: Playstyle::None,
+            offset: 0.0,
             score_data: None,
-            // speed: 1.0
             gamemode_data: HashMap::new()
         }
     }
@@ -47,6 +49,11 @@ impl Serializable for Replay {
             r.gamemode_data = sr.read()?;
         }
 
+        // v5+ has map offset
+        if version >= 5 {
+            r.offset = sr.read()?;
+        }
+
         // all versions have the frame data
         r.frames = sr.read()?;
         
@@ -54,10 +61,11 @@ impl Serializable for Replay {
     }
 
     fn write(&self, sw: &mut SerializationWriter) {
-        sw.write(CURRENT_VERSION); // all versions
+        sw.write(&CURRENT_VERSION); // all versions
         // sw.write(self.playstyle as u8); // removed in v2
-        sw.write(self.score_data.clone()); // added in v2
-        sw.write(self.gamemode_data.clone()); // added in v3, fixed in v4
+        sw.write(&self.score_data); // added in v2
+        sw.write(&self.gamemode_data); // added in v3, fixed in v4
+        sw.write(&self.offset); // added in v5
 
         // println!("writing {} replay frames", self.frames.len());
         sw.write(&self.frames); // all versions
@@ -93,7 +101,7 @@ pub enum KeyPress {
     RightMouse = 34,
 
 
-
+    SkipIntro = 254,
     Unknown = 255
 }
 impl Into<u8> for KeyPress {
@@ -127,7 +135,7 @@ impl From<u8> for KeyPress {
             32 => Dash,
 
 
-
+            254 => SkipIntro,
             255 => Unknown,
             _ => Unknown
         }
@@ -147,30 +155,28 @@ pub enum ReplayFrame {
 }
 impl Serializable for ReplayFrame {
     fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
-        use ReplayFrame::*;
         Ok(match sr.read_u8()? {
-            0 => Press(sr.read()?),
-            1 => Release(sr.read()?),
-            2 => MousePos(sr.read()?, sr.read()?),
+            0 => ReplayFrame::Press(sr.read()?),
+            1 => ReplayFrame::Release(sr.read()?),
+            2 => ReplayFrame::MousePos(sr.read()?, sr.read()?),
             _ => panic!("error reading replay frame type")
         })
     }
 
     fn write(&self, sw:&mut SerializationWriter) {
-        use ReplayFrame::*;
         match self {
-            Press(k) => {
+            ReplayFrame::Press(k) => {
                 sw.write_u8(0);
-                sw.write(*k);
+                sw.write(k);
             }
-            Release(k) => {
+            ReplayFrame::Release(k) => {
                 sw.write_u8(1);
-                sw.write(*k);
+                sw.write(k);
             }
-            MousePos(x,y) => {
+            ReplayFrame::MousePos(x,y) => {
                 sw.write_u8(2);
-                sw.write(*x);
-                sw.write(*y);
+                sw.write(x);
+                sw.write(y);
             }
         }
     }

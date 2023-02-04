@@ -6,6 +6,7 @@ pub type SpectatorFrames = Vec<SpectatorFrame>;
 #[derive(Clone, Debug)]
 #[derive(PacketSerialization)]
 #[Packet(type="u8")]
+#[Packet(extra_logging)]
 pub enum SpectatorFrameData {
     /// host started a new map
     /// NOTE: mods is a comma separated list of mod ids, ie "no_fail, autoplay"

@@ -1,0 +1,22 @@
+[package]
+name = "tataku-proc-macros"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+packet_logging = []
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "*"
+quote = "*"
+proc-macro2 = "*"
+
+[dev-dependencies]
+serde = "1"
+tataku-common = {git="https://gitlab.ayyeve.xyz/tataku/tataku-common"}
+# tataku-common = {path = "../tataku-common"}

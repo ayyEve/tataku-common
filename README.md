@@ -15,23 +15,29 @@ first, some common things you'll see
   - `i64`: signed long (8 bytes)
   - `u128`: unsigned double long (16 bytes)
   - `i128`: signed double long (16 bytes)
+  - `f32`: 32-bit floating-point value (4 bytes)
+  - `f64`: 64 bit floating-point value (8 bytes)
 
  - Data Types
   - `String`: text
   - `bool`: boolean
   - `(T1, T2[,...])`: tuple. this can contain any number of values. ie `(u8, bool, String, String)`
   - `Vec<T>`: list/array of type T
+  - `HashMap<K,V>`: Dictionary of V indexed by K
+  - `HashSet<V>`: Dictionary of K indexed by K
 
  - Rust Enums
-  - rust enums are unlike other language enums, they can contain variable data. this 
+  - rust enums are unlike other language enums, they can contain variable data. variants can contain data themselves.
 
 
 How types are written
  - any number type: type as LE bytes
- - `String` : [string length (u64)] [char1 (u8)] [char2 (u8)] [...]
- - `bool`   : [0 (false) or 1 (true) as u8]
- - `(v1,v2)`: [v1] [v2] [...]
- - `Vec<T>` : [list size (u64)] [data in index 0] [data in index 1] [...]
+ - `String`        : [string length (u64)] [char1 (u8)] [char2 (u8)] [...]
+ - `bool`          : [0 (false) or 1 (true) as u8]
+ - `(v1,v2)`       : [v1] [v2] [...]
+ - `Vec<T>`        : [list size (u64)] [data in index 0] [data in index 1] [...]
+ - `HashMap<K, V>` : [list size (u64)] [key1][val1] [key2][val2] [...]
+ - `HashSet<V>`    : [list size (u64)] [val1] [val2] [...]
 
 
  How to read enums:
