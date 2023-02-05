@@ -160,6 +160,32 @@ pub enum PacketId {
         message: String
     },
 
+    /// client requesting all friends from the server
+    #[Packet(id=302)]
+    Client_GetFriends,
+    /// server giving the client all the user's friend's ids
+    #[Packet(id=303)]
+    Server_FriendsList {
+        friend_ids: Vec<u32>,
+    },
+
+    /// client-side changed friend status with someone
+    #[Packet(id=304)]
+    Client_UpdateFriend {
+        friend_id: u32,
+        /// true if adding friend, false if removing friend
+        is_friend: bool,
+    },
+    /// server-side changed friend status with someone
+    /// NOTE: this *WILL* be sent as a response to a Client_UpdateFriend request, however it can also be sent if the user updated the friend status through the web
+    #[Packet(id=305)]
+    Server_UpdateFriend {
+        friend_id: u32,
+        /// true if adding friend, false if removing friend
+        is_friend: bool,
+    },
+
+
 
     // ======= Spectator =======
 
