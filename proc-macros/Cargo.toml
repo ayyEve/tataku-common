@@ -12,7 +12,7 @@ packet_logging = []
 proc-macro = true
 
 [dependencies]
-syn = "*"
+syn = "1.0"
 quote = "*"
 proc-macro2 = "*"
 
