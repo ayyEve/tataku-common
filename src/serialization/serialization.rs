@@ -10,14 +10,38 @@ use std::{
 pub type SerializationResult<S> = Result<S, SerializationError>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SerializationError {
-    OutOfBounds,
-    FromUtf8Error(FromUtf8Error),
+pub struct SerializationError {
+    pub inner: SerializationErrorEnum,
+    pub stack: Vec<String>,
+}
+impl SerializationError {
+    pub fn add_trace(mut self, trace: impl ToString) -> Self {
+        self.stack.insert(0, trace.to_string());
+        self
+    }
+}
+impl From<SerializationErrorEnum> for SerializationError {
+    fn from(value: SerializationErrorEnum) -> Self {
+        Self {
+            inner: value,
+            stack: Vec::new()
+        }
+    }
 }
 impl From<FromUtf8Error> for SerializationError {
     fn from(utf8err: FromUtf8Error) -> Self {
-        SerializationError::FromUtf8Error(utf8err)
+        Self {
+            inner: SerializationErrorEnum::FromUtf8Error(utf8err),
+            stack: Vec::new()
+        }
     }
+}
+
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SerializationErrorEnum {
+    OutOfBounds,
+    FromUtf8Error(FromUtf8Error),
 }
 
 
@@ -167,7 +191,7 @@ impl<T:Serializable+core::hash::Hash+Eq+Clone> Serializable for HashSet<T> {
 /// macro to help with checking if things are in range
 macro_rules! check_range {
     ($self:expr, $offset:expr, $len: expr) => {
-        if $self.data.len() < $offset + $len {return Err(SerializationError::OutOfBounds)}
+        if $self.data.len() < $offset + $len {return Err(SerializationErrorEnum::OutOfBounds.into())}
     };
 }
 // implement for wrapper types

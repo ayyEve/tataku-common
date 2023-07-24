@@ -21,11 +21,12 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
         id: u16,
         name: String,
         fields: Vec<String>,
-        version: u64
+        // version: u64
     }
     let mut extra_logging = false;
     let mut type_ = "u8".to_owned();
     let mut should_impl_into_from_type = false;
+    // let mut rolling_id = 0;
 
     // find the type of the packet, and if it should gen 
     for a in ast.attrs.iter() {
@@ -62,7 +63,7 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
             let variant_name = &v.ident;
             let mut id:Option<u16> = None;
 
-            let mut version = 0;
+            // let mut version = 0;
 
             // find the id of the packet
             for a in v.attrs.iter() {
@@ -75,11 +76,11 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                                     id = Some(i.base10_parse::<u16>().unwrap())
                                 }
                             }
-                            if name_value.path.is_ident("version") {
-                                if let Lit::Int(i) = &name_value.lit {
-                                    version = i.base10_parse::<u64>().unwrap()
-                                }
-                            }
+                            // if name_value.path.is_ident("version") {
+                            //     if let Lit::Int(i) = &name_value.lit {
+                            //         version = i.base10_parse::<u64>().unwrap()
+                            //     }
+                            // }
                         }
                         if let NestedMeta::Meta(Meta::Path(name)) = &i {
                             if name.is_ident("default_variant") {
@@ -104,7 +105,7 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
             variant_list.push(EnumData {
                 name: variant_name.to_string(),
                 id,
-                version,
+                // version,
                 fields: v.fields.iter().map(|f|f.ident.as_ref().unwrap().to_string()).collect()
             })
         }
@@ -221,6 +222,117 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
     }
 
     if extra_logging {println!("generated: {}", impl_str)}
+    let impl_tokens = impl_str.parse::<proc_macro2::TokenStream>().unwrap();
+    quote! {
+        #impl_tokens
+    }
+}
+
+
+#[proc_macro_derive(Serializable, attributes(Serialize))]
+pub fn serializable(input: TokenStream)  -> TokenStream {
+    let ast = syn::parse(input).unwrap();
+
+    // Build the impl
+    let gen = impl_serializable(&ast);
+    
+    // Return the generated impl
+    proc_macro::TokenStream::from(gen)
+}
+fn impl_serializable(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
+    let mut read_lines = Vec::new();
+    let mut write_lines = Vec::new();
+
+    let struct_name = ast.ident.to_string();
+    let mut read_version = false;
+
+    read_lines.push("let mut s = Self::default();".to_owned());
+
+    if let Data::Struct(data) = &ast.data {
+
+        // check if this struct has a version attached
+        for attr in ast.attrs.iter() {
+            if !attr.path.is_ident("Serialize") { continue }
+            if let Ok(Meta::List(list)) = attr.parse_meta() {
+                for i in list.nested {
+                    if let NestedMeta::Meta(Meta::NameValue(name_value)) = &i {
+                        if name_value.path.is_ident("read_version") {
+                            if let Lit::Bool(i) = &name_value.lit {
+                                read_version = i.value;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // check to see if we have a version field
+        if let Some(f) = data.fields.iter().next() {
+            if f.ident.as_ref().unwrap().to_string() == "version" {
+                read_lines.push(format!("s.version = sr.read().map_err(|e|e.add_trace(\"at {struct_name}.version\"))?;"));
+                read_lines.push(format!("let version = s.version;"));
+            } else {
+                if read_version {
+                    read_lines.push(format!("let version = sr.read_u16().map_err(|e|e.add_trace(\"at {struct_name}.version\"))?;"));
+                } else {
+                    read_lines.push("let version = 0u16; //version.unwrap_or_default();".to_owned());
+                }
+            }
+        }
+
+
+        for field in data.fields.iter() {
+            let name = field.ident.as_ref().unwrap().to_string();
+            let mut version = 0;
+
+            // check for version tag
+            for a in field.attrs.iter() {
+                if !a.path.is_ident("Serialize") { continue }
+                if let Ok(Meta::List(list)) = a.parse_meta() {
+                    for i in list.nested {
+                        if let NestedMeta::Meta(Meta::NameValue(name_value)) = &i {
+                            if name_value.path.is_ident("version") {
+                                if let Lit::Int(i) = &name_value.lit {
+                                    version = i.base10_parse::<u64>().unwrap()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            let trace = format!("at {struct_name}.{name}");
+            if version > 0 {
+                read_lines.push(format!("if version > {version} {{s.{name} = sr.read().map_err(|e|e.add_trace(\"{trace}\"))?;}}"));
+            } else {
+                read_lines.push(format!("s.{name} = sr.read().map_err(|e|e.add_trace(\"{trace}\"))?;"));
+            }
+
+            write_lines.push(format!("sw.write(&self.{name});"));
+        }
+    }
+
+    let read_lines = read_lines.join("\n");
+    let write_lines = write_lines.join("\n");
+
+    let impl_str = format!("
+        impl Serializable for {struct_name} {{
+            fn read(sr:&mut SerializationReader) -> SerializationResult<Self> where Self: Sized {{
+                {read_lines}
+                Ok(s)
+            }}
+            fn write(&self, sw:&mut SerializationWriter) {{
+                {write_lines}
+            }}
+        }}"
+    );
+
+    #[cfg(feature="serialization_logging")] {
+        std::fs::create_dir_all("debug").unwrap();
+        std::fs::write(format!("debug/{struct_name}.rs"), &impl_str).unwrap();
+        // println!("generated: {}", impl_str)
+    }
+
     let impl_tokens = impl_str.parse::<proc_macro2::TokenStream>().unwrap();
     quote! {
         #impl_tokens
