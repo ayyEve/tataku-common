@@ -1,17 +1,16 @@
 use crate::prelude::*;
 use std::collections::HashMap;
 use serde::{ Serialize, Deserialize };
-use crate::types::PlayMode;
 
 
-const CURRENT_VERSION:u16 = 7;
+const CURRENT_VERSION:u16 = 8;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Score {
     pub version: u16,
     pub username: String,
     pub beatmap_hash: String,
-    pub playmode: PlayMode,
+    pub playmode: String,
     /// time in non-leap seconds since unix_epoch (UTC)
     pub time: u64,
 
@@ -25,20 +24,24 @@ pub struct Score {
     pub speed: f32,
     pub performance: f32,
 
-    // new mods format
+    /// new mods format
     #[serde(default)]
     mods: HashSet<String>,
 
-    // old mods format, here for backwards compat
+    /// old mods format, here for backwards compat
     #[serde(skip_serializing, default)] // we want to not serialize this as its obsolete, but if it exists we want to read it
     mods_string: Option<String>,
 
     /// time diff for actual note hits. if the note wasnt hit, it wont be here
     /// (user_hit_time - correct_time)
     pub hit_timings: Vec<f32>,
+
+    /// this was poorly documented when i initially added it to tataku.
+    /// once i have the brain power to figure it out i'll update this doc
+    pub stat_data: HashMap<String, Vec<f32>>,
 }
 impl Score {
-    pub fn new(beatmap_hash:String, username:String, playmode:PlayMode) -> Score {
+    pub fn new(beatmap_hash:String, username:String, playmode:String) -> Score {
         Score {
             version: CURRENT_VERSION,
             username,
@@ -56,7 +59,8 @@ impl Score {
             speed: 1.0,
             hit_timings: Vec::new(),
             mods_string: None,
-            mods: HashSet::new()
+            mods: HashSet::new(),
+            stat_data: HashMap::new(),
         }
     }
     
@@ -160,12 +164,14 @@ impl Score {
 
         judgments
     }
-
+    
+    pub fn get_judgment(&self, judgment: impl AsRef<str>) -> u16 {
+        self.judgments.get(judgment.as_ref()).cloned().unwrap_or_default()
+    }
 }
 
 // mods stuff
 impl Score {
-    
     // get the currently-set mods for this score
     pub fn mods(&self) -> HashSet<String> {
         if self.mods.len() == 0 {
@@ -271,7 +277,7 @@ impl Serializable for Score {
         let accuracy = sr.read()?;
         let speed = version!(2, 0.0);
 
-        let mut mods_string:Option<String> = None;
+        let mut mods_string: Option<String> = None;
         let mut mods = HashSet::new();
 
         // v 3-5 stored mods as a string
@@ -297,6 +303,7 @@ impl Serializable for Score {
         }
 
         let performance = version!(7, 0.0);
+        let stat_data = version!(8, HashMap::new());
 
         Ok(Score {
             version,
@@ -317,6 +324,7 @@ impl Serializable for Score {
 
             mods_string,
             mods,
+            stat_data
         })
     }
 
@@ -339,23 +347,10 @@ impl Serializable for Score {
         // sw.write(self.mods_string.clone());
         sw.write(&self.mods);
         sw.write(&self.performance);
+        sw.write(&self.stat_data);
     }
 }
 
-
-
-#[derive(Copy, Clone, Debug)]
-pub enum ScoreHit {
-    None,
-    Miss,
-    X50,
-    X100,
-    X300,
-    Xgeki,
-    Xkatu,
-    /// score increment, consume the object
-    Other(u32, bool)
-}
 
 
 /// helper struct
@@ -366,9 +361,6 @@ pub struct HitError {
     pub late: f32,
     pub deviance: f32
 }
-
-
-
 
 
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]

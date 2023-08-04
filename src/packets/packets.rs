@@ -106,7 +106,7 @@ pub enum PacketId {
         /// is there some text associated with this?
         action_text: String,
         /// what mode is the user in?
-        mode: PlayMode
+        mode: String
     },
     #[Packet(id=201)]
     Server_UserStatusUpdate {
@@ -117,7 +117,7 @@ pub enum PacketId {
         /// is there some text associated with this?
         action_text: String,
         /// what mode is the user in?
-        mode: PlayMode
+        mode: String
     },
     /// Sent by a client to notify the server to update their score for everyone
     #[Packet(id=202)]
@@ -218,12 +218,12 @@ pub enum PacketId {
     /// client is sending us spectator frames
     #[Packet(id=404)]
     Client_SpectatorFrames {
-        frames: Vec<(f32, SpectatorFrameData)>
+        frames: Vec<SpectatorFrame>
     },
     /// server is sending us spectator frames
     #[Packet(id=405)]
     Server_SpectatorFrames {
-        frames: Vec<(f32, SpectatorFrameData)>
+        frames: Vec<SpectatorFrame>
     },
     /// server is telling us someone wants to know our current in-game progress
     #[Packet(id=406)]
