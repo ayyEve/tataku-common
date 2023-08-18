@@ -9,7 +9,15 @@ pub enum SpectatorAction {
     /// NOTE: mods is a comma separated list of mod ids, ie "no_fail, autoplay"
     /// speed will need to be divided by 100
     #[Packet(id=0)]
-    Play { beatmap_hash: String, mode: String, mods: String, speed: u16 },
+    Play { 
+        beatmap_hash: String, 
+        mode: String, 
+        mods: String, 
+        speed: u16,
+
+        map_game: MapGame,
+        map_link: Option<String>
+    },
 
     /// host paused current map
     #[Packet(id=1)]
@@ -40,16 +48,22 @@ pub enum SpectatorAction {
     #[Packet(id=7)]
     ChangingMap,
 
-    /// response for current map info
+    /// the time has jumped
+    /// 
+    /// usually used when the player joins spec mid-map
     #[Packet(id=8)]
-    /// NOTE: mods is a comma separated list of mod ids, ie "no_fail, autoplay"
-    /// speed will need to be divided by 100
-    PlayingResponse { user_id: u32, beatmap_hash: String, mode: String, mods: String, current_time: f32, speed: u16 },
+    TimeJump { time: f32 },
 
-    /// info about the map specified, might include a way to download it
-    /// NOTE!! you should verify the download link instead of blindly trusting it
-    #[Packet(id=9)]
-    MapInfo { beatmap_hash: String, game: String, download_link: Option<String> },
+    // /// response for current map info
+    // #[Packet(id=8)]
+    // /// NOTE: mods is a comma separated list of mod ids, ie "no_fail, autoplay"
+    // /// speed will need to be divided by 100
+    // PlayingResponse { user_id: u32, beatmap_hash: String, mode: String, mods: String, current_time: f32, speed: u16 },
+
+    // /// info about the map specified, might include a way to download it
+    // /// NOTE!! you should verify the download link instead of blindly trusting it
+    // #[Packet(id=9)]
+    // MapInfo { beatmap_hash: String, game: String, download_link: Option<String> },
 
     /// unknown packet
     #[Packet(id=255, default_variant)]
