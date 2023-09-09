@@ -10,7 +10,7 @@ pub enum SpectatorAction {
     /// speed will need to be divided by 100
     #[Packet(id=0)]
     Play { 
-        beatmap_hash: String, 
+        beatmap_hash: Md5Hash, 
         mode: String, 
         mods: String, 
         speed: u16,

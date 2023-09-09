@@ -9,7 +9,7 @@ const CURRENT_VERSION:u16 = 8;
 pub struct Score {
     pub version: u16,
     pub username: String,
-    pub beatmap_hash: String,
+    pub beatmap_hash: Md5Hash,
     pub playmode: String,
     /// time in non-leap seconds since unix_epoch (UTC)
     pub time: u64,
@@ -41,7 +41,7 @@ pub struct Score {
     pub stat_data: HashMap<String, Vec<f32>>,
 }
 impl Score {
-    pub fn new(beatmap_hash:String, username:String, playmode:String) -> Score {
+    pub fn new(beatmap_hash:Md5Hash, username:String, playmode:String) -> Score {
         Score {
             version: CURRENT_VERSION,
             username,

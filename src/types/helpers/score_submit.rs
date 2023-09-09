@@ -40,7 +40,7 @@ impl Serializable for ScoreSubmit {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ScoreMapInfo {
     pub game: MapGame,
-    pub map_hash: String,
+    pub map_hash: Md5Hash,
     pub playmode: String,
 }
 impl Serializable for ScoreMapInfo {

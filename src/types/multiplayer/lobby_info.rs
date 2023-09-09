@@ -57,7 +57,7 @@ pub struct FullLobbyInfo {
 #[derive(Serialize, Deserialize, Serializable)]
 pub struct LobbyBeatmap {
     pub title: String,
-    pub hash: String,
+    pub hash: Md5Hash,
     pub mode: String,
     pub map_game: MapGame,
 }
