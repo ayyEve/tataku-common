@@ -1,6 +1,7 @@
 mod score;
 mod replays;
 mod helpers;
+mod md5_hash;
 mod severity;
 mod spectator;
 mod multiplayer;
@@ -13,6 +14,7 @@ mod server_drop_reason;
 pub use score::*;
 pub use replays::*;
 pub use helpers::*;
+pub use md5_hash::*;
 pub use severity::*;
 pub use spectator::*;
 pub use multiplayer::*;

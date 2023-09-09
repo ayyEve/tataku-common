@@ -2,6 +2,7 @@ use std::{
     rc::Rc,
     sync::Arc, 
     convert::TryInto, 
+    num::ParseIntError, 
     collections::HashSet,
     collections::HashMap,
     string::FromUtf8Error, 
@@ -36,12 +37,20 @@ impl From<FromUtf8Error> for SerializationError {
         }
     }
 }
-
+impl From<ParseIntError> for SerializationError {
+    fn from(interr: ParseIntError) -> Self {
+        Self {
+            inner: SerializationErrorEnum::ParseIntError(interr),
+            stack: Vec::new()
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SerializationErrorEnum {
     OutOfBounds,
     FromUtf8Error(FromUtf8Error),
+    ParseIntError(ParseIntError),
 }
 
 
