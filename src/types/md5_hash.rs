@@ -51,18 +51,14 @@ impl std::fmt::Display for Md5Hash {
 
 impl Serializable for Md5Hash {
     fn read(sr:&mut crate::SerializationReader) -> crate::SerializationResult<Self> where Self: Sized {
-        // println!("reading md5 hash");
         let s = sr.read_string()?;
         let r = Ok(s.try_into()?);
-        // println!("read md5 hash");
         r
     }
 
     fn write(&self, sw:&mut crate::SerializationWriter) {
-        println!("writing md5 hash");
         let s = self.to_string();
         sw.write(&s);
-        println!("wrote");
     }
 }
 
