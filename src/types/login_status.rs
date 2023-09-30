@@ -16,4 +16,8 @@ pub enum LoginStatus {
     /// user doesnt exist
     #[Packet(id=3)]
     NoUser,
+    
+    /// account has not been activated
+    #[Packet(id=4)]
+    NotActivated,
 }
