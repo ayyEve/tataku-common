@@ -25,6 +25,8 @@ pub struct Model {
     pub playmode: String,
     pub game: String,
     pub mods: String, // empty string if no mods
+    /// speed multiplier (f32 * 100) as i32
+    pub speed: i32, 
 
     pub submit_date: sea_orm::prelude::DateTime,
 }

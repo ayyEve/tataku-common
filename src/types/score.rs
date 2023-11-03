@@ -21,7 +21,7 @@ pub struct Score {
     pub judgments: HashMap<String, u16>,
 
     pub accuracy: f64,
-    pub speed: f32,
+    pub speed: GameSpeed,
     pub performance: f32,
 
     /// new mods format
@@ -56,7 +56,7 @@ impl Score {
 
             judgments: HashMap::new(),
             accuracy: 0.0,
-            speed: 1.0,
+            speed: GameSpeed::default(),
             hit_timings: Vec::new(),
             mods_string: None,
             mods: HashSet::new(),
@@ -275,7 +275,11 @@ impl Serializable for Score {
         }
 
         let accuracy = sr.read()?;
-        let speed = version!(2, 0.0);
+        let speed = if version >= 2 {
+            GameSpeed::from_f32(sr.read_f32()?)
+        } else {
+            GameSpeed::default()
+        };
 
         let mut mods_string: Option<String> = None;
         let mut mods = HashSet::new();
@@ -342,7 +346,7 @@ impl Serializable for Score {
         sw.write(&self.judgments);
 
         sw.write(&self.accuracy);
-        sw.write(&self.speed);
+        sw.write(&self.speed.as_f32());
 
         // sw.write(self.mods_string.clone());
         sw.write(&self.mods);
@@ -363,6 +367,7 @@ pub struct HitError {
 }
 
 
+/// legacy mod manager, only used to read old scores
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 struct ModManager {
