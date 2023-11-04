@@ -6,7 +6,7 @@ use serde::{ Serialize, Deserialize };
 /// since we want them to be easily comparable (unlike f32s with floating point issues)
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
-#[serde(from="u16", into="u16")]
+#[serde(from="f32", into="f32")]
 pub struct GameSpeed(u16);
 impl GameSpeed {
     #[inline]
