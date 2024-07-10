@@ -13,5 +13,5 @@ pub use crate::types::*;
 pub use crate::packets::*;
 pub use crate::serialization::*;
 pub use serde::{Serialize, Deserialize};
-pub use tataku_proc_macros::Serializable;
-pub use tataku_proc_macros::PacketSerialization;
+pub use tataku_common_proc_macros::Serializable;
+pub use tataku_common_proc_macros::PacketSerialization;

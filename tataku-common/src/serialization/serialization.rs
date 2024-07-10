@@ -51,6 +51,7 @@ pub enum SerializationErrorEnum {
     OutOfBounds,
     FromUtf8Error(FromUtf8Error),
     ParseIntError(ParseIntError),
+    VersionTooOld,
 }
 
 
@@ -423,6 +424,30 @@ impl SerializationWriter {
     }
     
 }
+
+// impl<K:Serializable, V: Serializable> Serializable for HashMap<K, V> {
+//     fn read(sr: &mut SerializationReader) -> SerializationResult<Self> where Self: Sized {
+//         let mut map = HashMap::new();
+
+//         let count: u64 = sr.read()?;
+//         for _ in 0..count {
+//             let k = K::read(sr)?;
+//             let v = V::read(sr)?;
+//             map.insert(k, v);
+//         }
+
+//         Ok(map)
+//     }
+
+//     fn write(&self, sw:&mut SerializationWriter) {
+//         sw.write(&self.len());
+
+//         for (k, v) in self.iter() {
+//             sw.write(k);
+//             sw.write(v);
+//         }
+//     }
+// }
 
 
 

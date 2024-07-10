@@ -1,7 +1,11 @@
 /.vscode
-
 /target
 Cargo.lock
+
+/tataku-common/target
+/tataku-common/Cargo.lock
+/tataku-common-proc-macros/target
+/tataku-common-proc-macros/Cargo.lock
 
 
 /debug
