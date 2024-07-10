@@ -12,7 +12,7 @@ pub enum SpectatorAction {
     Play { 
         beatmap_hash: Md5Hash, 
         mode: String, 
-        mods: String, 
+        mods: Vec<ModDefinition>, 
         speed: u16,
 
         map_game: MapGame,
