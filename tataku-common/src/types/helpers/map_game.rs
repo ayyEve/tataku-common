@@ -11,7 +11,7 @@ pub enum MapGame {
 }
 impl Serializable for MapGame {
     fn read(sr:&mut SerializationReader) -> SerializationResult<Self> where Self: Sized {
-        let s:String = sr.read()?;
+        let s:String = sr.read("MapGame")?;
         match &*s.to_lowercase() {
             "osu" => Ok(Self::Osu),
             "quaver" => Ok(Self::Quaver),

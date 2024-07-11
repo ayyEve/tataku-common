@@ -2,8 +2,12 @@ use crate::prelude::*;
 use std::collections::HashMap;
 use serde::{ Serialize, Deserialize };
 
-
-// v9 moved the replay to the score object, removed the mods_string object, and changed mods to a Vec<ModDefinition>
+// v2 added game speed as an f32
+// v4 added custom judgments instead of sticking explicitly to osu judgment names
+// v5 added time
+// v6 changed mods to a hashset of mod ids
+// v7 added performance value
+// v9 moved the replay to the score object, removed the mods_string object, and changed mods to a Vec<ModDefinition>, also changed accuracy from f64 to f32
 const CURRENT_VERSION:u16 = 9;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -23,10 +27,12 @@ pub struct Score {
 
     pub accuracy: f32,
     pub speed: GameSpeed,
-    pub performance: f32,
 
     /// new mods format
     pub mods: Vec<ModDefinition>,
+
+    /// how many performance points this is worth
+    pub performance: f32,
 
     /// time diff for actual note hits. if the note wasnt hit, it wont be here
     /// (user_hit_time - correct_time)
@@ -174,7 +180,9 @@ impl Score {
 
 impl Serializable for Score {
     fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {
-        let version = sr.read_u16()?;
+        sr.push_parent("Score");
+
+        let version = sr.read::<u16>("version")?;
 
         if version < 9 {
             return read_old_score(version, sr);
@@ -190,29 +198,32 @@ impl Serializable for Score {
         // }
 
         // everything here so far exists in v9
-        Ok(Score {
+        let a = Ok(Score {
             version,
-            username: sr.read()?,
-            beatmap_hash: sr.read()?,
-            playmode: sr.read()?,
-            time: sr.read()?,
+            username: sr.read("username")?,
+            beatmap_hash: sr.read("beatmap_hash")?,
+            playmode: sr.read("playmode")?,
+            time: sr.read("time")?,
             
-            score: sr.read()?,
-            combo: sr.read()?,
-            max_combo: sr.read()?,
-            judgments: sr.read()?,
-            accuracy: sr.read()?,
-            speed: GameSpeed::from_f32(sr.read()?),
+            score: sr.read("score")?,
+            combo: sr.read("combo")?,
+            max_combo: sr.read("max_combo")?,
+            judgments: sr.read("judgments")?,
+            accuracy: sr.read("accuracy")?,
+            speed: GameSpeed::from_f32(sr.read("speed")?),
 
-            mods: sr.read()?,
-            performance: sr.read()?,
+            mods: sr.read("mods")?,
+            performance: sr.read("performance")?,
 
             // mods_string,
-            stat_data: sr.read()?,
-            replay: sr.read()?,
+            stat_data: sr.read("stat_data")?,
+            replay: sr.read("replay")?,
 
             hit_timings: Vec::new(),
-        })
+        });
+
+        sr.pop_parent();
+        a
     }
 
     fn write(&self, sw: &mut SerializationWriter) {
@@ -253,7 +264,7 @@ pub struct HitError {
 /// legacy mod manager, only used to read old scores
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
-struct ModManager {
+pub(crate) struct ModManager {
     speed: Option<u16>,
     
     easy: bool,
@@ -268,23 +279,25 @@ fn read_old_score(
     sr: &mut SerializationReader,
 ) -> SerializationResult<Score> {
     macro_rules! version {
-        ($v:expr, $def:expr) => {
+        ($v:expr, $a: expr, $def:expr) => {
             if version >= $v {
-                sr.read()?
+                sr.read($a)?
             } else {
                 $def
             }
         };
     }
 
-    let username = sr.read()?;
-    let beatmap_hash = sr.read()?;
-    let playmode = sr.read()?;
-    let time = version!(5, 0); // v5 added time
+    sr.push_parent("Score (old)");
 
-    let score = sr.read()?;
-    let combo = sr.read()?;
-    let max_combo = sr.read()?;
+    let username = sr.read("username")?;
+    let beatmap_hash = sr.read("beatmap_hash")?;
+    let playmode = sr.read("playmode")?;
+    let time = version!(5, "time", 0); // v5 added time
+
+    let score = sr.read("score")?;
+    let combo = sr.read("combo")?;
+    let max_combo = sr.read("max_combo")?;
 
     // before version 4, judgments were stored manually
     let mut judgments = HashMap::new();
@@ -297,61 +310,97 @@ fn read_old_score(
             "xkatu",
             "xmiss"
         ] {
-            let val:u16 = sr.read()?;
+            let val:u16 = sr.read(i)?;
             judgments.insert(i.to_owned(), val);
         }
     } else {
-        let count:usize = sr.read()?;
-        for _ in 0..count {
-            let key = sr.read()?;
-            let val = sr.read()?;
+        let count:usize = sr.read("judment count")?;
+        for n in 0..count {
+            let key = sr.read(format!("judgement key #{n}"))?;
+            let val = sr.read(format!("judgment val #{n}"))?;
             judgments.insert(key, val);
         }
     }
 
-    let accuracy = sr.read()?;
+    let accuracy:f64 = sr.read("accuracy")?;
     let speed = if version >= 2 {
-        GameSpeed::from_f32(sr.read_f32()?)
+        GameSpeed::from_f32(sr.read::<f32>("speed")?)
     } else {
         GameSpeed::default()
     };
 
-    let mut mods = HashSet::new();
+    let mut mods2 = HashSet::new();
+    let mut mods = Vec::new();
 
     // v 3-5 stored mods as a string
-    if version >= 3 {
-        if version <= 5 {
+    match version {
+        // v 0,1,2 did not have mods
+        0..=2 => {}
+        
+        // v 3-5 stored mods as a string
+        3..=5 => {
             // old mods
-            let mods_string: Option<String> = sr.read()?;
+            let mods_string: Option<String> = sr.read("mods string")?;
 
             // parse here, save time later
             if let Some(str) = &mods_string {
                 if let Ok(manager) = serde_json::from_str::<ModManager>(str) {
-                    if manager.autoplay { mods.insert("autoplay".to_owned()); }
-                    if manager.nofail { mods.insert("no_fail".to_owned()); }
-                    if manager.hard_rock { mods.insert("hard_rock".to_owned()); }
-                    if manager.easy { mods.insert("easy".to_owned()); }
+                    if manager.autoplay { mods2.insert("autoplay".to_owned()); }
+                    if manager.nofail { mods2.insert("no_fail".to_owned()); }
+                    if manager.hard_rock { mods2.insert("hard_rock".to_owned()); }
+                    if manager.easy { mods2.insert("easy".to_owned()); }
                 }
             }
-
-        } else {
-            // new mods as of v6
-            mods = sr.read()?;
         }
+        
+        // 6-8 stored mods as a hashset of mod ids
+        6..=8 => {
+            mods2 = sr.read("mods hashset")?;
+        }
+
+        // v9 started storing mod information in the score
+        9.. => {
+            mods = sr.read("mods")?;
+        }
+
+        // _ => unreachable!()
     }
 
-    let mods = mods.into_iter().map(|m| ModDefinition {
-        name: m.clone(),
-        short_name: format!("??"),
-        display_name: m,
-        adjusts_difficulty: false,
-        score_multiplier: 1.0,
-    }).collect();
+    // if version >= 3 {
+    //     if version <= 5 {
+    //         let mut mods = HashSet::new();
+    //         // old mods
+    //         let mods_string: Option<String> = sr.read()?;
+    //         // parse here, save time later
+    //         if let Some(str) = &mods_string {
+    //             if let Ok(manager) = serde_json::from_str::<ModManager>(str) {
+    //                 if manager.autoplay { mods.insert("autoplay".to_owned()); }
+    //                 if manager.nofail { mods.insert("no_fail".to_owned()); }
+    //                 if manager.hard_rock { mods.insert("hard_rock".to_owned()); }
+    //                 if manager.easy { mods.insert("easy".to_owned()); }
+    //             }
+    //         }
+    //     } else {
+    //         // new mods as of v6
+    //         mods2 = sr.read()?;
+    //     }
+    // }
 
-    let performance = version!(7, 0.0);
-    let stat_data = version!(8, HashMap::new());
 
-    Ok(Score {
+    if !mods2.is_empty() {
+        mods = mods2.into_iter().map(|m| ModDefinition {
+            name: m.clone(),
+            short_name: format!("??"),
+            display_name: m,
+            adjusts_difficulty: false,
+            score_multiplier: 1.0,
+        }).collect();
+    }
+
+    let performance = version!(7, "performance", 0.0);
+    let stat_data = version!(8, "stat_data", HashMap::new());
+
+    let a = Ok(Score {
         version,
         username,
         beatmap_hash,
@@ -362,7 +411,7 @@ fn read_old_score(
         combo,
         max_combo,
         judgments,
-        accuracy,
+        accuracy: accuracy as f32,
         speed,
         performance,
 
@@ -371,6 +420,172 @@ fn read_old_score(
         mods,
         stat_data,
         replay: None,
-    })
+    });
 
+    sr.pop_parent();
+
+    a
+}
+
+
+
+#[allow(unused)]
+#[cfg(feature = "test")]
+pub(super) mod tests {
+    use crate::tests::*;
+    use crate::prelude::*;
+    use std::collections::HashMap;
+
+    pub fn make_score<'a>(
+        version: u16,
+        replay: Option<RawOrOther<'a, Replay>>,
+    ) -> Vec<u8> {
+        let mut writer = VersionedWriter::new(version);
+
+        writer.write(1, &version, "version");
+        writer.write(1, &format!("username"), "username");
+        writer.write(1, &Md5Hash::default(), "beatmap_hash");
+        writer.write(1, &format!("osu"), "playmode");
+        writer.write(5, &0u64, "time");
+        writer.write(1, &5000i64, "score");
+        writer.write(1, &50u16, "combo");
+        writer.write(1, &50u16, "max_combo");
+
+        // judgments
+        let judgments = make_judgments();
+        match version {
+            0..=3 => {
+                for i in [
+                    "x50",
+                    "x100",
+                    "x300",
+                    "xgeki",
+                    "xkatu",
+                    "xmiss"
+                ] {
+                    let val = judgments.get(i).copied().unwrap_or_default();
+                    writer.write_ranged(0..=3, &val, i);
+                }
+            }
+
+            4.. => {
+                writer.write_ranged(4.., &judgments, "judgments");
+            }
+        }
+
+        // accuracy
+        let accuracy = 85.0f64;
+        if version < 9 {
+            writer.write_ranged(0..9, &accuracy, "accuracy");
+        } else {
+            writer.write_ranged(9.., &(accuracy as f32), "accuracy");
+        }
+
+        writer.write(2, &1.5f32, "speed");
+
+        // mods
+        let mods = make_mods(version);
+        match (version, mods) {
+            (0..=2, None) => {}
+
+            // mods are stored as a string
+            (3..=5, Some(mods)) => {
+                let mut mod_manager = ModManager::default();
+                let ModsDef::Old(mods) = &mods else { panic!("got new mods for old score version") };
+                for (m, val) in [
+                    ("autplay", &mut mod_manager.autoplay),
+                    ("no_fail", &mut mod_manager.nofail),
+                    ("hard_rock", &mut mod_manager.hard_rock),
+                    ("easy", &mut mod_manager.easy),
+                ] {
+                    *val = mods.contains(m);
+                }
+
+                writer.write_ranged(3..=5,&serde_json::to_string(&mod_manager).unwrap(), "mods_string");
+            }
+
+            // mods are stored as hashset
+            (6..=8, Some(mods)) => {
+                let ModsDef::Old(mods) = &mods else { panic!("got new mods for old score version") };
+                writer.write_ranged(6..=8, mods, "mods hashset");
+            }
+
+            // mods are stored as vec of ModDefinition
+            (9.., Some(mods)) => {
+                let ModsDef::New(mods) = &mods else { panic!("got old mods for new score version") };
+                writer.write_ranged(9.., mods, "mods");
+            }
+
+            _=> unreachable!("bad mods")
+        }
+
+        writer.write(7, &40.0f32, "performance");
+        writer.write(8, &make_stats(), "stats");
+
+        if version >= 9 {
+            use crate::types::replays;
+            let replay = replay.unwrap_or_else(|| RawOrOther::Raw(replays::tests::make_replay(replays::CURRENT_VERSION)));
+            writer.write_ranged(..9, &replay, "replay");
+        }
+
+        writer.data()
+    }
+    
+    pub enum ModsDef {
+        /// v4-v8
+        Old(HashSet<String>),
+        /// v9+
+        New(Vec<ModDefinition>),
+    }
+
+    fn make_judgments() -> HashMap<String, u16> {
+        [
+            (format!("x300"), 40),
+            (format!("xmiss"), 40),
+        ].into_iter().collect()
+    }
+
+    
+    fn make_mods(version: u16) -> Option<ModsDef> {
+        match version {
+            0..=2 => None,
+            3..=8 => Some(ModsDef::Old([ "no_fail", "easy" ].into_iter().map(ToString::to_string).collect())),
+            9.. => Some(ModsDef::New(vec![
+                ModDefinition::new(
+                    "no_fail",
+                    "NF",
+                    "No Fail",
+                    false,
+                    0.75
+                ),
+                ModDefinition::new(
+                    "easy",
+                    "EZ",
+                    "Easy",
+                    true,
+                    0.75
+                )
+            ]))
+        }
+    }
+
+    fn make_stats() -> HashMap<String, Vec<f32>> {
+        [
+            (format!("a"), vec![1.0, 2.0]),
+            (format!("b"), vec![1.0, 2.0]),
+        ].into_iter().collect()
+    }
+
+    #[test]
+    fn try_read_scores() {
+        for version in 1..CURRENT_VERSION {
+            let score = make_score(version, None);
+            let mut reader = SerializationReader::new(score);
+
+            match Score::read(&mut reader) {
+                Ok(_) => {}
+                Err(e) => panic!("Error reading score v{version}: {e:?}"),
+            }
+        }
+    }
 }

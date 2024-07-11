@@ -1,3 +1,5 @@
+#[cfg(feature="test")]
+mod tests;
 pub mod types;
 pub mod packets;
 pub mod prelude;

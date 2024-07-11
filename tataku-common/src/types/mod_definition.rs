@@ -21,6 +21,24 @@ pub struct ModDefinition {
     /// how much does this mod adjust the score multiplier?
     pub score_multiplier: f32,
 }
+impl ModDefinition {
+    pub fn new(
+        name: impl ToString,
+        short_name: impl ToString,
+        display_name: impl ToString,
+        adjusts_difficulty: bool,
+        score_multiplier: f32,
+    ) -> Self {
+        Self {
+            name: name.to_string(),
+            short_name: short_name.to_string(),
+            display_name: display_name.to_string(),
+            adjusts_difficulty,
+            score_multiplier,
+        }
+    }
+}
+
 impl AsRef<str> for ModDefinition {
     fn as_ref(&self) -> &str {
         &self.name
@@ -56,12 +74,14 @@ impl std::cmp::Ord for ModDefinition {
 
 impl Serializable for ModDefinition {
     fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {
-        let version = sr.read_u16()?;
+        sr.push_parent("ModDefinition");
+
+        let version = sr.read::<u16>("version")?;
 
         macro_rules! version {
-            ($version:expr, $default:expr) => {
+            ($version:expr, $a:expr, $default:expr) => {
                 if version >= $version {
-                    sr.read()?
+                    sr.read($a)?
                 } else {
                     $default
                 }
@@ -69,11 +89,11 @@ impl Serializable for ModDefinition {
         }
 
         Ok(Self {
-            name: version!(1, String::new()),
-            short_name: version!(1, String::new()),
-            display_name: version!(1, String::new()),
-            adjusts_difficulty: version!(1, false),
-            score_multiplier: version!(1, 1.0),
+            name: version!(1, "name", String::new()),
+            short_name: version!(1, "short_name", String::new()),
+            display_name: version!(1, "display_name", String::new()),
+            adjusts_difficulty: version!(1, "adjusts_difficulty", false),
+            score_multiplier: version!(1, "score_multiplier", 1.0),
         })
     }
 

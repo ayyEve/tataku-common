@@ -72,6 +72,8 @@ impl From<u8> for KeyPress {
 }
 
 impl Serializable for KeyPress {
-    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {Ok(sr.read_u8()?.into())}
-    fn write(&self, sw:&mut SerializationWriter) {sw.write_u8(self.clone() as u8)}
+    fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {
+        Ok(sr.read::<u8>("KeyPress")?.into())
+    }
+    fn write(&self, sw:&mut SerializationWriter) { sw.write::<u8>(&(*self as u8)) }
 }

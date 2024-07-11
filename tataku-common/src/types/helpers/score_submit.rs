@@ -1,16 +1,18 @@
 use crate::prelude::*;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ScoreSubmit {
     /// tataku username
     pub username: String,
+    
     /// tataku password
     pub password: String,
+
     /// not the game of the map, the game thats submitting this score
     pub game: String,
 
-    /// replay data to store on the server
-    pub replay: Replay,
+    /// score data to store on the server
+    pub score: Score,
 
     /// info for the map that was just played
     /// this helpers the server get info for this map if it doesnt already have it
@@ -18,38 +20,45 @@ pub struct ScoreSubmit {
 }
 impl Serializable for ScoreSubmit {
     fn read(sr:&mut SerializationReader) -> SerializationResult<Self> where Self: Sized {
-        Ok(Self {
-            username: sr.read()?,
-            password: sr.read()?,
-            game: sr.read()?,
-            replay: sr.read()?,
-            map_info: sr.read()?,
-        })
+        sr.push_parent("Score Submit");
+        let a = Ok(Self {
+            username: sr.read("username")?,
+            password: sr.read("password")?,
+            game: sr.read("game")?,
+            score: sr.read("score")?,
+            map_info: sr.read("map_info")?,
+        });
+        sr.pop_parent();
+        a
     }
 
     fn write(&self, sw:&mut SerializationWriter) {
         sw.write(&self.username);
         sw.write(&self.password);
         sw.write(&self.game);
-        sw.write(&self.replay);
+        sw.write(&self.score);
         sw.write(&self.map_info);
     }
 }
 
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ScoreMapInfo {
     pub game: MapGame,
     pub map_hash: Md5Hash,
     pub playmode: String,
 }
 impl Serializable for ScoreMapInfo {
-    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> where Self: Sized {
-        Ok(Self {
-            game: sr.read()?,
-            map_hash: sr.read()?,
-            playmode: sr.read()?
-        })
+    fn read(sr: &mut SerializationReader) -> SerializationResult<Self> where Self: Sized {
+        sr.push_parent("ScoreMapInfo");
+        let a = Ok(Self {
+            game: sr.read("game")?,
+            map_hash: sr.read("map_hash")?,
+            playmode: sr.read("playmode")?
+        });
+
+        sr.pop_parent();
+        a
     }
 
     fn write(&self, sw:&mut SerializationWriter) {

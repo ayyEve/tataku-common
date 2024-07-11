@@ -19,7 +19,7 @@ pub enum ServerPermissions {
 }
 impl Serializable for Vec<ServerPermissions> {
     fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
-        let num:u16 = sr.read()?;
+        let num:u16 = sr.read("ServerPermissions")?;
         let mut list = Vec::new();
 
         macro_rules! check {

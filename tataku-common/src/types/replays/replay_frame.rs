@@ -16,10 +16,15 @@ impl ReplayFrame {
 
 impl Serializable for ReplayFrame {
     fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {
-        Ok(Self {
-            time: sr.read()?,
-            action: sr.read()?,
-        })
+        sr.push_parent("ReplayFrame");
+
+        let a = Ok(Self {
+            time: sr.read("time")?,
+            action: sr.read("action")?,
+        });
+
+        sr.pop_parent();
+        a
     }
 
     fn write(&self, sw: &mut SerializationWriter) {
