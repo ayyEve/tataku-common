@@ -2,7 +2,7 @@ use crate::prelude::*;
 use std::collections::HashMap;
 
 // all versions have the frame data and version number
-// v1 had a playmode entry, which was only relevent to taiko 
+// v1 had a playmode entry, which was only relevent to taiko. removed in v2
 // v2+ has score data included in the replay data
 // v4+ has gamemode data (technically in v3 but i messed up whoops)
 // v5+ has map time offset
@@ -97,13 +97,15 @@ impl Serializable for Replay {
         let version = sr.read::<u16>("version")?;
 
         if version < 6 {
-            let _score: Score = sr.read("score (unused)")?;
-
             if version == 1 { let _playstyle = sr.read::<u8>("playstyle")?; }
+
+            if version > 1 {
+                let _score: Option<Score> = sr.read("score (unused)")?;
+            }
                 
             return Ok(Replay {
-                gamemode_data: sr.read("gamemode_data")?,
-                offset: sr.read("offset")?,
+                gamemode_data: if version >= 4 { sr.read("gamemode_data")? } else { Default::default() },
+                offset: if version >= 5 { sr.read("offset")? } else { Default::default() },
                 frames: sr.read("frames")?,
             });
         }

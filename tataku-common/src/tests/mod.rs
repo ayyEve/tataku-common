@@ -54,9 +54,6 @@ impl VersionedWriter {
 #[tokio::test]
 pub async fn test_replays_from_folder() {
     use std::ffi::OsStr;
-
-    // println!("a");
-    // std::thread::sleep(std::time::Duration::from_millis(50));
     let folder = "/tmp/replays";
     use std::io::Write;
 
@@ -86,4 +83,16 @@ pub async fn test_replays_from_folder() {
         }
     }
 
+}
+
+#[test]
+fn test1() {
+    // let bytes = std::fs::read("/tmp/replays/4fda112a7401e5b9a379adbaa14d3c5a.ttkr").unwrap();
+    let bytes = std::fs::read("/tmp/replays/12eeb05fbfa169060b0f7597f3130057.ttkr").unwrap();
+
+    let mut reader = SerializationReader::new(bytes).debug();
+    if let Err(ReplayLoadError::SerializationError(e)) = Replay::try_read_replay(&mut reader) {
+        // println!("error reading replay: {e:?}");
+        panic!("{e}")
+    }
 }

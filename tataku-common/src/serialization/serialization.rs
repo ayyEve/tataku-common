@@ -99,19 +99,17 @@ impl Serializable for String {
 
 
 macro_rules! impl_for_num {
-    ($($t:ty),+) => {
-        $(
-            impl Serializable for $t {
-                fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {
-                    let bytes = sr.read_slice(std::mem::size_of::<$t>())?;
-                    Ok(Self::from_le_bytes(bytes.try_into().unwrap()))
-                }
-
-                fn write(&self, sw: &mut SerializationWriter) {
-                    sw.data.extend(self.to_le_bytes())
-                }
+    ($($t:ty),+) => { $(
+        impl Serializable for $t {
+            fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {
+                let bytes = sr.read_slice(std::mem::size_of::<$t>())?;
+                Ok(Self::from_le_bytes(bytes.try_into().unwrap()))
             }
-        )+
+
+            fn write(&self, sw: &mut SerializationWriter) {
+                sw.data.extend(self.to_le_bytes())
+            }
+        } )+
     }
 }
 impl_for_num![u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, f32, f64];
@@ -302,20 +300,20 @@ impl SerializationReader {
 
     fn check_bounds(&mut self, size: usize) -> SerializationResult<()> {
         if self.data.len() < self.offset + size { 
-            Err(SerializationError {
+            // println!("trying to read {size} at offset {} when len is {}", self.offset, self.data.len());
+            return Err(SerializationError {
                 inner: SerializationErrorEnum::OutOfBounds,
-                stack: std::mem::take(&mut self.stack)
+                stack: self.stack.clone()
             })
-        } else { 
-            Ok(())
         }
+
+        Ok(())
     }
 
     pub fn read<R:Serializable>(&mut self, name: impl ToString) -> SerializationResult<R> {
         let type_name = std::any::type_name::<R>();
-
         self.push_stack(name, type_name);
-        self.check_bounds(std::mem::size_of::<R>())?;
+        // self.check_bounds(std::mem::size_of::<R>())?; // this breaks when R is an enum with differently sized variants
         R::read(self)
             .map_err(|e| e.with_stack(self.stack.clone()))
             .map(|v| { if self.debug { println!("got {v:?} ({type_name})") }; v})
