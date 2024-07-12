@@ -176,8 +176,6 @@ impl Score {
     }
 }
 
-
-
 impl Serializable for Score {
     fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {
         sr.push_parent("Score");
@@ -264,15 +262,14 @@ pub struct HitError {
 /// legacy mod manager, only used to read old scores
 #[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
-pub(crate) struct ModManager {
-    speed: Option<u16>,
+pub(super) struct ModManager {
+    pub speed: Option<u16>,
     
-    easy: bool,
-    hard_rock: bool,
-    autoplay: bool,
-    nofail: bool,
+    pub easy: bool,
+    pub hard_rock: bool,
+    pub autoplay: bool,
+    pub nofail: bool,
 }
-
 
 fn read_old_score(
     version: u16,
@@ -490,7 +487,7 @@ pub(super) mod tests {
 
             // mods are stored as a string
             (3..=5, Some(mods)) => {
-                let mut mod_manager = ModManager::default();
+                let mut mod_manager = super::ModManager::default();
                 let ModsDef::Old(mods) = &mods else { panic!("got new mods for old score version") };
                 for (m, val) in [
                     ("autplay", &mut mod_manager.autoplay),
