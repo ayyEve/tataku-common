@@ -244,6 +244,8 @@ impl Serializable for Score {
         sw.write(&self.mods);
         sw.write(&self.performance);
         sw.write(&self.stat_data);
+
+        sw.write(&self.replay);
     }
 }
 
