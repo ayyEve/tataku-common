@@ -1,6 +1,7 @@
 use crate::prelude::*;
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Reflect)]
 pub struct ReplayFrame {
     pub time: f32,
     pub action: ReplayAction,

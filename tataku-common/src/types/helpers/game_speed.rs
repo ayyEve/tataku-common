@@ -1,11 +1,12 @@
 /// how many decimal places to "preserve"
 const PRECISION:i32 = 2;
-use serde::{ Serialize, Deserialize };
+use crate::prelude::*;
 
 /// helper struct for speed multipliers
 /// since we want them to be easily comparable (unlike f32s with floating point issues)
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
+#[derive(Reflect)]
 #[serde(from="f32", into="f32")]
 pub struct GameSpeed(u16);
 impl GameSpeed {

@@ -2,6 +2,7 @@ use crate::prelude::*;
 
 #[derive(Clone, Debug)]
 #[derive(PacketSerialization)]
+#[derive(Reflect)]
 #[Packet(type="u8")]
 #[Packet(extra_logging)]
 pub enum SpectatorAction {
@@ -9,10 +10,10 @@ pub enum SpectatorAction {
     /// NOTE: mods is a comma separated list of mod ids, ie "no_fail, autoplay"
     /// speed will need to be divided by 100
     #[Packet(id=0)]
-    Play { 
-        beatmap_hash: Md5Hash, 
-        mode: String, 
-        mods: Vec<ModDefinition>, 
+    Play {
+        beatmap_hash: Md5Hash,
+        mode: String,
+        mods: Vec<ModDefinition>,
         speed: u16,
 
         map_game: MapGame,
@@ -49,7 +50,7 @@ pub enum SpectatorAction {
     ChangingMap,
 
     /// the time has jumped
-    /// 
+    ///
     /// usually used when the player joins spec mid-map
     #[Packet(id=8)]
     TimeJump { time: f32 },

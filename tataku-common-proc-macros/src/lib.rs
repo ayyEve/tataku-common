@@ -3,6 +3,9 @@ use std::collections::HashMap;
 use proc_macro::TokenStream;
 use quote::*;
 use syn::*;
+use syn::punctuated::{ Punctuated };
+
+mod reflect;
 
 // automatic read/write macro for the packet list
 #[proc_macro_derive(PacketSerialization, attributes(Packet))]
@@ -12,7 +15,7 @@ pub fn packet_serialization(input: TokenStream) -> TokenStream {
 
     // Build the impl
     let gen = impl_packet(&ast);
-    
+
     // Return the generated impl
     proc_macro::TokenStream::from(gen)
 }
@@ -28,26 +31,33 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
     let mut should_impl_into_from_type = false;
     // let mut rolling_id = 0;
 
-    // find the type of the packet, and if it should gen 
+    // find the type of the packet, and if it should gen
     for a in ast.attrs.iter() {
-        if !a.path.is_ident("Packet") { continue }
-        if let Ok(Meta::List(list)) = a.parse_meta() {
-            for i in list.nested {
-                if let NestedMeta::Meta(Meta::NameValue(name_value)) = &i {
-                    if name_value.path.is_ident("type") {
-                        if let Lit::Str(i) = &name_value.lit {
-                            type_ = i.value()
+        if !a.path().is_ident("Packet") { continue }
+
+        if let Ok(metas) = a.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated) {
+            assert!(!metas.is_empty(), "Packet attribute cannot be empty");
+
+            for i in metas {
+                match i {
+                    Meta::NameValue(name_value) => {
+                        if name_value.path.is_ident("type") {
+                            if let Expr::Lit(ExprLit { lit: Lit::Str(i), .. }) = name_value.value {
+                                type_ = i.value()
+                            }
                         }
                     }
-                }
 
-                if let NestedMeta::Meta(Meta::Path(name)) = &i {
-                    if name.is_ident("gen_to_from") {
-                        should_impl_into_from_type = true;
+                    Meta::Path(name) => {
+                        if name.is_ident("gen_to_from") {
+                            should_impl_into_from_type = true;
+                        }
+                        if name.is_ident("extra_logging") {
+                            extra_logging = true;
+                        }
                     }
-                    if name.is_ident("extra_logging") {
-                        extra_logging = true;
-                    }
+
+                    _ => unimplemented!("nop")
                 }
             }
         }
@@ -67,25 +77,30 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
 
             // find the id of the packet
             for a in v.attrs.iter() {
-                if !a.path.is_ident("Packet") { continue }
-                if let Ok(Meta::List(list)) = a.parse_meta() {
-                    for i in list.nested {
-                        if let NestedMeta::Meta(Meta::NameValue(name_value)) = &i {
-                            if name_value.path.is_ident("id") {
-                                if let Lit::Int(i) = &name_value.lit {
-                                    id = Some(i.base10_parse::<u16>().unwrap())
+                if !a.path().is_ident("Packet") { continue }
+                if let Ok(metas) = a.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated) {
+                    for i in metas {
+                        match i {
+                            Meta::NameValue(name_value) => {
+                                if name_value.path.is_ident("id") {
+                                    if let Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) = name_value.value {
+                                        id = Some(i.base10_parse::<u16>().unwrap())
+                                    }
+                                }
+                                // if name_value.path.is_ident("version") {
+                                //     if let Lit::Int(i) = &name_value.lit {
+                                //         version = i.base10_parse::<u64>().unwrap()
+                                //     }
+                                // }
+                            }
+
+                            Meta::Path(name) =>  {
+                                if name.is_ident("default_variant") {
+                                    default_variant = variant_name.to_string();
                                 }
                             }
-                            // if name_value.path.is_ident("version") {
-                            //     if let Lit::Int(i) = &name_value.lit {
-                            //         version = i.base10_parse::<u64>().unwrap()
-                            //     }
-                            // }
-                        }
-                        if let NestedMeta::Meta(Meta::Path(name)) = &i {
-                            if name.is_ident("default_variant") {
-                                default_variant = variant_name.to_string();
-                            }
+
+                            _ => {}
                         }
                     }
                 }
@@ -134,7 +149,7 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
 
             // if theres fields, we need to read them
             let read_fields = (!fields.is_empty()).then(|| format!("{{\n{}\n}}", fields.iter().map(|f| format!("{f}: sr.read(\"{f}\")?,")).collect::<Vec<_>>().join("\n")) ).unwrap_or_default();
-            
+
             read_match += &format!("{id} => Self::{name} {read_fields},\n");
         }
 
@@ -158,7 +173,7 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
             ");
         }
     }
-    
+
     read_match += &format!("        _ => Self::{default_variant}\n    }})");
     write_match += "    }";
 
@@ -167,7 +182,7 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
     #[cfg(feature = "packet_logging")] {
         debug_read_line = format!("println!(\"[Packet] Reading packet {{packet_id:?}} from enum {enum_name}\");");
     }
-    
+
     let mut impl_str = format!("
         impl Serializable for {enum_name} {{
             fn read(sr: &mut crate::serialization::SerializationReader) -> SerializationResult<Self> {{
@@ -175,7 +190,7 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 let packet_id = sr.read::<{type_}>(\"packet_id\")?;
                 {debug_read_line}
                 let a = {read_match};
-                
+
                 sr.pop_parent();
                 a
             }}
@@ -198,7 +213,7 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
             .collect::<Vec<String>>()
             .join("\n");
 
-        impl_str += &format!(r#" 
+        impl_str += &format!(r#"
         impl Into<{enum_name}> for {type_} {{
             fn into(self) -> {enum_name} {{
                 match self {{
@@ -237,7 +252,7 @@ pub fn serializable(input: TokenStream)  -> TokenStream {
 
     // Build the impl
     let gen = impl_serializable(&ast);
-    
+
     // Return the generated impl
     proc_macro::TokenStream::from(gen)
 }
@@ -254,12 +269,12 @@ fn impl_serializable(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
 
         // check if this struct has a version attached
         for attr in ast.attrs.iter() {
-            if !attr.path.is_ident("Serialize") { continue }
-            if let Ok(Meta::List(list)) = attr.parse_meta() {
-                for i in list.nested {
-                    if let NestedMeta::Meta(Meta::NameValue(name_value)) = &i {
+            if !attr.path().is_ident("Serialize") { continue }
+            if let Ok(metas) = attr.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated) {
+                for i in metas {
+                    if let Meta::NameValue(name_value) = i {
                         if name_value.path.is_ident("read_version") {
-                            if let Lit::Bool(i) = &name_value.lit {
+                            if let Expr::Lit(ExprLit { lit: Lit::Bool(i), .. }) = name_value.value {
                                 read_version = i.value;
                             }
                         }
@@ -289,12 +304,12 @@ fn impl_serializable(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
 
             // check for version tag
             for a in field.attrs.iter() {
-                if !a.path.is_ident("Serialize") { continue }
-                if let Ok(Meta::List(list)) = a.parse_meta() {
-                    for i in list.nested {
-                        if let NestedMeta::Meta(Meta::NameValue(name_value)) = &i {
+                if !a.path().is_ident("Serialize") { continue }
+                if let Ok(metas) = a.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated) {
+                    for i in metas {
+                        if let Meta::NameValue(name_value) = i {
                             if name_value.path.is_ident("version") {
-                                if let Lit::Int(i) = &name_value.lit {
+                                if let Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) = name_value.value {
                                     version = i.base10_parse::<u64>().unwrap()
                                 }
                             }
@@ -342,4 +357,15 @@ fn impl_serializable(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
     quote! {
         #impl_tokens
     }
+}
+
+
+
+#[proc_macro_derive(Reflect, attributes(reflect))]
+pub fn derive_reflect(input: TokenStream) -> TokenStream {
+    let ast = syn::parse(input).unwrap();
+
+    let tokens = reflect::derive(&ast);
+
+    tokens.into()
 }

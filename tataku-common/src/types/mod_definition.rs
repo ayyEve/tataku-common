@@ -5,6 +5,7 @@ const CURRENT_VERSION:u16 = 1;
 
 /// a simple mod definition
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Reflect)]
 pub struct ModDefinition {
     /// mod identifier, used in the mods hashmap
     pub name: String,

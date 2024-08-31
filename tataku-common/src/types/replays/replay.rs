@@ -10,6 +10,7 @@ use std::collections::HashMap;
 pub(crate) const CURRENT_VERSION:u16 = 6;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Reflect)]
 pub struct Replay {
 
     // score: Option<Score>

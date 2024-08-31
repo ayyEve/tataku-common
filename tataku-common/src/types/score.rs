@@ -11,6 +11,7 @@ use serde::{ Serialize, Deserialize };
 const CURRENT_VERSION:u16 = 9;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Reflect)]
 pub struct Score {
     pub version: u16,
     pub username: String,
@@ -26,6 +27,7 @@ pub struct Score {
     pub judgments: HashMap<String, u16>,
 
     pub accuracy: f32,
+    #[reflect(skip)]
     pub speed: GameSpeed,
 
     /// new mods format
@@ -68,7 +70,7 @@ impl Score {
             replay: None
         }
     }
-    
+
     /// this is definitely going to break at some point, i need to figure out a better way to do this lol
     /// I was thinking of md5(format!("{time}{username}")), but this would break if time is 0 (default) :c
     pub fn hash(&self) -> String {
@@ -147,7 +149,7 @@ impl Score {
 
     pub fn judgments_from_string(judgment_string: &String) -> HashMap<String, u16> {
         let mut judgments = HashMap::new();
-        
+
         let entries = judgment_string.split("|");
         for entry in entries {
             let mut split = entry.split(":");
@@ -160,7 +162,7 @@ impl Score {
 
         judgments
     }
-    
+
     pub fn get_judgment(&self, judgment: impl AsRef<str>) -> u16 {
         self.judgments.get(judgment.as_ref()).cloned().unwrap_or_default()
     }
@@ -202,7 +204,7 @@ impl Serializable for Score {
             beatmap_hash: sr.read("beatmap_hash")?,
             playmode: sr.read("playmode")?,
             time: sr.read("time")?,
-            
+
             score: sr.read("score")?,
             combo: sr.read("combo")?,
             max_combo: sr.read("max_combo")?,
@@ -266,7 +268,7 @@ pub struct HitError {
 #[serde(default)]
 pub(super) struct ModManager {
     pub speed: Option<u16>,
-    
+
     pub easy: bool,
     pub hard_rock: bool,
     pub autoplay: bool,
@@ -335,7 +337,7 @@ fn read_old_score(
     match version {
         // v 0,1,2 did not have mods
         0..=2 => {}
-        
+
         // v 3-5 stored mods as a string
         3..=5 => {
             // old mods
@@ -351,7 +353,7 @@ fn read_old_score(
                 }
             }
         }
-        
+
         // 6-8 stored mods as a hashset of mod ids
         6..=8 => {
             mods2 = sr.read("mods hashset")?;
@@ -405,7 +407,7 @@ fn read_old_score(
         beatmap_hash,
         playmode,
         time,
-        
+
         score,
         combo,
         max_combo,
@@ -529,7 +531,7 @@ pub(super) mod tests {
 
         writer.data()
     }
-    
+
     pub enum ModsDef {
         /// v4-v8
         Old(HashSet<String>),
@@ -544,7 +546,7 @@ pub(super) mod tests {
         ].into_iter().collect()
     }
 
-    
+
     fn make_mods(version: u16) -> Option<ModsDef> {
         match version {
             0..=2 => None,

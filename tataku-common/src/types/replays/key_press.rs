@@ -1,6 +1,7 @@
 use crate::prelude::*;
 
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Reflect)]
 pub enum KeyPress {
     LeftKat = 0,
     LeftDon = 1,

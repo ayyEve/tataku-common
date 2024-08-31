@@ -1,6 +1,7 @@
 use crate::prelude::*;
 
 #[derive(Clone, Debug)]
+#[derive(Reflect)]
 pub struct SpectatorFrame {
     pub time: f32,
     pub action: SpectatorAction,

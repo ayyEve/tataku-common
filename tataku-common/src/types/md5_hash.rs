@@ -7,6 +7,7 @@ use crate::prelude::*;
 /// Note that this item is serialized and deserialized as a string, in the usual md5 hash format
 #[derive(Copy, Clone, Eq, Default, Debug, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(try_from="String", into="String")]
+#[derive(Reflect)]
 pub struct Md5Hash(u128);
 
 impl TryFrom<&String> for Md5Hash {

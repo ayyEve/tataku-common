@@ -3,6 +3,7 @@ use crate::prelude::*;
 /// used to determine the parent game for a map
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[derive(Serialize, Deserialize)]
+#[derive(Reflect)]
 pub enum MapGame {
     #[default]
     Osu,
