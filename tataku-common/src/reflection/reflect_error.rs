@@ -2,13 +2,13 @@ use std::borrow::Cow;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum ReflectError<'a> {
-    EntryDoesntExist {
+    EntryNotExist {
         entry: Cow<'a, str>
     },
 
     ValueWrongType {
-        actual: Cow<'a, str>,
-        provided: Cow<'a, str>
+        actual: &'static str,
+        provided: &'static str,
     },
 
     InvalidHashmapKey,
@@ -19,27 +19,27 @@ pub enum ReflectError<'a> {
     HashmapKeyNotProvided,
 
     WrongVariant {
-        actual: Cow<'a, str>,
-        provided: Cow<'a, str>,
+        actual: &'static str,
+        provided: &'static str,
     },
-    
+
     OutOfBounds {
         length: usize,
         index: usize
     },
 
     CantMutHashSetKey,
-    ImmutibleContainer,
+    ImmutableContainer,
 }
 impl<'a> ReflectError<'a> {
     pub fn entry_not_exist(entry: impl Into<Cow<'a, str>>) -> Self {
-        Self::EntryDoesntExist { entry: entry.into() }
+        Self::EntryNotExist { entry: entry.into() }
     }
-    pub fn wrong_type(actual: impl Into<Cow<'a, str>>, provided: impl Into<Cow<'a, str>>) -> Self {
-        Self::ValueWrongType { actual: actual.into(), provided: provided.into() }
+    pub fn wrong_type(actual: &'static str, provided: &'static str) -> Self {
+        Self::ValueWrongType { actual, provided }
     }
-    pub fn wrong_variant(actual: impl Into<Cow<'a, str>>, provided: impl Into<Cow<'a, str>>) -> Self {
-        Self::WrongVariant { actual: actual.into(), provided: provided.into() }
+    pub fn wrong_variant(actual: &'static str, provided: &'static str) -> Self {
+        Self::WrongVariant { actual, provided }
     }
 
 
@@ -48,19 +48,16 @@ impl<'a> ReflectError<'a> {
             Cow::<'static, str>::Owned(cow.into_owned())
         }
         match self {
-            Self::EntryDoesntExist { entry } => ReflectError::EntryDoesntExist { entry: own(entry) },
-            Self::ValueWrongType { actual, provided } => ReflectError::ValueWrongType { 
-                actual: own(actual), 
-                provided: own(provided)
-            },
+            Self::EntryNotExist { entry } => ReflectError::EntryNotExist { entry: own(entry) },
+            Self::ValueWrongType { actual, provided } => ReflectError::ValueWrongType { actual, provided },
             Self::InvalidHashmapKey => ReflectError::InvalidHashmapKey,
             Self::InvalidIndex => ReflectError::InvalidIndex,
             Self::NoHashmapKey { key } => ReflectError::NoHashmapKey { key: own(key) },
             Self::HashmapKeyNotProvided => ReflectError::HashmapKeyNotProvided,
-            Self::WrongVariant { actual, provided } => ReflectError::WrongVariant { actual: own(actual), provided: own(provided) },
+            Self::WrongVariant { actual, provided } => ReflectError::WrongVariant { actual, provided },
             Self::OutOfBounds { length, index } => ReflectError::OutOfBounds { length, index },
             Self::CantMutHashSetKey => ReflectError::CantMutHashSetKey,
-            Self::ImmutibleContainer => ReflectError::ImmutibleContainer,
+            Self::ImmutableContainer => ReflectError::ImmutableContainer,
         }
     }
 }

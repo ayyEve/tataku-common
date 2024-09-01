@@ -5,10 +5,12 @@ pub use crate::tables::*;
 #[cfg(feature="server")]
 pub use sea_orm;
 
-pub(crate) use std::collections::HashSet;
+pub(crate) use std::collections::{ HashSet, HashMap };
 
 
 pub use serde_json;
+pub use downcast_rs::*;
+
 pub use crate::types::*;
 pub use crate::packets::*;
 pub use crate::reflection::*;

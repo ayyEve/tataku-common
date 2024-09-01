@@ -1,6 +1,5 @@
 use quote::*;
 use syn::*;
-use syn::parse::*;
 use syn::punctuated::Punctuated;
 
 pub const REFLECT_ATTRIBUTE: &str = "reflect";
@@ -130,7 +129,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                             }));
 
                             iter_fields.extend(Some(quote! {
-                                &self.#field_name as &dyn Reflect,
+                                self.#field_name.as_dyn(),
                             }));
 
                             iter_mut_impl.extend(Some(quote! {
@@ -140,7 +139,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                             }));
 
                             iter_mut_fields.extend(Some(quote! {
-                                &mut self.#field_name as &mut dyn Reflect,
+                                self.#field_name.as_dyn_mut(),
                             }));
                         }
                     },
@@ -187,7 +186,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                             }));
 
                             iter_fields.extend(Some(quote! {
-                                &self.#i as &dyn Reflect,
+                                self.#i.as_dyn(),
                             }));
 
                             iter_mut_impl.extend(Some(quote! {
@@ -197,7 +196,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                             }));
 
                             iter_mut_fields.extend(Some(quote! {
-                                &mut self.#i as &mut dyn Reflect,
+                                self.#i.as_dyn_mut(),
                             }));
                         }
                     },
@@ -281,7 +280,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                                 }));
 
                                 iter_fields2.extend(Some(quote! {
-                                    #field_name as &dyn Reflect,
+                                    #field_name.as_dyn(),
                                 }));
 
                                 iter_mut_impl2.extend(Some(quote! {
@@ -291,7 +290,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                                 }));
 
                                 iter_mut_fields2.extend(Some(quote! {
-                                    #field_name as &mut dyn Reflect,
+                                    #field_name.as_dyn_mut(),
                                 }));
                             }
                         },
@@ -349,7 +348,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                                 }));
 
                                 iter_fields2.extend(Some(quote! {
-                                    #ident as &dyn Reflect,
+                                    #ident.as_dyn(),
                                 }));
 
                                 iter_mut_impl2.extend(Some(quote! {
@@ -359,7 +358,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                                 }));
 
                                 iter_mut_fields2.extend(Some(quote! {
-                                    #ident as &mut dyn Reflect,
+                                    #ident.as_dyn_mut(),
                                 }));
                             }
                         },
@@ -384,11 +383,11 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                         #(
                             Some(#paths) => match self {
                                 Self::#variant_name #pattern => match path.next() {
-                                    None => Ok(self as &dyn Reflect),
+                                    None => Ok(self.as_dyn()),
                                     #get_impl2
                                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                                 },
-                                other => Err(ReflectError::wrong_variant(stringify!(#variant_name), other.__reflect_variant_name())),
+                                other => Err(ReflectError::wrong_variant(other.__reflect_variant_name(), stringify!(#variant_name))),
                             }
                         )*
                     }));
@@ -397,11 +396,11 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                         #(
                             Some(#paths) => match self {
                                 s @ Self::#variant_name #pattern_omitted => match path.next() {
-                                    None => Ok(s as &mut dyn Reflect),
+                                    None => Ok(s.as_dyn_mut()),
                                     #get_mut_impl2
                                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                                 },
-                                other => Err(ReflectError::wrong_variant(stringify!(#variant_name), other.__reflect_variant_name())),
+                                other => Err(ReflectError::wrong_variant(other.__reflect_variant_name(), stringify!(#variant_name))),
                             }
                         )*
                     }));
@@ -414,7 +413,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                                     #insert_impl2
                                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                                 },
-                                other => Err(ReflectError::wrong_variant(stringify!(#variant_name), other.__reflect_variant_name())),
+                                other => Err(ReflectError::wrong_variant(other.__reflect_variant_name(), stringify!(#variant_name))),
                             }
                         )*
                     }));
@@ -427,7 +426,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                                     #iter_impl2
                                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                                 },
-                                other => Err(ReflectError::wrong_variant(stringify!(#variant_name), other.__reflect_variant_name())),
+                                other => Err(ReflectError::wrong_variant(other.__reflect_variant_name(), stringify!(#variant_name))),
                             }
                         )*
                     }));
@@ -444,7 +443,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                                     #iter_mut_impl2
                                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                                 },
-                                other => Err(ReflectError::wrong_variant(stringify!(#variant_name), other.__reflect_variant_name())),
+                                other => Err(ReflectError::wrong_variant(other.__reflect_variant_name(), stringify!(#variant_name))),
                             }
                         )*
                     }));
@@ -485,8 +484,8 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
             Data::Union(_) => unimplemented!("unions bad"),
         }
     } else {
-        iter_fields = quote! { vec![self as &dyn Reflect] };
-        iter_mut_fields = quote! { vec![self as &mut dyn Reflect] };
+        iter_fields = quote! { vec![self.as_dyn()] };
+        iter_mut_fields = quote! { vec![self.as_dyn_mut()] };
     }
 
     quote! {
@@ -495,7 +494,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
         impl #impl_generics Reflect for #type_name #ty_generics where #where_clause {
             fn impl_get<'a>(&self, mut path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
                 match path.next() {
-                    None => Ok(self as &dyn Reflect),
+                    None => Ok(self.as_dyn()),
                     #get_impl
                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                 }
@@ -503,7 +502,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
 
             fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> Result<&mut dyn Reflect, ReflectError<'a>> {
                 match path.next() {
-                    None => Ok(self as &mut dyn Reflect),
+                    None => Ok(self.as_dyn_mut()),
                     #get_mut_impl
                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                 }
@@ -512,7 +511,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
             fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> Result<(), ReflectError<'a>> {
                 match path.next() {
                     None => value.downcast::<Self>().map(|v| *self = *v)
-                        .map_err(|_| ReflectError::wrong_type(std::any::type_name::<Self>(), "TODO: cry")),
+                        .map_err(|v| ReflectError::wrong_type(std::any::type_name::<Self>(), v.type_name())),
                     #insert_impl
                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                 }

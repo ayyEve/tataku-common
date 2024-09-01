@@ -1,9 +1,9 @@
 use crate::prelude::*;
 
 /// This is a helper struct to help reduce memory usage, and improve hash comparison times (O(1) vs O(n))
-/// 
+///
 /// This is primarily used for Beatmap hashes, but can be use for any md5 hash
-/// 
+///
 /// Note that this item is serialized and deserialized as a string, in the usual md5 hash format
 #[derive(Copy, Clone, Eq, Default, Debug, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(try_from="String", into="String")]
@@ -13,17 +13,33 @@ pub struct Md5Hash(u128);
 impl TryFrom<&String> for Md5Hash {
     type Error = std::num::ParseIntError;
 
-    fn try_from(s:&String) -> Result<Self, Self::Error> {
+    fn try_from(s: &String) -> Result<Self, Self::Error> {
         Ok(Self(u128::from_str_radix(s, 16)?))
     }
 }
 impl TryFrom<String> for Md5Hash {
     type Error = std::num::ParseIntError;
 
-    fn try_from(s:String) -> Result<Self, Self::Error> {
+    fn try_from(s: String) -> Result<Self, Self::Error> {
         Ok(Self(u128::from_str_radix(&s, 16)?))
     }
 }
+impl TryFrom<&str> for Md5Hash {
+    type Error = std::num::ParseIntError;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        Ok(Self(u128::from_str_radix(s, 16)?))
+    }
+}
+impl std::str::FromStr for Md5Hash {
+    type Err = std::num::ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self::try_from(s)?)
+    }
+}
+
+
 
 impl Into<String> for Md5Hash {
     fn into(self) -> String {
