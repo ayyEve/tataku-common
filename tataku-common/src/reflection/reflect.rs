@@ -46,7 +46,7 @@ macro_rules! reflect_impl {
 
 /// value-able, as in able-to-valuez
 /// not valuable, as in has-value
-pub trait Reflect: downcast_rs::DowncastSync + std::fmt::Debug {
+pub trait Reflect: downcast_rs::DowncastSync {
     reflect_impl!(Sized);
 
     fn impl_get<'s, 'v>(&'s self, path: ReflectPath<'v>) -> Result<&'s dyn Reflect, ReflectError<'v>>;
@@ -162,12 +162,11 @@ base_valueable_impl!(
     u32, i32,
     u64, i64,
     u128, i128,
+    usize, isize,
     f32, f64,
     bool,
     String, &'static str
 );
-
-// base_valueable_impl!(impl<T> for <Option<T>> where T: Reflect);
 
 
 impl<T:Reflect> Reflect for Option<T> {
@@ -187,10 +186,9 @@ impl<T:Reflect> Reflect for Option<T> {
         if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
 
         if value.is::<T>() {
-            value
+            let _ = value
                 .downcast::<T>()
-                .map(|a| *self = Some(*a))
-                .unwrap();
+                .map(|a| *self = Some(*a));
 
             return Ok(())
         }
@@ -206,7 +204,7 @@ impl<T:Reflect> Reflect for Option<T> {
 
 impl<K, V> Reflect for std::collections::HashMap<K, V>
     where
-    K: core::str::FromStr + std::string::ToString + core::hash::Hash + core::cmp::Eq + Send + Sync + std::fmt::Debug + 'static,
+    K: core::str::FromStr + std::string::ToString + core::hash::Hash + core::cmp::Eq + Send + Sync + 'static,
     V: Reflect
 {
     fn impl_get<'a>(&self, mut path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
@@ -286,6 +284,72 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
 
 }
 
+
+impl<T> Reflect for std::collections::HashSet<T>
+    where
+    T: Reflect + core::str::FromStr + std::string::ToString + core::hash::Hash + core::cmp::Eq + 'static,
+{
+    fn impl_get<'a>(&self, mut path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
+        let Some(key) = path.next() else {
+            return Ok(self as &dyn Reflect)
+        };
+
+        let key = key.parse::<T>().map_err(|_| ReflectError::InvalidHashmapKey)?;
+
+        let val = self.get(&key)
+            .ok_or(ReflectError::entry_not_exist(key.to_string()))?;
+
+        Ok(val as &dyn Reflect)
+    }
+
+    fn impl_get_mut<'a>(&mut self, path: ReflectPath<'a>) -> Result<&mut dyn Reflect, ReflectError<'a>> {
+        if !path.has_next() {
+            return Ok(self as &mut dyn Reflect)
+        };
+
+        Err(ReflectError::CantMutHashSetKey)
+    }
+
+    fn impl_insert<'a>(&mut self, path: ReflectPath<'a>, value: Box<dyn Reflect>) -> Result<(), ReflectError<'a>> {
+        if !path.has_next() {
+            return value
+                .downcast::<Self>()
+                .map(|a| *self = *a)
+                .map_err(|_e| ReflectError::wrong_type(type_name::<Self>(), "TODO: cry"))
+        };
+        // let key = key.parse::<T>().map_err(|_| ReflectError::InvalidHashmapKey)?;
+
+        let value = value
+            .downcast::<T>()
+            .map_err(|_e| ReflectError::wrong_type(type_name::<T>(), "TODO: cry"))?;
+
+        self.insert(*value);
+        Ok(())
+    }
+
+
+
+    fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> Result<IterThing<'_>, ReflectError<'a>> {
+        let Some(key) = path.next() else {
+            return Ok(self.iter()
+                .map(|i| i as &dyn Reflect)
+                .collect::<Vec<_>>()
+                .into()
+            )
+        };
+
+        let key = key.parse::<T>().map_err(|_| ReflectError::InvalidHashmapKey)?;
+        let val = self.get(&key)
+            .ok_or(ReflectError::entry_not_exist(key.to_string()))?;
+
+        val.impl_iter(path)
+    }
+    fn impl_iter_mut<'a>(&mut self, _path: ReflectPath<'a>) -> Result<IterThingMut<'_>, ReflectError<'a>> {
+        Err(ReflectError::CantMutHashSetKey)
+    }
+
+}
+
 impl<T: Reflect> Reflect for Vec<T> {
     fn impl_get<'a>(&self, mut path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
         let Some(index) = path.next() else {
@@ -316,15 +380,14 @@ impl<T: Reflect> Reflect for Vec<T> {
         let Some(index) = path.next() else {
 
             if value.is::<T>() {
-                value
+                let _ = value
                     .downcast::<T>()
-                    .map(|a| self.push(*a))
-                    .unwrap()
+                    .map(|a| self.push(*a));
             } else {
                 value
-                .downcast::<Self>()
-                .map(|a| *self = *a)
-                .map_err(|_e| ReflectError::wrong_type(type_name::<Self>(), "TODO: cry"))?;
+                    .downcast::<Self>()
+                    .map(|a| *self = *a)
+                    .map_err(|_e| ReflectError::wrong_type(type_name::<Self>(), "TODO: cry"))?;
             }
 
             return Ok(())
@@ -379,10 +442,168 @@ impl<T: Reflect> Reflect for Vec<T> {
         val.impl_iter_mut(path)
     }
 
+} 
+
+impl<T: Reflect, const SIZE:usize> Reflect for [T; SIZE] where Self:Sized {
+    fn impl_get<'a>(&self, mut path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
+        let Some(index) = path.next() else {
+            return Ok(self as &dyn Reflect)
+        };
+
+        let index = index.parse::<usize>().map_err(|_| ReflectError::InvalidIndex)?;
+
+        let val = self.get(index)
+            .ok_or(ReflectError::entry_not_exist(index.to_string()))?;
+
+        Ok(val as &dyn Reflect)
+    }
+
+    fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> Result<&mut dyn Reflect, ReflectError<'a>> {
+        let Some(index) = path.next() else {
+            return Ok(self as &mut dyn Reflect)
+        };
+        let index = index.parse::<usize>().map_err(|_| ReflectError::InvalidIndex)?;
+
+        let val = self.get_mut(index)
+            .ok_or(ReflectError::entry_not_exist(index.to_string()))?;
+
+        Ok(val as &mut dyn Reflect)
+    }
+
+    fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> Result<(), ReflectError<'a>> {
+        let Some(index) = path.next() else {
+
+            value
+                .downcast::<Self>()
+                .map(|a| *self = *a)
+                .map_err(|_e| ReflectError::wrong_type(type_name::<Self>(), "TODO: cry"))?;
+    
+            return Ok(())
+        };
+        let index = index.parse::<usize>().map_err(|_| ReflectError::InvalidIndex)?;
+
+        let value = value
+            .downcast::<T>()
+            .map_err(|_e| ReflectError::wrong_type(type_name::<T>(), "TODO: cry"))?;
+
+        if index >= self.len() {
+            return Err(ReflectError::OutOfBounds {
+                length: self.len(),
+                index
+            })
+        } else {
+            self[index] = *value
+        }
+
+        Ok(())
+    }
+
+
+
+    fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> Result<IterThing<'_>, ReflectError<'a>> {
+        let Some(index) = path.next() else {
+            return Ok(self
+                .iter()
+                .map(|i| i as &dyn Reflect)
+                .collect::<Vec<_>>()
+                .into()
+            )
+        };
+
+        let index = index.parse::<usize>().map_err(|_| ReflectError::InvalidIndex)?;
+        let val = self.get(index)
+            .ok_or(ReflectError::entry_not_exist(index.to_string()))?;
+
+        val.impl_iter(path)
+    }
+    fn impl_iter_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> Result<IterThingMut<'_>, ReflectError<'a>> {
+        let Some(index) = path.next() else {
+            return Ok(self
+                .iter_mut()
+                .map(|i| i as &mut dyn Reflect)
+                .collect::<Vec<_>>()
+                .into()
+            )
+        };
+
+        let index = index.parse::<usize>().map_err(|_| ReflectError::InvalidHashmapKey)?;
+        let val = self.get_mut(index)
+            .ok_or(ReflectError::entry_not_exist(index.to_string()))?;
+
+        val.impl_iter_mut(path)
+    }
+
+} 
+
+macro_rules! impl_reflect_immutable_container {
+    ($($ty:ty),*) => { $(
+        impl<T:Reflect> Reflect for $ty where Self: std::ops::Deref<Target=T> {
+
+            fn impl_get<'a>(&self, path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
+                (&**self).impl_get(path)
+            }
+
+            fn impl_get_mut<'a>(&mut self, _path: ReflectPath<'a>) -> Result<&mut dyn Reflect, ReflectError<'a>> {
+                Err(ReflectError::ImmutibleContainer)
+            }
+
+            fn impl_insert<'a>(&mut self, path: ReflectPath<'a>, value: Box<dyn Reflect>) -> Result<(), ReflectError<'a>> {
+                if let Some(value) = value.downcast::<Self>().ok().filter(|_| !path.has_next()) {
+                    *self = *value;
+                    return Ok(())
+                }
+
+                Err(ReflectError::ImmutibleContainer)
+            }
+
+            fn impl_iter<'a>(&self, path: ReflectPath<'a>) -> Result<IterThing<'_>, ReflectError<'a>> {
+                (&**self).impl_iter(path)
+            }
+            fn impl_iter_mut<'a>(&mut self, _path: ReflectPath<'a>) -> Result<IterThingMut<'_>, ReflectError<'a>> {
+                Err(ReflectError::ImmutibleContainer)
+            }
+        }
+
+        
+    )* };
 }
 
+impl_reflect_immutable_container!(std::sync::Arc<T>);
 
 
+macro_rules! impl_reflect_mutable_container {
+    ($($ty:ty),*) => { $(
+        impl<T:Reflect> Reflect for $ty where Self: std::ops::Deref<Target=T> + std::ops::DerefMut {
+
+            fn impl_get<'a>(&self, path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
+                (&**self).impl_get(path)
+            }
+
+            fn impl_get_mut<'a>(&mut self, path: ReflectPath<'a>) -> Result<&mut dyn Reflect, ReflectError<'a>> {
+                (&mut **self).impl_get_mut(path)
+            }
+
+            fn impl_insert<'a>(&mut self, path: ReflectPath<'a>, value: Box<dyn Reflect>) -> Result<(), ReflectError<'a>> {
+                if !path.has_next() && value.is::<Self>() {
+                    *self = *value.downcast::<Self>().ok().unwrap();
+                    return Ok(())
+                }
+
+                (&mut **self).impl_insert(path, value)
+            }
+
+            fn impl_iter<'a>(&self, path: ReflectPath<'a>) -> Result<IterThing<'_>, ReflectError<'a>> {
+                (&**self).impl_iter(path)
+            }
+            fn impl_iter_mut<'a>(&mut self, path: ReflectPath<'a>) -> Result<IterThingMut<'_>, ReflectError<'a>> {
+                (&mut **self).impl_iter_mut(path)
+            }
+        }
+        
+    )* };
+}
+
+impl_reflect_mutable_container!(Box<T>);
 
 #[cfg(test)]
 mod test {
@@ -400,7 +621,7 @@ mod test {
         q: u64
     }
 
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, PartialEq, Debug)]
     #[derive(Reflect)]
     #[repr(i32)]
     #[allow(unused)]
@@ -434,10 +655,6 @@ mod test {
         assert_eq!(a.reflect_get("hi"), Ok(&"awawa".to_owned()));
         assert_eq!(a.reflect_get("b"), Ok(&5.9f32));
         assert_eq!(a.reflect_get("b2.q"), Ok(&33u64));
-
-        for i in a.reflect_iter("").unwrap() {
-            println!("{i:?}")
-        }
 
 
         let fuck = _TestEnum::Tuple(format!("gfnkjd;"));

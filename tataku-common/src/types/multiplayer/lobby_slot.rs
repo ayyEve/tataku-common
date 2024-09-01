@@ -2,6 +2,7 @@ use crate::prelude::*;
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 #[derive(Serialize, Deserialize, PacketSerialization)]
+#[derive(Reflect)]
 #[Packet(type="u8")]
 pub enum LobbySlot {
     #[default]

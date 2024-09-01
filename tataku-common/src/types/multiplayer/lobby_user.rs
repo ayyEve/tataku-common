@@ -2,6 +2,7 @@ use crate::prelude::*;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[derive(Serialize, Deserialize, Serializable)]
+#[derive(Reflect)]
 pub struct LobbyUser {
     pub user_id: u32,
 

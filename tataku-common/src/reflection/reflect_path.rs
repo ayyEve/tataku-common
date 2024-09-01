@@ -16,3 +16,9 @@ impl<'a> From<&'a str> for ReflectPath<'a> {
         Self::new(value)
     }
 }
+
+impl<'a> From<&'a String> for ReflectPath<'a> {
+    fn from(value: &'a String) -> Self {
+        Self::new(value)
+    }
+}

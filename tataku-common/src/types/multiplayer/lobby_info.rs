@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[derive(Serialize, Deserialize, Serializable)]
+#[derive(Reflect)]
 pub struct LobbyInfo {
     /// lobby id
     pub id: u32,
@@ -30,6 +31,7 @@ pub struct LobbyInfo {
 /// extra lobby data
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[derive(Serialize, Deserialize, Serializable)]
+#[derive(Reflect)]
 pub struct FullLobbyInfo {
     /// lobby id
     pub id: u32,
@@ -55,6 +57,7 @@ pub struct FullLobbyInfo {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[derive(Serialize, Deserialize, Serializable)]
+#[derive(Reflect)]
 pub struct LobbyBeatmap {
     pub title: String,
     pub hash: Md5Hash,
