@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ReflectPath<'a>(VecDeque<&'a str>);
 impl<'a> ReflectPath<'a> {
     pub fn new(s: &'a str) -> Self {

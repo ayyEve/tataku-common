@@ -2,6 +2,7 @@ use crate::prelude::*;
 
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[derive(Reflect)]
+#[reflect(from_string = "auto")]
 pub enum KeyPress {
     LeftKat = 0,
     LeftDon = 1,

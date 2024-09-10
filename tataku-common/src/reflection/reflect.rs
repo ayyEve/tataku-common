@@ -1,16 +1,7 @@
 use crate::prelude::*;
 use std::any::type_name;
 
-// pub trait Any: std::any::Any {
-//     fn type_name(&self) -> &'static str { type_name::<Self>() }
-//     fn impl_as_any(&self) -> &dyn std::any::Any where Self:Sized { self }
-// }
-// impl dyn Any {
-//     fn as_any(&self) -> &dyn std::any::Any {
-//         self.impl_as_any()
-//     }
-// }
-
+pub type ReflectResult<'a, T> = Result<T, ReflectError<'a>>;
 
 /// value-able, as in able-to-valuez
 /// not valuable, as in has-value
@@ -22,17 +13,21 @@ pub trait Reflect: downcast_rs::DowncastSync {
     fn as_dyn(&self) -> &dyn Reflect where Self: Sized { self }
     fn as_dyn_mut(&mut self) -> &mut dyn Reflect where Self: Sized { self }
 
-    fn impl_get<'s, 'v>(&'s self, path: ReflectPath<'v>) -> Result<&'s dyn Reflect, ReflectError<'v>>;
-    fn impl_get_mut<'s, 'v>(&'s mut self, path: ReflectPath<'v>) -> Result<&'s mut dyn Reflect, ReflectError<'v>>;
+    fn impl_get<'s, 'v>(&'s self, path: ReflectPath<'v>) -> ReflectResult<'v, &'s dyn Reflect>;
+    fn impl_get_mut<'s, 'v>(&'s mut self, path: ReflectPath<'v>) -> ReflectResult<'v, &'s mut dyn Reflect>;
 
-    fn impl_insert<'v>(&mut self, path: ReflectPath<'v>, value: Box<dyn Reflect>) -> Result<(), ReflectError<'v>>;
+    fn impl_insert<'v>(&mut self, path: ReflectPath<'v>, value: Box<dyn Reflect>) -> ReflectResult<'v, ()>;
 
-    fn impl_iter<'s, 'v>(&'s self, _path: ReflectPath<'v>) -> Result<IterThing<'s>, ReflectError<'v>> {
+    fn impl_iter<'s, 'v>(&'s self, _path: ReflectPath<'v>) -> ReflectResult<'v, IterThing<'s>> {
         Ok(Default::default())
     }
-    fn impl_iter_mut<'s, 'v>(&'s mut self, _path: ReflectPath<'v>) -> Result<IterThingMut<'s>, ReflectError<'v>> {
+    fn impl_iter_mut<'s, 'v>(&'s mut self, _path: ReflectPath<'v>) -> ReflectResult<'v, IterThingMut<'s>> {
         Ok(Default::default())
     }
+
+    fn duplicate(&self) -> Option<Box<dyn Reflect>>;
+
+    fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized;
 }
 
 impl dyn Reflect {
@@ -146,6 +141,16 @@ macro_rules! base_valueable_impl {
                     .map(|a| *self = *a)
                     .map_err(|v| ReflectError::wrong_type(type_name::<$ty>(), v.type_name()))
             }
+
+            fn duplicate(&self) -> Option<Box<dyn Reflect>> {
+                Some(Box::new(self.clone()))
+            }
+
+            fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
+                Ok(Box::new(
+                    str.parse::<$ty>().map_err(|_| ReflectError::wrong_type(stringify!($ty), "String"))?
+                ))
+            }
         }
     };
 
@@ -161,15 +166,62 @@ base_valueable_impl!(
     usize, isize,
     f32, f64,
     bool,
-    String, &'static str
+    String
 );
-
-
-impl<T:Reflect> Reflect for Option<T> {
+impl Reflect for &'static str {
     fn impl_get<'a>(&self, mut path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
         if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
 
         Ok(self as &dyn Reflect)
+    }
+
+    fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> Result<&mut dyn Reflect, ReflectError<'a>> {
+        if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
+
+        Ok(self as &mut dyn Reflect)
+    }
+
+    fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> Result<(), ReflectError<'a>> {
+        if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
+
+        value
+            .downcast::<&'static str>()
+            .map(|a| *self = *a)
+            .map_err(|v| ReflectError::wrong_type(type_name::<str>(), v.type_name()))
+    }
+
+    fn duplicate(&self) -> Option<Box<dyn Reflect>> {
+        Some(Box::new(self.to_owned()))
+    }
+
+    fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
+        Ok(Box::new(str.to_owned()))
+    }
+}
+
+
+
+
+impl<T:Reflect+Clone> Reflect for Option<T> {
+    fn impl_get<'a>(&self, path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
+        let next = path.clone().next();
+        match (next, self) {
+            (None, None) => Err(ReflectError::OptionIsNone),
+            (None, Some(s)) => Ok(s as &dyn Reflect),
+            (Some("is_some"), None) => Ok(&false as &dyn Reflect),
+            (Some("is_some"), Some(_)) => Ok(&true as &dyn Reflect),
+            (Some(_), Some(s)) => s.impl_get(path),
+            (Some(_), None) => Err(ReflectError::OptionIsNone)
+            // Some(next) => 
+            // Err(ReflectError::entry_not_exist(next))
+        }
+
+        
+        // if let Some(next) = path.next() { 
+        //     return Err(ReflectError::entry_not_exist(next))
+        // }
+
+        // Ok(self as &dyn Reflect)
     }
 
     fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> Result<&mut dyn Reflect, ReflectError<'a>> {
@@ -195,7 +247,16 @@ impl<T:Reflect> Reflect for Option<T> {
             .map_err(|v| ReflectError::wrong_type(type_name::<Self>(), v.type_name()))?;
         Ok(())
     }
+
+    fn duplicate(&self) -> Option<Box<dyn Reflect>> {
+        Some(Box::new(self.clone()))
+    }
+
+    fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
+        Ok(T::from_string(str)?)
+    }
 }
+
 
 
 impl<K, V> Reflect for std::collections::HashMap<K, V>
@@ -245,8 +306,6 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
         Ok(())
     }
 
-
-
     fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> Result<IterThing<'_>, ReflectError<'a>> {
         let Some(key) = path.next() else {
             return Ok(self.values()
@@ -278,6 +337,14 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
         val.impl_iter_mut(path)
     }
 
+
+    fn from_string(_str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
+        Err(ReflectError::NoFromString)
+    }
+
+    fn duplicate(&self) -> Option<Box<dyn Reflect>> {
+        None
+    }
 }
 
 
@@ -344,9 +411,16 @@ impl<T> Reflect for std::collections::HashSet<T>
         Err(ReflectError::CantMutHashSetKey)
     }
 
+    fn duplicate(&self) -> Option<Box<dyn Reflect>> {
+        None
+    }
+
+    fn from_string(_: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
+        Err(ReflectError::NoFromString)
+    }
 }
 
-impl<T: Reflect> Reflect for Vec<T> {
+impl<T: Reflect + Clone> Reflect for Vec<T> {
     fn impl_get<'a>(&self, mut path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
         let Some(index) = path.next() else {
             return Ok(self as &dyn Reflect)
@@ -438,6 +512,13 @@ impl<T: Reflect> Reflect for Vec<T> {
         val.impl_iter_mut(path)
     }
 
+    fn duplicate(&self) -> Option<Box<dyn Reflect>> {
+        Some(Box::new(self.clone()))
+    }
+
+    fn from_string(_: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
+        Err(ReflectError::NoFromString)
+    }
 }
 
 impl<T: Reflect, const SIZE:usize> Reflect for [T; SIZE] where Self:Sized {
@@ -529,6 +610,13 @@ impl<T: Reflect, const SIZE:usize> Reflect for [T; SIZE] where Self:Sized {
         val.impl_iter_mut(path)
     }
 
+    fn duplicate(&self) -> Option<Box<dyn Reflect>> {
+        None
+    }
+
+    fn from_string(_: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
+        Err(ReflectError::NoFromString)
+    }
 }
 
 macro_rules! impl_reflect_immutable_container {
@@ -558,9 +646,15 @@ macro_rules! impl_reflect_immutable_container {
             fn impl_iter_mut<'a>(&mut self, _path: ReflectPath<'a>) -> Result<IterThingMut<'_>, ReflectError<'a>> {
                 Err(ReflectError::ImmutableContainer)
             }
+
+            fn duplicate(&self) -> Option<Box<dyn Reflect>> {
+                Some(Box::new(self.clone()))
+            }
+
+            fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
+                Ok(Box::new(T::from_string(str)?))
+            }
         }
-
-
     )* };
 }
 
@@ -569,7 +663,12 @@ impl_reflect_immutable_container!(std::sync::Arc<T>);
 
 macro_rules! impl_reflect_mutable_container {
     ($($ty:ty),*) => { $(
-        impl<T:Reflect> Reflect for $ty where Self: std::ops::Deref<Target=T> + std::ops::DerefMut {
+        impl<T:Reflect + ?Sized> Reflect for $ty where Self: std::ops::Deref<Target=T> + std::ops::DerefMut {
+
+            fn type_name(&self) -> &'static str {
+                T::type_name(&**self)
+            }
+
 
             fn impl_get<'a>(&self, path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
                 (&**self).impl_get(path)
@@ -593,6 +692,16 @@ macro_rules! impl_reflect_mutable_container {
             }
             fn impl_iter_mut<'a>(&mut self, path: ReflectPath<'a>) -> Result<IterThingMut<'_>, ReflectError<'a>> {
                 (&mut **self).impl_iter_mut(path)
+            }
+
+
+            fn duplicate(&self) -> Option<Box<dyn Reflect>> {
+                T::duplicate(&**self)
+            }
+
+            fn from_string(_str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
+                Err(ReflectError::NoFromString)
+                //Ok(Box::new(T::from_string(str)?))
             }
         }
 
@@ -705,6 +814,14 @@ macro_rules! impl_reflect_tuple {
                 }
             }
 
+
+            fn duplicate(&self) -> Option<Box<dyn Reflect>> {
+                None
+            }
+
+            fn from_string(_: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
+                Err(ReflectError::NoFromString)
+            }
         }
     };
 
@@ -757,7 +874,8 @@ mod tuple_impl {
 mod test {
     use super::*;
 
-    #[derive(Debug, Reflect)]
+
+    #[derive(Debug, Reflect, Clone)]
     struct A {
         #[reflect(alias("hello"))]
         hi: String,
@@ -767,13 +885,14 @@ mod test {
         #[reflect(skip)]
         _skip: bool,
     }
+
     #[derive(Clone, Debug, PartialEq)]
     #[derive(Reflect)]
     struct B {
         q: u64
     }
 
-    #[derive(Reflect, Debug, PartialEq)]
+    #[derive(Reflect, Debug, PartialEq, Clone)]
     #[reflect(skip)]
     struct SkipAll {
         a: u32,
@@ -796,6 +915,8 @@ mod test {
         #[reflect(skip)]
         Skip,
     }
+
+
 
     // todo: skip all enum
 

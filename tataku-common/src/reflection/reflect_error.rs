@@ -5,6 +5,7 @@ pub enum ReflectError<'a> {
     EntryNotExist {
         entry: Cow<'a, str>
     },
+    OptionIsNone,
 
     ValueWrongType {
         actual: &'static str,
@@ -30,6 +31,8 @@ pub enum ReflectError<'a> {
 
     CantMutHashSetKey,
     ImmutableContainer,
+
+    NoFromString,
 }
 impl<'a> ReflectError<'a> {
     pub fn entry_not_exist(entry: impl Into<Cow<'a, str>>) -> Self {
@@ -58,6 +61,8 @@ impl<'a> ReflectError<'a> {
             Self::OutOfBounds { length, index } => ReflectError::OutOfBounds { length, index },
             Self::CantMutHashSetKey => ReflectError::CantMutHashSetKey,
             Self::ImmutableContainer => ReflectError::ImmutableContainer,
+            Self::OptionIsNone => ReflectError::OptionIsNone,
+            Self::NoFromString => ReflectError::NoFromString
         }
     }
 }

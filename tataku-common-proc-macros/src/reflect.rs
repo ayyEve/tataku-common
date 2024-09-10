@@ -6,6 +6,14 @@ pub const REFLECT_ATTRIBUTE: &str = "reflect";
 pub const SKIP_ATTRIBUTE: &str = "skip";
 pub const RENAME_ATTRIBUTE: &str = "rename";
 pub const ALIAS_ATTRIBUTE: &str = "alias";
+pub const FLATTEN_ATTRIBUTE: &str = "flatten";
+pub const DONT_CLONE_ATTRIBUTE: &str = "dont_clone";
+
+pub const FROM_STRING_ATTRIBUTE: &str = "from_string";
+pub const FROM_STRING_NONE: &str = "none";
+pub const FROM_STRING_FROM_STR: &str = "from_str";
+pub const FROM_STRING_AUTO: &str = "auto";
+
 
 macro_rules! try_error {
     ($($t:tt)+) => {
@@ -19,9 +27,20 @@ macro_rules! try_error {
 #[derive(Default)]
 struct ReflectAttributes {
     skip: bool,
+    dont_clone: bool,
+    from_string_type: FromStringType,
     rename: Option<LitStr>,
     aliases: Vec<LitStr>,
 }
+
+#[derive(Copy, Clone, Default)]
+enum FromStringType {
+    #[default]
+    None,
+    FromStr,
+    AutoFromStr,
+}
+
 
 impl ReflectAttributes {
     fn parse_from_attrs(attrs: &[Attribute], global: bool) -> Result<Self> {
@@ -33,6 +52,21 @@ impl ReflectAttributes {
             attr.parse_nested_meta(|meta| {
                 if meta.path.is_ident(SKIP_ATTRIBUTE) {
                     reflect.skip = true;
+                }
+                else if meta.path.is_ident(DONT_CLONE_ATTRIBUTE) {
+                    reflect.dont_clone = true;
+                }
+                else if meta.path.is_ident(FROM_STRING_ATTRIBUTE) {
+                    let _ = meta.value()?;
+
+                    let name: LitStr = meta.input.parse()?;
+
+                    reflect.from_string_type = match &*name.value() {
+                        FROM_STRING_NONE => FromStringType::None,
+                        FROM_STRING_AUTO => FromStringType::AutoFromStr,
+                        FROM_STRING_FROM_STR => FromStringType::FromStr,
+                        _ => return Err(meta.error("Invalid rename type")),
+                    }
                 }
                 else if meta.path.is_ident(RENAME_ATTRIBUTE) {
                     if global { return Err(meta.error("rename is not valid on container type")); }
@@ -52,6 +86,9 @@ impl ReflectAttributes {
                     let aliases: Punctuated<LitStr, Token![,]> = aliases.call(Punctuated::parse_separated_nonempty)?;
 
                     reflect.aliases.extend(aliases);
+                }
+                else if meta.path.is_ident(FLATTEN_ATTRIBUTE) {
+                    // meta.
                 }
                 else {
                     return Err(meta.error("Invalid attribute"))
@@ -81,6 +118,15 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
     let mut iter_mut_fields = proc_macro2::TokenStream::default();
 
     let mut variant_name_helper = proc_macro2::TokenStream::default();
+
+    let duplicate;
+    if global_attributes.dont_clone {
+        duplicate = quote!(None)
+    } else {
+        duplicate = quote!(Some(Box::new(self.clone())))
+    }
+
+    let mut unit_fields = Vec::new();
 
     if !global_attributes.skip {
         match &derive.data {
@@ -362,7 +408,9 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                                 }));
                             }
                         },
-                        Fields::Unit => {},
+                        Fields::Unit => {
+                            unit_fields.push(variant_name)
+                        },
                     }
 
                     let name = match variant_attributes.rename {
@@ -488,6 +536,32 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
         iter_mut_fields = quote! { vec![self.as_dyn_mut()] };
     }
 
+
+    let mut from_str_impl = proc_macro2::TokenStream::default();
+    let from_string = match global_attributes.from_string_type {
+        FromStringType::None => quote!(Err(ReflectError::NoFromString)),
+        FromStringType::FromStr
+        | FromStringType::AutoFromStr => quote!(
+            use std::str::FromStr; 
+            Ok(Box::new(Self::from_str(_s)?))
+        ),
+    };
+    if let FromStringType::AutoFromStr = global_attributes.from_string_type {
+        from_str_impl = quote!(
+            impl #impl_generics std::str::FromStr for #type_name #ty_generics where #where_clause {
+                type Err = ReflectError<'static>;
+
+                fn from_str(s: &str) -> Result<Self, Self::Err> {
+                    match s {
+                        #(stringify!(#unit_fields) => Ok(Self::#unit_fields),)*
+                        other => Err(ReflectError::entry_not_exist(other).to_owned())
+                    }
+                }
+            }
+        );
+    }
+
+
     quote! {
         #variant_name_helper
 
@@ -509,9 +583,14 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
             }
 
             fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> Result<(), ReflectError<'a>> {
+                // println!("{}", std::any::type_name_of_val(&value));
+
                 match path.next() {
-                    None => value.downcast::<Self>().map(|v| *self = *v)
-                        .map_err(|v| ReflectError::wrong_type(std::any::type_name::<Self>(), v.type_name())),
+                    None => {
+                        value.downcast::<Self>().map(|v| *self = *v)
+                            .or_else(|v| v.downcast::<Box<dyn Reflect>>().and_then(|v| v.downcast::<Self>().map(|v| *self = *v)))
+                            .map_err(|v| ReflectError::wrong_type(std::any::type_name::<Self>(), v.type_name()))
+                    },
                     #insert_impl
                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                 }
@@ -531,6 +610,16 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                 }
             }
+
+            fn duplicate(&self) -> Option<Box<dyn Reflect>> {
+                #duplicate
+            }
+
+            fn from_string(_s: &str) -> ReflectResult<Box<dyn Reflect>> {
+                #from_string
+            }
         }
+
+        #from_str_impl
     }
 }

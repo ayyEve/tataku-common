@@ -1,5 +1,6 @@
 /// how many decimal places to "preserve"
 const PRECISION:i32 = 2;
+
 use crate::prelude::*;
 
 /// helper struct for speed multipliers
@@ -7,6 +8,7 @@ use crate::prelude::*;
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[derive(Reflect)]
+#[reflect(from_string = "from_str")]
 #[serde(from="f32", into="f32")]
 pub struct GameSpeed(u16);
 impl GameSpeed {
@@ -60,3 +62,18 @@ impl From<f32> for GameSpeed {
     fn from(value: f32) -> Self { Self::from_f32(value) }
 }
 
+impl std::str::FromStr for GameSpeed {
+    type Err = ReflectError<'static>;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(n) = s.parse::<u16>() {
+            Ok(Self::from_u16(n))
+        } else if let Ok(n) = s.parse::<f32>() {
+            Ok(Self::from_f32(n))
+        } else if let Ok(n) = s.parse::<i32>() {
+            Ok(Self::from_i32(n))
+        } else {
+            Err(ReflectError::wrong_type("GameSpeed", "FromStr"))
+        }
+    }
+}

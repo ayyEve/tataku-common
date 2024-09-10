@@ -4,6 +4,7 @@ use crate::prelude::*;
 #[derive(Serialize, Deserialize, PacketSerialization)]
 #[derive(Reflect)]
 #[Packet(type="u8")]
+#[reflect(from_string = "auto")]
 pub enum LobbyUserState {
     #[default]
     #[Packet(id=0)]
