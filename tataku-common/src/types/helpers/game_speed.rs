@@ -41,22 +41,22 @@ impl std::fmt::Display for GameSpeed {
     }
 }
 
-impl Into<u16> for GameSpeed {
-    fn into(self) -> u16 { self.as_u16() }
+impl From<GameSpeed> for u16 {
+    fn from(val: GameSpeed) -> Self { val.as_u16() }
 }
 impl From<u16> for GameSpeed {
     fn from(value: u16) -> Self { Self::from_u16(value) }
 }
 
-impl Into<i32> for GameSpeed {
-    fn into(self) -> i32 { self.as_i32() }
+impl From<GameSpeed> for i32 {
+    fn from(val: GameSpeed) -> Self { val.as_i32() }
 }
 impl From<i32> for GameSpeed {
     fn from(value: i32) -> Self { Self::from_i32(value) }
 }
 
-impl Into<f32> for GameSpeed {
-    fn into(self) -> f32 { self.as_f32() }
+impl From<GameSpeed> for f32 {
+    fn from(val: GameSpeed) -> Self { val.as_f32() }
 }
 impl From<f32> for GameSpeed {
     fn from(value: f32) -> Self { Self::from_f32(value) }

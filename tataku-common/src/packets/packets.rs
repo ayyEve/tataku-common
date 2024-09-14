@@ -1,6 +1,7 @@
 use crate::prelude::*;
 
 #[derive(Clone, Debug)]
+#[allow(clippy::large_enum_variant)]
 #[allow(non_camel_case_types)]
 #[derive(PacketSerialization)]
 #[Packet(type="u16")]
@@ -51,6 +52,7 @@ pub enum PacketId {
         user_id: u32,
         /// the permissions for said user
         /// - **NOTE**!!! this is a vec for rust code only, everywhere else (including when written to the packet) 
+        /// 
         /// this will be a u16!!
         /// - **THIS SHOULD BE READ AS A U16, NOT A LIST OF U16**
         permissions: Vec<ServerPermissions>,

@@ -21,15 +21,9 @@ pub enum LobbySlot {
 }
 impl LobbySlot {
     pub fn is_free(&self) -> bool {
-        match self {
-            Self::Empty => true,
-            _ => false
-        }
+        matches!(self, Self::Empty)
     }
     pub fn is_locked(&self) -> bool {
-        match self {
-            Self::Locked => true,
-            _ => false
-        }
+        matches!(self, Self::Locked)
     }
 }

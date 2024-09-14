@@ -74,14 +74,12 @@ impl Score {
     /// this is definitely going to break at some point, i need to figure out a better way to do this lol
     /// I was thinking of md5(format!("{time}{username}")), but this would break if time is 0 (default) :c
     pub fn hash(&self) -> String {
-        let mut mods = format!("None");
-        if self.version >= 3 {
-            if self.mods.len() > 0 {
-                let m = self.mods.iter().map(|m| m.name.clone()).collect::<Vec<String>>().join(",");
-                let mut hasher = std::collections::hash_map::DefaultHasher::new();
-                std::hash::Hash::hash(&m, &mut hasher);
-                mods = format!("{:x}", std::hash::Hasher::finish(&hasher))
-            }
+        let mut mods = "None".to_string();
+        if self.version >= 3 && !self.mods.is_empty() {
+            let m = self.mods.iter().map(|m| m.name.clone()).collect::<Vec<String>>().join(",");
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            std::hash::Hash::hash(&m, &mut hasher);
+            mods = format!("{:x}", std::hash::Hasher::finish(&hasher))
         }
 
         // lol
@@ -100,7 +98,7 @@ impl Score {
             // v1 hash didnt have the playmode
             2 => format!("{beatmap_hash}-{score},{combo},{max_combo},{x100},{x300},{xmiss},{playmode}"),
             1 => format!("{beatmap_hash}-{score},{combo},{max_combo},{x100},{x300},{xmiss}"),
-            0 => format!("what"),
+            0 => "what".to_string(),
         }
     }
 
@@ -147,7 +145,7 @@ impl Score {
         judgments.join("|")
     }
 
-    pub fn judgments_from_string(judgment_string: &String) -> HashMap<String, u16> {
+    pub fn judgments_from_string(judgment_string: &str) -> HashMap<String, u16> {
         let mut judgments = HashMap::new();
 
         let entries = judgment_string.split("|");
@@ -391,7 +389,7 @@ fn read_old_score(
     if !mods2.is_empty() {
         mods = mods2.into_iter().map(|m| ModDefinition {
             name: m.clone(),
-            short_name: format!("??"),
+            short_name: "??".to_string(),
             display_name: m,
             adjusts_difficulty: false,
             score_multiplier: 1.0,

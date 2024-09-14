@@ -10,7 +10,7 @@ pub struct SimpleWriter {
     writer: SerializationWriter
 }
 impl SimpleWriter {
-    pub fn new() -> Self { SimpleWriter{ writer:SerializationWriter::new() }}
+    pub fn new() -> Self { SimpleWriter{ writer: SerializationWriter::new() }}
     pub fn done(self) -> Vec<u8> { self.writer.data() }
     pub fn write<W:Serializable>(mut self, s:impl std::borrow::Borrow<W>) -> Self {
         self.writer.write(s.borrow());

@@ -5,6 +5,7 @@ use crate::prelude::*;
 #[derive(Reflect)]
 #[Packet(type="u8")]
 #[Packet(extra_logging)]
+#[allow(clippy::large_enum_variant)]
 pub enum SpectatorAction {
     /// host started a new map
     /// NOTE: mods is a comma separated list of mod ids, ie "no_fail, autoplay"

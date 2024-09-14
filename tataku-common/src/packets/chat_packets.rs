@@ -73,9 +73,9 @@ pub enum ChatPacket {
     #[Packet(id=255)]
     Unknown,
 }
-impl Into<PacketId> for ChatPacket {
-    fn into(self) -> PacketId {
-        PacketId::Chat_Packet { packet: self }
+impl From<ChatPacket> for PacketId {
+    fn from(val: ChatPacket) -> Self {
+        PacketId::Chat_Packet { packet: val }
     }
 }
 

@@ -47,7 +47,7 @@ impl<'a> ReflectError<'a> {
 
 
     pub fn to_owned(self) -> ReflectError<'static> {
-        fn own<'a>(cow: Cow<'a, str>) -> Cow<'static, str> {
+        fn own(cow: Cow<'_, str>) -> Cow<'static, str> {
             Cow::<'static, str>::Owned(cow.into_owned())
         }
         match self {

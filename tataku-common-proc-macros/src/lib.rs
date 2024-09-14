@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use proc_macro::TokenStream;
 use quote::*;
 use syn::*;
-use syn::punctuated::{ Punctuated };
+use syn::punctuated::Punctuated;
 
 mod reflect;
 
@@ -62,7 +62,7 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
             }
         }
     }
-    if extra_logging { println!("got type {type_:?} for enum {}", ast.ident.to_string()) }
+    if extra_logging { println!("got type {type_:?} for enum {}", ast.ident) }
 
     let mut id_map: HashMap<u16, String> = HashMap::new();
     let mut variant_list:Vec<EnumData> = Vec::new();
@@ -108,7 +108,7 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
 
             // ensure this packet has an id
             if id.is_none() {
-                panic!("Packet has no id!! {}", variant_name.to_string())
+                panic!("Packet has no id!! {variant_name}")
             }
             let id = id.unwrap();
             // ensure the id is free
@@ -163,7 +163,7 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 },
             */
 
-            let match_fields = if fields.len() > 0 { format!("{{{}}} ", fields.join(", ")) } else { String::new() };
+            let match_fields = if !fields.is_empty() { format!("{{{}}} ", fields.join(", ")) } else { String::new() };
             let write_fields = fields.iter().map(|f| format!("sw.write({f});")).collect::<Vec<_>>().join("\n");
 
             write_match += &format!("Self::{name} {match_fields} => {{
@@ -178,7 +178,7 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
     write_match += "    }";
 
     #[allow(unused_mut)]
-    let mut debug_read_line = format!("");
+    let mut debug_read_line = String::new();
     #[cfg(feature = "packet_logging")] {
         debug_read_line = format!("println!(\"[Packet] Reading packet {{packet_id:?}} from enum {enum_name}\");");
     }
@@ -285,15 +285,13 @@ fn impl_serializable(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
 
         // check to see if we have a version field
         if let Some(f) = data.fields.iter().next() {
-            if f.ident.as_ref().unwrap().to_string() == "version" {
-                read_lines.push(format!("s.version = sr.read(\"version\")?;"));
-                read_lines.push(format!("let version = s.version;"));
+            if *f.ident.as_ref().unwrap() == "version" {
+                read_lines.push("s.version = sr.read(\"version\")?;".to_string());
+                read_lines.push("let version = s.version;".to_string());
+            } else if read_version {
+                read_lines.push("let version = sr.read::<u16>(\"version\")?;".to_string());
             } else {
-                if read_version {
-                    read_lines.push(format!("let version = sr.read::<u16>(\"version\")?;"));
-                } else {
-                    read_lines.push("let version = 0u16; //version.unwrap_or_default();".to_owned());
-                }
+                read_lines.push("let version = 0u16; //version.unwrap_or_default();".to_owned());
             }
         }
 

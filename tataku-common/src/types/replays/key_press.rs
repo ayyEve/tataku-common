@@ -35,9 +35,9 @@ pub enum KeyPress {
     Unknown = 255
 }
 
-impl Into<u8> for KeyPress {
-    fn into(self) -> u8 {
-        self as u8
+impl From<KeyPress> for u8 {
+    fn from(val: KeyPress) -> Self {
+        val as u8
     }
 }
 impl From<u8> for KeyPress {

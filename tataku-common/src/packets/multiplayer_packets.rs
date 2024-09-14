@@ -2,6 +2,7 @@ use crate::prelude::*;
 
 #[derive(Clone, Debug)]
 #[allow(non_camel_case_types)]
+#[allow(clippy::large_enum_variant)]
 #[derive(PacketSerialization)]
 #[Packet(type="u8")]
 pub enum MultiplayerPacket {
@@ -247,8 +248,8 @@ pub enum MultiplayerPacket {
     Unknown,
 }
 
-impl Into<PacketId> for MultiplayerPacket {
-    fn into(self) -> PacketId {
-        PacketId::Multiplayer_Packet { packet: self }
+impl From<MultiplayerPacket> for PacketId {
+    fn from(val: MultiplayerPacket) -> Self {
+        PacketId::Multiplayer_Packet { packet: val }
     }
 }

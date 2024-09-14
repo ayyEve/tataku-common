@@ -35,15 +35,15 @@ impl std::str::FromStr for Md5Hash {
     type Err = std::num::ParseIntError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self::try_from(s)?)
+        Self::try_from(s)
     }
 }
 
 
 
-impl Into<String> for Md5Hash {
-    fn into(self) -> String {
-        self.to_string()
+impl From<Md5Hash> for String {
+    fn from(val: Md5Hash) -> Self {
+        val.to_string()
     }
 }
 
@@ -69,8 +69,7 @@ impl std::fmt::Display for Md5Hash {
 impl Serializable for Md5Hash {
     fn read(sr: &mut crate::SerializationReader) -> crate::SerializationResult<Self> where Self: Sized {
         let s = sr.read::<String>("md5")?;
-        let r = Ok(s.try_into()?);
-        r
+        Ok(s.try_into()?)
     }
 
     fn write(&self, sw:&mut crate::SerializationWriter) {

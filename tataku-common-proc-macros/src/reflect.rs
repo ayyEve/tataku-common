@@ -119,12 +119,11 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
 
     let mut variant_name_helper = proc_macro2::TokenStream::default();
 
-    let duplicate;
-    if global_attributes.dont_clone {
-        duplicate = quote!(None)
+    let duplicate = if global_attributes.dont_clone {
+        quote!(None)
     } else {
-        duplicate = quote!(Some(Box::new(self.clone())))
-    }
+        quote!(Some(Box::new(self.clone())))
+    };
 
     let mut unit_fields = Vec::new();
 

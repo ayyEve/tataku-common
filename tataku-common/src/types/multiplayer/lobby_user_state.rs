@@ -26,9 +26,6 @@ pub enum LobbyUserState {
 impl LobbyUserState {
     /// is it safe to assume this user has the current map?
     pub fn has_map(&self) -> bool {
-        match self {
-            LobbyUserState::NoMap | LobbyUserState::Unknown => false,
-            _ => true
-        }
+        !matches!(self, LobbyUserState::NoMap | LobbyUserState::Unknown)
     }
 }

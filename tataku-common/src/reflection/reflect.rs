@@ -253,7 +253,7 @@ impl<T:Reflect+Clone> Reflect for Option<T> {
     }
 
     fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
-        Ok(T::from_string(str)?)
+        T::from_string(str)
     }
 }
 
@@ -868,6 +868,32 @@ mod tuple_impl {
 }
 
 
+impl std::fmt::Debug for dyn Reflect {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        macro_rules! pain {
+            ($($ty:ty),*) => { $(
+                if let Some(a) = self.downcast_ref::<$ty>() {
+                    return write!(f, "{a:?}");
+                }
+            )*}
+        }
+
+        pain!(
+            u8, i8,
+            u16, i16,
+            u32, i32,
+            u64, i64,
+            u128, i128,
+            usize, isize,
+            f32, f64,
+            bool,
+            String, &'static str
+        );
+
+        write!(f, "Other ({})", self.type_name())
+    }
+}
+
 
 
 #[cfg(test)]
@@ -980,29 +1006,3 @@ mod test {
 
 
 
-
-impl std::fmt::Debug for dyn Reflect {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        macro_rules! pain {
-            ($($ty:ty),*) => { $(
-                if let Some(a) = self.downcast_ref::<$ty>() {
-                    return write!(f, "{a:?}");
-                }
-            )*}
-        }
-
-        pain!(
-            u8, i8,
-            u16, i16,
-            u32, i32,
-            u64, i64,
-            u128, i128,
-            usize, isize,
-            f32, f64,
-            bool,
-            String, &'static str
-        );
-
-        write!(f, "Other ({})", self.type_name())
-    }
-}

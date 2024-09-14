@@ -369,7 +369,7 @@ mod test {
     #[test]
     fn writer_test() {
         let mut writer = SerializationWriter::new();
-        writer.write(&(1 as usize));
+        writer.write(&1usize);
         writer.write(&("hello".to_owned()));
 
         let line = writer.data().iter().map(|b|format!("{:#x}", b)).collect::<Vec<String>>().join(", ");

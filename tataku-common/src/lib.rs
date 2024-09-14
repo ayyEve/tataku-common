@@ -10,5 +10,3 @@ pub mod serialization;
 pub mod tables;
 
 pub use prelude::*;
-
-pub use tataku_common_proc_macros::*;
