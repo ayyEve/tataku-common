@@ -12,9 +12,9 @@ impl DynMap {
 }
 
 impl Reflect for DynMap {
-    fn impl_get<'v>(&self, mut path: ReflectPath<'v>) -> Result<&dyn Reflect, ReflectError<'v>> {
+    fn impl_get<'v, 's>(&'s self, mut path: ReflectPath<'v>) -> ReflectResult<'v, MaybeOwnedReflect<'s>> {
         match path.next() {
-            None => Ok(self.as_dyn()),
+            None => Ok(self.as_dyn().into()),
             Some(p) => self.map.get(p)
                 .map(|v| &**v)
                 .ok_or(ReflectError::entry_not_exist(p))

@@ -3,8 +3,46 @@ use std::any::type_name;
 
 pub type ReflectResult<'a, T> = Result<T, ReflectError<'a>>;
 
-/// value-able, as in able-to-valuez
-/// not valuable, as in has-value
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum MaybeOwned<'a, T> {
+    Borrowed(&'a T),
+    Owned(T),
+}
+impl<T> std::ops::Deref for MaybeOwned<'_, T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Borrowed(b) => b,
+            Self::Owned(b) => b,
+        }
+    }
+}
+
+
+
+pub enum MaybeOwnedReflect<'a> {
+    Borrowed(&'a dyn Reflect),
+    Owned(Box<dyn Reflect>),
+}
+impl<R:Reflect> From<R> for MaybeOwnedReflect<'_> {
+    fn from(value: R) -> Self {
+        Self::Owned(Box::new(value))
+    }
+}
+impl<'a> From<&'a dyn Reflect> for MaybeOwnedReflect<'a> {
+    fn from(value: &'a dyn Reflect) -> Self {
+        Self::Borrowed(value)
+    }
+}
+impl AsRef<dyn Reflect> for MaybeOwnedReflect<'_> {
+    fn as_ref(&self) -> &dyn Reflect {
+        match self {
+            Self::Borrowed(r) => *r,
+            Self::Owned(b) => &**b
+        }
+    }
+}
+
 pub trait Reflect: downcast_rs::DowncastSync {
     fn type_name(&self) -> &'static str {
         type_name::<Self>()
@@ -13,7 +51,7 @@ pub trait Reflect: downcast_rs::DowncastSync {
     fn as_dyn(&self) -> &dyn Reflect where Self: Sized { self }
     fn as_dyn_mut(&mut self) -> &mut dyn Reflect where Self: Sized { self }
 
-    fn impl_get<'s, 'v>(&'s self, path: ReflectPath<'v>) -> ReflectResult<'v, &'s dyn Reflect>;
+    fn impl_get<'s, 'v>(&'s self, path: ReflectPath<'v>) -> ReflectResult<'v, MaybeOwnedReflect<'s>>;
     fn impl_get_mut<'s, 'v>(&'s mut self, path: ReflectPath<'v>) -> ReflectResult<'v, &'s mut dyn Reflect>;
 
     fn impl_insert<'v>(&mut self, path: ReflectPath<'v>, value: Box<dyn Reflect>) -> ReflectResult<'v, ()>;
@@ -31,10 +69,13 @@ pub trait Reflect: downcast_rs::DowncastSync {
 }
 
 impl dyn Reflect {
-    pub fn reflect_get<'a, T: Reflect + 'static>(&self, path: impl Into<ReflectPath<'a>>) -> Result<&T, ReflectError<'a>> {
-        self.impl_get(path.into())?
-            .downcast_ref::<T>()
-            .ok_or(ReflectError::wrong_type(self.type_name(), type_name::<T>()))
+    pub fn reflect_get<'a, T: Reflect + 'static>(&self, path: impl Into<ReflectPath<'a>>) -> Result<MaybeOwned<T>, ReflectError<'a>> {
+        let a = self.impl_get(path.into())?;
+        let wrong_type = ReflectError::wrong_type(self.type_name(), type_name::<T>());
+        match a {
+            MaybeOwnedReflect::Borrowed(b) => b.downcast_ref::<T>().ok_or(wrong_type).map(MaybeOwned::Borrowed),
+            MaybeOwnedReflect::Owned(b) => b.downcast().map_err(|_| wrong_type).map(|i| MaybeOwned::Owned(*i)),
+        }
     }
 
     pub fn reflect_get_mut<'a, T: Reflect + 'static>(&mut self, path: impl Into<ReflectPath<'a>>) -> Result<&mut T, ReflectError<'a>> {
@@ -103,28 +144,14 @@ impl<'a> Iterator for IterThingMut<'a> {
 }
 
 
-
-// pub struct Value<'a>(&'a dyn std::any::Any);
-// impl<'a> Valueable for Value<'a> {
-//     fn get<'a, T:'static>(&self, path: impl Into<ValueIdent<'a>>) -> Result<&T, ValueError<'a>> {
-//         self.0
-//     }
-//     fn get_mut<'a, T:'static>(&mut self, path: impl Into<ValueIdent<'a>>) -> Result<&mut T, ValueError<'a>>;
-
-//     fn insert<'a, T:Clone+'static>(&mut self, path: impl Into<ValueIdent<'a>>, value: T) -> Result<(), ValueError<'a>>;
-
-//     fn iter<'a>(&self, _path: impl Into<ValueIdent<'a>>, _f: impl Fn(&dyn Box<Valueable>)) {}
-//     fn iter_mut<'a>(&mut self, _path: impl Into<ValueIdent<'a>>, _f: impl Fn(&mut Box<dyn Valueable>)) {}
-// }
-
 #[macro_export]
 macro_rules! base_valueable_impl {
     (impl<$($g:ty),*> for $ty:ty where $($where:tt)*) => {
         impl<$($g),*> Reflect for $ty where $($where)* {
-            fn impl_get<'a>(&self, mut path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
+            fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
                 if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
 
-                Ok(self as &dyn Reflect)
+                Ok((self as &dyn Reflect).into())
             }
 
             fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> Result<&mut dyn Reflect, ReflectError<'a>> {
@@ -169,10 +196,10 @@ base_valueable_impl!(
     String
 );
 impl Reflect for &'static str {
-    fn impl_get<'a>(&self, mut path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
+    fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
         if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
 
-        Ok(self as &dyn Reflect)
+        Ok((self as &dyn Reflect).into())
     }
 
     fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> Result<&mut dyn Reflect, ReflectError<'a>> {
@@ -203,13 +230,13 @@ impl Reflect for &'static str {
 
 
 impl<T:Reflect+Clone> Reflect for Option<T> {
-    fn impl_get<'a>(&self, path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
+    fn impl_get<'a, 's>(&'s self, path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
         let next = path.clone().next();
         match (next, self) {
             (None, None) => Err(ReflectError::OptionIsNone),
-            (None, Some(s)) => Ok(s as &dyn Reflect),
-            (Some("is_some"), None) => Ok(&false as &dyn Reflect),
-            (Some("is_some"), Some(_)) => Ok(&true as &dyn Reflect),
+            (None, Some(s)) => Ok((s as &dyn Reflect).into()),
+            (Some("is_some"), None) => Ok(MaybeOwnedReflect::Owned(Box::new(false))),
+            (Some("is_some"), Some(_)) => Ok(MaybeOwnedReflect::Owned(Box::new(true))),
             (Some(_), Some(s)) => s.impl_get(path),
             (Some(_), None) => Err(ReflectError::OptionIsNone)
             // Some(next) => 
@@ -264,9 +291,9 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
     K: core::str::FromStr + std::string::ToString + core::hash::Hash + core::cmp::Eq + Send + Sync + 'static,
     V: Reflect
 {
-    fn impl_get<'a>(&self, mut path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
+    fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
         let Some(key) = path.next() else {
-            return Ok(self as &dyn Reflect)
+            return Ok((self as &dyn Reflect).into())
         };
 
         let key = key.parse::<K>().map_err(|_| ReflectError::InvalidHashmapKey)?;
@@ -274,7 +301,7 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
         let val = self.get(&key)
             .ok_or(ReflectError::entry_not_exist(key.to_string()))?;
 
-        Ok(val as &dyn Reflect)
+        Ok((val as &dyn Reflect).into())
     }
 
     fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> Result<&mut dyn Reflect, ReflectError<'a>> {
@@ -352,9 +379,9 @@ impl<T> Reflect for std::collections::HashSet<T>
     where
     T: Reflect + core::str::FromStr + std::string::ToString + core::hash::Hash + core::cmp::Eq + 'static,
 {
-    fn impl_get<'a>(&self, mut path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
+    fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
         let Some(key) = path.next() else {
-            return Ok(self as &dyn Reflect)
+            return Ok((self as &dyn Reflect).into())
         };
 
         let key = key.parse::<T>().map_err(|_| ReflectError::InvalidHashmapKey)?;
@@ -362,7 +389,7 @@ impl<T> Reflect for std::collections::HashSet<T>
         let val = self.get(&key)
             .ok_or(ReflectError::entry_not_exist(key.to_string()))?;
 
-        Ok(val as &dyn Reflect)
+        Ok((val as &dyn Reflect).into())
     }
 
     fn impl_get_mut<'a>(&mut self, path: ReflectPath<'a>) -> Result<&mut dyn Reflect, ReflectError<'a>> {
@@ -421,17 +448,27 @@ impl<T> Reflect for std::collections::HashSet<T>
 }
 
 impl<T: Reflect + Clone> Reflect for Vec<T> {
-    fn impl_get<'a>(&self, mut path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
-        let Some(index) = path.next() else {
-            return Ok(self as &dyn Reflect)
+    fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
+        let Some(key) = path.next() else {
+            return Ok((self as &dyn Reflect).into())
         };
 
-        let index = index.parse::<usize>().map_err(|_| ReflectError::InvalidIndex)?;
+        match key {
+            "len" | "length" | "count" => Ok(MaybeOwnedReflect::Owned(Box::new(self.len()))),
+            "empty" | "is_empty" => Ok(MaybeOwnedReflect::Owned(Box::new(self.is_empty()))),
 
-        let val = self.get(index)
-            .ok_or(ReflectError::entry_not_exist(index.to_string()))?;
+            index => {
+                let index = index.parse::<usize>()
+                    .map_err(|_| ReflectError::InvalidIndex)?;
 
-        Ok(val as &dyn Reflect)
+                let val = self
+                    .get(index)
+                    .ok_or(ReflectError::entry_not_exist(index.to_string()))?;
+
+                Ok((val as &dyn Reflect).into())
+            }
+        }
+
     }
 
     fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> Result<&mut dyn Reflect, ReflectError<'a>> {
@@ -522,9 +559,9 @@ impl<T: Reflect + Clone> Reflect for Vec<T> {
 }
 
 impl<T: Reflect, const SIZE:usize> Reflect for [T; SIZE] where Self:Sized {
-    fn impl_get<'a>(&self, mut path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
+    fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
         let Some(index) = path.next() else {
-            return Ok(self as &dyn Reflect)
+            return Ok((self as &dyn Reflect).into())
         };
 
         let index = index.parse::<usize>().map_err(|_| ReflectError::InvalidIndex)?;
@@ -532,7 +569,7 @@ impl<T: Reflect, const SIZE:usize> Reflect for [T; SIZE] where Self:Sized {
         let val = self.get(index)
             .ok_or(ReflectError::entry_not_exist(index.to_string()))?;
 
-        Ok(val as &dyn Reflect)
+        Ok((val as &dyn Reflect).into())
     }
 
     fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> Result<&mut dyn Reflect, ReflectError<'a>> {
@@ -623,7 +660,7 @@ macro_rules! impl_reflect_immutable_container {
     ($($ty:ty),*) => { $(
         impl<T:Reflect> Reflect for $ty where Self: std::ops::Deref<Target=T> {
 
-            fn impl_get<'a>(&self, path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
+            fn impl_get<'a,'s>(&'s self, path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
                 (&**self).impl_get(path)
             }
 
@@ -670,7 +707,7 @@ macro_rules! impl_reflect_mutable_container {
             }
 
 
-            fn impl_get<'a>(&self, path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
+            fn impl_get<'a, 's>(&'s self, path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
                 (&**self).impl_get(path)
             }
 
@@ -714,9 +751,9 @@ impl_reflect_mutable_container!(Box<T>);
 macro_rules! impl_reflect_tuple {
     ($($g:ident $ty:tt => $v:literal => $i:tt),+) => {
         impl<$($g: Reflect),+> Reflect for ($($ty),+ ,) {
-            fn impl_get<'a>(&self, mut path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
+            fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
                 match path.next() {
-                    None => Ok(self.as_dyn()),
+                    None => Ok(self.as_dyn().into()),
                     Some(index) => {
                         let index: usize = index.parse()
                             .map_err(|_| ReflectError::InvalidIndex)?;
@@ -962,42 +999,42 @@ mod test {
             b: false,
         };
 
-        assert_eq!(a.as_dyn().reflect_get("hi"), Ok(&a.hi));
-        assert_eq!(a.as_dyn().reflect_get("hello"), Ok(&a.hi));
+        assert_eq!(a.as_dyn().reflect_get("hi"), Ok(MaybeOwned::Borrowed(&a.hi)));
+        assert_eq!(a.as_dyn().reflect_get("hello"), Ok(MaybeOwned::Borrowed(&a.hi)));
         assert!(a.as_dyn().reflect_get::<f32>("b").is_err());
-        assert_eq!(a.as_dyn().reflect_get("bb"), Ok(&a.b));
-        assert_eq!(a.as_dyn().reflect_get("b2.q"), Ok(&a.b2.q));
+        assert_eq!(a.as_dyn().reflect_get("bb"), Ok(MaybeOwned::Borrowed(&a.b)));
+        assert_eq!(a.as_dyn().reflect_get("b2.q"), Ok(MaybeOwned::Borrowed(&a.b2.q)));
         assert!(a.as_dyn().reflect_get::<bool>("_skip").is_err());
 
         assert_eq!(a.as_dyn_mut().reflect_insert("hi", "awawa".to_owned()), Ok(()));
         assert_eq!(a.as_dyn_mut().reflect_insert("bb", 5.9f32), Ok(()));
         assert_eq!(a.as_dyn_mut().reflect_insert("b2.q", 33u64), Ok(()));
 
-        assert_eq!(a.as_dyn().reflect_get("hi"), Ok(&"awawa".to_owned()));
-        assert_eq!(a.as_dyn().reflect_get("bb"), Ok(&5.9f32));
-        assert_eq!(a.as_dyn().reflect_get("b2.q"), Ok(&33u64));
+        assert_eq!(a.as_dyn().reflect_get("hi"), Ok(MaybeOwned::Borrowed(&"awawa".to_owned())));
+        assert_eq!(a.as_dyn().reflect_get("bb"), Ok(MaybeOwned::Borrowed(&5.9f32)));
+        assert_eq!(a.as_dyn().reflect_get("b2.q"), Ok(MaybeOwned::Borrowed(&33u64)));
 
         let mut iter = a.as_dyn().reflect_iter("").unwrap();
-        assert_eq!(iter.next().unwrap().reflect_get(""), Ok(&a.hi));
-        assert_eq!(iter.next().unwrap().reflect_get(""), Ok(&a.b));
-        assert_eq!(iter.next().unwrap().reflect_get(""), Ok(&a.b2));
+        assert_eq!(iter.next().unwrap().reflect_get(""), Ok(MaybeOwned::Borrowed(&a.hi)));
+        assert_eq!(iter.next().unwrap().reflect_get(""), Ok(MaybeOwned::Borrowed(&a.b)));
+        assert_eq!(iter.next().unwrap().reflect_get(""), Ok(MaybeOwned::Borrowed(&a.b2)));
         assert!(iter.next().is_none());
 
         let mut iter = a.as_dyn().reflect_iter("b2").unwrap();
-        assert_eq!(iter.next().unwrap().reflect_get(""), Ok(&a.b2.q));
+        assert_eq!(iter.next().unwrap().reflect_get(""), Ok(MaybeOwned::Borrowed(&a.b2.q)));
         assert!(iter.next().is_none());
 
-        assert_eq!(skip_all.as_dyn().reflect_get(""), Ok(&skip_all));
+        assert_eq!(skip_all.as_dyn().reflect_get(""), Ok(MaybeOwned::Borrowed(&skip_all)));
         assert!(skip_all.as_dyn().reflect_get::<u32>("a").is_err());
         assert!(skip_all.as_dyn().reflect_get::<bool>("b").is_err());
 
         let mut iter = skip_all.as_dyn().reflect_iter("").unwrap();
-        assert_eq!(iter.next().unwrap().reflect_get(""), Ok(&skip_all));
+        assert_eq!(iter.next().unwrap().reflect_get(""), Ok(MaybeOwned::Borrowed(&skip_all)));
         assert!(iter.next().is_none());
 
         let e = TestEnum::Tuple("123".to_owned());
-        assert_eq!(e.as_dyn().reflect_get("Tuple"), Ok(&e));
-        assert_eq!(e.as_dyn().reflect_get("Tuple.0"), Ok(&"123".to_owned()));
+        assert_eq!(e.as_dyn().reflect_get("Tuple"), Ok(MaybeOwned::Borrowed(&e)));
+        assert_eq!(e.as_dyn().reflect_get("Tuple.0"), Ok(MaybeOwned::Borrowed(&"123".to_owned())));
         assert!(e.as_dyn().reflect_get::<TestEnum>("Unit").is_err());
 
         // todo: enum tests

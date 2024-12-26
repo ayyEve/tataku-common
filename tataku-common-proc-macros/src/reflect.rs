@@ -430,7 +430,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                         #(
                             Some(#paths) => match self {
                                 Self::#variant_name #pattern => match path.next() {
-                                    None => Ok(self.as_dyn()),
+                                    None => Ok(self.as_dyn().into()),
                                     #get_impl2
                                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                                 },
@@ -565,9 +565,9 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
         #variant_name_helper
 
         impl #impl_generics Reflect for #type_name #ty_generics where #where_clause {
-            fn impl_get<'a>(&self, mut path: ReflectPath<'a>) -> Result<&dyn Reflect, ReflectError<'a>> {
+            fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
                 match path.next() {
-                    None => Ok(self.as_dyn()),
+                    None => Ok(self.as_dyn().into()),
                     #get_impl
                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                 }
