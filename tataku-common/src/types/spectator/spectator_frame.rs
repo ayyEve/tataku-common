@@ -15,7 +15,7 @@ impl SpectatorFrame {
     }
 }
 impl Serializable for SpectatorFrame {
-    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> where Self: Sized {
+    fn read(sr: &mut SerializationReader) -> SerializationResult<Self> where Self: Sized {
         sr.push_parent("SpectatorFrame");
         let a = Ok(Self {
             time: sr.read("time")?,
@@ -24,7 +24,7 @@ impl Serializable for SpectatorFrame {
         sr.pop_parent();
         a
     }
-    fn write(&self, sw:&mut SerializationWriter) {
+    fn write(&self, sw: &mut SerializationWriter) {
         sw.write(&self.time);
         sw.write(&self.action);
     }

@@ -9,10 +9,11 @@ use std::collections::HashMap;
 // v6 had breaking changes since we moved the replay to the score (whereas before the score used to be in the replay)
 pub(crate) const CURRENT_VERSION:u16 = 6;
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default)]
+#[derive(Serialize, Deserialize)]
 #[derive(Reflect)]
 pub struct Replay {
-
+    // moved in v6
     // score: Option<Score>
 
     /// any extra gameplay variables which are helpful to know
@@ -25,8 +26,8 @@ pub struct Replay {
     pub frames: Vec<ReplayFrame>, 
 }
 impl Replay {
-    pub fn new() -> Replay {
-        Replay {
+    pub fn new() -> Self {
+        Self {
             gamemode_data: HashMap::new(),
             offset: 0.0,
             frames: Vec::new(),

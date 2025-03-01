@@ -1,7 +1,8 @@
 use crate::prelude::*;
 
-#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
 #[derive(Reflect)]
+#[derive(Serialize, Deserialize)]
 #[reflect(from_string = "auto")]
 pub enum KeyPress {
     LeftKat = 0,
@@ -77,5 +78,7 @@ impl Serializable for KeyPress {
     fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {
         Ok(sr.read::<u8>("KeyPress")?.into())
     }
-    fn write(&self, sw:&mut SerializationWriter) { sw.write::<u8>(&(*self as u8)) }
+    fn write(&self, sw:&mut SerializationWriter) { 
+        sw.write::<u8>(&(*self as u8)) 
+    }
 }

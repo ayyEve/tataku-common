@@ -14,6 +14,10 @@ pub const FROM_STRING_NONE: &str = "none";
 pub const FROM_STRING_FROM_STR: &str = "from_str";
 pub const FROM_STRING_AUTO: &str = "auto";
 
+pub const DISPLAY_ATTRIBUTE: &str = "display";
+pub const DISPLAY_NONE: &str = "none";
+pub const DISPLAY_DISPLAY: &str = "display";
+pub const DISPLAY_DEBUG: &str = "debug";
 
 macro_rules! try_error {
     ($($t:tt)+) => {
@@ -28,6 +32,7 @@ macro_rules! try_error {
 struct ReflectAttributes {
     skip: bool,
     dont_clone: bool,
+    display: DisplayType,
     from_string_type: FromStringType,
     rename: Option<LitStr>,
     aliases: Vec<LitStr>,
@@ -39,6 +44,14 @@ enum FromStringType {
     None,
     FromStr,
     AutoFromStr,
+}
+#[derive(Copy, Clone, Default)]
+enum DisplayType {
+    #[default]
+    None,
+    Display,
+    Debug,
+    // Custom(Ident)
 }
 
 
@@ -55,6 +68,18 @@ impl ReflectAttributes {
                 }
                 else if meta.path.is_ident(DONT_CLONE_ATTRIBUTE) {
                     reflect.dont_clone = true;
+                }
+                else if meta.path.is_ident(DISPLAY_ATTRIBUTE) {
+                    let _ = meta.value()?;
+
+                    let name: LitStr = meta.input.parse()?;
+
+                    reflect.display = match &*name.value() {
+                        DISPLAY_NONE => DisplayType::None,
+                        DISPLAY_DISPLAY => DisplayType::Display,
+                        DISPLAY_DEBUG => DisplayType::Debug,
+                        _ => return Err(meta.error("Invalid display type")),
+                    }
                 }
                 else if meta.path.is_ident(FROM_STRING_ATTRIBUTE) {
                     let _ = meta.value()?;
@@ -545,6 +570,13 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
             Ok(Box::new(Self::from_str(_s)?))
         ),
     };
+    let display_impl = match global_attributes.display {
+        DisplayType::None => quote! { return Ok("No Reflect Display".to_string()); },
+        DisplayType::Display => quote! { return Ok(format!("{self}")); },
+        DisplayType::Debug => quote! { return Ok(format!("{self:?}")); },
+    };
+
+
     if let FromStringType::AutoFromStr = global_attributes.from_string_type {
         from_str_impl = quote!(
             impl #impl_generics std::str::FromStr for #type_name #ty_generics where #where_clause {
@@ -573,7 +605,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 }
             }
 
-            fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> Result<&mut dyn Reflect, ReflectError<'a>> {
+            fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> ReflectResult<'a, &mut dyn Reflect> {
                 match path.next() {
                     None => Ok(self.as_dyn_mut()),
                     #get_mut_impl
@@ -581,7 +613,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 }
             }
 
-            fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> Result<(), ReflectError<'a>> {
+            fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> ReflectResult<'a, ()> {
                 // println!("{}", std::any::type_name_of_val(&value));
 
                 match path.next() {
@@ -595,14 +627,14 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 }
             }
 
-            fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> Result<IterThing<'_>, ReflectError<'a>> {
+            fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIter<'_>> {
                 match path.next() {
                     None => Ok(#iter_fields.into()),
                     #iter_impl
                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                 }
             }
-            fn impl_iter_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> Result<IterThingMut<'_>, ReflectError<'a>> {
+            fn impl_iter_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIterMut<'_>> {
                 match path.next() {
                     None => Ok(#iter_mut_fields.into()),
                     #iter_mut_impl
@@ -616,6 +648,14 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
 
             fn from_string(_s: &str) -> ReflectResult<Box<dyn Reflect>> {
                 #from_string
+            }
+
+            fn impl_display<'a>(&self, path: ReflectPath<'a>, precision: Option<usize>) -> ReflectResult<'a, String> {
+                if !path.has_next() { #display_impl }
+                match self.impl_get(path)? {
+                    MaybeOwnedReflect::Borrowed(reflect) => reflect.reflect_display(ReflectPath::new(""), precision),
+                    MaybeOwnedReflect::Owned(reflect) => reflect.reflect_display(ReflectPath::new(""), precision),
+                }
             }
         }
 

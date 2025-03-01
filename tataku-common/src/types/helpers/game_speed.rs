@@ -7,9 +7,9 @@ use crate::prelude::*;
 /// since we want them to be easily comparable (unlike f32s with floating point issues)
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
+#[serde(from="f32", into="f32")]
 #[derive(Reflect)]
 #[reflect(from_string = "from_str")]
-#[serde(from="f32", into="f32")]
 pub struct GameSpeed(u16);
 impl GameSpeed {
     #[inline]
@@ -64,7 +64,7 @@ impl From<f32> for GameSpeed {
 
 impl std::str::FromStr for GameSpeed {
     type Err = ReflectError<'static>;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Ok(n) = s.parse::<u16>() {
             Ok(Self::from_u16(n))

@@ -34,7 +34,7 @@ impl Serializable for MapGame {
         }
     }
 
-    fn write(&self, sw:&mut SerializationWriter) {
+    fn write(&self, sw: &mut SerializationWriter) {
         match self {
             MapGame::Osu => sw.write(&"osu".to_owned()),
             MapGame::Quaver => sw.write(&"quaver".to_owned()),

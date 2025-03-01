@@ -1,32 +1,33 @@
 use crate::prelude::*;
 
-#[derive(Clone, Debug)]
 #[allow(clippy::large_enum_variant)]
 #[allow(non_camel_case_types)]
+#[derive(Clone, Debug, Default)]
 #[derive(PacketSerialization)]
-#[Packet(type="u16")]
+#[packet(type="u16")]
 pub enum PacketId {
     // ======= Unknown =======
     /// we dont know what this packet is.
     /// - if you get this, its probably best to stop reading the current incoming data
-    #[Packet(id=0)]
+    #[default]
+    #[packet(id=0)]
     Unknown, 
 
     // ======= Ping =======
     /// ping!
     /// - use this if your websocket library does not support native pings
-    #[Packet(id=1)]
+    #[packet(id=1)]
     Ping,
     /// pong!
     /// - use this if your websocket library does not support native pongs
-    #[Packet(id=2)]
+    #[packet(id=2)]
     Pong,
 
 
     // ======= login/Server things =======
 
     /// Client wants to log into the server
-    #[Packet(id=100)]
+    #[packet(id=100)]
     Client_UserLogin {
         /// which version of the packet protocol does this client use?
         /// - this will help with future expandability
@@ -39,14 +40,14 @@ pub enum PacketId {
         game: String,
     },
     /// server is telling the client if the login worked
-    #[Packet(id=101)]
+    #[packet(id=101)]
     Server_LoginResponse {
         // was the login successful?
         status: LoginStatus,
         // what is your user id?
         user_id: u32,
     },
-    #[Packet(id=102)]
+    #[packet(id=102)]
     Server_Permissions {
         /// user this permissions packet is assiciated with
         user_id: u32,
@@ -57,7 +58,7 @@ pub enum PacketId {
         /// - **THIS SHOULD BE READ AS A U16, NOT A LIST OF U16**
         permissions: Vec<ServerPermissions>,
     },
-    #[Packet(id=103)]
+    #[packet(id=103)]
     Server_UserJoined {
         /// id of the user who joined
         user_id: u32,
@@ -66,16 +67,16 @@ pub enum PacketId {
         /// what game is the user playing?
         game: String,
     },
-    #[Packet(id=104)]
+    #[packet(id=104)]
     /// client is disconnecting from the server
     Client_LogOut,
-    #[Packet(id=105)]
+    #[packet(id=105)]
     Server_UserLeft {
         /// id of the user who is leaving
         user_id: u32
     },
     /// server is telling the client something
-    #[Packet(id=106)]
+    #[packet(id=106)]
     Server_Notification {
         /// the contents of the notification
         message: String,
@@ -83,7 +84,7 @@ pub enum PacketId {
         severity: Severity
     },
     /// server is dropping the connection for some reason
-    #[Packet(id=107)]
+    #[packet(id=107)]
     Server_DropConnection {
         /// why was the connection dropped?
         reason: ServerDropReason,
@@ -91,7 +92,7 @@ pub enum PacketId {
         message: String
     },
     /// there was an error within spec
-    #[Packet(id=108)]
+    #[packet(id=108)]
     Server_Error {
         /// what is the reason for the error?
         code: ServerErrorCode,
@@ -101,7 +102,7 @@ pub enum PacketId {
 
     
     // ======= Status Updates =======
-    #[Packet(id=200)]
+    #[packet(id=200)]
     Client_StatusUpdate {
         /// what is the user doing?
         action: UserAction,
@@ -110,7 +111,7 @@ pub enum PacketId {
         /// what mode is the user in?
         mode: String
     },
-    #[Packet(id=201)]
+    #[packet(id=201)]
     Server_UserStatusUpdate {
         /// what user is this update for?
         user_id: u32,
@@ -122,10 +123,10 @@ pub enum PacketId {
         mode: String
     },
     /// Sent by a client to notify the server to update their score for everyone
-    #[Packet(id=202)]
+    #[packet(id=202)]
     Client_NotifyScoreUpdate,
     /// contains the info for the above packet
-    #[Packet(id=203)]
+    #[packet(id=203)]
     Server_ScoreUpdate {
         /// user id this score update is for
         user_id: u32,
@@ -139,13 +140,13 @@ pub enum PacketId {
  
 
     // ======= Chat =======
-    #[Packet(id=300)]
+    #[packet(id=300)]
     Chat_Packet {
         packet: ChatPacket
     },
 
     // ======= Spectator =======
-    #[Packet(id=400)]
+    #[packet(id=400)]
     Spectator_Packet {
         /// user id of the host
         host_id: u32,
@@ -154,7 +155,7 @@ pub enum PacketId {
     },
 
     // ======= Multiplayer =======
-    #[Packet(id=500)]
+    #[packet(id=500)]
     Multiplayer_Packet {
         packet: MultiplayerPacket
     }

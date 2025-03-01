@@ -2,82 +2,11 @@ use std::{
     rc::Rc,
     sync::Arc, 
     convert::TryInto, 
-    num::ParseIntError, 
     collections::HashSet,
     collections::HashMap,
-    string::FromUtf8Error, 
 };
 
-pub type SerializationResult<S> = Result<S, SerializationError>;
-
-#[derive(Clone, Debug)]
-pub struct SerializationError {
-    pub inner: SerializationErrorEnum,
-    pub stack: Vec<StackData>,
-}
-impl SerializationError {
-    pub fn with_stack(mut self, stack: Vec<StackData>) -> Self {
-        self.stack = stack;
-        self
-    }
-
-    pub fn format_stack(&self) -> String {
-        const INDENT: &str = "   ";
-        self.stack.iter()
-            .map(|StackData { depth, name, entries }| format!(
-                "{}{name}{}", INDENT.repeat(*depth), 
-                entries.iter().map(|e| format!("{}-> {e}", INDENT.repeat(*depth + 1)))
-                .collect::<Vec<_>>().join("\n")
-            ))
-            .collect::<Vec<_>>().join("\n")
-    }
-}
-impl From<SerializationErrorEnum> for SerializationError {
-    fn from(value: SerializationErrorEnum) -> Self {
-        Self {
-            inner: value,
-            stack: Vec::new()
-        }
-    }
-}
-impl From<FromUtf8Error> for SerializationError {
-    fn from(utf8err: FromUtf8Error) -> Self {
-        Self {
-            inner: SerializationErrorEnum::FromUtf8Error(utf8err),
-            stack: Vec::new()
-        }
-    }
-}
-impl From<ParseIntError> for SerializationError {
-    fn from(interr: ParseIntError) -> Self {
-        Self {
-            inner: SerializationErrorEnum::ParseIntError(interr),
-            stack: Vec::new()
-        }
-    }
-}
-
-impl PartialEq for SerializationError {
-    fn eq(&self, other: &Self) -> bool {
-        self.inner == other.inner
-    }
-}
-impl Eq for SerializationError {}
-
-impl core::fmt::Display for SerializationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}, stack: {}", self.inner, self.format_stack())
-    }
-}
-
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SerializationErrorEnum {
-    OutOfBounds,
-    FromUtf8Error(FromUtf8Error),
-    ParseIntError(ParseIntError),
-}
-
+use crate::prelude::*;
 
 pub trait Serializable: core::fmt::Debug {
     fn read(sr: &mut SerializationReader) -> SerializationResult<Self> where Self: Sized;
@@ -249,122 +178,17 @@ macro_rules! impl_wrapper {
 impl_wrapper!(Box, Rc, Arc);
 
 
-
+// TODO: is there a better way of doing this?
 #[derive(Default, Clone, Debug)]
 pub struct StackData {
-    depth: usize,
-    name: String,
-    entries: Vec<String>,
-}
-
-pub struct SerializationReader {
-    pub(self) data: Vec<u8>,
-    pub(self) offset: usize,
-    pub(self) stack: Vec<StackData>,
-    pub(self) stack_depth: usize,
-    pub debug: bool,
-}
-#[allow(dead_code)]
-impl SerializationReader {
-    pub fn new(data: Vec<u8>) -> SerializationReader {
-        SerializationReader {
-            data,
-            offset: 0,
-            stack: Vec::new(),
-            stack_depth: 0,
-            debug: false,
-        }
-    }
-    pub fn debug(mut self) -> Self {
-        self.debug = true;
-        self
-    }
-
-    pub fn push_parent(&mut self, name: impl ToString) {
-        self.stack.push(StackData {
-            name: name.to_string(),
-            entries: Vec::new(),
-            depth: self.stack_depth,
-        });
-        self.stack_depth += 1;
-    }
-    pub fn pop_parent(&mut self) {
-        self.stack_depth -= 1;
-    }
-    fn push_stack(&mut self, name: impl ToString, ty: &str) {
-        if self.stack.is_empty() {
-            self.stack.push(StackData::default());
-        }
-        self.stack.last_mut().unwrap().entries.push(format!("{} ({ty})", name.to_string()));
-    }
-
-    fn check_bounds(&mut self, size: usize) -> SerializationResult<()> {
-        if self.data.len() < self.offset + size { 
-            // println!("trying to read {size} at offset {} when len is {}", self.offset, self.data.len());
-            return Err(SerializationError {
-                inner: SerializationErrorEnum::OutOfBounds,
-                stack: self.stack.clone()
-            })
-        }
-
-        Ok(())
-    }
-
-    pub fn read<R:Serializable>(&mut self, name: impl ToString) -> SerializationResult<R> {
-        let type_name = std::any::type_name::<R>();
-        self.push_stack(name, type_name);
-        // self.check_bounds(std::mem::size_of::<R>())?; // this breaks when R is an enum with differently sized variants
-        R::read(self)
-            .map_err(|e| e.with_stack(self.stack.clone()))
-            .map(|v| { if self.debug { println!("got {v:?} ({type_name})") }; v})
-    }
-    pub fn can_read(&self) -> bool {
-        self.data.len() - self.offset > 0
-    }
-
-    pub fn read_slice(&mut self, size: usize) -> SerializationResult<&[u8]> {
-        self.check_bounds(size)?;
-        let slice = &self.data[self.offset..self.offset+size];
-        self.offset += size;
-
-        Ok(slice)
-    }
-
-    /// unread the amount of bytes provided
-    pub fn unread(&mut self, len: usize) {
-        self.offset -= len;
-        self.stack.last_mut().map(|s| s.entries.pop());
-    }
-}
-
-
-
-#[derive(Default)]
-pub struct SerializationWriter {
-    pub(self) data: Vec<u8>
-}
-#[allow(dead_code)]
-impl SerializationWriter {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn data(self) -> Vec<u8> {
-        self.data
-    }
-
-    pub fn write<S:Serializable>(&mut self, s: &S) {
-        s.write(self);
-    }
-
-    pub fn write_raw_bytes(&mut self, bytes: &[u8]) {
-        self.data.extend(bytes);
-    }
+    pub depth: usize,
+    pub name: String,
+    pub entries: Vec<String>,
 }
 
 #[allow(unused_imports)]
 mod test {
-    use super::{SerializationReader, SerializationWriter};
+    use super::{ SerializationReader, SerializationWriter };
 
     #[test]
     fn writer_test() {

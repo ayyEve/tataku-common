@@ -1,13 +1,11 @@
 use crate::prelude::*;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 #[derive(PacketSerialization)]
-#[Packet(type="u8")]
+#[packet(type="u8")]
 pub enum Severity {
-    #[Packet(id=0, default_variant)]
-    Info,
-    #[Packet(id=1)]
-    Warning,
-    #[Packet(id=2)]
-    Error,
+    #[default]
+    #[packet(id=0, default_variant)] Info,
+    #[packet(id=1)] Warning,
+    #[packet(id=2)] Error,
 }

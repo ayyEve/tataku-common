@@ -1,6 +1,7 @@
 use crate::prelude::*;
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug)]
+#[derive(Serialize, Deserialize)]
 #[derive(Reflect)]
 pub enum ReplayAction {
     Press(KeyPress),
@@ -8,7 +9,7 @@ pub enum ReplayAction {
     MousePos(f32, f32)
 }
 impl Serializable for ReplayAction {
-    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
+    fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {
         sr.push_parent("ReplayAction");
 
         let a = Ok(match sr.read::<u8>("id")? {
@@ -22,7 +23,7 @@ impl Serializable for ReplayAction {
         a
     }
 
-    fn write(&self, sw:&mut SerializationWriter) {
+    fn write(&self, sw: &mut SerializationWriter) {
         match self {
             ReplayAction::Press(k) => {
                 sw.write::<u8>(&0);

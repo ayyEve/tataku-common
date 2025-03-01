@@ -1,6 +1,7 @@
 use crate::prelude::*;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct ScoreSubmit {
     /// tataku username
     pub username: String,
@@ -19,7 +20,7 @@ pub struct ScoreSubmit {
     pub map_info: ScoreMapInfo,
 }
 impl Serializable for ScoreSubmit {
-    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> where Self: Sized {
+    fn read(sr: &mut SerializationReader) -> SerializationResult<Self> where Self: Sized {
         sr.push_parent("Score Submit");
         let a = Ok(Self {
             username: sr.read("username")?,
@@ -32,7 +33,7 @@ impl Serializable for ScoreSubmit {
         a
     }
 
-    fn write(&self, sw:&mut SerializationWriter) {
+    fn write(&self, sw: &mut SerializationWriter) {
         sw.write(&self.username);
         sw.write(&self.password);
         sw.write(&self.game);
@@ -42,7 +43,8 @@ impl Serializable for ScoreSubmit {
 }
 
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct ScoreMapInfo {
     pub game: MapGame,
     pub map_hash: Md5Hash,
@@ -61,7 +63,7 @@ impl Serializable for ScoreMapInfo {
         a
     }
 
-    fn write(&self, sw:&mut SerializationWriter) {
+    fn write(&self, sw: &mut SerializationWriter) {
         sw.write(&self.game);
         sw.write(&self.map_hash);
         sw.write(&self.playmode);
@@ -69,7 +71,8 @@ impl Serializable for ScoreMapInfo {
 }
 
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone)]
+#[derive(Serialize, Deserialize)]
 pub enum SubmitResponse {
     /// score was not submitted, with the following reason (enum, then human readable)
     NotSubmitted(NotSubmittedReason, String),
@@ -83,7 +86,8 @@ pub enum SubmitResponse {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize)]
 pub enum NotSubmittedReason {
     InternalError,
 
@@ -93,7 +97,5 @@ pub enum NotSubmittedReason {
     MapNotFound,
     GameNotAccepted,
 
-
     Other(String)
 }
-

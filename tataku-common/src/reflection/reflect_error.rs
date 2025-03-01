@@ -6,6 +6,8 @@ pub enum ReflectError<'a> {
         entry: Cow<'a, str>
     },
     OptionIsNone,
+    NotANumber,
+    NoDisplay,
 
     ValueWrongType {
         actual: &'static str,
@@ -62,7 +64,10 @@ impl<'a> ReflectError<'a> {
             Self::CantMutHashSetKey => ReflectError::CantMutHashSetKey,
             Self::ImmutableContainer => ReflectError::ImmutableContainer,
             Self::OptionIsNone => ReflectError::OptionIsNone,
-            Self::NoFromString => ReflectError::NoFromString
+            Self::NoFromString => ReflectError::NoFromString,
+
+            Self::NotANumber => ReflectError::NotANumber,
+            Self::NoDisplay => ReflectError::NoDisplay,
         }
     }
 }

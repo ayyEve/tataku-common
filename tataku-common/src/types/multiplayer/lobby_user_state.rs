@@ -1,26 +1,17 @@
 use crate::prelude::*;
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-#[derive(Serialize, Deserialize, PacketSerialization)]
-#[derive(Reflect)]
-#[Packet(type="u8")]
+#[derive(Serialize, Deserialize)]
+#[derive(Reflect, PacketSerialization)]
+#[packet(type="u8")]
 #[reflect(from_string = "auto")]
 pub enum LobbyUserState {
+    #[packet(id=0)] NoMap,
+    #[packet(id=1)] InGame,
+    #[packet(id=2)] Ready,
+    #[packet(id=3)] NotReady,
     #[default]
-    #[Packet(id=0)]
-    NoMap,
-
-    #[Packet(id=1)]
-    InGame,
-    
-    #[Packet(id=2)]
-    Ready,
-
-    #[Packet(id=3)]
-    NotReady,
-
-    #[Packet(id=255)]
-    Unknown,
+    #[packet(id=255)] Unknown,
 }
 
 impl LobbyUserState {

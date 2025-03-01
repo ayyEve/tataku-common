@@ -1,17 +1,13 @@
 use crate::prelude::*;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
 #[derive(PacketSerialization)]
-#[Packet(type="u8")]
+#[packet(type="u8")]
 pub enum UserAction {
-    #[Packet(id=0, default_variant)]
-    Unknown,
-    #[Packet(id=1)]
-    Idle,
-    #[Packet(id=2)]
-    Ingame,
-    #[Packet(id=3)]
-    Leaving,
-    #[Packet(id=4)]
-    Editing
+    #[default]
+    #[packet(id=0)] Unknown,
+    #[packet(id=1)] Idle,
+    #[packet(id=2)] Ingame,
+    #[packet(id=3)] Leaving,
+    #[packet(id=4)] Editing,
 }

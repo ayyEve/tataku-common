@@ -1,22 +1,22 @@
 [package]
 name = "tataku-common"
-version = "0.14.0"
-edition = "2021"
+version = "0.15.0"
+edition.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [features]
 default = []
 server = [ "sea-orm" ]
 test = [ "tokio" ]
 
 [dependencies]
-serde = { version="1.0", features=[ "derive" ] }
+serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1"
+sha2 = "0.10.8"
+
+# TODO: nuke this please
 sea-orm = { version = "0.9", features = [ "sqlx-postgres", "runtime-tokio-rustls" ], optional = true }
 
-tataku-common-proc-macros = { version = "0.4.0", path = "../tataku-common-proc-macros", registry = "tataku-registry" }
-
-tokio = { version = "1.42", features = ["full"], optional = true }
-
-downcast-rs = "1.2.1"
+tataku-common-proc-macros = { version = "0.5.0", path = "../tataku-common-proc-macros", registry = "tataku-registry" }
+tokio = { version = "1.43", features = [ "full" ], optional = true }
+downcast-rs = "2.0.1"

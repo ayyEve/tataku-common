@@ -4,7 +4,8 @@ use crate::prelude::*;
 const CURRENT_VERSION:u16 = 1;
 
 /// a simple mod definition
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize)]
 #[derive(Reflect)]
 pub struct ModDefinition {
     /// mod identifier, used in the mods hashmap
@@ -52,7 +53,6 @@ impl PartialEq for ModDefinition {
     }
 }
 impl Eq for ModDefinition {}
-
 impl std::hash::Hash for ModDefinition {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
@@ -70,8 +70,6 @@ impl std::cmp::Ord for ModDefinition {
         self.name.cmp(&other.name)
     }
 }
-
-
 
 impl Serializable for ModDefinition {
     fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {

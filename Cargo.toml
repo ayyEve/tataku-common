@@ -1,4 +1,6 @@
 [workspace]
+resolver = "3"
+package.edition = "2024"
 
 members = [
     "tataku-common-proc-macros",

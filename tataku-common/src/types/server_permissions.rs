@@ -5,9 +5,11 @@ use crate::prelude::*;
 pub enum ServerPermissions {
     /// default state, ie no info
     None = 0,
+    
     /// if set, this is a bot account
     /// if not set, this is a normal account
     Bot = 2,
+
     /// is this user a donator?
     Donator = 4,
 
@@ -18,7 +20,7 @@ pub enum ServerPermissions {
     ChatOnly = 16,
 }
 impl Serializable for Vec<ServerPermissions> {
-    fn read(sr:&mut SerializationReader) -> SerializationResult<Self> {
+    fn read(sr: &mut SerializationReader) -> SerializationResult<Self> {
         let num:u16 = sr.read("ServerPermissions")?;
         let mut list = Vec::new();
 
@@ -34,7 +36,7 @@ impl Serializable for Vec<ServerPermissions> {
         Ok(list)
     }
 
-    fn write(&self, sw:&mut SerializationWriter) {
+    fn write(&self, sw: &mut SerializationWriter) {
         let mut num = 0;
         for i in self {
             num |= *i as u16

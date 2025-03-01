@@ -1,39 +1,29 @@
-use std::collections::HashMap;
-
-use proc_macro::TokenStream;
-use quote::*;
-use syn::*;
-use syn::punctuated::Punctuated;
-
 mod reflect;
 
+use syn::*;
+use quote::*;
+use syn::spanned::Spanned;
+use proc_macro::TokenStream;
+use std::collections::HashMap;
+use syn::punctuated::Punctuated;
+
+
+const PACKET_ATTRIBUTE: &str = "packet";
+
 // automatic read/write macro for the packet list
-#[proc_macro_derive(PacketSerialization, attributes(Packet))]
+#[proc_macro_derive(PacketSerialization, attributes(packet))]
 pub fn packet_serialization(input: TokenStream) -> TokenStream {
     // Parse the string representation
-    let ast = syn::parse(input).unwrap();
+    let ast = syn::parse::<syn::DeriveInput>(input).unwrap();
 
-    // Build the impl
-    let gen = impl_packet(&ast);
-
-    // Return the generated impl
-    proc_macro::TokenStream::from(gen)
-}
-fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
-    struct EnumData {
-        id: u16,
-        name: String,
-        fields: Vec<String>,
-        // version: u64
-    }
     let mut extra_logging = false;
-    let mut type_ = "u8".to_owned();
+    let mut type_ = format_ident!("u8");
     let mut should_impl_into_from_type = false;
     // let mut rolling_id = 0;
 
     // find the type of the packet, and if it should gen
     for a in ast.attrs.iter() {
-        if !a.path().is_ident("Packet") { continue }
+        if !a.path().is_ident(PACKET_ATTRIBUTE) { continue }
 
         if let Ok(metas) = a.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated) {
             assert!(!metas.is_empty(), "Packet attribute cannot be empty");
@@ -43,7 +33,7 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                     Meta::NameValue(name_value) => {
                         if name_value.path.is_ident("type") {
                             if let Expr::Lit(ExprLit { lit: Lit::Str(i), .. }) = name_value.value {
-                                type_ = i.value()
+                                type_ = format_ident!("{}", i.value())
                             }
                         }
                     }
@@ -64,20 +54,27 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
     }
     if extra_logging { println!("got type {type_:?} for enum {}", ast.ident) }
 
-    let mut id_map: HashMap<u16, String> = HashMap::new();
-    let mut variant_list:Vec<EnumData> = Vec::new();
-    let mut default_variant = "Unknown".to_owned();
+    let mut id_map: HashMap<u16, &Ident> = HashMap::new();
+    let mut default_variant = DefaultVariant::Default; //format_ident!("default()");
+
+    let enum_name = &ast.ident;
+
+    let mut variants = Vec::new();
+    let mut ids = Vec::new();
+
+    let mut read_fields = Vec::new();
+    let mut write_fields = Vec::new();
 
     if let Data::Enum(data) = &ast.data {
         for v in data.variants.iter() {
             let variant_name = &v.ident;
-            let mut id:Option<u16> = None;
+            let mut id: Option<u16> = None;
 
             // let mut version = 0;
 
             // find the id of the packet
             for a in v.attrs.iter() {
-                if !a.path().is_ident("Packet") { continue }
+                if !a.path().is_ident(PACKET_ATTRIBUTE) { continue }
                 if let Ok(metas) = a.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated) {
                     for i in metas {
                         match i {
@@ -96,7 +93,7 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
 
                             Meta::Path(name) =>  {
                                 if name.is_ident("default_variant") {
-                                    default_variant = variant_name.to_string();
+                                    default_variant = DefaultVariant::Variant(variant_name);
                                 }
                             }
 
@@ -107,163 +104,130 @@ fn impl_packet(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
             }
 
             // ensure this packet has an id
-            if id.is_none() {
-                panic!("Packet has no id!! {variant_name}")
-            }
-            let id = id.unwrap();
+            let Some(id) = id else {
+                return Error::new(
+                    v.span(), 
+                    format!("Variant has no id!! {variant_name}")
+                ).into_compile_error().into();
+            };
+            
             // ensure the id is free
-            if let Some(packet_name) = id_map.insert(id, variant_name.to_string()) {
-                panic!("Id {} already used by packet {}", id, packet_name);
+            if let Some(variant) = id_map.insert(id, variant_name) {
+                return Error::new(
+                    v.span(), 
+                    format!("Id {id} already used by variant {variant}")
+                ).into_compile_error().into();
             }
 
-            // create packet data
-            variant_list.push(EnumData {
-                name: variant_name.to_string(),
-                id,
-                // version,
-                fields: v.fields.iter().map(|f|f.ident.as_ref().unwrap().to_string()).collect()
-            })
+            variants.push(variant_name);
+            ids.push(id);
+
+            let fields = v.fields.iter()
+                .filter_map(|f| f.ident.as_ref()) // ident should always exist
+                .collect::<Vec<_>>();
+
+            if fields.is_empty() {
+                read_fields.push(proc_macro2::TokenStream::new());
+
+                write_fields.push(quote! {
+                     => sw.write(&(#id as #type_)),
+                });
+            } else {
+                read_fields.push(quote!{ {
+                    #( #fields: sr.read(stringify!(#fields))?, )*
+                } });
+
+                write_fields.push(quote! {
+                    { #(#fields),* } => {
+                        #( sw.write(#fields); )*
+                        sw.write(&(#id as #type_));
+                    }
+                });
+            }
         }
     }
 
     // make sure we're adding things to the list
-    if variant_list.is_empty() {
-        panic!("packet list is empty?")
+    if variants.is_empty() {
+        return Error::new(ast.span(), "Packet list is empty?")
+            .into_compile_error()
+            .into();
     }
 
-    let enum_name = ast.ident.to_string();
-
-    // create the match strs
-    let mut read_match = "    Ok(match packet_id {\n".to_owned();
-    let mut write_match = "    match self {\n".to_owned();
-
-    for EnumData { id, name, fields } in variant_list.iter() {
-        // read match
-        {
-            /* ie:
-                1 => PacketId::UserJoined {
-                    user_id: sr.read(),
-                    username: sr.read(),
-                },
-            */
-
-            // if theres fields, we need to read them
-            let read_fields = (!fields.is_empty()).then(|| format!("{{\n{}\n}}", fields.iter().map(|f| format!("{f}: sr.read(\"{f}\")?,")).collect::<Vec<_>>().join("\n")) ).unwrap_or_default();
-
-            read_match += &format!("{id} => Self::{name} {read_fields},\n");
-        }
-
-        // write match
-        {
-            /* ie:
-                PacketId::UserJoined {user_id, username} =>  {
-                    sw.write(&id);
-                    sw.write(&user_id);
-                    sw.write(&username);
-                },
-            */
-
-            let match_fields = if !fields.is_empty() { format!("{{{}}} ", fields.join(", ")) } else { String::new() };
-            let write_fields = fields.iter().map(|f| format!("sw.write({f});")).collect::<Vec<_>>().join("\n");
-
-            write_match += &format!("Self::{name} {match_fields} => {{
-                sw.write::<{type_}>(&{id});
-                {write_fields}
-                }},
-            ");
-        }
-    }
-
-    read_match += &format!("        _ => Self::{default_variant}\n    }})");
-    write_match += "    }";
-
-    #[allow(unused_mut)]
-    let mut debug_read_line = String::new();
+    #[allow(unused_mut)] // must be mut when packet_logging is enabled
+    let mut debug_read_line = proc_macro2::TokenStream::new();
     #[cfg(feature = "packet_logging")] {
-        debug_read_line = format!("println!(\"[Packet] Reading packet {{packet_id:?}} from enum {enum_name}\");");
+        debug_read_line = quote! {
+            println!("[Packet] Reading packet {:?} from enum {}", packet_id, stringify!(#enum_name));
+        }
     }
 
-    let mut impl_str = format!("
-        impl Serializable for {enum_name} {{
-            fn read(sr: &mut crate::serialization::SerializationReader) -> SerializationResult<Self> {{
-                sr.push_parent(\"{enum_name}\");
-                let packet_id = sr.read::<{type_}>(\"packet_id\")?;
-                {debug_read_line}
-                let a = {read_match};
+    let mut tokens = quote! {
+        impl Serializable for #enum_name {
+            fn read(sr: &mut crate::serialization::SerializationReader) -> SerializationResult<Self> {
+                sr.push_parent(stringify!(#enum_name));
+                let packet_id = sr.read::<#type_>("packet_id")? as u16;
+                #debug_read_line
+
+                let a = match packet_id {
+                    #( #ids => Self::#variants #read_fields, )*
+                    _ => Self::#default_variant
+                };
 
                 sr.pop_parent();
-                a
-            }}
-            fn write(&self, sw: &mut crate::serialization::SerializationWriter) {{
-                {write_match}
-            }}
-        }}
-    ");
+                Ok(a)
+            }
+
+            fn write(&self, sw: &mut crate::serialization::SerializationWriter) {
+                match self {
+                    #( Self::#variants #write_fields )*
+                    _ => {}
+                }
+            }
+        }
+    };
 
     if should_impl_into_from_type {
-        let list1 = variant_list
-            .iter()
-            .map(|ed| format!("{} => {enum_name}::{},", ed.id, ed.name))
-            .collect::<Vec<String>>()
-            .join("\n");
+        tokens.extend(quote! {
+            impl From<#enum_name> for #type_ {
+                fn from(value: #enum_name) -> Self {
+                    match value {
+                        #(#enum_name::#variants => #ids)*,
+                    }
+                }
+            }
 
-        let list2 = variant_list
-            .iter()
-            .map(|ed| format!("{enum_name}::{} => {},", ed.name, ed.id))
-            .collect::<Vec<String>>()
-            .join("\n");
+            impl From<#type_> for #enum_name {
+                fn from(value: #type_) -> Self {
+                    match value {
+                        #(#ids => #enum_name::#variants)*,                      
 
-        impl_str += &format!(r#"
-        impl Into<{enum_name}> for {type_} {{
-            fn into(self) -> {enum_name} {{
-                match self {{
-                    {list1}
-                    _ => {enum_name}::{default_variant},
-                }}
-            }}
-        }}
-        impl Into<{type_}> for {enum_name} {{
-            fn into(self) -> {type_} {{
-                match self {{
-                    {list2}
-                }}
-            }}
-        }}
-        "#);
+                        _ => #enum_name::#default_variant,
+                    }
+                }
+            }
+        });
     }
 
-    #[cfg(feature="serialization_logging")] {
-        println!("generated: {}", impl_str);
-        std::fs::create_dir_all("debug/").unwrap();
-        std::fs::write(format!("debug/{enum_name}.rs"), &impl_str).unwrap();
-    }
+    // std::fs::create_dir_all("/tmp/debug").unwrap();
+    // std::fs::write(format!("/tmp/debug/{enum_name}.rs"), tokens.to_string()).unwrap();
 
-
-    let impl_tokens = impl_str.parse::<proc_macro2::TokenStream>().unwrap();
-    quote! {
-        #impl_tokens
-    }
+    tokens.into()
 }
-
 
 #[proc_macro_derive(Serializable, attributes(Serialize))]
 pub fn serializable(input: TokenStream)  -> TokenStream {
-    let ast = syn::parse(input).unwrap();
+    let ast = syn::parse::<syn::DeriveInput>(input).unwrap();
 
-    // Build the impl
-    let gen = impl_serializable(&ast);
+    let struct_name = &ast.ident;
+    let struct_name_str = struct_name.to_string();
 
-    // Return the generated impl
-    proc_macro::TokenStream::from(gen)
-}
-fn impl_serializable(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
-    let mut read_lines = Vec::new();
-    let mut write_lines = Vec::new();
-
-    let struct_name = ast.ident.to_string();
     let mut read_version = false;
+    let mut read_version_line = proc_macro2::TokenStream::new();
 
-    read_lines.push("let mut s = Self::default();".to_owned());
+    let mut field_names = Vec::new();
+    let mut field_name_strs = Vec::new();
+    let mut field_versions = Vec::new();
 
     if let Data::Struct(data) = &ast.data {
 
@@ -286,18 +250,24 @@ fn impl_serializable(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
         // check to see if we have a version field
         if let Some(f) = data.fields.iter().next() {
             if *f.ident.as_ref().unwrap() == "version" {
-                read_lines.push("s.version = sr.read(\"version\")?;".to_string());
-                read_lines.push("let version = s.version;".to_string());
+                read_version_line.extend(quote!{
+                    s.version = sr.read("version")?;
+                    let version = s.version;
+                });
             } else if read_version {
-                read_lines.push("let version = sr.read::<u16>(\"version\")?;".to_string());
+                read_version_line.extend(quote! {
+                    let version = sr.read::<u16>("version")?;
+                });
             } else {
-                read_lines.push("let version = 0u16; //version.unwrap_or_default();".to_owned());
+                read_version_line.extend(quote! {
+                    let version = 0u16;
+                });
             }
         }
 
 
         for field in data.fields.iter() {
-            let name = field.ident.as_ref().unwrap().to_string();
+            let name = field.ident.as_ref().unwrap();
             let mut version = 0;
 
             // check for version tag
@@ -308,7 +278,7 @@ fn impl_serializable(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                         if let Meta::NameValue(name_value) = i {
                             if name_value.path.is_ident("version") {
                                 if let Expr::Lit(ExprLit { lit: Lit::Int(i), .. }) = name_value.value {
-                                    version = i.base10_parse::<u64>().unwrap()
+                                    version = i.base10_parse::<u16>().unwrap()
                                 }
                             }
                         }
@@ -316,45 +286,44 @@ fn impl_serializable(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 }
             }
 
-            if version > 0 {
-                read_lines.push(format!("if version > {version} {{s.{name} = sr.read(\"{name}\")?;}}"));
-            } else {
-                read_lines.push(format!("s.{name} = sr.read(\"{name}\")?;"));
-            }
-
-            write_lines.push(format!("sw.write(&self.{name});"));
+            field_names.push(name);
+            field_name_strs.push(name.to_string());
+            field_versions.push(version);
         }
     }
 
-    let read_lines = read_lines.join("\n");
-    let write_lines = write_lines.join("\n");
+    let tokens = quote! {
+        impl Serializable for #struct_name {
+            fn read(sr: &mut SerializationReader) -> SerializationResult<Self> where Self: Sized {
+                sr.push_parent(#struct_name_str);
+                let mut s = Self::default();
+                #read_version_line
 
-    let impl_str = format!("
-        impl Serializable for {struct_name} {{
-            fn read(sr: &mut SerializationReader) -> SerializationResult<Self> where Self: Sized {{
-                sr.push_parent(\"{struct_name}\");
-
-                {read_lines}
+                #(
+                    if version >= #field_versions { 
+                        s.#field_names = sr.read(#field_name_strs)?; 
+                    }
+                )*
 
                 sr.pop_parent();
                 Ok(s)
-            }}
-            fn write(&self, sw: &mut SerializationWriter) {{
-                {write_lines}
-            }}
-        }}"
-    );
+            }
+
+            fn write(&self, sw: &mut SerializationWriter) {
+                #(
+                    sw.write(&self.#field_names);
+                )*
+            }
+        }
+    };
 
     #[cfg(feature="serialization_logging")] {
         std::fs::create_dir_all("debug").unwrap();
-        std::fs::write(format!("debug/{struct_name}.rs"), &impl_str).unwrap();
-        println!("generated: {}", impl_str)
+        std::fs::write(format!("debug/{struct_name}.rs"), &tokens.to_string()).unwrap();
+        // println!("generated: {}", impl_str)
     }
 
-    let impl_tokens = impl_str.parse::<proc_macro2::TokenStream>().unwrap();
-    quote! {
-        #impl_tokens
-    }
+    tokens.into()
 }
 
 
@@ -362,8 +331,31 @@ fn impl_serializable(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
 #[proc_macro_derive(Reflect, attributes(reflect))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = syn::parse(input).unwrap();
+    reflect::derive(&ast).into()
+}
 
-    let tokens = reflect::derive(&ast);
-
-    tokens.into()
+#[derive(Default)]
+enum DefaultVariant<'a> {
+    #[default]
+    Default,
+    Variant(&'a Ident),
+}
+impl quote::ToTokens for DefaultVariant<'_> {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let t = match self {
+            Self::Default => quote! { default() },
+            Self::Variant(ident) => quote! { #ident },
+        };
+        tokens.extend(quote! {
+            #t
+        });
+    }
+}
+impl From<DefaultVariant<'_>> for proc_macro2::token_stream::TokenStream {
+    fn from(value: DefaultVariant<'_>) -> Self {
+        match value {
+            DefaultVariant::Default => quote! { default() },
+            DefaultVariant::Variant(ident) => quote! { #ident },
+        }
+    }
 }

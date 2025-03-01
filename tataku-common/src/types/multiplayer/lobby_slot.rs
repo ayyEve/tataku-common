@@ -1,23 +1,16 @@
 use crate::prelude::*;
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-#[derive(Serialize, Deserialize, PacketSerialization)]
-#[derive(Reflect)]
+#[derive(Serialize, Deserialize)]
+#[derive(Reflect, PacketSerialization)]
 #[reflect(from_string = "auto")]
-#[Packet(type="u8")]
+#[packet(type="u8")]
 pub enum LobbySlot {
     #[default]
-    #[Packet(id=0)]
-    Empty,
-    
-    #[Packet(id=1)]
-    Filled {user: u32},
-
-    #[Packet(id=2)]
-    Locked,
-
-    #[Packet(id=255)]
-    Unknown,
+    #[packet(id=0)] Empty,
+    #[packet(id=1)] Filled {user: u32},
+    #[packet(id=2)] Locked,
+    #[packet(id=255)] Unknown,
 }
 impl LobbySlot {
     pub fn is_free(&self) -> bool {

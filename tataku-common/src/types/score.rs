@@ -1,6 +1,4 @@
 use crate::prelude::*;
-use std::collections::HashMap;
-use serde::{ Serialize, Deserialize };
 
 // v2 added game speed as an f32
 // v4 added custom judgments instead of sticking explicitly to osu judgment names
@@ -8,9 +6,11 @@ use serde::{ Serialize, Deserialize };
 // v6 changed mods to a hashset of mod ids
 // v7 added performance value
 // v9 moved the replay to the score object, removed the mods_string object, and changed mods to a Vec<ModDefinition>, also changed accuracy from f64 to f32
-const CURRENT_VERSION:u16 = 9;
+// v10 made the hash function not stupid, also changed the speed to be serialized as a u16
+const CURRENT_VERSION:u16 = 10;
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default)]
+#[derive(Serialize, Deserialize)]
 #[derive(Reflect)]
 pub struct Score {
     pub version: u16,
@@ -31,6 +31,8 @@ pub struct Score {
     pub speed: GameSpeed,
 
     /// new mods format
+    /// TODO: it was kinda silly to include all this in score submits to the server etc
+    /// it might be better so move back to just ids, and then provide an api for retrieving mod data
     pub mods: Vec<ModDefinition>,
 
     /// how many performance points this is worth
@@ -48,8 +50,8 @@ pub struct Score {
     pub replay: Option<Replay>,
 }
 impl Score {
-    pub fn new(beatmap_hash: Md5Hash, username: String, playmode: String) -> Score {
-        Score {
+    pub fn new(beatmap_hash: Md5Hash, username: String, playmode: String) -> Self {
+        Self {
             version: CURRENT_VERSION,
             username,
             beatmap_hash,
@@ -71,8 +73,6 @@ impl Score {
         }
     }
 
-    /// this is definitely going to break at some point, i need to figure out a better way to do this lol
-    /// I was thinking of md5(format!("{time}{username}")), but this would break if time is 0 (default) :c
     pub fn hash(&self) -> String {
         let mut mods = "None".to_string();
         if self.version >= 3 && !self.mods.is_empty() {
@@ -83,16 +83,62 @@ impl Score {
         }
 
         // lol
-        let x100 = self.judgments.get("x100")  .cloned().unwrap_or_default();
-        let x300 = self.judgments.get("x300")  .cloned().unwrap_or_default();
-        let xmiss = self.judgments.get("xmiss").cloned().unwrap_or_default();
+        let x100 = self.judgments.get("x100")  .copied().unwrap_or_default();
+        let x300 = self.judgments.get("x300")  .copied().unwrap_or_default();
+        let xmiss = self.judgments.get("xmiss").copied().unwrap_or_default();
 
         let judgments_str = self.judgment_string();
         let Score { beatmap_hash, score, combo, max_combo, playmode, .. } = &self;
 
         match self.version {
+            // TODO: make this more cryptographically secure, ie users cant modify the score and just manually update this lol
+            10.. => {
+                // sort mods
+                let mut mods = self.mods
+                    .iter()
+                    .map(|a| &a.name)
+                    .collect::<Vec<_>>();
+                mods.sort();
+
+                // sort judgments
+                let mut judgments = self.judgments
+                    .iter()
+                    .collect::<Vec<_>>();
+                judgments.sort_by(|(a, _), (b,_)| a.cmp(b));
+
+
+                // it should be safe to ignore errors because what could possibly fail here?
+                use std::io::Write;
+                use sha2::Digest;
+                let mut hasher = sha2::Sha256::new();
+
+                let _ = hasher.write_all(self.username.as_bytes());
+                let _ = hasher.write_all(self.beatmap_hash.to_string().as_bytes());
+                let _ = hasher.write_all(self.playmode.as_bytes());
+                let _ = hasher.write_all(&self.score.to_le_bytes());
+                let _ = hasher.write_all(&self.combo.to_le_bytes());
+                let _ = hasher.write_all(&self.max_combo.to_le_bytes());
+                for (j, c) in judgments {
+                    let _ = hasher.write_all(j.as_bytes());
+                    let _ = hasher.write_all(&c.to_le_bytes());
+                }
+                let _ = hasher.write_all(&((self.accuracy * 100.0) as u32).to_le_bytes());
+                let _ = hasher.write_all(&self.speed.as_u16().to_le_bytes());
+                for m in mods {
+                    let _ = hasher.write_all(m.as_bytes());
+                }
+                for timing in self.hit_timings.iter() {
+                    let timing = (timing * 1000.0) as i32; // timing should fit in an i8, so i32 should be plenty
+                    let _ = hasher.write_all(&timing.to_le_bytes());
+                }
+
+                hasher.flush().unwrap();
+                let bytes = hasher.finalize();
+                format!("{bytes:x}")
+            }
+
             // v3 still used manual judgments
-            4.. => format!("{beatmap_hash}-{score},{combo},{max_combo},{judgments_str},{mods},{playmode}"),
+            4..=9 => format!("{beatmap_hash}-{score},{combo},{max_combo},{judgments_str},{mods},{playmode}"),
             // v2 didnt have mods
             3 => format!("{beatmap_hash}-{score},{combo},{max_combo},{x100},{x300},{xmiss},{mods},{playmode}"),
             // v1 hash didnt have the playmode
@@ -185,15 +231,6 @@ impl Serializable for Score {
         if version < 9 {
             return read_old_score(version, sr);
         }
-        // macro_rules! version {
-        //     ($v:expr, $def:expr) => {
-        //         if version >= $v {
-        //             sr.read()?
-        //         } else {
-        //             $def
-        //         }
-        //     };
-        // }
 
         // everything here so far exists in v9
         let a = Ok(Score {
@@ -208,7 +245,11 @@ impl Serializable for Score {
             max_combo: sr.read("max_combo")?,
             judgments: sr.read("judgments")?,
             accuracy: sr.read("accuracy")?,
-            speed: GameSpeed::from_f32(sr.read("speed")?),
+            speed: if version < 10 {
+                GameSpeed::from_f32(sr.read("speed")?)
+            } else {
+                GameSpeed::from_u16(sr.read("speed")?)
+            },
 
             mods: sr.read("mods")?,
             performance: sr.read("performance")?,
@@ -225,6 +266,7 @@ impl Serializable for Score {
     }
 
     fn write(&self, sw: &mut SerializationWriter) {
+        // always serializes as the latest version
         sw.write(&CURRENT_VERSION);
         sw.write(&self.username);
         sw.write(&self.beatmap_hash);
@@ -238,7 +280,7 @@ impl Serializable for Score {
         sw.write(&self.judgments);
 
         sw.write(&self.accuracy);
-        sw.write(&self.speed.as_f32());
+        sw.write(&self.speed.as_u16());
 
         // sw.write(self.mods_string.clone());
         sw.write(&self.mods);
@@ -262,7 +304,8 @@ pub struct HitError {
 
 
 /// legacy mod manager, only used to read old scores
-#[derive(Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Default, PartialEq)]
+#[derive(Serialize, Deserialize)]
 #[serde(default)]
 pub(super) struct ModManager {
     pub speed: Option<u16>,
@@ -273,6 +316,9 @@ pub(super) struct ModManager {
     pub nofail: bool,
 }
 
+
+/// used to read versions older than v9
+/// this can probably be obsoleted if/when the game "releases", or at least finds a stable score struct
 fn read_old_score(
     version: u16,
     sr: &mut SerializationReader,

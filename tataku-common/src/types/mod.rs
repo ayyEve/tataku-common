@@ -12,7 +12,6 @@ mod server_error_code;
 mod server_permissions;
 mod server_drop_reason;
 
-pub use score::{ Score, HitError };
 pub use replays::*;
 pub use helpers::*;
 pub use md5_hash::*;
@@ -25,3 +24,4 @@ pub use mod_definition::*;
 pub use server_error_code::*;
 pub use server_permissions::*;
 pub use server_drop_reason::*;
+pub use score::{ Score, HitError };

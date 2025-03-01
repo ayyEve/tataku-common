@@ -1,8 +1,8 @@
 use crate::prelude::*;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-#[derive(Serialize, Deserialize, Serializable)]
-#[derive(Reflect)]
+#[derive(Serialize, Deserialize)]
+#[derive(Reflect, Serializable)]
 pub struct LobbyUser {
     pub user_id: u32,
 
