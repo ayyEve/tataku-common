@@ -31,7 +31,7 @@ pub enum ChatPacket {
     #[packet(id=2)]
     Client_GetFriends,
     /// server giving the client all the user's friend's ids
-    #[packet(id=303)]
+    #[packet(id=3)]
     Server_FriendsList {
         friend_ids: Vec<u32>,
     },

@@ -20,11 +20,14 @@ impl SerializationError {
     pub fn format_stack(&self) -> String {
         const INDENT: &str = "   ";
         self.stack.iter()
-            .map(|StackData { depth, name, entries }| format!(
-                "{}{name}{}", INDENT.repeat(*depth), 
-                entries.iter().map(|e| format!("{}-> {e}", INDENT.repeat(*depth + 1)))
-                .collect::<Vec<_>>().join("\n")
-            ))
+            .map(|StackData { depth, name, entries }| 
+                format!(
+                    "{}{name}\n{}", 
+                    INDENT.repeat(*depth), 
+                    entries.iter().map(|e| format!("{}-> {e}", INDENT.repeat(*depth + 1)))
+                    .collect::<Vec<_>>().join("\n")
+                )
+            )
             .collect::<Vec<_>>().join("\n")
     }
 }

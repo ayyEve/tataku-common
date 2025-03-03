@@ -5,6 +5,7 @@ use crate::prelude::*;
 #[derive(Clone, Debug, Default)]
 #[derive(PacketSerialization)]
 #[packet(type="u16")]
+// #[packet(extra_logging)]
 pub enum PacketId {
     // ======= Unknown =======
     /// we dont know what this packet is.

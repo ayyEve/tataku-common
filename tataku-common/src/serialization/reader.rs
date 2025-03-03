@@ -53,6 +53,14 @@ impl SerializationReader {
         Ok(())
     }
 
+    /// read from the data but reset the offset back to where it was before the read
+    pub fn peek<R:Serializable>(&mut self, name: impl ToString) -> SerializationResult<R> {
+        let offset = self.offset;
+        let read = self.read::<R>(name);
+        self.offset = offset;
+        read
+    }
+
     pub fn read<R:Serializable>(&mut self, name: impl ToString) -> SerializationResult<R> {
         let type_name = std::any::type_name::<R>();
         self.push_stack(name, type_name);
