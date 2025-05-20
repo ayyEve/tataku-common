@@ -20,5 +20,7 @@ pub fn serializable(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Reflect, attributes(reflect))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = syn::parse(input).unwrap();
-    reflect::derive(&ast).into()
+    let tokens = reflect::derive(&ast);
+    // std::fs::write(format!("/tmp/debug/{}.rs", ast.ident), tokens.to_string()).unwrap();
+    tokens.into()
 }

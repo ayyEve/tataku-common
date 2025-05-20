@@ -8,6 +8,9 @@ impl<'a> ReflectPath<'a> {
     }
 
     pub fn has_next(&self) -> bool { !self.0.is_empty() }
+    pub fn peek(&self) -> Option<&&'a str> {
+        self.0.front()
+    }
 }
 impl<'a> Iterator for ReflectPath <'a> {
     type Item = &'a str;

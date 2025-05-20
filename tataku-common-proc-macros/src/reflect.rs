@@ -490,11 +490,32 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                         )*
                     }));
 
+
+                    let iter_self = if iter_fields2.is_empty() {
+                        quote! {
+                            ReflectIter::default()
+                        }
+                    } else {
+                        quote! {
+                            ReflectIter::new(
+                                vec![#iter_fields2]
+                                .into_iter()
+                                .enumerate()
+                                .map(|(k, v)| ReflectIterEntry {
+                                    item: v,
+                                    index: Some(ReflectItemIndex::Number(k))
+                                }
+                            ))
+                        }
+                    };
+
                     iter_impl.extend(Some(quote! {
                         #(
                             Some(#paths) => match self {
                                 Self::#variant_name #pattern => match path.next() {
-                                    None => Ok(vec![#iter_fields2].into()),
+                                    // None => Ok(vec![#iter_fields2].into()),
+                                    None => Ok(#iter_self),
+
                                     #iter_impl2
                                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                                 },
@@ -507,11 +528,30 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                         Self::#variant_name #pattern => vec![#iter_fields2],
                     }));
 
+                    let iter_mut_self = if iter_mut_fields2.is_empty() {
+                        quote! {
+                            ReflectIterMut::default()
+                        }
+                    } else {
+                        quote! {
+                            ReflectIterMut::new(vec![#iter_mut_fields2]
+                                .into_iter()
+                                .enumerate()
+                                .map(|(k, v)| ReflectIterMutEntry {
+                                    item: v,
+                                    index: Some(ReflectItemIndex::Number(k))
+                                }
+                            ))
+                        }
+                    };
+
                     iter_mut_impl.extend(Some(quote! {
                         #(
                             Some(#paths) => match self {
                                 Self::#variant_name #pattern => match path.next() {
-                                    None => Ok(vec![#iter_mut_fields2].into()),
+                                    // None => Ok(vec![#iter_mut_fields2].into()),
+                                    None => Ok(#iter_mut_self),
+
                                     #iter_mut_impl2
                                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                                 },
@@ -629,14 +669,30 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
 
             fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIter<'_>> {
                 match path.next() {
-                    None => Ok(#iter_fields.into()),
+                    // None => Ok(#iter_fields.into()),
+                    None => Ok(ReflectIter::new(
+                        #iter_fields.into_iter()
+                        .enumerate()
+                        .map(|(k, v)| ReflectIterEntry {
+                            item: v,
+                            index: Some(ReflectItemIndex::Number(k))
+                        })
+                    )),
                     #iter_impl
                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                 }
             }
             fn impl_iter_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIterMut<'_>> {
                 match path.next() {
-                    None => Ok(#iter_mut_fields.into()),
+                    // None => Ok(#iter_mut_fields.into()),
+                    None => Ok(ReflectIterMut::new(#iter_mut_fields
+                        .into_iter()
+                        .enumerate()
+                        .map(|(k, v)| ReflectIterMutEntry {
+                            item: v,
+                            index: Some(ReflectItemIndex::Number(k))
+                        })
+                    )),
                     #iter_mut_impl
                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                 }

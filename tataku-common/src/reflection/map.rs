@@ -57,12 +57,14 @@ impl Reflect for DynMap {
 
     fn impl_iter<'v>(&self, mut path: ReflectPath<'v>) -> ReflectResult<'v, ReflectIter<'_>> {
         match path.next() {
-            None => Ok(self.map
-                .values()
-                .map(|v| &**v)
-                .collect::<Vec<_>>()
-                .into()
-            ),
+            None => Ok(ReflectIter::new(
+                self.map
+                .iter()
+                .map(|(k, v)| ReflectIterEntry {
+                    item: &**v,
+                    index: Some(ReflectItemIndex::Value(k as &dyn Reflect))
+                })
+            )),
             Some(p) => self.map.get(p)
                 .map(|v| &**v)
                 .ok_or(ReflectError::entry_not_exist(p))
@@ -72,12 +74,14 @@ impl Reflect for DynMap {
 
     fn impl_iter_mut<'v>(&mut self, mut path: ReflectPath<'v>) -> ReflectResult<'v, ReflectIterMut<'_>> {
         match path.next() {
-            None => Ok(self.map
-                .values_mut()
-                .map(|v| &mut **v)
-                .collect::<Vec<_>>()
-                .into()
-            ),
+            None => Ok(ReflectIterMut::new(
+                self.map
+                .iter_mut()
+                .map(|(k, v)| ReflectIterMutEntry {
+                    item: &mut **v,
+                    index: Some(ReflectItemIndex::Value(k as &dyn Reflect))
+                })
+            )),
             Some(p) => self.map.get_mut(p)
                 .map(|v| &mut **v)
                 .ok_or(ReflectError::entry_not_exist(p))

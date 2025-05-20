@@ -8,6 +8,7 @@ pub enum ReflectError<'a> {
     OptionIsNone,
     NotANumber,
     NoDisplay,
+    NoIter,
 
     ValueWrongType {
         actual: &'static str,
@@ -68,6 +69,7 @@ impl<'a> ReflectError<'a> {
 
             Self::NotANumber => ReflectError::NotANumber,
             Self::NoDisplay => ReflectError::NoDisplay,
+            Self::NoIter => ReflectError::NoIter,
         }
     }
 }
