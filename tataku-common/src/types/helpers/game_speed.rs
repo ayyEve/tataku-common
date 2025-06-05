@@ -10,6 +10,7 @@ use crate::prelude::*;
 #[serde(from="f32", into="f32")]
 #[derive(Reflect)]
 #[reflect(from_string = "from_str")]
+#[reflect(display="display")]
 pub struct GameSpeed(u16);
 impl GameSpeed {
     #[inline]
