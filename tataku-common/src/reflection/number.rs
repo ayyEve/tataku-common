@@ -1,8 +1,13 @@
 use crate::prelude::*;
 use std::any::type_name;
+use half::{ f16, bf16 };
+
+use num_traits::AsPrimitive;
+// use num_traits::ToPrimitive;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ReflectNumber {
+    F16(f16), BF16(bf16),
     U8(u8), I8(i8),
     U16(u16), I16(i16),
     U32(u32), I32(i32),
@@ -12,7 +17,7 @@ pub enum ReflectNumber {
     F32(f32), F64(f64),
 }
 macro_rules! number_from {
-    ($($t:ty, $a: ident),*) => {
+    ($($t:ty, $a: ident),*$(,)?) => {
         $(
         impl From<$t> for ReflectNumber {
             fn from(n: $t) -> Self {
@@ -22,20 +27,22 @@ macro_rules! number_from {
         impl From<ReflectNumber> for $t {
             fn from(n: ReflectNumber) -> Self {
                 match n {
-                    ReflectNumber::U8(n) => n as $t, 
-                    ReflectNumber::I8(n) => n as $t,
-                    ReflectNumber::U16(n) => n as $t, 
-                    ReflectNumber::I16(n) => n as $t,
-                    ReflectNumber::U32(n) => n as $t, 
-                    ReflectNumber::I32(n) => n as $t,
-                    ReflectNumber::U64(n) => n as $t, 
-                    ReflectNumber::I64(n) => n as $t,
-                    ReflectNumber::U128(n) => n as $t, 
-                    ReflectNumber::I128(n) => n as $t,
-                    ReflectNumber::Usize(n) => n as $t, 
-                    ReflectNumber::Isize(n) => n as $t,
-                    ReflectNumber::F32(n) => n as $t, 
-                    ReflectNumber::F64(n) => n as $t,
+                    ReflectNumber::U8(n) => n.as_(), 
+                    ReflectNumber::I8(n) => n.as_(),
+                    ReflectNumber::U16(n) => n.as_(), 
+                    ReflectNumber::I16(n) => n.as_(),
+                    ReflectNumber::U32(n) => n.as_(), 
+                    ReflectNumber::I32(n) => n.as_(),
+                    ReflectNumber::U64(n) => n.as_(), 
+                    ReflectNumber::I64(n) => n.as_(),
+                    ReflectNumber::U128(n) => (n as f64).as_(), 
+                    ReflectNumber::I128(n) => (n as f64).as_(),
+                    ReflectNumber::Usize(n) => n.as_(), 
+                    ReflectNumber::Isize(n) => n.as_(),
+                    ReflectNumber::F16(n)  => n.to_f32().as_(), 
+                    ReflectNumber::BF16(n) => n.to_f32().as_(), 
+                    ReflectNumber::F32(n) => n.as_(), 
+                    ReflectNumber::F64(n) => n.as_(),
                 }
             }
         }
@@ -79,7 +86,9 @@ number_from!(
     usize, Usize,
     isize, Isize,
     f32, F32,
-    f64, F64
+    f64, F64,
+    f16, F16,
+    bf16, BF16,
 );
 
 impl Reflect for ReflectNumber {
@@ -202,6 +211,8 @@ number_reflect_impl!(
     i128,
     usize,
     isize,
+    f16,
+    bf16,
     f32,
     f64
 );

@@ -148,119 +148,6 @@ impl dyn Reflect {
 downcast_rs::impl_downcast!(sync Reflect);
 
 
-#[derive(Default)]
-pub struct ReflectIter<'a> {
-    iter: VecDeque<ReflectIterEntry<'a>>,
-}
-impl<'a> ReflectIter<'a> {
-    pub fn new(iter: impl Iterator<Item=ReflectIterEntry<'a>>) -> Self {
-        Self {
-            iter: iter.collect(),
-        }
-    }
-}
-impl<'a> Iterator for ReflectIter<'a> {
-    type Item = ReflectIterEntry<'a>;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.pop_front()
-    }
-}
-#[derive(Default)]
-pub struct ReflectIterMut<'a> {
-    iter: VecDeque<ReflectIterMutEntry<'a>>,
-}
-impl<'a> ReflectIterMut<'a> {
-    pub fn new(iter: impl Iterator<Item=ReflectIterMutEntry<'a>>) -> Self {
-        Self {
-            iter: iter.collect(),
-        }
-    }
-}
-impl<'a> Iterator for ReflectIterMut<'a> {
-    type Item = ReflectIterMutEntry<'a>;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.pop_front()
-    }
-}
-
-// /// currently does not do lazy iteration
-// #[derive(Default)]
-// pub struct ReflectIter<'a> {
-//     items: std::vec::IntoIter<&'a dyn Reflect>
-// }
-// impl<'a> From<Vec<&'a dyn Reflect>> for ReflectIter<'a> {
-//     fn from(items: Vec<&'a dyn Reflect>) -> Self {
-//         Self {
-//             items: items.into_iter(),
-//         }
-//     }
-// }
-// impl<'a> Iterator for ReflectIter<'a> {
-//     type Item = &'a dyn Reflect;
-//     fn next(&mut self) -> Option<Self::Item> {
-//         self.items.next()
-//     }
-// }
-
-// /// currently does not do lazy iteration
-// #[derive(Default)]
-// pub struct ReflectIterMut<'a> {
-//     items: std::vec::IntoIter<&'a mut dyn Reflect>,
-// }
-// impl<'a> From<Vec<&'a mut dyn Reflect>> for ReflectIterMut<'a> {
-//     fn from(items: Vec<&'a mut dyn Reflect>) -> Self {
-//         Self {
-//             items: items.into_iter(),
-//         }
-//     }
-// }
-// impl<'a> Iterator for ReflectIterMut<'a> {
-//     type Item = &'a mut dyn Reflect;
-//     fn next(&mut self) -> Option<Self::Item> {
-//         self.items.next()
-//     }
-// }
-
-
-
-
-use std::collections::VecDeque;
-use std::ops::{ Deref, DerefMut };
-
-pub struct ReflectIterEntry<'a> {
-    pub item: &'a dyn Reflect,
-    pub index: Option<ReflectItemIndex<'a>>,
-}
-impl Deref for ReflectIterEntry<'_> {
-    type Target = dyn Reflect;
-    fn deref(&self) -> &Self::Target {
-        self.item
-    }
-}
-
-pub struct ReflectIterMutEntry<'a> {
-    pub item: &'a mut dyn Reflect,
-    pub index: Option<ReflectItemIndex<'a>>,
-}
-impl Deref for ReflectIterMutEntry<'_> {
-    type Target = dyn Reflect;
-    fn deref(&self) -> &Self::Target {
-        self.item
-    }
-}
-impl DerefMut for ReflectIterMutEntry<'_> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.item
-    }
-}
-
-pub enum ReflectItemIndex<'a> {
-    Number(usize),
-    Value(&'a dyn Reflect),
-}
-
-
-
 
 #[macro_export]
 macro_rules! base_reflect_impl {
@@ -311,7 +198,49 @@ base_reflect_impl!(
     bool,
     String
 );
-impl Reflect for &'static str {
+
+macro_rules! immutable_str {
+    ($($t: ty),*$(,)?) => {$(
+        impl Reflect for $t {
+            fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
+                if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
+
+                Ok((self as &dyn Reflect).into())
+            }
+
+            fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> ReflectResult<'a, &mut dyn Reflect> {
+                if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
+
+                Ok(self as &mut dyn Reflect)
+            }
+
+            fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> ReflectResult<'a, ()> {
+                if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
+
+                value
+                    .downcast::<$t>()
+                    .map(|a| *self = *a)
+                    .map_err(|v| ReflectError::wrong_type(type_name::<str>(), v.type_name()))
+            }
+
+            fn impl_display<'v>(&self, mut path: ReflectPath<'v>, _precision: Option<usize>) -> ReflectResult<'v, String> {
+                if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
+                Ok((*self).to_string())
+            }
+
+            fn duplicate(&self) -> Option<Box<dyn Reflect>> {
+                Some(Box::new(self.to_owned()))
+            }
+
+            fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
+                Ok(Box::new(str.to_owned()))
+            }
+        }
+    )*}
+}
+immutable_str!(&'static str);
+
+impl Reflect for std::sync::Arc<str> {
     fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
         if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
 
@@ -327,15 +256,29 @@ impl Reflect for &'static str {
     fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> ReflectResult<'a, ()> {
         if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
 
-        value
-            .downcast::<&'static str>()
-            .map(|a| *self = *a)
-            .map_err(|v| ReflectError::wrong_type(type_name::<str>(), v.type_name()))
+        use std::sync::Arc;
+        fn thing(value: Box<dyn Reflect>) -> Result<Box<dyn Reflect>, Arc<str>> {
+            Ok(Multiparse::<Arc<str>>::new(value)
+                .try_downcast::<Arc<str>>()?
+                .try_downcast::<String>()?
+                .try_downcast::<&'static str>()?
+                .take()
+            )
+        }
+
+        match thing(value) {
+            Ok(v) => Err(ReflectError::wrong_type(type_name::<str>(), v.type_name())),
+            Err(ok) => {
+                *self = ok;
+                Ok(())
+            }
+        }
+        
     }
 
     fn impl_display<'v>(&self, mut path: ReflectPath<'v>, _precision: Option<usize>) -> ReflectResult<'v, String> {
         if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
-        Ok((*self).to_owned())
+        Ok((*self).to_string())
     }
 
     fn duplicate(&self) -> Option<Box<dyn Reflect>> {
@@ -346,8 +289,6 @@ impl Reflect for &'static str {
         Ok(Box::new(str.to_owned()))
     }
 }
-
-
 
 
 impl<T:Reflect+Clone> Reflect for Option<T> {
@@ -398,17 +339,54 @@ impl<T:Reflect+Clone> Reflect for Option<T> {
 
 
 
+pub trait Stringable: Sized {
+    type Err;
+    fn parse_str(s: &str) -> Result<Self, Self::Err>;
+}
+macro_rules! ugh {
+    ($($ty: ty),*$(,)?) => {$(
+        impl Stringable for $ty {
+            type Err = <$ty as std::str::FromStr>::Err;
+            fn parse_str(s: &str) -> Result<Self, Self::Err> {
+                s.parse()
+            }
+        }
+
+    )*}
+}
+ugh!(
+    u8, u16, u32, u64, u128, usize,
+    i8, i16, i32, i64, i128, isize,
+    String,
+);
+
+impl Stringable for std::sync::Arc<str> {
+    type Err = ();
+    fn parse_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(<std::sync::Arc<str> as From<&str>>::from(s))
+    }
+}
+
 impl<K, V> Reflect for std::collections::HashMap<K, V>
     where
-    K: core::str::FromStr + std::string::ToString + core::hash::Hash + core::cmp::Eq + Send + Sync + 'static + Reflect,
+    K: Stringable
+        + std::string::ToString 
+        + core::hash::Hash 
+        + core::cmp::Eq 
+        + Send + Sync 
+        + Reflect
+        + 'static, 
     V: Reflect
 {
-    fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
+    fn impl_get<'a, 's>(
+        &'s self, 
+        mut path: ReflectPath<'a>
+    ) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
         let Some(key) = path.next() else {
             return Ok((self as &dyn Reflect).into())
         };
 
-        let key = key.parse::<K>().map_err(|_| ReflectError::InvalidHashmapKey)?;
+        let key = K::parse_str(key).map_err(|_| ReflectError::InvalidHashmapKey)?;
 
         let val = self.get(&key)
             .ok_or(ReflectError::entry_not_exist(key.to_string()))?;
@@ -416,11 +394,14 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
         Ok((val as &dyn Reflect).into())
     }
 
-    fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> ReflectResult<'a, &mut dyn Reflect> {
+    fn impl_get_mut<'a>(
+        &mut self, 
+        mut path: ReflectPath<'a>
+    ) -> ReflectResult<'a, &mut dyn Reflect> {
         let Some(key) = path.next() else {
             return Ok(self as &mut dyn Reflect)
         };
-        let key = key.parse::<K>().map_err(|_| ReflectError::InvalidHashmapKey)?;
+        let key = K::parse_str(key).map_err(|_| ReflectError::InvalidHashmapKey)?;
 
         let val = self.get_mut(&key)
             .ok_or(ReflectError::entry_not_exist(key.to_string()))?;
@@ -428,14 +409,18 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
         Ok(val as &mut dyn Reflect)
     }
 
-    fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> ReflectResult<'a, ()> {
+    fn impl_insert<'a>(
+        &mut self, 
+        mut path: ReflectPath<'a>, 
+        value: Box<dyn Reflect>
+    ) -> ReflectResult<'a, ()> {
         let Some(key) = path.next() else {
             return value
                 .downcast::<Self>()
                 .map(|a| *self = *a)
                 .map_err(|v| ReflectError::wrong_type(type_name::<Self>(), v.type_name()))
         };
-        let key = key.parse::<K>().map_err(|_| ReflectError::InvalidHashmapKey)?;
+        let key = K::parse_str(key).map_err(|_| ReflectError::InvalidHashmapKey)?;
 
         let value = value
             .downcast::<V>()
@@ -445,7 +430,10 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
         Ok(())
     }
 
-    fn impl_iter<'s, 'a>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIter<'s>> {
+    fn impl_iter<'s, 'a>(
+        &'s self, 
+        mut path: ReflectPath<'a>
+    ) -> ReflectResult<'a, ReflectIter<'s>> {
         let Some(key) = path.next() else {
             return Ok(ReflectIter { 
                 iter: self.iter().map(|(k, v)| {
@@ -458,13 +446,17 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
             })
         };
 
-        let key = key.parse::<K>().map_err(|_| ReflectError::InvalidHashmapKey)?;
+        
+        let key = K::parse_str(key).map_err(|_| ReflectError::InvalidHashmapKey)?;
         let val = self.get(&key)
             .ok_or(ReflectError::entry_not_exist(key.to_string()))?;
 
         val.impl_iter(path)
     }
-    fn impl_iter_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIterMut<'_>> {
+    fn impl_iter_mut<'a>(
+        &mut self,
+        mut path: ReflectPath<'a>
+    ) -> ReflectResult<'a, ReflectIterMut<'_>> {
         let Some(key) = path.next() else {
             return Ok(ReflectIterMut { 
                 iter: self.iter_mut().map(|(k, v)| {
@@ -477,7 +469,7 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
             });
         };
 
-        let key = key.parse::<K>().map_err(|_| ReflectError::InvalidHashmapKey)?;
+        let key = K::parse_str(key).map_err(|_| ReflectError::InvalidHashmapKey)?;
         let val = self.get_mut(&key)
             .ok_or(ReflectError::entry_not_exist(key.to_string()))?;
 
@@ -485,7 +477,40 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
     }
 
 
-    fn from_string(_str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
+    fn impl_as_number<'v>(
+        &self, 
+        mut path: ReflectPath<'v>
+    ) -> ReflectResult<'v, ReflectNumber> {
+        let Some(key) = path.next() else {
+            return Err(ReflectError::NotANumber);
+        };
+
+        let key = K::parse_str(key).map_err(|_| ReflectError::InvalidHashmapKey)?;
+
+        let val = self.get(&key)
+            .ok_or(ReflectError::entry_not_exist(key.to_string()))?;
+
+        val.impl_as_number(path)
+    }
+    fn impl_display<'v>(
+        &self, 
+        mut path: ReflectPath<'v>, 
+        precision: Option<usize>
+    ) -> ReflectResult<'v, String> {
+        let Some(key) = path.next() else {
+            return Err(ReflectError::NoDisplay);
+        };
+
+        let key = K::parse_str(key).map_err(|_| ReflectError::InvalidHashmapKey)?;
+        let val = self.get(&key)
+            .ok_or(ReflectError::entry_not_exist(key.to_string()))?;
+
+        val.impl_display(path, precision)
+    }
+
+    fn from_string(
+        _str: &str
+    ) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
         Err(ReflectError::NoFromString)
     }
 
@@ -495,16 +520,21 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
 }
 
 
+
 impl<T> Reflect for std::collections::HashSet<T>
-    where
-    T: Reflect + core::str::FromStr + std::string::ToString + core::hash::Hash + core::cmp::Eq + 'static,
+    where T: Reflect 
+    + Stringable
+    + std::string::ToString 
+    + core::hash::Hash 
+    + core::cmp::Eq 
+    + 'static,
 {
     fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
         let Some(key) = path.next() else {
             return Ok((self as &dyn Reflect).into())
         };
 
-        let key = key.parse::<T>().map_err(|_| ReflectError::InvalidHashmapKey)?;
+        let key = T::parse_str(key).map_err(|_| ReflectError::InvalidHashmapKey)?;
 
         let val = self.get(&key)
             .ok_or(ReflectError::entry_not_exist(key.to_string()))?;
@@ -537,8 +567,6 @@ impl<T> Reflect for std::collections::HashSet<T>
         Ok(())
     }
 
-
-
     fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIter<'_>> {
         let Some(key) = path.next() else {
             return Ok(ReflectIter { 
@@ -552,7 +580,7 @@ impl<T> Reflect for std::collections::HashSet<T>
             })
         };
 
-        let key = key.parse::<T>().map_err(|_| ReflectError::InvalidHashmapKey)?;
+        let key = T::parse_str(key).map_err(|_| ReflectError::InvalidHashmapKey)?;
         let val = self.get(&key)
             .ok_or(ReflectError::entry_not_exist(key.to_string()))?;
 
@@ -607,9 +635,13 @@ impl<T: Reflect + Clone> Reflect for Vec<T> {
         Ok(val as &mut dyn Reflect)
     }
 
-    fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> ReflectResult<'a, ()> {
-        let Some(index) = path.next() else {
-
+    fn impl_insert<'a>(
+        &mut self, 
+        mut path: ReflectPath<'a>, 
+        value: Box<dyn Reflect>,
+    ) -> ReflectResult<'a, ()> {
+        let Some(index) = path.next() 
+        else {
             if value.is::<T>() {
                 let _ = value
                     .downcast::<T>()
@@ -618,21 +650,31 @@ impl<T: Reflect + Clone> Reflect for Vec<T> {
                 value
                     .downcast::<Self>()
                     .map(|a| *self = *a)
-                    .map_err(|v| ReflectError::wrong_type(type_name::<Self>(), v.type_name()))?;
+                    .map_err(|v| ReflectError::wrong_type(
+                        type_name::<Self>(), 
+                        v.type_name()
+                    ))?;
             }
 
             return Ok(())
         };
-        let index = index.parse::<usize>().map_err(|_| ReflectError::InvalidIndex)?;
+
+
+        let index = index
+            .parse::<usize>()
+            .map_err(|_| ReflectError::InvalidIndex)?;
 
         let value = value
             .downcast::<T>()
-            .map_err(|v| ReflectError::wrong_type(type_name::<T>(), v.type_name()))?;
+            .map_err(|v| ReflectError::wrong_type(
+                type_name::<T>(), 
+                v.type_name()
+            ))?;
 
         if index >= self.len() {
-            self.push(*value)
+            self.push(*value);
         } else {
-            self[index] = *value
+            self[index] = *value;
         }
 
         Ok(())
@@ -937,19 +979,16 @@ macro_rules! impl_reflect_immutable_container {
         }
     )* };
 }
-
 impl_reflect_immutable_container!(std::sync::Arc<T>);
 
 
 macro_rules! impl_reflect_mutable_container {
     ($($ty:ty),*) => { $(
         impl<T:Reflect + ?Sized> Reflect for $ty where Self: std::ops::Deref<Target=T> + std::ops::DerefMut {
-
             fn type_name(&self) -> &'static str {
                 T::type_name(&**self)
             }
-
-
+            
             fn impl_get<'a, 's>(&'s self, path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
                 (&**self).impl_get(path)
             }
@@ -987,7 +1026,6 @@ macro_rules! impl_reflect_mutable_container {
 
     )* };
 }
-
 impl_reflect_mutable_container!(Box<T>);
 
 
@@ -1175,7 +1213,7 @@ impl std::fmt::Debug for dyn Reflect {
             u16, i16,
             u32, i32,
             u64, i64,
-            u128, i128,
+            // u128, i128,
             usize, isize,
             f32, f64,
             bool,
@@ -1186,6 +1224,22 @@ impl std::fmt::Debug for dyn Reflect {
     }
 }
 
+
+
+
+struct Multiparse<Out>(Box<dyn Reflect>, std::marker::PhantomData<Out>);
+impl<Out> Multiparse<Out> {
+    fn new(value: Box<dyn Reflect>) -> Self {
+        Self(value, std::marker::PhantomData)
+    }
+    fn take(self) -> Box<dyn Reflect> { self.0 }
+    fn try_downcast<T: Reflect + Into<Out>>(self) -> Result<Self, Out> {
+        match self.0.downcast::<T>() {
+            Ok(t) => Err((*t).into()),
+            Err(e) => Ok(Self(e, self.1))
+        }
+    }
+}
 
 
 #[cfg(test)]

@@ -46,7 +46,7 @@ impl Reflect for DynMap {
                     self.map
                         .entry(p.to_owned())
                         .or_insert_with(|| Box::new(DynMap::default()))
-                        .reflect_insert(path, value)
+                        .impl_insert(path, value)
                 } else {
                     self.map.insert(p.to_owned(), value);
                     Ok(())

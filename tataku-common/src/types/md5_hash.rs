@@ -39,6 +39,12 @@ impl std::str::FromStr for Md5Hash {
         Self::try_from(s)
     }
 }
+impl Stringable for Md5Hash {
+    type Err = std::num::ParseIntError;
+    fn parse_str(s: &str) -> Result<Self, Self::Err> {
+        s.parse()
+    }
+}
 
 impl From<Md5Hash> for String {
     fn from(val: Md5Hash) -> Self {

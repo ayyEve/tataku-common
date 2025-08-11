@@ -629,6 +629,13 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                     }
                 }
             }
+            impl #impl_generics Stringable for #type_name #ty_generics where #where_clause {
+                type Err = ReflectError<'static>;
+
+                fn parse_str(s: &str) -> Result<Self, Self::Err> {
+                    s.parse()
+                }
+            }
         );
     }
 

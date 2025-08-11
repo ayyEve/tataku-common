@@ -11,8 +11,8 @@ pub enum ReflectError<'a> {
     NoIter,
 
     ValueWrongType {
-        actual: &'static str,
         expected: &'static str,
+        actual: &'static str,
     },
 
     InvalidHashmapKey,
@@ -41,8 +41,11 @@ impl<'a> ReflectError<'a> {
     pub fn entry_not_exist(entry: impl Into<Cow<'a, str>>) -> Self {
         Self::EntryNotExist { entry: entry.into() }
     }
-    pub fn wrong_type(actual: &'static str, expected: &'static str) -> Self {
-        Self::ValueWrongType { actual, expected }
+    pub fn wrong_type(
+        actual: &'static str,
+        incoming: &'static str, 
+    ) -> Self {
+        Self::ValueWrongType { expected: incoming, actual }
     }
     pub fn wrong_variant(actual: &'static str, provided: &'static str) -> Self {
         Self::WrongVariant { actual, provided }
@@ -55,7 +58,7 @@ impl<'a> ReflectError<'a> {
         }
         match self {
             Self::EntryNotExist { entry } => ReflectError::EntryNotExist { entry: own(entry) },
-            Self::ValueWrongType { actual, expected: provided } => ReflectError::ValueWrongType { actual, expected: provided },
+            Self::ValueWrongType { expected: actual, actual: provided } => ReflectError::ValueWrongType { expected: actual, actual: provided },
             Self::InvalidHashmapKey => ReflectError::InvalidHashmapKey,
             Self::InvalidIndex => ReflectError::InvalidIndex,
             Self::NoHashmapKey { key } => ReflectError::NoHashmapKey { key: own(key) },
