@@ -10,6 +10,7 @@ use crate::prelude::*;
 #[derive(Serialize, Deserialize)]
 #[serde(try_from="String", into="String")]
 #[derive(Reflect)]
+#[reflect(display="display")]
 pub struct Md5Hash(u128);
 impl TryFrom<&String> for Md5Hash {
     type Error = std::num::ParseIntError;
