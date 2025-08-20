@@ -257,23 +257,17 @@ impl Reflect for std::sync::Arc<str> {
         if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
 
         use std::sync::Arc;
-        fn thing(value: Box<dyn Reflect>) -> Result<Box<dyn Reflect>, Arc<str>> {
-            Ok(Multiparse::<Arc<str>>::new(value)
+        *self = ReflectMultiparse::<Arc<str>>::parse(value, |v| 
+            v
                 .try_downcast::<Arc<str>>()?
                 .try_downcast::<String>()?
-                .try_downcast::<&'static str>()?
-                .take()
-            )
-        }
+                .try_downcast::<&'static str>()
+        ).map_err(|v| ReflectError::wrong_type(
+            type_name::<str>(), 
+            v.type_name()
+        ))?;
 
-        match thing(value) {
-            Ok(v) => Err(ReflectError::wrong_type(type_name::<str>(), v.type_name())),
-            Err(ok) => {
-                *self = ok;
-                Ok(())
-            }
-        }
-        
+        Ok(())
     }
 
     fn impl_display<'v>(&self, mut path: ReflectPath<'v>, _precision: Option<usize>) -> ReflectResult<'v, String> {
@@ -1227,19 +1221,38 @@ impl std::fmt::Debug for dyn Reflect {
 
 
 
-struct Multiparse<Out>(Box<dyn Reflect>, std::marker::PhantomData<Out>);
-impl<Out> Multiparse<Out> {
-    fn new(value: Box<dyn Reflect>) -> Self {
-        Self(value, std::marker::PhantomData)
-    }
-    fn take(self) -> Box<dyn Reflect> { self.0 }
-    fn try_downcast<T: Reflect + Into<Out>>(self) -> Result<Self, Out> {
+pub struct ReflectMultiparse<Out>(Box<dyn Reflect>, std::marker::PhantomData<Out>);
+impl<Out> ReflectMultiparse<Out> {
+    pub fn try_downcast<T: Reflect + Into<Out>>(self) -> Result<Self, Out> {
         match self.0.downcast::<T>() {
             Ok(t) => Err((*t).into()),
             Err(e) => Ok(Self(e, self.1))
         }
     }
+
+    pub fn parse(
+        value: Box<dyn Reflect>, 
+        checker: fn(Self) -> Result<Self, Out>
+    ) -> Result<Out, Box<dyn Reflect>> {
+        let v = Self(value, std::marker::PhantomData);
+        match checker(v) {
+            Ok(failed) => Err(failed.0),
+            Err(success) => Ok(success)
+        }
+    }
+
+    pub fn parse_reflect_err(
+        value: Box<dyn Reflect>, 
+        checker: fn(Self) -> Result<Self, Out>
+    ) -> ReflectResult<'static, Out> {
+        Self::parse(value, checker)
+            .map_err(|v| ReflectError::wrong_type(
+            type_name::<Out>(), 
+            v.type_name()
+        ))
+    }
 }
+
 
 
 #[cfg(test)]

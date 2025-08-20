@@ -3,6 +3,8 @@ use std::collections::VecDeque;
 #[derive(Clone, Debug)]
 pub struct ReflectPath<'a>(VecDeque<&'a str>);
 impl<'a> ReflectPath<'a> {
+    pub const EMPTY: Self = Self(VecDeque::new());
+
     pub fn new(s: &'a str) -> Self {
         Self(s.split(".").filter(|s| !s.is_empty()).collect())
     }

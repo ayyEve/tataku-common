@@ -1,6 +1,7 @@
 mod map;
 mod number;
 mod reflect;
+mod atomics;
 mod reflect_path;
 mod reflect_iter;
 mod reflect_error;

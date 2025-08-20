@@ -11,8 +11,8 @@ pub enum ReflectError<'a> {
     NoIter,
 
     ValueWrongType {
-        expected: &'static str,
-        actual: &'static str,
+        expected: Cow<'a, str>,
+        provided: Cow<'a, str>,
     },
 
     InvalidHashmapKey,
@@ -23,8 +23,8 @@ pub enum ReflectError<'a> {
     HashmapKeyNotProvided,
 
     WrongVariant {
-        actual: &'static str,
-        provided: &'static str,
+        expected: Cow<'a, str>,
+        provided: Cow<'a, str>,
     },
 
     OutOfBounds {
@@ -42,13 +42,16 @@ impl<'a> ReflectError<'a> {
         Self::EntryNotExist { entry: entry.into() }
     }
     pub fn wrong_type(
-        actual: &'static str,
-        incoming: &'static str, 
+        expected: impl Into<Cow<'a, str>>,
+        provided: impl Into<Cow<'a, str>>, 
     ) -> Self {
-        Self::ValueWrongType { expected: incoming, actual }
+        Self::ValueWrongType { expected: expected.into(), provided: provided.into() }
     }
-    pub fn wrong_variant(actual: &'static str, provided: &'static str) -> Self {
-        Self::WrongVariant { actual, provided }
+    pub fn wrong_variant(
+        expected: impl Into<Cow<'a, str>>,
+        provided: impl Into<Cow<'a, str>>, 
+    ) -> Self {
+        Self::WrongVariant { expected: expected.into(), provided: provided.into() }
     }
 
 
@@ -58,12 +61,12 @@ impl<'a> ReflectError<'a> {
         }
         match self {
             Self::EntryNotExist { entry } => ReflectError::EntryNotExist { entry: own(entry) },
-            Self::ValueWrongType { expected: actual, actual: provided } => ReflectError::ValueWrongType { expected: actual, actual: provided },
+            Self::ValueWrongType { expected, provided } => ReflectError::ValueWrongType { expected: own(expected), provided: own(provided) },
             Self::InvalidHashmapKey => ReflectError::InvalidHashmapKey,
             Self::InvalidIndex => ReflectError::InvalidIndex,
             Self::NoHashmapKey { key } => ReflectError::NoHashmapKey { key: own(key) },
             Self::HashmapKeyNotProvided => ReflectError::HashmapKeyNotProvided,
-            Self::WrongVariant { actual, provided } => ReflectError::WrongVariant { actual, provided },
+            Self::WrongVariant { expected, provided } => ReflectError::WrongVariant { expected: own(expected), provided: own(provided) },
             Self::OutOfBounds { length, index } => ReflectError::OutOfBounds { length, index },
             Self::CantMutHashSetKey => ReflectError::CantMutHashSetKey,
             Self::ImmutableContainer => ReflectError::ImmutableContainer,
