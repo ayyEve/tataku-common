@@ -99,6 +99,25 @@ impl Reflect for DynMap {
         ))
     }
 
+    fn impl_as_number<'v>(&self, mut path: ReflectPath<'v>) -> ReflectResult<'v, ReflectNumber> {
+        match path.next() {
+            None => Err(ReflectError::NotANumber),
+            Some(p) => self.map.get(p)
+                .ok_or(ReflectError::entry_not_exist(p))
+                .map(|v| &**v)
+                .and_then(|v| v.impl_as_number(path)),
+        }
+    }
+    fn impl_display<'v>(&self, mut path: ReflectPath<'v>, precision: Option<usize>) -> ReflectResult<'v, String> {
+        match path.next() {
+            None => Err(ReflectError::NoDisplay),
+            Some(p) => self.map.get(p)
+                .ok_or(ReflectError::entry_not_exist(p))
+                .map(|v| &**v)
+                .and_then(|v| v.impl_display(path, precision)),
+        }
+    }
+
     fn from_string(_: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
         Err(ReflectError::NoFromString)
     }

@@ -84,7 +84,8 @@ pub trait Reflect: downcast_rs::DowncastSync {
 
     fn impl_display<'v>(&self, path: ReflectPath<'v>, precision: Option<usize>) -> ReflectResult<'v, String> {
         if !path.has_next() {
-            return Ok("No Reflect Display".to_string());
+            return Err(ReflectError::NoDisplay);
+            // return Ok("No Reflect Display".to_string());
         }
         match self.impl_get(path)? {
             MaybeOwnedReflect::Borrowed(reflect) => reflect.reflect_display(ReflectPath::new(""), precision),
@@ -394,7 +395,7 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
         let val = self.get(&key)
             .ok_or(ReflectError::entry_not_exist(key.to_string()))?;
 
-        Ok((val as &dyn Reflect).into())
+        val.impl_get(path)
     }
 
     fn impl_get_mut<'a>(
@@ -409,7 +410,7 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
         let val = self.get_mut(&key)
             .ok_or(ReflectError::entry_not_exist(key.to_string()))?;
 
-        Ok(val as &mut dyn Reflect)
+        val.impl_get_mut(path)
     }
 
     fn impl_insert<'a>(

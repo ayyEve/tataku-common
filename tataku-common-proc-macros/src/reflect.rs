@@ -611,7 +611,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
         ),
     };
     let display_impl = match global_attributes.display {
-        DisplayType::None => quote! { return Ok("No Reflect Display".to_string()); },
+        DisplayType::None => quote! { return Err(ReflectError::NoDisplay); }, //Ok("No Reflect Display".to_string()); },
         DisplayType::Display => quote! { return Ok(format!("{self}")); },
         DisplayType::Debug => quote! { return Ok(format!("{self:?}")); },
     };
@@ -716,8 +716,8 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
             fn impl_display<'a>(&self, path: ReflectPath<'a>, precision: Option<usize>) -> ReflectResult<'a, String> {
                 if !path.has_next() { #display_impl }
                 match self.impl_get(path)? {
-                    MaybeOwnedReflect::Borrowed(reflect) => reflect.reflect_display(ReflectPath::new(""), precision),
-                    MaybeOwnedReflect::Owned(reflect) => reflect.reflect_display(ReflectPath::new(""), precision),
+                    MaybeOwnedReflect::Borrowed(reflect) => reflect.impl_display(ReflectPath::EMPTY, precision),
+                    MaybeOwnedReflect::Owned(reflect) => reflect.impl_display(ReflectPath::EMPTY, precision),
                 }
             }
         }

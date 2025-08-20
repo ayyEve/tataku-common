@@ -1,6 +1,6 @@
 [package]
 name = "tataku-common"
-version = "0.17.7"
+version = "0.17.8"
 edition.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -20,6 +20,6 @@ num-traits = "*"
 # TODO: nuke this please
 sea-orm = { version = "0.9", features = [ "sqlx-postgres", "runtime-tokio-rustls" ], optional = true }
 
-tataku-common-proc-macros = { version = "0.7.0", path = "../tataku-common-proc-macros", registry = "tataku-registry" }
+tataku-common-proc-macros = { version = "0.7.1", path = "../tataku-common-proc-macros", registry = "tataku-registry" }
 tokio = { version = "1.43", features = [ "full" ], optional = true }
 downcast-rs = "2.0.1"
