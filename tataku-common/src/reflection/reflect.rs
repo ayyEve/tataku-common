@@ -240,50 +240,59 @@ macro_rules! immutable_str {
 }
 immutable_str!(&'static str);
 
-impl Reflect for std::sync::Arc<str> {
-    fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
-        if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
 
-        Ok((self as &dyn Reflect).into())
-    }
+macro_rules! str_container {
+    ($($ty: ty),*$(,)?) => { $(
+        impl Reflect for $ty {
+            fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
+                if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
 
-    fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> ReflectResult<'a, &mut dyn Reflect> {
-        if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
+                Ok((self as &dyn Reflect).into())
+            }
 
-        Ok(self as &mut dyn Reflect)
-    }
+            fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> ReflectResult<'a, &mut dyn Reflect> {
+                if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
 
-    fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> ReflectResult<'a, ()> {
-        if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
+                Ok(self as &mut dyn Reflect)
+            }
 
-        use std::sync::Arc;
-        *self = ReflectMultiparse::<Arc<str>>::parse(value, |v| 
-            v
-                .try_downcast::<Arc<str>>()?
-                .try_downcast::<String>()?
-                .try_downcast::<&'static str>()
-        ).map_err(|v| ReflectError::wrong_type(
-            type_name::<str>(), 
-            v.type_name()
-        ))?;
+            fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> ReflectResult<'a, ()> {
+                if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
 
-        Ok(())
-    }
+                use std::sync::Arc;
+                *self = ReflectMultiparse::<$ty>::parse(value, |v| v
+                        .try_downcast_deref::<Arc<str>>()?
+                        .try_downcast_deref::<Box<str>>()?
+                        .try_downcast::<String>()?
+                        .try_downcast::<&'static str>()
+                ).map_err(|v| ReflectError::wrong_type(
+                    type_name::<str>(), 
+                    v.type_name()
+                ))?;
 
-    fn impl_display<'v>(&self, mut path: ReflectPath<'v>, _precision: Option<usize>) -> ReflectResult<'v, String> {
-        if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
-        Ok((*self).to_string())
-    }
+                Ok(())
+            }
 
-    fn duplicate(&self) -> Option<Box<dyn Reflect>> {
-        Some(Box::new(self.to_owned()))
-    }
+            fn impl_display<'v>(&self, mut path: ReflectPath<'v>, _precision: Option<usize>) -> ReflectResult<'v, String> {
+                if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
+                Ok((*self).to_string())
+            }
 
-    fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
-        Ok(Box::new(str.to_owned()))
-    }
+            fn duplicate(&self) -> Option<Box<dyn Reflect>> {
+                Some(Box::new(self.to_owned()))
+            }
+
+            fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
+                Ok(Box::new(str.to_owned()))
+            }
+        }
+    )*}
 }
 
+str_container!(
+    std::sync::Arc<str>,
+    Box<str>,
+);
 
 impl<T:Reflect+Clone> Reflect for Option<T> {
     fn impl_get<'a, 's>(&'s self, path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
@@ -1223,6 +1232,16 @@ impl std::fmt::Debug for dyn Reflect {
 
 pub struct ReflectMultiparse<Out>(Box<dyn Reflect>, std::marker::PhantomData<Out>);
 impl<Out> ReflectMultiparse<Out> {
+    pub fn try_downcast_deref<T>(self) -> Result<Self, Out> 
+    where 
+        T: Reflect + std::ops::Deref,
+        for<'a> &'a <T as std::ops::Deref>::Target: Into<Out>
+    {
+        match self.0.downcast::<T>() {
+            Ok(t) => Err((&**t).into()),
+            Err(e) => Ok(Self(e, self.1))
+        }
+    }
     pub fn try_downcast<T: Reflect + Into<Out>>(self) -> Result<Self, Out> {
         match self.0.downcast::<T>() {
             Ok(t) => Err((*t).into()),
@@ -1386,4 +1405,3 @@ mod test {
 
 
 }
-
