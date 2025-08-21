@@ -24,6 +24,7 @@ impl SerializationWriter {
 }
 
 /// helper for inline-writing data
+#[derive(Default)]
 pub struct SimpleWriter {
     writer: SerializationWriter
 }
@@ -40,10 +41,5 @@ impl SimpleWriter {
     pub fn write<W:Serializable>(mut self, s: impl std::borrow::Borrow<W>) -> Self {
         self.writer.write(s.borrow());
         self
-    }
-}
-impl Default for SimpleWriter {
-    fn default() -> Self {
-        Self::new()
     }
 }

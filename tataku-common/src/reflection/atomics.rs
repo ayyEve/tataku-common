@@ -65,11 +65,11 @@ macro_rules! impl_atomic_number {
                     }
                 }
                 
-                fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
-                    let num = str.parse::<$ty>()
-                        .map_err(|_| ReflectError::NotANumber)?;
-                    Ok(Box::new(Self::new(num)))
-                }
+                // fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
+                //     let num = str.parse::<$ty>()
+                //         .map_err(|_| ReflectError::NotANumber)?;
+                //     Ok(Box::new(Self::new(num)))
+                // }
             }
         )*
     };
@@ -152,9 +152,9 @@ impl Reflect for AtomicBool {
         }
     }
     
-    fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
-        let val = str.parse::<bool>()
-            .map_err(|_| ReflectError::wrong_type("bool::from(String)", str))?;
-        Ok(Box::new(Self::new(val)))
-    }
+//     fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
+//         let val = str.parse::<bool>()
+//             .map_err(|_| ReflectError::wrong_type("bool::from(String)", str))?;
+//         Ok(Box::new(Self::new(val)))
+//     }
 }

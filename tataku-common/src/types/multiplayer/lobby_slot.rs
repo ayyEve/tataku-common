@@ -1,14 +1,13 @@
 use crate::prelude::*;
 
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u8)]
 #[derive(Serialize, Deserialize)]
 #[derive(Reflect, PacketSerialization)]
-#[reflect(from_string = "auto")]
-#[packet(type="u8")]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub enum LobbySlot {
     #[default]
     #[packet(id=0)] Empty,
-    #[packet(id=1)] Filled {user: u32},
+    #[packet(id=1)] Filled { user: u32 },
     #[packet(id=2)] Locked,
     #[packet(id=255)] Unknown,
 }

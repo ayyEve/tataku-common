@@ -130,11 +130,11 @@ impl Reflect for ReflectNumber {
         }
     }
     
-    fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
-        let num = str.parse::<Self>()
-            .map_err(|_| ReflectError::NotANumber)?;
-        Ok(Box::new(num))
-    }
+    // fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
+    //     let num = str.parse::<Self>()
+    //         .map_err(|_| ReflectError::NotANumber)?;
+    //     Ok(Box::new(num))
+    // }
 }
 
 
@@ -187,11 +187,11 @@ macro_rules! number_reflect_impl {
                 Some(Box::new(*self))
             }
 
-            fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
-                Ok(Box::new(
-                    str.parse::<$ty>().map_err(|_| ReflectError::wrong_type(stringify!($ty), "String"))?
-                ))
-            }
+            // fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
+            //     Ok(Box::new(
+            //         str.parse::<$ty>().map_err(|_| ReflectError::wrong_type(stringify!($ty), "String"))?
+            //     ))
+            // }
         }
     };
 

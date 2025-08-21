@@ -5,16 +5,15 @@ use crate::prelude::*;
 
 /// helper struct for speed multipliers
 /// since we want them to be easily comparable (unlike f32s with floating point issues)
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[derive(Serialize, Deserialize)]
-#[serde(from="f32", into="f32")]
 #[derive(Reflect)]
-#[reflect(from_string = "from_str")]
 #[reflect(display="display")]
+#[derive(Serialize, Deserialize)]
+#[serde(from = "f32", into = "f32")]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct GameSpeed(u16);
 impl GameSpeed {
     #[inline]
-    fn scale() -> f32 { (10f32).powi(PRECISION) }
+    pub fn scale() -> f32 { (10f32).powi(PRECISION) }
 
     pub fn is_default(&self) -> bool { self == &Self::default()}
 

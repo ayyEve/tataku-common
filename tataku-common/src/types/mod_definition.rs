@@ -4,9 +4,9 @@ use crate::prelude::*;
 const CURRENT_VERSION:u16 = 1;
 
 /// a simple mod definition
+#[derive(Reflect)]
 #[derive(Clone, Debug)]
 #[derive(Serialize, Deserialize)]
-#[derive(Reflect)]
 pub struct ModDefinition {
     /// mod identifier, used in the mods hashmap
     pub name: String,

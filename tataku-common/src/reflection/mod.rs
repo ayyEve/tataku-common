@@ -1,14 +1,25 @@
-mod map;
+mod maps;
+mod slice;
+mod tuple;
 mod number;
+mod dyn_map;
+mod strings;
 mod reflect;
 mod atomics;
+mod multiparse;
+mod containers;
+mod stringable;
+mod maybe_owned;
 mod reflect_path;
 mod reflect_iter;
 mod reflect_error;
 
-pub use map::*;
 pub use number::*;
+pub use dyn_map::*;
 pub use reflect::*;
+pub use multiparse::*;
+pub use stringable::*;
+pub use maybe_owned::*;
 pub use reflect_path::*;
 pub use reflect_iter::*;
 pub use reflect_error::*;

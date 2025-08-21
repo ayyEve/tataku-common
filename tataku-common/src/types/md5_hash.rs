@@ -6,11 +6,11 @@ use crate::prelude::*;
 ///
 /// Note that this item is serialized and deserialized as a string, in the usual md5 hash format
 /// TODO: make sure that its printing leading 0s !!!!
-#[derive(Copy, Clone, Eq, Default, Debug, PartialEq, Hash)]
-#[derive(Serialize, Deserialize)]
-#[serde(try_from="String", into="String")]
 #[derive(Reflect)]
 #[reflect(display="display")]
+#[derive(Serialize, Deserialize)]
+#[serde(try_from="String", into="String")]
+#[derive(Copy, Clone, Eq, Default, Debug, PartialEq, Hash)]
 pub struct Md5Hash(u128);
 impl TryFrom<&String> for Md5Hash {
     type Error = std::num::ParseIntError;

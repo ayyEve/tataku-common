@@ -1,10 +1,10 @@
 use crate::prelude::*;
 
 #[allow(non_camel_case_types)]
-#[allow(clippy::large_enum_variant)]
-#[derive(Clone, Debug, Default)]
 #[derive(PacketSerialization)]
-#[packet(type="u8")]
+#[derive(Clone, Debug, Default)]
+#[allow(clippy::large_enum_variant)]
+#[packet_type(u8)]
 pub enum MultiplayerPacket {
     /// client request to get a list of available lobbies
     #[packet(id=0)]

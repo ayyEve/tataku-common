@@ -2,9 +2,9 @@ use crate::prelude::*;
 
 
 #[allow(non_camel_case_types)]
-#[derive(Clone, Debug, Default)]
 #[derive(PacketSerialization)]
-#[packet(type="u8")]
+#[derive(Clone, Debug, Default)]
+#[packet_type(u8)]
 pub enum ChatPacket {
     /// client is sending a message to the server
     #[packet(id=0)]
@@ -80,7 +80,8 @@ impl From<ChatPacket> for PacketId {
     }
 }
 
-#[derive(Default, Clone, Debug, Serializable)]
+#[derive(Serializable)]
+#[derive(Default, Clone, Debug)]
 pub struct ChatHistoryMessage {
     pub user_id: u32,
     pub username: String,

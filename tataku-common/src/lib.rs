@@ -13,7 +13,7 @@ pub mod prelude {
 
     pub(crate) use std::collections::{ HashSet, HashMap };
     pub(crate) use serde::{ Serialize, Deserialize };
-
+    
     pub use serde_json;
     pub use downcast_rs::*;
 
@@ -22,6 +22,7 @@ pub mod prelude {
     pub use crate::reflection::*;
     pub use crate::serialization::*;
     pub use tataku_common_proc_macros::Reflect;
+    pub use tataku_common_proc_macros::FromStr;
     pub use tataku_common_proc_macros::Serializable;
     pub use tataku_common_proc_macros::PacketSerialization;
 }

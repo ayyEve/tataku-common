@@ -1,9 +1,9 @@
 use crate::prelude::*;
 
-#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, Default)]
+#[allow(clippy::large_enum_variant)]
 #[derive(Reflect, PacketSerialization)]
-#[packet(type="u8")]
+#[packet_type(u8)]
 pub enum SpectatorAction {
     /// host started a new map
     /// NOTE: mods is a comma separated list of mod ids, ie "no_fail, autoplay"
@@ -66,7 +66,6 @@ pub enum SpectatorAction {
     // MapInfo { beatmap_hash: String, game: String, download_link: Option<String> },
 
     /// unknown packet
-    #[default]
     #[packet(id=255)]
-    Unknown,
+    #[default] Unknown,
 }

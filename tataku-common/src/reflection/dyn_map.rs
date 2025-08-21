@@ -118,8 +118,4 @@ impl Reflect for DynMap {
         }
     }
 
-    fn from_string(_: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
-        Err(ReflectError::NoFromString)
-    }
-
 }

@@ -1,8 +1,8 @@
 use crate::prelude::*;
 
-#[derive(Copy, Clone, Debug, Default)]
+#[repr(u8)]
 #[derive(PacketSerialization)]
-#[packet(type="u8")]
+#[derive(Copy, Clone, Debug, Default)]
 pub enum ServerErrorCode {
     #[default]
     #[packet(id=0)] Unknown,

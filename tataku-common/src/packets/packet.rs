@@ -1,18 +1,16 @@
 use crate::prelude::*;
 
-#[allow(clippy::large_enum_variant)]
 #[allow(non_camel_case_types)]
-#[derive(Clone, Debug, Default)]
 #[derive(PacketSerialization)]
-#[packet(type="u16")]
-// #[packet(extra_logging)]
+#[derive(Clone, Debug, Default)]
+#[allow(clippy::large_enum_variant)]
+#[packet_type(u16)]
 pub enum PacketId {
     // ======= Unknown =======
     /// we dont know what this packet is.
     /// - if you get this, its probably best to stop reading the current incoming data
-    #[default]
     #[packet(id=0)]
-    Unknown, 
+    #[default] Unknown, 
 
     // ======= Ping =======
     /// ping!

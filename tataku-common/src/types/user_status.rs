@@ -1,8 +1,8 @@
 use crate::prelude::*;
 
-#[derive(Copy, Clone, Debug, PartialEq, Default)]
+#[repr(u8)]
 #[derive(PacketSerialization)]
-#[packet(type="u8")]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub enum UserAction {
     #[default]
     #[packet(id=0)] Unknown,

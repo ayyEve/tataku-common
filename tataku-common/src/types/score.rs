@@ -9,9 +9,9 @@ use crate::prelude::*;
 // v10 made the hash function not stupid, also changed the speed to be serialized as a u16
 const CURRENT_VERSION:u16 = 10;
 
+#[derive(Reflect)]
 #[derive(Clone, Debug, Default)]
 #[derive(Serialize, Deserialize)]
-#[derive(Reflect)]
 pub struct Score {
     pub version: u16,
     pub username: String,
@@ -304,9 +304,9 @@ pub struct HitError {
 
 
 /// legacy mod manager, only used to read old scores
-#[derive(Clone, Default, PartialEq)]
 #[derive(Serialize, Deserialize)]
 #[serde(default)]
+#[derive(Clone, Default, PartialEq)]
 pub(super) struct ModManager {
     pub speed: Option<u16>,
 

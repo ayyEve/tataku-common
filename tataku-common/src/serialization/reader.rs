@@ -7,7 +7,6 @@ pub struct SerializationReader {
     pub(self) stack_depth: usize,
     pub debug: bool,
 }
-#[allow(dead_code)]
 impl SerializationReader {
     pub fn new(data: Vec<u8>) -> Self {
         Self {

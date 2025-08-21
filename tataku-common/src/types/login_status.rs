@@ -1,8 +1,8 @@
 use crate::prelude::*;
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[repr(u8)]
 #[derive(PacketSerialization)]
-#[packet(type="u8")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub enum LoginStatus {
     /// some unknown error occurred
     #[default]

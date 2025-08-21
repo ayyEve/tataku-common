@@ -13,7 +13,7 @@ pub(crate) const CURRENT_VERSION:u16 = 6;
 #[derive(Serialize, Deserialize)]
 #[derive(Reflect)]
 pub struct Replay {
-    // moved in v6
+    // removed in v6
     // score: Option<Score>
 
     /// any extra gameplay variables which are helpful to know

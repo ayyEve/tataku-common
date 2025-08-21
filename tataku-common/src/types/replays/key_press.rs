@@ -1,9 +1,8 @@
 use crate::prelude::*;
 
-#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
-#[derive(Reflect)]
+#[derive(Reflect, FromStr)]
 #[derive(Serialize, Deserialize)]
-#[reflect(from_string = "auto")]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum KeyPress {
     LeftKat = 0,
     LeftDon = 1,
@@ -31,9 +30,8 @@ pub enum KeyPress {
     LeftMouse = 33,
     RightMouse = 34,
 
-
     SkipIntro = 254,
-    Unknown = 255
+    #[default] Unknown = 255
 }
 
 impl From<KeyPress> for u8 {

@@ -1,10 +1,9 @@
 use crate::prelude::*;
 
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u8)]
 #[derive(Serialize, Deserialize)]
-#[derive(Reflect, PacketSerialization)]
-#[packet(type="u8")]
-#[reflect(from_string = "auto")]
+#[derive(Reflect, PacketSerialization, FromStr)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub enum LobbyUserState {
     #[packet(id=0)] NoMap,
     #[packet(id=1)] InGame,

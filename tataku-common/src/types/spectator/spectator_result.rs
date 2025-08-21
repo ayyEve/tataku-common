@@ -1,9 +1,9 @@
 use crate::prelude::*;
 
+#[repr(u8)]
 #[allow(non_camel_case_types)]
-#[derive(Copy, Clone, Debug, Default)]
 #[derive(PacketSerialization)]
-#[packet(type="u8")]
+#[derive(Copy, Clone, Debug, Default)]
 pub enum SpectateResult {
     /// spectate request was accepted
     #[packet(id=0)] Ok,

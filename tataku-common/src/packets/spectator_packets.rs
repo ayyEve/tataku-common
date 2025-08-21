@@ -1,9 +1,9 @@
 use crate::prelude::*;
 
 #[allow(non_camel_case_types)]
-#[derive(Clone, Debug, Default)]
 #[derive(PacketSerialization)]
-#[packet(type="u8")]
+#[derive(Clone, Debug, Default)]
+#[packet_type(u8)]
 pub enum SpectatorPacket {
     /// client wants to spectate someone
     #[packet(id=0)]

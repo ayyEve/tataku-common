@@ -1,9 +1,9 @@
 use crate::prelude::*;
 use std::collections::HashMap;
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[derive(Serialize, Deserialize)]
 #[derive(Reflect, Serializable)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct LobbyInfo {
     /// lobby id
     pub id: u32,
@@ -29,9 +29,9 @@ pub struct LobbyInfo {
 
 
 /// extra lobby data
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[derive(Serialize, Deserialize)]
 #[derive(Reflect, Serializable)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct FullLobbyInfo {
     /// lobby id
     pub id: u32,
@@ -55,9 +55,9 @@ pub struct FullLobbyInfo {
     pub current_beatmap: Option<LobbyBeatmap>,
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[derive(Serialize, Deserialize)]
 #[derive(Reflect, Serializable)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct LobbyBeatmap {
     pub title: String,
     pub hash: Md5Hash,
