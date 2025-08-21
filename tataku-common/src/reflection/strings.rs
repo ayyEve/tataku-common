@@ -34,10 +34,6 @@ macro_rules! immutable_str {
             fn duplicate(&self) -> Option<Box<dyn Reflect>> {
                 Some(Box::new(self.to_owned()))
             }
-
-            // fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
-            //     Ok(Box::new(str.to_owned()))
-            // }
         }
     )*}
 }
@@ -84,10 +80,6 @@ macro_rules! str_container {
             fn duplicate(&self) -> Option<Box<dyn Reflect>> {
                 Some(Box::new(self.to_owned()))
             }
-
-            // fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
-            //     Ok(Box::new(str.to_owned()))
-            // }
         }
     )*}
 }

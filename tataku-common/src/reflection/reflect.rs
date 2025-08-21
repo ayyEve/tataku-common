@@ -119,12 +119,6 @@ macro_rules! base_reflect_impl {
             fn duplicate(&self) -> Option<Box<dyn Reflect>> {
                 Some(Box::new(self.clone()))
             }
-
-            // fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
-            //     Ok(Box::new(
-            //         str.parse::<$ty>().map_err(|_| ReflectError::wrong_type(stringify!($ty), "String"))?
-            //     ))
-            // }
         }
     };
 
@@ -175,10 +169,6 @@ impl<T:Reflect+Clone> Reflect for Option<T> {
     fn duplicate(&self) -> Option<Box<dyn Reflect>> {
         Some(Box::new(self.clone()))
     }
-
-    // fn from_string(str: &str) -> ReflectResult<'_, Box<dyn Reflect>> where Self:Sized {
-    //     T::from_string(str)
-    // }
 }
 
 impl std::fmt::Debug for dyn Reflect {
