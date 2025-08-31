@@ -48,7 +48,10 @@ pub trait Reflect: downcast_rs::DowncastSync {
 }
 
 impl dyn Reflect {
-    pub fn reflect_get<'a, T: Reflect + 'static>(&self, path: impl Into<ReflectPath<'a>>) -> ReflectResult<'a, MaybeOwned<T>> {
+    pub fn reflect_get<'a, 'b, T: Reflect + 'static>(
+        &'b self, 
+        path: impl Into<ReflectPath<'a>>
+    ) -> ReflectResult<'a, MaybeOwned<'b, T>> {
         let a = self.impl_get(path.into())?;
         let wrong_type = ReflectError::wrong_type(Reflect::type_name(a.as_ref()), type_name::<T>());
         match a {
@@ -57,7 +60,10 @@ impl dyn Reflect {
         }
     }
 
-    pub fn reflect_get_mut<'a, T: Reflect + 'static>(&mut self, path: impl Into<ReflectPath<'a>>) -> ReflectResult<'a, &mut T> {
+    pub fn reflect_get_mut<'a, T: Reflect + 'static>(
+        &mut self, 
+        path: impl Into<ReflectPath<'a>>
+    ) -> ReflectResult<'a, &mut T> {
         let a = self.impl_get_mut(path.into())?;
         let name = a.type_name();
         a.downcast_mut::<T>()

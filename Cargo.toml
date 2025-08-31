@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 package.edition = "2024"
+package.rust-version = "1.89"
 
 members = [
     "tataku-common-proc-macros",

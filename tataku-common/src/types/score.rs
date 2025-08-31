@@ -388,13 +388,12 @@ fn read_old_score(
             let mods_string: Option<String> = sr.read("mods string")?;
 
             // parse here, save time later
-            if let Some(str) = &mods_string {
-                if let Ok(manager) = serde_json::from_str::<ModManager>(str) {
-                    if manager.autoplay { mods2.insert("autoplay".to_owned()); }
-                    if manager.nofail { mods2.insert("no_fail".to_owned()); }
-                    if manager.hard_rock { mods2.insert("hard_rock".to_owned()); }
-                    if manager.easy { mods2.insert("easy".to_owned()); }
-                }
+            if let Some(str) = &mods_string
+            && let Ok(manager) = serde_json::from_str::<ModManager>(str) {
+                if manager.autoplay { mods2.insert("autoplay".to_owned()); }
+                if manager.nofail { mods2.insert("no_fail".to_owned()); }
+                if manager.hard_rock { mods2.insert("hard_rock".to_owned()); }
+                if manager.easy { mods2.insert("easy".to_owned()); }
             }
         }
 
