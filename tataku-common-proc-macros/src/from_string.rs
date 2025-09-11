@@ -50,7 +50,7 @@ pub fn derive(ast: &syn::DeriveInput) -> Result<TokenStream> {
         impl std::str::FromStr for #ident {
             type Err = ();
 
-            fn from_str(str: &str) -> Result<Self, Self::Err> {
+            fn from_str(str: &str) -> std::result::Result<Self, Self::Err> {
                 match str {
                     #match_tokens
 

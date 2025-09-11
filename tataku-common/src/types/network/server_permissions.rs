@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::serialization::*;
 
 #[repr(u16)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

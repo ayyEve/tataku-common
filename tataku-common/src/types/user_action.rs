@@ -1,4 +1,5 @@
-use crate::prelude::*;
+use crate::serialization::*;
+use crate::macros::PacketSerialization;
 
 #[repr(u8)]
 #[derive(PacketSerialization)]

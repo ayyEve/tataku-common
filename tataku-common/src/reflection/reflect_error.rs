@@ -1,5 +1,7 @@
 use std::borrow::Cow;
 
+pub type Result<'a, T> = std::result::Result<T, ReflectError<'a>>;
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum ReflectError<'a> {
     EntryNotExist {

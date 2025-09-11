@@ -1,4 +1,6 @@
-use crate::prelude::*;
+use crate::macros::*;
+use crate::reflection::*;
+use crate::serialization::*;
 
 // v1 added name, short_name, display_name, adjusts_difficulty, score_multiplier
 const CURRENT_VERSION:u16 = 1;

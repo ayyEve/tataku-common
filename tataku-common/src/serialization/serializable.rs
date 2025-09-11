@@ -6,7 +6,7 @@ use std::{
     collections::HashMap,
 };
 
-use crate::prelude::*;
+use crate::serialization::*;
 
 pub trait Serializable: core::fmt::Debug {
     fn read(sr: &mut SerializationReader) -> SerializationResult<Self> where Self: Sized;

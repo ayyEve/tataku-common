@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::reflection::*;
 use std::any::type_name;
 
 impl<K, V> Reflect for std::collections::HashMap<K, V>
@@ -15,7 +15,7 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
     fn impl_get<'a, 's>(
         &'s self, 
         mut path: ReflectPath<'a>
-    ) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
+    ) -> reflect::Result<'a, MaybeOwnedReflect<'s>> {
         let Some(key) = path.next() else {
             return Ok((self as &dyn Reflect).into())
         };
@@ -31,7 +31,7 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
     fn impl_get_mut<'a>(
         &mut self, 
         mut path: ReflectPath<'a>
-    ) -> ReflectResult<'a, &mut dyn Reflect> {
+    ) -> reflect::Result<'a, &mut dyn Reflect> {
         let Some(key) = path.next() else {
             return Ok(self as &mut dyn Reflect)
         };
@@ -47,7 +47,7 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
         &mut self, 
         mut path: ReflectPath<'a>, 
         value: Box<dyn Reflect>
-    ) -> ReflectResult<'a, ()> {
+    ) -> reflect::Result<'a, ()> {
         let Some(key) = path.next() else {
             return value
                 .downcast::<Self>()
@@ -67,7 +67,7 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
     fn impl_iter<'s, 'a>(
         &'s self, 
         mut path: ReflectPath<'a>
-    ) -> ReflectResult<'a, ReflectIter<'s>> {
+    ) -> reflect::Result<'a, ReflectIter<'s>> {
         let Some(key) = path.next() else {
             return Ok(ReflectIter { 
                 iter: self.iter().map(|(k, v)| {
@@ -90,7 +90,7 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
     fn impl_iter_mut<'a>(
         &mut self,
         mut path: ReflectPath<'a>
-    ) -> ReflectResult<'a, ReflectIterMut<'_>> {
+    ) -> reflect::Result<'a, ReflectIterMut<'_>> {
         let Some(key) = path.next() else {
             return Ok(ReflectIterMut { 
                 iter: self.iter_mut().map(|(k, v)| {
@@ -114,7 +114,7 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
     fn impl_as_number<'v>(
         &self, 
         mut path: ReflectPath<'v>
-    ) -> ReflectResult<'v, ReflectNumber> {
+    ) -> reflect::Result<'v, ReflectNumber> {
         let Some(key) = path.next() else {
             return Err(ReflectError::NotANumber);
         };
@@ -130,7 +130,7 @@ impl<K, V> Reflect for std::collections::HashMap<K, V>
         &self, 
         mut path: ReflectPath<'v>, 
         precision: Option<usize>
-    ) -> ReflectResult<'v, String> {
+    ) -> reflect::Result<'v, String> {
         let Some(key) = path.next() else {
             return Err(ReflectError::NoDisplay);
         };
@@ -157,7 +157,7 @@ impl<T> Reflect for std::collections::HashSet<T>
     + core::cmp::Eq 
     + 'static,
 {
-    fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
+    fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> reflect::Result<'a, MaybeOwnedReflect<'s>> {
         let Some(key) = path.next() else {
             return Ok((self as &dyn Reflect).into())
         };
@@ -170,7 +170,7 @@ impl<T> Reflect for std::collections::HashSet<T>
         Ok((val as &dyn Reflect).into())
     }
 
-    fn impl_get_mut<'a>(&mut self, path: ReflectPath<'a>) -> ReflectResult<'a, &mut dyn Reflect> {
+    fn impl_get_mut<'a>(&mut self, path: ReflectPath<'a>) -> reflect::Result<'a, &mut dyn Reflect> {
         if !path.has_next() {
             return Ok(self as &mut dyn Reflect)
         };
@@ -178,7 +178,7 @@ impl<T> Reflect for std::collections::HashSet<T>
         Err(ReflectError::CantMutHashSetKey)
     }
 
-    fn impl_insert<'a>(&mut self, path: ReflectPath<'a>, value: Box<dyn Reflect>) -> ReflectResult<'a, ()> {
+    fn impl_insert<'a>(&mut self, path: ReflectPath<'a>, value: Box<dyn Reflect>) -> reflect::Result<'a, ()> {
         if !path.has_next() {
             return value
                 .downcast::<Self>()
@@ -195,7 +195,7 @@ impl<T> Reflect for std::collections::HashSet<T>
         Ok(())
     }
 
-    fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIter<'_>> {
+    fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> reflect::Result<'a, ReflectIter<'_>> {
         let Some(key) = path.next() else {
             return Ok(ReflectIter { 
                 iter: self.iter().enumerate().map(|(k, v)| {
@@ -214,7 +214,7 @@ impl<T> Reflect for std::collections::HashSet<T>
 
         val.impl_iter(path)
     }
-    fn impl_iter_mut<'a>(&mut self, _path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIterMut<'_>> {
+    fn impl_iter_mut<'a>(&mut self, _path: ReflectPath<'a>) -> reflect::Result<'a, ReflectIterMut<'_>> {
         Err(ReflectError::CantMutHashSetKey)
     }
 

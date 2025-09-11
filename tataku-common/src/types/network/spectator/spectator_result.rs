@@ -1,8 +1,8 @@
-use crate::prelude::*;
+use crate::serialization::*;
 
 #[repr(u8)]
 #[allow(non_camel_case_types)]
-#[derive(PacketSerialization)]
+#[derive(crate::macros::PacketSerialization)]
 #[derive(Copy, Clone, Debug, Default)]
 pub enum SpectateResult {
     /// spectate request was accepted

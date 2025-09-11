@@ -1,4 +1,7 @@
-use crate::prelude::*;
+use crate::macros::*;
+use crate::serialization::*;
+use crate::packets::PacketId;
+use crate::types::network::spectator::*;
 
 #[allow(non_camel_case_types)]
 #[derive(PacketSerialization)]

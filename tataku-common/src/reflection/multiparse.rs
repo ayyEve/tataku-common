@@ -1,5 +1,5 @@
-use crate::prelude::*;
 use std::any::type_name;
+use crate::reflection::*;
 
 
 /// helper to try to downcast multiple types to a single type
@@ -36,7 +36,7 @@ impl<Out> ReflectMultiparse<Out> {
     pub fn parse_reflect_err(
         value: Box<dyn Reflect>, 
         checker: fn(Self) -> Result<Self, Out>
-    ) -> ReflectResult<'static, Out> {
+    ) -> reflect::Result<'static, Out> {
         Self::parse(value, checker)
             .map_err(|v| ReflectError::wrong_type(
             type_name::<Out>(), 
@@ -84,7 +84,7 @@ impl<'r, Out> ReflectMultiparseRef<'r, Out> {
     pub fn parse_reflect_err(
         value: &'r dyn Reflect, 
         checker: fn(Self) -> Result<Self, Out>
-    ) -> ReflectResult<'static, Out> {
+    ) -> reflect::Result<'static, Out> {
         Self::parse(value, checker).map_err(|v| 
             ReflectError::wrong_type(
                 type_name::<Out>(), 

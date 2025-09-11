@@ -1,6 +1,8 @@
-use crate::prelude::*;
+use crate::reflection::*;
+use crate::serialization::*;
+use crate::types::network::spectator::*;
 
-#[derive(Reflect)]
+#[derive(crate::macros::Reflect)]
 #[derive(Clone, Debug)]
 pub struct SpectatorFrame {
     pub time: f32,

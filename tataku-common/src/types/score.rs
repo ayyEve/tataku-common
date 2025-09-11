@@ -1,4 +1,14 @@
-use crate::prelude::*;
+use crate::macros::*;
+use crate::reflection::*;
+use crate::serialization::*;
+use std::collections::HashSet;
+use std::collections::HashMap;
+
+use crate::types::{
+    replays::Replay,
+    Md5Hash,
+    GameSpeed
+};
 
 // v2 added game speed as an f32
 // v4 added custom judgments instead of sticking explicitly to osu judgment names
@@ -28,12 +38,12 @@ pub struct Score {
 
     pub accuracy: f32,
     #[reflect(skip)]
-    pub speed: GameSpeed,
+    pub speed: crate::types::GameSpeed,
 
     /// new mods format
     /// TODO: it was kinda silly to include all this in score submits to the server etc
     /// it might be better so move back to just ids, and then provide an api for retrieving mod data
-    pub mods: Vec<ModDefinition>,
+    pub mods: Vec<crate::types::ModDefinition>,
 
     /// how many performance points this is worth
     pub performance: f32,
@@ -432,7 +442,7 @@ fn read_old_score(
 
 
     if !mods2.is_empty() {
-        mods = mods2.into_iter().map(|m| ModDefinition {
+        mods = mods2.into_iter().map(|m| crate::types::ModDefinition {
             name: m.clone(),
             short_name: "??".to_string(),
             display_name: m,

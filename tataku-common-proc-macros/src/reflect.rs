@@ -585,7 +585,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
         #variant_name_helper
 
         impl #impl_generics Reflect for #type_name #ty_generics where #where_clause {
-            fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
+            fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> reflect::Result<'a, MaybeOwnedReflect<'s>> {
                 match path.next() {
                     None => Ok(self.as_dyn().into()),
                     #get_impl
@@ -593,7 +593,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 }
             }
 
-            fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> ReflectResult<'a, &mut dyn Reflect> {
+            fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> reflect::Result<'a, &mut dyn Reflect> {
                 match path.next() {
                     None => Ok(self.as_dyn_mut()),
                     #get_mut_impl
@@ -601,7 +601,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 }
             }
 
-            fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> ReflectResult<'a, ()> {
+            fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> reflect::Result<'a, ()> {
                 // println!("{}", std::any::type_name_of_val(&value));
 
                 match path.next() {
@@ -615,7 +615,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 }
             }
 
-            fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIter<'_>> {
+            fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> reflect::Result<'a, ReflectIter<'_>> {
                 match path.next() {
                     // None => Ok(#iter_fields.into()),
                     None => Ok(ReflectIter::new(
@@ -630,7 +630,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                     Some(p) => Err(ReflectError::entry_not_exist(p)),
                 }
             }
-            fn impl_iter_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIterMut<'_>> {
+            fn impl_iter_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> reflect::Result<'a, ReflectIterMut<'_>> {
                 match path.next() {
                     // None => Ok(#iter_mut_fields.into()),
                     None => Ok(ReflectIterMut::new(#iter_mut_fields
@@ -650,7 +650,7 @@ pub fn derive(derive: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 #duplicate
             }
 
-            fn impl_display<'a>(&self, path: ReflectPath<'a>, precision: Option<usize>) -> ReflectResult<'a, String> {
+            fn impl_display<'a>(&self, path: ReflectPath<'a>, precision: Option<usize>) -> reflect::Result<'a, String> {
                 if !path.has_next() { #display_impl }
                 match self.impl_get(path)? {
                     MaybeOwnedReflect::Borrowed(reflect) => reflect.impl_display(ReflectPath::EMPTY, precision),

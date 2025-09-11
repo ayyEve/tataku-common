@@ -1,10 +1,10 @@
-use crate::prelude::*;
 use std::any::type_name;
+use crate::reflection::*;
 
 macro_rules! impl_reflect_tuple {
     ($($g:ident $ty:tt => $v:literal => $i:tt),+) => {
         impl<$($g: Reflect),+> Reflect for ($($ty),+ ,) {
-            fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
+            fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> reflect::Result<'a, MaybeOwnedReflect<'s>> {
                 match path.next() {
                     None => Ok(self.as_dyn().into()),
                     Some(index) => {
@@ -22,7 +22,7 @@ macro_rules! impl_reflect_tuple {
                 }
             }
 
-            fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> ReflectResult<'a, &mut dyn Reflect> {
+            fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> reflect::Result<'a, &mut dyn Reflect> {
                 match path.next() {
                     None => Ok(self.as_dyn_mut()),
                     Some(index) => {
@@ -40,7 +40,7 @@ macro_rules! impl_reflect_tuple {
                 }
             }
 
-            fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> ReflectResult<'a, ()> {
+            fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> reflect::Result<'a, ()> {
                 match path.next() {
                     None => value.downcast::<Self>()
                         .map(|v| *self = *v)
@@ -61,7 +61,7 @@ macro_rules! impl_reflect_tuple {
             }
 
 
-            fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIter<'_>> {
+            fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> reflect::Result<'a, ReflectIter<'_>> {
                 match path.next() {
                     None => Ok(ReflectIter { 
                         iter: vec![
@@ -88,7 +88,7 @@ macro_rules! impl_reflect_tuple {
                     }
                 }
             }
-            fn impl_iter_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIterMut<'_>> {
+            fn impl_iter_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> reflect::Result<'a, ReflectIterMut<'_>> {
                 match path.next() {
                     None => Ok(ReflectIterMut { 
                         iter: vec![

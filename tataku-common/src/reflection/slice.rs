@@ -1,8 +1,8 @@
-use crate::prelude::*;
+use crate::reflection::*;
 use std::any::type_name;
 
 impl<T: Reflect + Clone> Reflect for Vec<T> {
-    fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
+    fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> reflect::Result<'a, MaybeOwnedReflect<'s>> {
         let Some(key) = path.next() else {
             return Ok((self as &dyn Reflect).into())
         };
@@ -25,7 +25,7 @@ impl<T: Reflect + Clone> Reflect for Vec<T> {
 
     }
 
-    fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> ReflectResult<'a, &mut dyn Reflect> {
+    fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> reflect::Result<'a, &mut dyn Reflect> {
         let Some(index) = path.next() else {
             return Ok(self as &mut dyn Reflect)
         };
@@ -41,7 +41,7 @@ impl<T: Reflect + Clone> Reflect for Vec<T> {
         &mut self, 
         mut path: ReflectPath<'a>, 
         value: Box<dyn Reflect>,
-    ) -> ReflectResult<'a, ()> {
+    ) -> reflect::Result<'a, ()> {
         let Some(index) = path.next() 
         else {
             if value.is::<T>() {
@@ -84,7 +84,7 @@ impl<T: Reflect + Clone> Reflect for Vec<T> {
 
 
 
-    fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIter<'_>> {
+    fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> reflect::Result<'a, ReflectIter<'_>> {
         let Some(index) = path.next() else {
             return Ok(ReflectIter { 
                 iter: self.iter().enumerate().map(|(k, v)| {
@@ -103,7 +103,7 @@ impl<T: Reflect + Clone> Reflect for Vec<T> {
 
         val.impl_iter(path)
     }
-    fn impl_iter_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIterMut<'_>> {
+    fn impl_iter_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> reflect::Result<'a, ReflectIterMut<'_>> {
         let Some(index) = path.next() else {
             return Ok(ReflectIterMut { 
                 iter: self.iter_mut().enumerate().map(|(k, v)| {
@@ -129,7 +129,7 @@ impl<T: Reflect + Clone> Reflect for Vec<T> {
 }
 
 impl<T: Reflect, const SIZE:usize> Reflect for [T; SIZE] where Self:Sized {
-    fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
+    fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> reflect::Result<'a, MaybeOwnedReflect<'s>> {
         let Some(index) = path.next() else {
             return Ok((self as &dyn Reflect).into())
         };
@@ -142,7 +142,7 @@ impl<T: Reflect, const SIZE:usize> Reflect for [T; SIZE] where Self:Sized {
         Ok((val as &dyn Reflect).into())
     }
 
-    fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> ReflectResult<'a, &mut dyn Reflect> {
+    fn impl_get_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> reflect::Result<'a, &mut dyn Reflect> {
         let Some(index) = path.next() else {
             return Ok(self as &mut dyn Reflect)
         };
@@ -154,7 +154,7 @@ impl<T: Reflect, const SIZE:usize> Reflect for [T; SIZE] where Self:Sized {
         Ok(val as &mut dyn Reflect)
     }
 
-    fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> ReflectResult<'a, ()> {
+    fn impl_insert<'a>(&mut self, mut path: ReflectPath<'a>, value: Box<dyn Reflect>) -> reflect::Result<'a, ()> {
         let Some(index) = path.next() else {
 
             value
@@ -183,7 +183,7 @@ impl<T: Reflect, const SIZE:usize> Reflect for [T; SIZE] where Self:Sized {
     }
 
 
-    fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIter<'_>> {
+    fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> reflect::Result<'a, ReflectIter<'_>> {
         let Some(index) = path.next() else {
             return Ok(ReflectIter { 
                 iter: self.iter().enumerate().map(|(k, v)| {
@@ -202,7 +202,7 @@ impl<T: Reflect, const SIZE:usize> Reflect for [T; SIZE] where Self:Sized {
 
         val.impl_iter(path)
     }
-    fn impl_iter_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIterMut<'_>> {
+    fn impl_iter_mut<'a>(&mut self, mut path: ReflectPath<'a>) -> reflect::Result<'a, ReflectIterMut<'_>> {
         let Some(index) = path.next() else {
             return Ok(ReflectIterMut { 
                 iter: self.iter_mut().enumerate().map(|(k, v)| {
@@ -229,7 +229,7 @@ impl<T: Reflect, const SIZE:usize> Reflect for [T; SIZE] where Self:Sized {
 }
 
 impl<T: Reflect, const SIZE:usize> Reflect for &'static [T; SIZE] where Self:Sized {
-    fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
+    fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> reflect::Result<'a, MaybeOwnedReflect<'s>> {
         let Some(index) = path.next() else {
             return Ok((self as &dyn Reflect).into())
         };
@@ -242,15 +242,15 @@ impl<T: Reflect, const SIZE:usize> Reflect for &'static [T; SIZE] where Self:Siz
         Ok((val as &dyn Reflect).into())
     }
 
-    fn impl_get_mut<'a>(&mut self, _path: ReflectPath<'a>) -> ReflectResult<'a, &mut dyn Reflect> {
+    fn impl_get_mut<'a>(&mut self, _path: ReflectPath<'a>) -> reflect::Result<'a, &mut dyn Reflect> {
         Err(ReflectError::ImmutableContainer)
     }
 
-    fn impl_insert<'a>(&mut self, _path: ReflectPath<'a>, _value: Box<dyn Reflect>) -> ReflectResult<'a, ()> {
+    fn impl_insert<'a>(&mut self, _path: ReflectPath<'a>, _value: Box<dyn Reflect>) -> reflect::Result<'a, ()> {
         Err(ReflectError::ImmutableContainer)
     }
     
-    fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIter<'_>> {
+    fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> reflect::Result<'a, ReflectIter<'_>> {
         let Some(index) = path.next() else {
             return Ok(ReflectIter { 
                 iter: self.iter().enumerate().map(|(k, v)| {
@@ -269,7 +269,7 @@ impl<T: Reflect, const SIZE:usize> Reflect for &'static [T; SIZE] where Self:Siz
 
         val.impl_iter(path)
     }
-    fn impl_iter_mut<'a>(&mut self, _path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIterMut<'_>> {
+    fn impl_iter_mut<'a>(&mut self, _path: ReflectPath<'a>) -> reflect::Result<'a, ReflectIterMut<'_>> {
         Err(ReflectError::ImmutableContainer)
     }
 
@@ -279,7 +279,7 @@ impl<T: Reflect, const SIZE:usize> Reflect for &'static [T; SIZE] where Self:Siz
 }
 
 impl<T: Reflect> Reflect for &'static [T] where Self:Sized {
-    fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> ReflectResult<'a, MaybeOwnedReflect<'s>> {
+    fn impl_get<'a, 's>(&'s self, mut path: ReflectPath<'a>) -> reflect::Result<'a, MaybeOwnedReflect<'s>> {
         let Some(index) = path.next() else {
             return Ok((self as &dyn Reflect).into())
         };
@@ -292,15 +292,15 @@ impl<T: Reflect> Reflect for &'static [T] where Self:Sized {
         Ok((val as &dyn Reflect).into())
     }
 
-    fn impl_get_mut<'a>(&mut self, _path: ReflectPath<'a>) -> ReflectResult<'a, &mut dyn Reflect> {
+    fn impl_get_mut<'a>(&mut self, _path: ReflectPath<'a>) -> reflect::Result<'a, &mut dyn Reflect> {
         Err(ReflectError::ImmutableContainer)
     }
 
-    fn impl_insert<'a>(&mut self, _path: ReflectPath<'a>, _value: Box<dyn Reflect>) -> ReflectResult<'a, ()> {
+    fn impl_insert<'a>(&mut self, _path: ReflectPath<'a>, _value: Box<dyn Reflect>) -> reflect::Result<'a, ()> {
         Err(ReflectError::ImmutableContainer)
     }
     
-    fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIter<'_>> {
+    fn impl_iter<'a>(&self, mut path: ReflectPath<'a>) -> reflect::Result<'a, ReflectIter<'_>> {
         let Some(index) = path.next() else {
             return Ok(ReflectIter { 
                 iter: self.iter().enumerate().map(|(k, v)| {
@@ -319,7 +319,7 @@ impl<T: Reflect> Reflect for &'static [T] where Self:Sized {
 
         val.impl_iter(path)
     }
-    fn impl_iter_mut<'a>(&mut self, _path: ReflectPath<'a>) -> ReflectResult<'a, ReflectIterMut<'_>> {
+    fn impl_iter_mut<'a>(&mut self, _path: ReflectPath<'a>) -> reflect::Result<'a, ReflectIterMut<'_>> {
         Err(ReflectError::ImmutableContainer)
     }
 

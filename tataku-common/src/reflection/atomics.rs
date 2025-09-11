@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::reflection::*;
 use std::any::type_name;
 use std::sync::atomic::*;
 
@@ -12,7 +12,7 @@ macro_rules! impl_atomic_number {
                 fn impl_get<'s, 'v>(
                     &'s self, 
                     mut path: ReflectPath<'v>
-                ) -> ReflectResult<'v, MaybeOwnedReflect<'s>> {
+                ) -> reflect::Result<'v, MaybeOwnedReflect<'s>> {
                     if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
                     Ok(MaybeOwnedReflect::Owned(Box::new(self.load(LOAD_ORDER))))
                 }
@@ -20,7 +20,7 @@ macro_rules! impl_atomic_number {
                 fn impl_get_mut<'s, 'v>(
                     &'s mut self, 
                     mut path: ReflectPath<'v>
-                ) -> ReflectResult<'v, &'s mut dyn Reflect> {
+                ) -> reflect::Result<'v, &'s mut dyn Reflect> {
                     if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
                     Ok(self.get_mut())
                 }
@@ -29,7 +29,7 @@ macro_rules! impl_atomic_number {
                     &mut self, 
                     mut path: ReflectPath<'v>, 
                     value: Box<dyn Reflect>
-                ) -> ReflectResult<'v, ()> {
+                ) -> reflect::Result<'v, ()> {
                     if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
                     if let Ok(num) = value.impl_as_number(ReflectPath::new("")) {
                         self.store(num.into(), STORE_ORDER);
@@ -46,7 +46,7 @@ macro_rules! impl_atomic_number {
                 fn impl_as_number<'v>(
                     &self, 
                     mut path: ReflectPath<'v>
-                ) -> ReflectResult<'v, ReflectNumber> {
+                ) -> reflect::Result<'v, ReflectNumber> {
                     if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
                     Ok(self.load(LOAD_ORDER).into())   
                 }
@@ -55,7 +55,7 @@ macro_rules! impl_atomic_number {
                     &self, 
                     mut path: ReflectPath<'v>, 
                     precision: Option<usize>
-                ) -> ReflectResult<'v, String> {
+                ) -> reflect::Result<'v, String> {
                     if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
                     let value = self.load(LOAD_ORDER);
                     if let Some(precis) = precision {
@@ -90,7 +90,7 @@ impl Reflect for AtomicBool {
     fn impl_get<'s, 'v>(
         &'s self, 
         mut path: ReflectPath<'v>
-    ) -> ReflectResult<'v, MaybeOwnedReflect<'s>> {
+    ) -> reflect::Result<'v, MaybeOwnedReflect<'s>> {
         if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
         Ok(MaybeOwnedReflect::Owned(Box::new(self.load(LOAD_ORDER))))
     }
@@ -98,7 +98,7 @@ impl Reflect for AtomicBool {
     fn impl_get_mut<'s, 'v>(
         &'s mut self, 
         mut path: ReflectPath<'v>
-    ) -> ReflectResult<'v, &'s mut dyn Reflect> {
+    ) -> reflect::Result<'v, &'s mut dyn Reflect> {
         if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
         Ok(self.get_mut())
     }
@@ -107,7 +107,7 @@ impl Reflect for AtomicBool {
         &mut self, 
         mut path: ReflectPath<'v>, 
         value: Box<dyn Reflect>
-    ) -> ReflectResult<'v, ()> {
+    ) -> reflect::Result<'v, ()> {
         if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
 
         let value = ReflectMultiparse::<AtomicBool>::parse_reflect_err(value, |v| 
@@ -127,7 +127,7 @@ impl Reflect for AtomicBool {
     fn impl_as_number<'v>(
         &self, 
         mut path: ReflectPath<'v>
-    ) -> ReflectResult<'v, ReflectNumber> {
+    ) -> reflect::Result<'v, ReflectNumber> {
         if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
         Ok(ReflectNumber::U8(self.load(LOAD_ORDER).into()))   
     }
@@ -136,7 +136,7 @@ impl Reflect for AtomicBool {
         &self, 
         mut path: ReflectPath<'v>, 
         precision: Option<usize>
-    ) -> ReflectResult<'v, String> {
+    ) -> reflect::Result<'v, String> {
         if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
         let value = self.load(LOAD_ORDER);
         if let Some(precis) = precision {

@@ -1,7 +1,7 @@
-use crate::prelude::*;
+use crate::serialization::*;
 
 #[repr(u8)]
-#[derive(PacketSerialization)]
+#[derive(crate::macros::PacketSerialization)]
 #[derive(Copy, Clone, Debug, Default)]
 pub enum ServerErrorCode {
     #[default]

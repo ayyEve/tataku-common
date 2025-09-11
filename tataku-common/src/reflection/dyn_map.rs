@@ -1,4 +1,5 @@
-use crate::prelude::*;
+use crate::reflection::*;
+use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct DynMap {
@@ -14,7 +15,7 @@ impl DynMap {
 }
 
 impl Reflect for DynMap {
-    fn impl_get<'v, 's>(&'s self, mut path: ReflectPath<'v>) -> ReflectResult<'v, MaybeOwnedReflect<'s>> {
+    fn impl_get<'v, 's>(&'s self, mut path: ReflectPath<'v>) -> reflect::Result<'v, MaybeOwnedReflect<'s>> {
         match path.next() {
             None => Ok(self.as_dyn().into()),
             Some(p) => self.map.get(p)
@@ -24,7 +25,7 @@ impl Reflect for DynMap {
         }
     }
 
-    fn impl_get_mut<'v>(&mut self, mut path: ReflectPath<'v>) -> ReflectResult<'v, &mut dyn Reflect> {
+    fn impl_get_mut<'v>(&mut self, mut path: ReflectPath<'v>) -> reflect::Result<'v, &mut dyn Reflect> {
         match path.next() {
             None => Ok(self.as_dyn_mut()),
             Some(p) => self.map.get_mut(p)
@@ -34,7 +35,7 @@ impl Reflect for DynMap {
         }
     }
 
-    fn impl_insert<'v>(&mut self, mut path: ReflectPath<'v>, value: Box<dyn Reflect>) -> ReflectResult<'v, ()> {
+    fn impl_insert<'v>(&mut self, mut path: ReflectPath<'v>, value: Box<dyn Reflect>) -> reflect::Result<'v, ()> {
         match path.next() {
             None => value
                 .downcast::<Self>()
@@ -55,7 +56,7 @@ impl Reflect for DynMap {
         }
     }
 
-    fn impl_iter<'v>(&self, mut path: ReflectPath<'v>) -> ReflectResult<'v, ReflectIter<'_>> {
+    fn impl_iter<'v>(&self, mut path: ReflectPath<'v>) -> reflect::Result<'v, ReflectIter<'_>> {
         match path.next() {
             None => Ok(ReflectIter::new(
                 self.map
@@ -72,7 +73,7 @@ impl Reflect for DynMap {
         }
     }
 
-    fn impl_iter_mut<'v>(&mut self, mut path: ReflectPath<'v>) -> ReflectResult<'v, ReflectIterMut<'_>> {
+    fn impl_iter_mut<'v>(&mut self, mut path: ReflectPath<'v>) -> reflect::Result<'v, ReflectIterMut<'_>> {
         match path.next() {
             None => Ok(ReflectIterMut::new(
                 self.map
@@ -99,7 +100,7 @@ impl Reflect for DynMap {
         ))
     }
 
-    fn impl_as_number<'v>(&self, mut path: ReflectPath<'v>) -> ReflectResult<'v, ReflectNumber> {
+    fn impl_as_number<'v>(&self, mut path: ReflectPath<'v>) -> reflect::Result<'v, ReflectNumber> {
         match path.next() {
             None => Err(ReflectError::NotANumber),
             Some(p) => self.map.get(p)
@@ -108,7 +109,7 @@ impl Reflect for DynMap {
                 .and_then(|v| v.impl_as_number(path)),
         }
     }
-    fn impl_display<'v>(&self, mut path: ReflectPath<'v>, precision: Option<usize>) -> ReflectResult<'v, String> {
+    fn impl_display<'v>(&self, mut path: ReflectPath<'v>, precision: Option<usize>) -> reflect::Result<'v, String> {
         match path.next() {
             None => Err(ReflectError::NoDisplay),
             Some(p) => self.map.get(p)

@@ -1,7 +1,5 @@
-/// how many decimal places to "preserve"
-const PRECISION:i32 = 2;
-
-use crate::prelude::*;
+use crate::macros::*;
+use crate::reflection::*;
 
 /// helper struct for speed multipliers
 /// since we want them to be easily comparable (unlike f32s with floating point issues)
@@ -12,8 +10,11 @@ use crate::prelude::*;
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct GameSpeed(u16);
 impl GameSpeed {
+    /// how many decimal places to "preserve"
+    pub const PRECISION:i32 = 2;
+
     #[inline]
-    pub fn scale() -> f32 { (10f32).powi(PRECISION) }
+    pub fn scale() -> f32 { (10f32).powi(Self::PRECISION) }
 
     pub fn is_default(&self) -> bool { self == &Self::default()}
 

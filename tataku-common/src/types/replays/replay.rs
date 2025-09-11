@@ -1,5 +1,12 @@
-use crate::prelude::*;
+use crate::macros::*;
+use crate::reflection::*;
+use crate::serialization::*;
 use std::collections::HashMap;
+
+use crate::types::{
+    Score,
+    replays::ReplayFrame
+};
 
 // all versions have the frame data and version number
 // v1 had a playmode entry, which was only relevent to taiko. removed in v2

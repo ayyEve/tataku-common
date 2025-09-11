@@ -1,7 +1,7 @@
-use crate::prelude::*;
+use crate::serialization::*;
 
 #[repr(u8)]
-#[derive(PacketSerialization)]
+#[derive(crate::macros::PacketSerialization)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub enum LoginStatus {
     /// some unknown error occurred
