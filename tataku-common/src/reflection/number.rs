@@ -124,7 +124,7 @@ impl Reflect for ReflectNumber {
     fn impl_display<'v>(&self, mut path: ReflectPath<'v>, precision: Option<usize>) -> reflect::Result<'v, String> {
         if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
         if let Some(precis) = precision {
-            Ok(format!("{self:.*}", precis))
+            Ok(format!("{self:0.*}", precis))
         } else {
             Ok(format!("{self}"))
         }
@@ -171,7 +171,7 @@ macro_rules! number_reflect_impl {
                 if let Some(next) = path.next() { return Err(ReflectError::entry_not_exist(next)) }
                 
                 if let Some(precis) = precision {
-                    Ok(format!("{self:.*}", precis))
+                    Ok(format!("{self:0.*}", precis))
                 } else {
                     Ok(format!("{self}"))
                 }
