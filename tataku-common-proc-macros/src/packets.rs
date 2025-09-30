@@ -7,8 +7,8 @@ use std::collections::HashMap;
 
 const PACKET_ATTRIBUTE: &str = "packet";
 
-const TYPE_ATTRIBUTE: &str = "type";
-const REPR_ATTRIBUTE: &str = "type";
+const TYPE_ATTRIBUTE: &str = "packet_type";
+const REPR_ATTRIBUTE: &str = "repr";
 const EXTRA_LOGGING_ATTRIBUTE: &str = "extra_logging";
 const GEN_TO_FROM_ATTRIBUTE: &str = "gen_to_from";
 

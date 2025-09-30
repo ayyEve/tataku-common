@@ -10,10 +10,10 @@ use crate::types::{
     replays::ReplayAction,
 };
 
+#[repr(u8)]
 #[derive(Clone, Debug, Default)]
 #[allow(clippy::large_enum_variant)]
 #[derive(Reflect, PacketSerialization)]
-#[packet_type(u8)]
 pub enum SpectatorAction {
     /// host started a new map
     /// NOTE: mods is a comma separated list of mod ids, ie "no_fail, autoplay"

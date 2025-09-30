@@ -7,11 +7,11 @@ use crate::types::{
 use crate::packets::PacketId;
 use std::collections::HashSet;
 
+#[repr(u8)]
 #[allow(non_camel_case_types)]
 #[derive(PacketSerialization)]
 #[derive(Clone, Debug, Default)]
 #[allow(clippy::large_enum_variant)]
-#[packet_type(u8)]
 pub enum MultiplayerPacket {
     /// client request to get a list of available lobbies
     #[packet(id=0)]

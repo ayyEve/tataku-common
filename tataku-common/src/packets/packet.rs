@@ -11,7 +11,7 @@ use crate::serialization::*;
 #[derive(PacketSerialization)]
 #[derive(Clone, Debug, Default)]
 #[allow(clippy::large_enum_variant)]
-#[packet_type(u16)]
+#[repr(u16)]
 pub enum PacketId {
     // ======= Unknown =======
     /// we dont know what this packet is.
@@ -164,4 +164,25 @@ pub enum PacketId {
         packet: MultiplayerPacket
     }
 
+}
+
+#[test]
+fn test() {
+    let packet = PacketId::Client_UserLogin { 
+        protocol_version: 1, 
+        username: "a".into(), 
+        password: "a".into(), 
+        game: "a\na".into()
+    };
+
+    let mut serialized = SerializationWriter::new();
+    serialized.write(&packet);
+    let data = serialized.data();
+    let mut s = String::new();
+    for i in data {
+        s += &format!("{i:0x} ");
+    }
+    println!("{s}");
+
+    let a = 100u16;
 }

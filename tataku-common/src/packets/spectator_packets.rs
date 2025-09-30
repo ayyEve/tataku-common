@@ -3,10 +3,10 @@ use crate::serialization::*;
 use crate::packets::PacketId;
 use crate::types::network::spectator::*;
 
+#[repr(u8)]
 #[allow(non_camel_case_types)]
 #[derive(PacketSerialization)]
 #[derive(Clone, Debug, Default)]
-#[packet_type(u8)]
 pub enum SpectatorPacket {
     /// client wants to spectate someone
     #[packet(id=0)]

@@ -3,10 +3,10 @@ use crate::serialization::*;
 use crate::packets::PacketId;
 
 
+#[repr(u8)]
 #[allow(non_camel_case_types)]
 #[derive(PacketSerialization)]
 #[derive(Clone, Debug, Default)]
-#[packet_type(u8)]
 pub enum ChatPacket {
     /// client is sending a message to the server
     #[packet(id=0)]
